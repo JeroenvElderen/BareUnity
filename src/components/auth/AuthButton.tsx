@@ -1,33 +1,114 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
+function getInitials(user: User) {
+  const source =
+    user.user_metadata?.username ||
+    user.user_metadata?.full_name ||
+    user.email ||
+    "U";
+
+  return String(source)
+    .split(/[@\s._-]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part: string) => part[0]?.toUpperCase())
+    .join("") || "U";
+}
+
 export default function AuthButton() {
   const [user, setUser] = useState<User | null>(null);
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data.user));
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
+      setOpen(false);
     });
     return () => sub.subscription.unsubscribe();
   }, []);
 
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (!menuRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+
+    if (open) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [open]);
+
   async function logout() {
     await supabase.auth.signOut();
+    setOpen(false);
   }
 
   if (user) {
+    const initials = getInitials(user);
+    const username = user.user_metadata?.username || user.email?.split("@")[0] || "Naturist";
+
     return (
-      <button
-        onClick={logout}
-        className="rounded-xl border border-pine/20 bg-pine px-3 py-2 text-sm font-semibold text-sand transition hover:bg-pine-2"
-      >
-        Log out
-      </button>
+      <div ref={menuRef} className="relative">
+        <button
+          type="button"
+          onClick={() => setOpen((prev) => !prev)}
+          className="flex items-center gap-2 rounded-full border border-pine/30 bg-pine px-2 py-1 text-sand transition hover:bg-pine-2"
+          aria-expanded={open}
+          aria-haspopup="menu"
+          aria-label="Toggle profile menu"
+        >
+          <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-sand text-sm font-bold text-pine">
+            {initials}
+          </span>
+          <span className="hidden text-sm font-semibold md:inline">{username}</span>
+        </button>
+
+        {open && (
+          <div
+            role="menu"
+            className="absolute right-0 top-12 z-50 w-64 rounded-xl border border-pine/25 bg-[rgb(var(--card))] p-2 shadow-2xl"
+          >
+            <div className="mb-2 rounded-lg bg-pine/20 px-3 py-2">
+              <p className="text-sm font-semibold text-text">{username}</p>
+              <p className="text-xs text-muted">{user.email}</p>
+            </div>
+
+            <div className="space-y-1 text-sm">
+              <Link
+                href="/profile"
+                onClick={() => setOpen(false)}
+                className="block rounded-lg px-3 py-2 text-text/90 transition hover:bg-sand/20"
+              >
+                View profile
+              </Link>
+              <Link
+                href="/saved"
+                onClick={() => setOpen(false)}
+                className="block rounded-lg px-3 py-2 text-text/90 transition hover:bg-sand/20"
+              >
+                Saved posts
+              </Link>
+              <button
+                type="button"
+                onClick={logout}
+                className="block w-full rounded-lg px-3 py-2 text-left text-text/90 transition hover:bg-sand/20"
+              >
+                Log out
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     );
   }
 
