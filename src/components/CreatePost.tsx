@@ -4,7 +4,6 @@ import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 export default function CreatePost() {
-
   const [content, setContent] = useState("");
   const [image, setImage] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
@@ -55,11 +54,10 @@ export default function CreatePost() {
   }
 
   return (
-    <div className="mb-6 rounded-xl border border-pine/20 bg-card/80 p-4 shadow-soft">
-
+    <div className="mb-6 rounded-2xl border border-sand/20 bg-card/75 p-4 shadow-[0_20px_45px_-35px_rgba(0,0,0,0.95)] backdrop-blur">
       <textarea
         placeholder="Share something..."
-        className="mb-3 w-full rounded-lg border border-pine/25 bg-sand/70 p-2 text-pine outline-none placeholder:text-pine/50 focus:ring-2 focus:ring-pine/30"
+        className="mb-3 w-full rounded-xl border border-sand/20 bg-sand/80 p-3 text-pine outline-none placeholder:text-pine/55 focus:ring-2 focus:ring-sand/30"
         value={content}
         onChange={(e) => setContent(e.target.value)}
       />
@@ -67,14 +65,14 @@ export default function CreatePost() {
       <input
         type="file"
         accept="image/*"
-        className="text-sm text-pine"
+        className="rounded-lg border border-sand/15 bg-sand/10 p-2 text-sm text-text"
         onChange={(e) => setImage(e.target.files?.[0] || null)}
       />
 
       <button
         onClick={handleSubmit}
         disabled={loading}
-        className="mt-3 rounded-lg bg-pine px-4 py-2 text-sand transition hover:bg-pine-2 disabled:opacity-60"
+        className="mt-3 rounded-xl border border-sand/30 bg-gradient-to-r from-pine to-pine-2 px-4 py-2 font-semibold text-sand transition hover:brightness-110 disabled:opacity-60"
       >
         {loading ? "Posting..." : "Post"}
       </button>

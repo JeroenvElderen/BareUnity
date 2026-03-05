@@ -2,7 +2,7 @@
 
 /* Nature palette + tokens */
 :root {
-  --bg: 20 57 45;
+  --bg: 17 46 38;
   --card: 28 80 63;
   --text: 244 231 208;
   --muted: 198 183 159;
@@ -21,7 +21,25 @@ body {
 }
 
 body {
-  background: rgb(var(--bg));
+  position: relative;
+  overflow-x: hidden;
+  background:
+    radial-gradient(circle at 15% -10%, rgb(var(--sand) / 0.18), transparent 30%),
+    radial-gradient(circle at 90% 10%, rgb(var(--pine) / 0.35), transparent 35%),
+    linear-gradient(165deg, rgb(var(--bg)) 0%, rgb(var(--pine-2)) 60%, rgb(14 34 29) 100%);
   color: rgb(var(--text));
   font-family: Arial, Helvetica, sans-serif;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.25;
+  background-image:
+    linear-gradient(rgb(var(--sand) / 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(var(--sand) / 0.06) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: radial-gradient(circle at center, black 35%, transparent 100%);
 }

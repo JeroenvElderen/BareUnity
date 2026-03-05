@@ -27,11 +27,11 @@ const shortcuts = [
 function MenuContent({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <>
-      <div className="mb-4 rounded-xl border border-border bg-sand/20 px-3 py-2">
+      <div className="mb-4 rounded-xl border border-sand/20 bg-sand/10 px-3 py-2 backdrop-blur">
         <p className="text-xs uppercase tracking-[0.14em] text-muted">
           Homefeed
         </p>
-        <p className="text-sm font-semibold text-sand">Your Communities</p>
+        <p className="text-sm font-semibold text-sand">Your Spaces</p>
       </div>
 
       <nav className="space-y-4">
@@ -45,7 +45,7 @@ function MenuContent({ onNavigate }: { onNavigate?: () => void }) {
                 key={item.href}
                 href={item.href}
                 onClick={onNavigate}
-                className="block rounded-lg px-3 py-2 text-sm text-text/90 transition hover:bg-sand/20 hover:text-sand"
+                className="block rounded-lg px-3 py-2 text-sm text-text/90 transition hover:bg-sand/20 hover:text-sand hover:translate-x-0.5"
               >
                 {item.label}
               </Link>
@@ -63,7 +63,7 @@ function MenuContent({ onNavigate }: { onNavigate?: () => void }) {
                 key={item.href}
                 href={item.href}
                 onClick={onNavigate}
-                className="block rounded-lg px-3 py-2 text-sm text-text/90 transition hover:bg-sand/20 hover:text-sand"
+                className="block rounded-lg px-3 py-2 text-sm text-text/90 transition hover:bg-sand/20 hover:text-sand hover:translate-x-0.5"
               >
                 {item.label}
               </Link>
@@ -85,7 +85,7 @@ export default function Sidebar() {
 
   return (
     <>
-      <aside className="fixed left-0 top-14 z-50 flex h-[calc(100vh-56px)] w-16 flex-col items-center justify-between border-r border-border bg-pine-2/95 px-2 py-3 lg:hidden">
+      <aside className="fixed left-0 top-16 z-50 flex h-[calc(100vh-64px)] w-16 flex-col items-center justify-between border-r border-sand/20 bg-pine-2/90 px-2 py-3 backdrop-blur lg:hidden">
         <div className="flex flex-col items-center gap-2">
           <button
             onClick={() => setMobileOpen((prev) => !prev)}
@@ -132,15 +132,15 @@ export default function Sidebar() {
           />
           <aside
             id="mobile-homefeed-menu"
-            className="fixed left-16 top-14 z-40 h-[calc(100vh-56px)] w-[78vw] max-w-xs overflow-y-auto border-r border-border bg-[rgb(var(--card))] p-4 shadow-xl lg:hidden"
+            className="fixed left-16 top-16 z-40 h-[calc(100vh-64px)] w-[78vw] max-w-xs overflow-y-auto border-r border-sand/20 bg-card/90 p-4 shadow-xl backdrop-blur lg:hidden"
           >
             <MenuContent onNavigate={() => setMobileOpen(false)} />
           </aside>
         </>
       )}
 
-      <aside className="hidden lg:flex lg:h-[calc(100vh-56px)] lg:sticky lg:top-14">
-        <div className="w-20 border-r border-border bg-pine-2/95 px-3 py-3">
+      <aside className="hidden lg:flex lg:h-[calc(100vh-64px)] lg:sticky lg:top-16">
+        <div className="w-20 border-r border-sand/20 bg-pine-2/90 px-3 py-3 backdrop-blur">
           <div className="flex flex-col items-center gap-3">
             {communities.map((community) => (
               <Link
@@ -164,7 +164,7 @@ export default function Sidebar() {
           </div>
         </div>
 
-        <div className="w-72 border-r border-border bg-card px-4 py-4">
+        <div className="w-72 border-r border-sand/20 bg-card/70 px-4 py-4 backdrop-blur">
           <MenuContent />
         </div>
       </aside>

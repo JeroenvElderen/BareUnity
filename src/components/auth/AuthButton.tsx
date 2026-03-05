@@ -62,12 +62,12 @@ export default function AuthButton() {
         <button
           type="button"
           onClick={() => setOpen((prev) => !prev)}
-          className="flex items-center gap-2 rounded-full border border-pine/30 bg-pine px-2 py-1 text-sand transition hover:bg-pine-2"
+          className="flex items-center gap-2 rounded-full border border-sand/35 bg-card/80 px-2 py-1 text-sand shadow-[0_10px_24px_-18px_rgba(0,0,0,0.9)] transition hover:bg-card"
           aria-expanded={open}
           aria-haspopup="menu"
           aria-label="Toggle profile menu"
         >
-          <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-sand text-sm font-bold text-pine">
+          <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-sand text-sm font-bold text-pine shadow-inner">
             {initials}
           </span>
           <span className="hidden text-sm font-semibold md:inline">{username}</span>
@@ -76,32 +76,32 @@ export default function AuthButton() {
         {open && (
           <div
             role="menu"
-            className="absolute right-0 top-12 z-50 w-64 rounded-xl border border-pine/25 bg-[rgb(var(--card))] p-2 shadow-2xl"
+            className="absolute right-0 top-12 z-50 w-64 rounded-xl border border-sand/20 bg-card/95 p-2 shadow-2xl backdrop-blur"
           >
-            <div className="mb-2 rounded-lg bg-pine/20 px-3 py-2">
+            <div className="mb-2 rounded-lg bg-sand/10 px-3 py-2">
               <p className="text-sm font-semibold text-text">{username}</p>
-              <p className="text-xs text-muted">{user.email}</p>
+              <p className="text-xs text-text/65">{user.email}</p>
             </div>
 
             <div className="space-y-1 text-sm">
               <Link
                 href="/profile"
                 onClick={() => setOpen(false)}
-                className="block rounded-lg px-3 py-2 text-text/90 transition hover:bg-sand/20"
+                className="block rounded-lg px-3 py-2 text-text/90 transition hover:bg-sand/15"
               >
                 View profile
               </Link>
               <Link
                 href="/saved"
                 onClick={() => setOpen(false)}
-                className="block rounded-lg px-3 py-2 text-text/90 transition hover:bg-sand/20"
+                className="block rounded-lg px-3 py-2 text-text/90 transition hover:bg-sand/15"
               >
                 Saved posts
               </Link>
               <button
                 type="button"
                 onClick={logout}
-                className="block w-full rounded-lg px-3 py-2 text-left text-text/90 transition hover:bg-sand/20"
+                className="block w-full rounded-lg px-3 py-2 text-left text-text/90 transition hover:bg-sand/15"
               >
                 Log out
               </button>
@@ -116,13 +116,13 @@ export default function AuthButton() {
     <div className="flex items-center gap-2">
       <Link
         href="/login"
-        className="rounded-xl border border-pine/25 bg-sand/40 px-4 py-2 text-sm font-semibold text-pine transition hover:bg-sand"
+        className="rounded-xl border border-sand/30 bg-sand/20 px-4 py-2 text-sm font-semibold text-sand transition hover:bg-sand/35"
       >
         Log in
       </Link>
       <Link
         href="/signup"
-        className="rounded-xl border border-pine bg-pine px-4 py-2 text-sm font-semibold text-sand transition hover:bg-pine-2"
+        className="rounded-xl border border-sand/30 bg-gradient-to-r from-pine to-pine-2 px-4 py-2 text-sm font-semibold text-sand transition hover:brightness-110"
       >
         Sign up
       </Link>
