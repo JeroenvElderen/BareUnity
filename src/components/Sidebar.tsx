@@ -139,7 +139,7 @@ export default function Sidebar() {
           />
           <aside
             id="mobile-homefeed-menu"
-            className="fixed left-16 top-14 z-40 h-[calc(100vh-56px)] w-[78vw] max-w-xs overflow-y-auto border-r border-border bg-card p-4 shadow-xl lg:hidden"
+            className="fixed left-16 top-14 z-40 h-[calc(100vh-56px)] w-[78vw] max-w-xs overflow-y-auto border-r border-border bg-[rgb(var(--card))] p-4 shadow-xl lg:hidden"
           >
             <MenuContent onNavigate={() => setMobileOpen(false)} />
           </aside>
