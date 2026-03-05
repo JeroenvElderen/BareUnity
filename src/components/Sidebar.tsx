@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 const communities = [
-  { label: "My Logo", short: "N", href: "/" },
   { label: "Travel Crew", short: "T", href: "/communities/travel" },
   { label: "City Naturists", short: "C", href: "/communities/city" },
   { label: "Events Hub", short: "E", href: "/communities/events" },
@@ -98,7 +97,7 @@ export default function Sidebar() {
             ☰
           </button>
 
-          {communities.map((community, index) => (
+          {communities.map((community) => (
             <Link
               key={community.label}
               href={community.href}
@@ -106,7 +105,7 @@ export default function Sidebar() {
               title={community.label}
             >
               <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-sand/35 bg-pine text-xs font-bold text-sand transition-all duration-200 group-hover:bg-sand group-hover:text-pine">
-                {index === 0 ? "⌂" : community.short}
+                {community.short}
               </span>
             </Link>
           ))}
@@ -119,13 +118,7 @@ export default function Sidebar() {
           </button>
         </div>
 
-        <Link
-          href={communities[0].href}
-          title={communities[0].label}
-          className="flex h-8 w-8 items-center justify-center rounded-full border border-sand/35 bg-pine text-[10px] font-semibold text-sand"
-        >
-          {communities[0].short}
-        </Link>
+        <div className="h-8 w-8" aria-hidden />
       </aside>
 
       <div className="w-16 shrink-0 lg:hidden" aria-hidden />
@@ -149,7 +142,7 @@ export default function Sidebar() {
       <aside className="hidden lg:flex lg:h-[calc(100vh-56px)] lg:sticky lg:top-14">
         <div className="w-20 border-r border-border bg-pine-2/95 px-3 py-3">
           <div className="flex flex-col items-center gap-3">
-            {communities.map((community, index) => (
+            {communities.map((community) => (
               <Link
                 key={community.label}
                 href={community.href}
@@ -157,7 +150,7 @@ export default function Sidebar() {
                 title={community.label}
               >
                 <span className="flex h-12 w-12 items-center justify-center rounded-2xl border border-sand/35 bg-pine text-sm font-bold text-sand transition-all duration-200 group-hover:rounded-xl group-hover:bg-sand group-hover:text-pine">
-                  {index === 0 ? "⌂" : community.short}
+                  {community.short}
                 </span>
               </Link>
             ))}

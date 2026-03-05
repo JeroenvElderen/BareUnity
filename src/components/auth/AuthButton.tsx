@@ -2,12 +2,11 @@
 
 import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import AuthModal from "./AuthModal";
 
 export default function AuthButton() {
   const [user, setUser] = useState<User | null>(null);
-  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data.user));
@@ -25,7 +24,7 @@ export default function AuthButton() {
     return (
       <button
         onClick={logout}
-        className="rounded-xl px-3 py-2 text-sm border border-border bg-card hover:bg-black/5"
+        className="rounded-xl border border-pine/20 bg-pine px-3 py-2 text-sm font-semibold text-sand transition hover:bg-pine-2"
       >
         Log out
       </button>
@@ -33,14 +32,19 @@ export default function AuthButton() {
   }
 
   return (
-    <>
-      <button
-        onClick={() => setOpen(true)}
-        className="rounded-xl border border-sand-2 bg-sand px-4 py-2 text-sm font-semibold text-pine-2 shadow-soft transition hover:bg-sand-2"
+    <div className="flex items-center gap-2">
+      <Link
+        href="/login"
+        className="rounded-xl border border-pine/25 bg-sand/40 px-4 py-2 text-sm font-semibold text-pine transition hover:bg-sand"
       >
         Log in
-      </button>
-      <AuthModal open={open} onClose={() => setOpen(false)} />
-    </>
+      </Link>
+      <Link
+        href="/signup"
+        className="rounded-xl border border-pine bg-pine px-4 py-2 text-sm font-semibold text-sand transition hover:bg-pine-2"
+      >
+        Sign up
+      </Link>
+    </div>
   );
 }

@@ -1,74 +1,65 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { useState } from "react";
+import { supabase } from "@/lib/supabase";
 
 export default function CreatePost() {
 
-  const [content, setContent] = useState("")
-  const [image, setImage] = useState<File | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [content, setContent] = useState("");
+  const [image, setImage] = useState<File | null>(null);
+  const [loading, setLoading] = useState(false);
 
   async function handleSubmit() {
+    setLoading(true);
 
-    setLoading(true)
-
-    const { data: userData } = await supabase.auth.getUser()
-    const user = userData?.user
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData?.user;
 
     if (!user) {
-      alert("You must be logged in")
-      return
+      alert("You must be logged in");
+      return;
     }
 
-    let mediaUrl: string | null = null
+    let mediaUrl: string | null = null;
 
     if (image) {
+      const filePath = `posts/${crypto.randomUUID()}-${image.name}`;
 
-      const filePath = `posts/${crypto.randomUUID()}-${image.name}`
-
-      const { error } = await supabase.storage
-        .from("media")
-        .upload(filePath, image)
+      const { error } = await supabase.storage.from("media").upload(filePath, image);
 
       if (error) {
-        console.error(error)
-        setLoading(false)
-        return
+        console.error(error);
+        setLoading(false);
+        return;
       }
 
-      const { data } = supabase.storage
-        .from("media")
-        .getPublicUrl(filePath)
-
-      mediaUrl = data.publicUrl
+      const { data } = supabase.storage.from("media").getPublicUrl(filePath);
+      mediaUrl = data.publicUrl;
     }
 
-    const { error } = await supabase
-      .from("posts")
-      .insert({
-        author_id: user.id,
-        content: content,
-        media_url: mediaUrl
-      })
+    const { error } = await supabase.from("posts").insert({
+      author_id: user.id,
+      content,
+      media_url: mediaUrl,
+    });
 
     if (error) {
-      console.error(error)
+      console.error(error);
     }
 
-    setContent("")
-    setImage(null)
-    setLoading(false)
+    setContent("");
+    setImage(null);
+    setLoading(false);
 
-    window.location.reload()
+    window.location.reload();
   }
 
   return (
-    <div className="border rounded-xl p-4 bg-white mb-6">
+    <div className="mb-6 rounded-xl border border-pine/20 bg-card/80 p-4 shadow-soft">
 
       <textarea
         placeholder="Share something..."
-        className="w-full border rounded-lg p-2 mb-3"
+        className="mb-3 w-full rounded-lg border border-pine/25 bg-sand/70 p-2 text-pine outline-none placeholder:text-pine/50 focus:ring-2 focus:ring-pine/30"
         value={content}
         onChange={(e) => setContent(e.target.value)}
       />
@@ -76,17 +67,17 @@ export default function CreatePost() {
       <input
         type="file"
         accept="image/*"
+        className="text-sm text-pine"
         onChange={(e) => setImage(e.target.files?.[0] || null)}
       />
 
       <button
         onClick={handleSubmit}
         disabled={loading}
-        className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg"
+        className="mt-3 rounded-lg bg-pine px-4 py-2 text-sand transition hover:bg-pine-2 disabled:opacity-60"
       >
         {loading ? "Posting..." : "Post"}
       </button>
-
     </div>
-  )
+  );
 }
