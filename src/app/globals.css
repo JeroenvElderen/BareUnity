@@ -1,26 +1,26 @@
 @import "tailwindcss";
 
+/* Nature palette + tokens */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: 250 247 242;          /* sand-50 */
+  --card: 255 255 255;        /* white */
+  --text: 21 27 23;           /* deep forest */
+  --muted: 102 115 109;       /* muted pine */
+  --border: 226 220 210;      /* sand border */
+
+  --pine: 18 67 52;           /* pine green */
+  --pine-2: 12 50 39;         /* darker pine */
+  --sand: 214 181 140;        /* sand brown */
+  --sand-2: 187 150 105;      /* darker sand */
+  --ring: 18 67 52;           /* focus ring = pine */
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html, body {
+  height: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: rgb(var(--bg));
+  color: rgb(var(--text));
   font-family: Arial, Helvetica, sans-serif;
 }
