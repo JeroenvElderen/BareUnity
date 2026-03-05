@@ -36,7 +36,7 @@ export default function AuthButton() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="rounded-xl px-3 py-2 text-sm text-white bg-pine hover:bg-pine-2 shadow-soft"
+        className="rounded-xl border border-sand-2 bg-sand px-4 py-2 text-sm font-semibold text-pine-2 shadow-soft transition hover:bg-sand-2"
       >
         Log in
       </button>

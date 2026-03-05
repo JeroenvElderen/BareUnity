@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 const communities = [
   { label: "My Logo", short: "N", href: "/" },
@@ -32,7 +32,7 @@ function MenuContent({ onNavigate }: { onNavigate?: () => void }) {
         <p className="text-xs uppercase tracking-[0.14em] text-muted">
           Homefeed
         </p>
-        <p className="text-sm font-semibold text-pine">Your Communities</p>
+        <p className="text-sm font-semibold text-sand">Your Communities</p>
       </div>
 
       <nav className="space-y-4">
@@ -46,7 +46,7 @@ function MenuContent({ onNavigate }: { onNavigate?: () => void }) {
                 key={item.href}
                 href={item.href}
                 onClick={onNavigate}
-                className="block rounded-lg px-3 py-2 text-sm text-text/90 transition hover:bg-pine/10 hover:text-pine"
+                className="block rounded-lg px-3 py-2 text-sm text-text/90 transition hover:bg-sand/20 hover:text-sand"
               >
                 {item.label}
               </Link>
@@ -64,7 +64,7 @@ function MenuContent({ onNavigate }: { onNavigate?: () => void }) {
                 key={item.href}
                 href={item.href}
                 onClick={onNavigate}
-                className="block rounded-lg px-3 py-2 text-sm text-text/90 transition hover:bg-pine/10 hover:text-pine"
+                className="block rounded-lg px-3 py-2 text-sm text-text/90 transition hover:bg-sand/20 hover:text-sand"
               >
                 {item.label}
               </Link>
@@ -78,6 +78,11 @@ function MenuContent({ onNavigate }: { onNavigate?: () => void }) {
 
 export default function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => {
+    document.body.classList.toggle("overflow-hidden", mobileOpen);
+    return () => document.body.classList.remove("overflow-hidden");
+  }, [mobileOpen]);
 
   return (
     <>
@@ -128,7 +133,7 @@ export default function Sidebar() {
       {mobileOpen && (
         <>
           <button
-            className="fixed inset-0 z-30 bg-pine-2/35 lg:hidden"
+            className="fixed inset-0 z-30 bg-pine-2/80 lg:hidden"
             aria-label="Close menu overlay"
             onClick={() => setMobileOpen(false)}
           />
@@ -166,7 +171,7 @@ export default function Sidebar() {
           </div>
         </div>
 
-        <div className="w-72 border-r border-border bg-card/95 px-4 py-4">
+        <div className="w-72 border-r border-border bg-card px-4 py-4">
           <MenuContent />
         </div>
       </aside>
