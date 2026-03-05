@@ -2,20 +2,21 @@
 
 /* Nature palette + tokens */
 :root {
-  --bg: 250 247 242;          /* sand-50 */
-  --card: 255 255 255;        /* white */
-  --text: 21 27 23;           /* deep forest */
-  --muted: 102 115 109;       /* muted pine */
-  --border: 226 220 210;      /* sand border */
+  --bg: 244 238 228;
+  --card: 252 248 240;
+  --text: 27 39 33;
+  --muted: 105 118 109;
+  --border: 214 202 184;
 
-  --pine: 18 67 52;           /* pine green */
-  --pine-2: 12 50 39;         /* darker pine */
-  --sand: 214 181 140;        /* sand brown */
-  --sand-2: 187 150 105;      /* darker sand */
-  --ring: 18 67 52;           /* focus ring = pine */
+  --pine: 28 80 63;
+  --pine-2: 20 57 45;
+  --sand: 216 184 139;
+  --sand-2: 198 163 116;
+  --ring: 28 80 63;
 }
 
-html, body {
+html,
+body {
   height: 100%;
 }
 
