@@ -62,7 +62,7 @@ export default function AuthButton() {
         <button
           type="button"
           onClick={() => setOpen((prev) => !prev)}
-          className="flex items-center gap-2 rounded-full border border-sand/35 bg-card/80 px-2 py-1 text-sand shadow-[0_10px_24px_-18px_rgba(0,0,0,0.9)] transition hover:bg-card"
+          className="flex items-center gap-2 rounded-full border border-sand/35 bg-card px-2 py-1 text-sand shadow-[0_10px_24px_-18px_rgba(0,0,0,0.9)] transition hover:bg-card"
           aria-expanded={open}
           aria-haspopup="menu"
           aria-label="Toggle profile menu"
@@ -76,7 +76,7 @@ export default function AuthButton() {
         {open && (
           <div
             role="menu"
-            className="absolute right-0 top-12 z-50 w-64 rounded-xl border border-sand/20 bg-card/95 p-2 shadow-2xl backdrop-blur"
+            className="absolute right-0 top-12 z-50 w-64 rounded-xl border border-sand/20 bg-card p-2 shadow-2xl backdrop-blur"
           >
             <div className="mb-2 rounded-lg bg-sand/10 px-3 py-2">
               <p className="text-sm font-semibold text-text">{username}</p>

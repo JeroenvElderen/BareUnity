@@ -8,17 +8,50 @@ import Sidebar from "@/components/Sidebar";
 
 const tabs = ["Overview", "Posts", "Comments", "Saved", "History", "Upvoted"];
 
+type MediaPost = {
+  id: string;
+  media_url: string | null;
+};
+
 export default function ProfilePage() {
   const [user, setUser] = useState<User | null>(null);
+  const [mediaPosts, setMediaPosts] = useState<MediaPost[]>([]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setUser(data.session?.user ?? null));
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
+      if (!session?.user) {
+        setMediaPosts([]);
+      }
     });
 
     return () => sub.subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    const userId = user?.id;
+    if (!userId) return;
+
+    async function loadMedia() {
+      const { data, error } = await supabase
+        .from("posts")
+        .select("id, media_url")
+        .eq("author_id", userId)
+        .not("media_url", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(12);
+
+      if (error) {
+        console.error(error);
+        return;
+      }
+
+      setMediaPosts((data ?? []) as MediaPost[]);
+    }
+
+    loadMedia();
+  }, [user]);
 
   const username = useMemo(() => {
     if (!user) return "Guest";
@@ -60,20 +93,24 @@ export default function ProfilePage() {
                   ))}
                 </div>
 
-                <div className="rounded-xl border border-pine/20 bg-card/80 p-4 text-sm text-sand">
-                  👁️ Showing all content
-                </div>
+                <div className="rounded-2xl border border-pine/20 bg-card/70 p-4">
+                  <div className="mb-3 flex items-center justify-between">
+                    <h2 className="text-lg font-bold text-sand">Profile media gallery</h2>
+                    <span className="text-xs text-muted">Recent uploads</span>
+                  </div>
 
-                <div className="rounded-2xl border border-pine/20 bg-card/60 p-10 text-center">
-                  <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-pine text-3xl">👤</div>
-                  <h2 className="text-4xl font-bold text-sand">You don&apos;t have any posts yet</h2>
-                  <p className="mx-auto mt-2 max-w-xl text-lg text-muted">
-                    Once you post to a community, it will show up here. If you&apos;d rather hide your posts, update your
-                    settings.
-                  </p>
-                  <button className="mt-5 rounded-full bg-pine px-5 py-2 font-semibold text-sand hover:bg-pine-2">
-                    Update Settings
-                  </button>
+                {mediaPosts.length === 0 ? (
+                    <p className="text-sm text-muted">No media uploaded yet.</p>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+                      {mediaPosts.map((post) => (
+                        <div key={post.id} className="overflow-hidden rounded-xl border border-sand/20 bg-pine/30">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={post.media_url ?? ""} alt="Profile media" className="h-32 w-full object-cover" />
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </section>
 
@@ -82,42 +119,6 @@ export default function ProfilePage() {
                   <div className="mb-3 h-24 rounded-xl bg-gradient-to-r from-pine-2 to-pine" />
                   <h3 className="text-xl font-bold text-sand">{username}</h3>
                   <p className="text-sm text-muted">🌿 Living naturally and building a kind community.</p>
-
-                  <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <p className="text-xl font-bold text-sand">1</p>
-                      <p className="text-muted">Karma</p>
-                    </div>
-                    <div>
-                      <p className="text-xl font-bold text-sand">0</p>
-                      <p className="text-muted">Contributions</p>
-                    </div>
-                    <div>
-                      <p className="text-xl font-bold text-sand">1d</p>
-                      <p className="text-muted">Account age</p>
-                    </div>
-                    <div>
-                      <p className="text-xl font-bold text-sand">0</p>
-                      <p className="text-muted">Active communities</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-pine/20 bg-card p-4">
-                  <p className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-muted">Settings</p>
-                  <div className="space-y-2 text-sm">
-                    {[
-                      "Profile",
-                      "Curate your profile",
-                      "Avatar",
-                      "Privacy tools",
-                    ].map((item) => (
-                      <div key={item} className="flex items-center justify-between rounded-lg px-2 py-2 hover:bg-pine/30">
-                        <span>{item}</span>
-                        <button className="rounded-full bg-pine px-3 py-1 text-xs font-semibold text-sand">Update</button>
-                      </div>
-                    ))}
-                  </div>
                 </div>
               </aside>
             </div>

@@ -4,7 +4,6 @@
 
 # Profiles & Identity
 
-- User registration
 - Email verification
 - Phone verification
 - Username system
@@ -38,7 +37,6 @@
 - Profile visitor counter
 - Profile pin posts
 - Profile highlights
-- Profile media gallery
 - Verified creator badge
 - Profile background music
 - Profile activity timeline
@@ -51,9 +49,6 @@
 
 # Communities & Groups
 
-- Create communities
-- Public communities
-- Private communities
 - Restricted communities
 - Invite links
 - Community descriptions

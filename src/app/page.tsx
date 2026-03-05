@@ -1,30 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import type { User } from "@supabase/supabase-js";
-import { supabase } from "@/lib/supabase";
-
 import Topbar from "@/components/Topbar";
 import Sidebar from "@/components/Sidebar";
 import Feed from "@/components/Feed";
 import CreatePost from "@/components/CreatePost";
-import ProfileSetupCard from "@/components/ProfileSetupCard";
 
 export default function Home() {
-  const [user, setUser] = useState<User | null>(null);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setUser(data.session?.user ?? null);
-    });
-
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
-
-    return () => sub.subscription.unsubscribe();
-  }, []);
-
+  
   return (
     <div className="min-h-screen text-text">
       <Topbar />
@@ -35,8 +17,7 @@ export default function Home() {
 
           <main className="flex-1 px-4 py-6">
             <div className="mx-auto max-w-2xl space-y-6">
-              {user && <ProfileSetupCard key={user.id} user={user} />}
-              {user && <CreatePost />}
+              <CreatePost />
               <Feed />
             </div>
           </main>
