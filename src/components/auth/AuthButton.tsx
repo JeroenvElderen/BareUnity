@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { ensureProfileExists } from "@/lib/profile";
 
 function getInitials(user: User) {
   const source =
@@ -26,9 +27,19 @@ export default function AuthButton() {
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUser(data.user));
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user);
+      if (data.user) {
+        ensureProfileExists(data.user);
+      }
+    });
+
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+      const nextUser = session?.user ?? null;
+      setUser(nextUser);
+      if (nextUser) {
+        ensureProfileExists(nextUser);
+      }
       setOpen(false);
     });
     return () => sub.subscription.unsubscribe();
@@ -76,7 +87,7 @@ export default function AuthButton() {
         {open && (
           <div
             role="menu"
-            className="absolute right-0 top-12 z-50 w-64 rounded-xl border border-sand/20 bg-card p-2 shadow-2xl backdrop-blur"
+            className="absolute right-0 top-12 z-50 w-64 rounded-xl border border-sand/20 bg-pine-2 p-2 shadow-2xl"
           >
             <div className="mb-2 rounded-lg bg-sand/10 px-3 py-2">
               <p className="text-sm font-semibold text-text">{username}</p>

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
+import { ensureProfileExists } from "@/lib/profile";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -15,7 +16,7 @@ export default function SignupPage() {
   async function handleSignup() {
     setLoading(true);
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
     });
@@ -26,6 +27,10 @@ export default function SignupPage() {
       return;
     }
 
+    if (data.user) {
+      await ensureProfileExists(data.user);
+    }
+    
     alert("Account created! Check your email.")
     router.push("/login");
   }
