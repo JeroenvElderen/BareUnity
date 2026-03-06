@@ -6,6 +6,14 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { ensureProfileExists } from "@/lib/profile";
 
+const mainMenuLinks = [
+  { href: "/", label: "Home feed" },
+  { href: "/communities", label: "Communities" },
+  { href: "/events", label: "Events" },
+  { href: "/map", label: "Map" },
+  { href: "/saved", label: "Saved" },
+];
+
 function getInitials(user: User) {
   const source =
     user.user_metadata?.username ||
@@ -94,28 +102,39 @@ export default function AuthButton() {
               <p className="text-xs text-text/65">{user.email}</p>
             </div>
 
-            <div className="space-y-1 text-sm">
-              <Link
-                href="/profile"
-                onClick={() => setOpen(false)}
-                className="block rounded-lg px-3 py-2 text-text/90 transition hover:bg-sand/15"
-              >
-                View profile
-              </Link>
-              <Link
-                href="/saved"
-                onClick={() => setOpen(false)}
-                className="block rounded-lg px-3 py-2 text-text/90 transition hover:bg-sand/15"
-              >
-                Saved posts
-              </Link>
-              <button
-                type="button"
-                onClick={logout}
-                className="block w-full rounded-lg px-3 py-2 text-left text-text/90 transition hover:bg-sand/15"
-              >
-                Log out
-              </button>
+            <div className="space-y-2 text-sm">
+              <div>
+                <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-text/60">Main menu</p>
+                <div className="space-y-1">
+                  {mainMenuLinks.map((item) => (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setOpen(false)}
+                      className="block rounded-lg px-3 py-2 text-text/90 transition hover:bg-sand/15"
+                    >
+                      {item.label}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+
+              <div className="border-t border-sand/15 pt-2">
+                <Link
+                  href="/profile"
+                  onClick={() => setOpen(false)}
+                  className="block rounded-lg px-3 py-2 text-text/90 transition hover:bg-sand/15"
+                >
+                  View profile
+                </Link>
+                <button
+                  type="button"
+                  onClick={logout}
+                  className="block w-full rounded-lg px-3 py-2 text-left text-text/90 transition hover:bg-sand/15"
+                >
+                  Log out
+                </button>
+              </div>
             </div>
           </div>
         )}

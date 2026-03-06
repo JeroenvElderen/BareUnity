@@ -5,7 +5,7 @@ import AuthButton from "./auth/AuthButton";
 export default function Topbar() {
   return (
     <header className="sticky top-0 z-30 border-b border-sand/15 bg-pine-2/70 backdrop-blur-xl">
-      <div className="mx-auto flex h-16 max-w-[1400px] items-center gap-3 px-4">
+      <div className="flex h-16 w-full items-center gap-3 px-4 md:px-6">
         <div className="rounded-xl border border-sand/30 bg-sand/10 px-2 py-1 font-bold text-sand lg:hidden">Naturist</div>
 
         <div className="flex flex-1 items-center">

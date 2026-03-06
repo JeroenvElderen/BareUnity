@@ -62,15 +62,15 @@ export default function CommunityDetailPage() {
       <div className="flex">
         <Sidebar />
 
-        <main className="flex-1 p-3 md:p-5">
+        <main className="flex-1">
           {!activeCommunity ? (
             <section className="rounded-2xl border border-dashed border-orange-300/30 bg-[#1a0d0b]/50 p-8 text-center text-orange-100/80">
               Community not found.
             </section>
           ) : (
-            <section className="overflow-hidden rounded-2xl border" style={{ borderColor: `${activeCommunity.theme.primary}77`, backgroundColor: activeCommunity.theme.secondary }}>
-              <div className="h-32" style={{ background: `linear-gradient(90deg, ${activeCommunity.theme.primary}, ${activeCommunity.theme.secondary})` }} />
-              <div className="border-b px-4 py-4 md:px-6" style={{ borderColor: `${activeCommunity.theme.primary}66` }}>
+            <section className="overflow-hidden border border-l-0 shadow-[0_40px_80px_-45px_rgba(0,0,0,0.9)]" style={{ borderColor: `${activeCommunity.theme.primary}66`, backgroundColor: activeCommunity.theme.secondary }}>
+              <div className="h-36" style={{ background: `linear-gradient(105deg, ${activeCommunity.theme.primary}, ${activeCommunity.theme.secondary} 68%, #140908)` }} />
+              <div className="border-b px-5 py-5 md:px-8" style={{ borderColor: `${activeCommunity.theme.primary}66` }}>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-orange-200/90">{activeCommunity.role}</p>
@@ -84,8 +84,8 @@ export default function CommunityDetailPage() {
                 </div>
               </div>
 
-              <div className="grid min-h-[600px] lg:grid-cols-[270px_1fr_300px]">
-                <aside className="border-r border-[#5a2016] bg-[#180807] p-3">
+              <div className="grid min-h-[calc(100vh-208px)] lg:grid-cols-[280px_1fr_320px]">
+                <aside className="border-r border-[#5a2016] bg-[#170706]/95 p-4">
                   <div className="space-y-3">
                     <section className="rounded-lg border border-[#653022] bg-[#2b0f0a] p-3">
                       <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.15em] text-orange-200">Text Channels</div>
@@ -143,15 +143,15 @@ export default function CommunityDetailPage() {
                   </div>
                 </aside>
 
-                <div className="border-r border-[#5a2016] p-5">
-                  <div className="min-h-[420px] rounded-xl border border-[#633126] bg-[#2c0e09]/85 p-6 text-center">
+                <div className="border-r border-[#5a2016] bg-[#200905]/45 p-6">
+                  <div className="min-h-[460px] rounded-2xl border border-[#633126] bg-[#2c0e09]/85 p-8 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
                     <h2 className="mt-20 text-4xl font-bold text-slate-100">This community doesn&apos;t have any posts yet</h2>
                     <p className="mt-2 text-lg text-orange-200">Make one and get this feed started.</p>
                     <button className="mt-6 rounded-full px-6 py-3 font-semibold text-white" style={{ backgroundColor: activeCommunity.theme.primary }}>Create Post</button>
                   </div>
                 </div>
 
-                <aside className="space-y-3 p-3">
+                <aside className="space-y-3 bg-[#190705]/70 p-4">
                   <section className="rounded-xl border border-[#653022] bg-[#2a0e09] p-4">
                     <h3 className="text-xl font-bold text-orange-50">{activeCommunity.name}</h3>
                     <p className="mt-2 text-sm text-orange-200/90">Will be added</p>
