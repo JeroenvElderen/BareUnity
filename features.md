@@ -15,10 +15,8 @@
 - Account levels
 - Linked social accounts
 - Profile themes
-- Custom profile colors
 - User interests
 - Location field
-- Privacy settings
 - Blocked users list
 - Muted users list
 - Account recovery
@@ -28,8 +26,6 @@
 - Profile analytics
 - Follower list
 - Following list
-- Friend system
-- Friend requests
 - Mutual friends display
 - User reputation score
 - User achievements
@@ -52,8 +48,6 @@
 - Restricted communities
 - Invite links
 - Community descriptions
-- Community icons
-- Community banners
 - Community rules
 - Moderator roles
 - Admin roles

@@ -20,6 +20,8 @@ export default function CommunitiesPage() {
   const [mature, setMature] = useState(false);
   const [primaryColor, setPrimaryColor] = useState("#ff5a0a");
   const [secondaryColor, setSecondaryColor] = useState("#340b05");
+  const [logoUrl, setLogoUrl] = useState("");
+  const [bannerUrl, setBannerUrl] = useState("");
 
   useEffect(() => {
     localStorage.setItem(COMMUNITY_STORAGE_KEY, JSON.stringify(communities));
@@ -43,6 +45,8 @@ export default function CommunitiesPage() {
     setMature(false);
     setPrimaryColor("#ff5a0a");
     setSecondaryColor("#340b05");
+    setLogoUrl("");
+    setBannerUrl("");
   }
 
   function closeWizard() {
@@ -67,6 +71,8 @@ export default function CommunitiesPage() {
       id: crypto.randomUUID(),
       name: normalized,
       description: description.trim(),
+       logoUrl: logoUrl.trim() || null,
+      bannerUrl: bannerUrl.trim() || null,
       privacy,
       mature,
       role: "owner",
@@ -101,7 +107,10 @@ export default function CommunitiesPage() {
                   href={`/communities/${community.id}`}
                   className="rounded-xl border border-orange-300/25 bg-black/20 p-4 transition hover:border-orange-200/60"
                 >
-                  <div className="h-3 w-full rounded-full" style={{ background: `linear-gradient(90deg, ${community.theme.primary}, ${community.theme.secondary})` }} />
+                  <div
+                    className="h-16 w-full rounded-lg bg-cover bg-center"
+                    style={community.bannerUrl ? { backgroundImage: `url(${community.bannerUrl})` } : { background: `linear-gradient(90deg, ${community.theme.primary}, ${community.theme.secondary})` }}
+                  />
                   <p className="mt-3 font-semibold text-orange-50">r/{community.name}</p>
                   <p className="text-xs uppercase text-orange-200/80">{community.role}</p>
                   <p className="mt-3 text-sm text-orange-100/85">{community.description}</p>
@@ -143,6 +152,18 @@ export default function CommunitiesPage() {
                     rows={5}
                     className="w-full rounded-xl border border-slate-400/20 bg-slate-900/40 px-3 py-2 outline-none"
                   />
+                  <input
+                    value={bannerUrl}
+                    onChange={(event) => setBannerUrl(event.target.value)}
+                    placeholder="Banner image URL (optional)"
+                    className="w-full rounded-xl border border-slate-400/20 bg-slate-900/40 px-3 py-2 outline-none"
+                  />
+                  <input
+                    value={logoUrl}
+                    onChange={(event) => setLogoUrl(event.target.value)}
+                    placeholder="Community logo URL (optional)"
+                    className="w-full rounded-xl border border-slate-400/20 bg-slate-900/40 px-3 py-2 outline-none"
+                  />
                   <div className="grid gap-3 sm:grid-cols-2">
                     <label className="text-xs uppercase tracking-wide text-slate-400">
                       Primary color
@@ -156,7 +177,18 @@ export default function CommunitiesPage() {
                 </div>
                 <div className="rounded-2xl border border-slate-400/20 bg-slate-900/30 p-4">
                   <p className="text-xs uppercase text-slate-400">Preview</p>
-                  <div className="mt-2 h-8 rounded" style={{ background: `linear-gradient(90deg, ${primaryColor}, ${secondaryColor})` }} />
+                  <div
+                    className="mt-2 h-14 rounded bg-cover bg-center"
+                    style={bannerUrl ? { backgroundImage: `url(${bannerUrl})` } : { background: `linear-gradient(90deg, ${primaryColor}, ${secondaryColor})` }}
+                  />
+                  <div className="-mt-5 ml-3 flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border-2 border-[#111823] bg-slate-700">
+                    {logoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={logoUrl} alt="Community logo preview" className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="text-xs font-semibold text-white">LOGO</span>
+                    )}
+                  </div>
                   <p className="mt-3 text-2xl font-bold text-white">r/{name || "communityname"}</p>
                   <p className="mt-2 text-sm text-slate-300">{description || "Your community description"}</p>
                 </div>
@@ -209,6 +241,12 @@ export default function CommunitiesPage() {
                   <p className="mt-2">
                     <span className="text-slate-400">Theme:</span>
                     <span className="ml-2 inline-flex h-3 w-16 rounded" style={{ background: `linear-gradient(90deg, ${primaryColor}, ${secondaryColor})` }} />
+                  </p>
+                  <p className="mt-2">
+                    <span className="text-slate-400">Banner:</span> {bannerUrl.trim() ? "Custom image" : "Gradient"}
+                  </p>
+                  <p className="mt-2">
+                    <span className="text-slate-400">Logo:</span> {logoUrl.trim() ? "Custom image" : "None"}
                   </p>
                   <p className="mt-2">
                     <span className="text-slate-400">Privacy:</span> <span className="capitalize">{privacy}</span>

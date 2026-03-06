@@ -75,21 +75,26 @@ export default function AuthButton() {
   if (user) {
     const initials = getInitials(user);
     const username = user.user_metadata?.username || user.email?.split("@")[0] || "Naturist";
+    const avatarUrl = user.user_metadata?.avatar_url as string | undefined;
 
     return (
       <div ref={menuRef} className="relative">
         <button
           type="button"
           onClick={() => setOpen((prev) => !prev)}
-          className="flex items-center gap-2 rounded-full border border-sand/35 bg-card px-2 py-1 text-sand shadow-[0_10px_24px_-18px_rgba(0,0,0,0.9)] transition hover:bg-card"
+          className="inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-sand/35 bg-card text-sand shadow-[0_10px_24px_-18px_rgba(0,0,0,0.9)] transition hover:bg-card"
           aria-expanded={open}
           aria-haspopup="menu"
           aria-label="Toggle profile menu"
         >
-          <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-sand text-sm font-bold text-pine shadow-inner">
-            {initials}
-          </span>
-          <span className="hidden text-sm font-semibold md:inline">{username}</span>
+          {avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={avatarUrl} alt={`${username} avatar`} className="h-full w-full object-cover" />
+          ) : (
+            <span className="inline-flex h-full w-full items-center justify-center bg-sand text-sm font-bold text-pine shadow-inner">
+              {initials}
+            </span>
+          )}
         </button>
 
         {open && (

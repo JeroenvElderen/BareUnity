@@ -10,6 +10,8 @@ export type Community = {
   id: string;
   name: string;
   description: string;
+  logoUrl: string | null;
+  bannerUrl: string | null;
   privacy: CommunityPrivacy;
   mature: boolean;
   role: CommunityRole;
@@ -30,6 +32,8 @@ export const seedCommunities: Community[] = [
     id: "67b5b4f5-847f-4f55-a7ef-8f50648f35ee",
     name: "BareUnity",
     description: "Main naturist community hub for events, discussion, and support.",
+    logoUrl: "https://api.dicebear.com/9.x/shapes/png?seed=BareUnity",
+    bannerUrl: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1600&q=80",
     privacy: "public",
     mature: true,
     role: "owner",
@@ -41,6 +45,8 @@ export const seedCommunities: Community[] = [
     id: "0a2db4c6-03db-43df-a273-bf7c5326f4e4",
     name: "SunTrail Camp",
     description: "Community for outdoor weekend meetups and camp planning.",
+    logoUrl: "https://api.dicebear.com/9.x/shapes/png?seed=SunTrailCamp",
+    bannerUrl: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1600&q=80",
     privacy: "restricted",
     mature: false,
     role: "member",
@@ -52,6 +58,8 @@ export const seedCommunities: Community[] = [
     id: "7a598228-86af-4f9e-90e0-49e2891ecf3b",
     name: "Body Positivity Circle",
     description: "Supportive conversations around confidence and self-acceptance.",
+    logoUrl: "https://api.dicebear.com/9.x/shapes/png?seed=BodyPositivityCircle",
+    bannerUrl: "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&w=1600&q=80",
     privacy: "private",
     mature: false,
     role: "member",
@@ -71,6 +79,8 @@ function normalizeCommunity(community: Community | (Community & { theme?: Commun
   return {
     ...community,
     id: nextId,
+    logoUrl: community.logoUrl ?? null,
+    bannerUrl: community.bannerUrl ?? null,
     theme: community.theme ?? defaultTheme,
   };
 }

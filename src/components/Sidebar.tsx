@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { COMMUNITY_STORAGE_KEY, Community, getInitials } from "@/lib/community-data";
+import { COMMUNITY_STORAGE_KEY, Community } from "@/lib/community-data";
 
 function readRealCommunitiesOnly() {
   if (typeof window === "undefined") {
@@ -49,10 +49,15 @@ export default function Sidebar() {
           {communities.map((community) => (
             <Link key={community.id} href={`/communities/${community.id}`} className="group relative" title={community.name}>
               <span
-                className="flex h-10 w-10 items-center justify-center rounded-xl border text-xs font-bold text-white transition-all duration-200 group-hover:opacity-85"
+                className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl border transition-all duration-200 group-hover:opacity-85"
                 style={{ backgroundColor: community.theme.primary, borderColor: `${community.theme.primary}aa` }}
               >
-                {getInitials(community.name)}
+                {community.logoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={community.logoUrl} alt={`${community.name} logo`} className="h-full w-full object-cover" />
+                ) : (
+                  <span className="h-3 w-3 rounded-full bg-white/90" aria-hidden />
+                )}
               </span>
             </Link>
           ))}

@@ -69,13 +69,31 @@ export default function CommunityDetailPage() {
             </section>
           ) : (
             <section className="overflow-hidden border border-l-0 shadow-[0_40px_80px_-45px_rgba(0,0,0,0.9)]" style={{ borderColor: `${activeCommunity.theme.primary}66`, backgroundColor: activeCommunity.theme.secondary }}>
-              <div className="h-36" style={{ background: `linear-gradient(105deg, ${activeCommunity.theme.primary}, ${activeCommunity.theme.secondary} 68%, #140908)` }} />
+              <div
+                className="h-32 bg-cover bg-center md:h-40"
+                style={activeCommunity.bannerUrl ? { backgroundImage: `url(${activeCommunity.bannerUrl})` } : { background: `linear-gradient(105deg, ${activeCommunity.theme.primary}, ${activeCommunity.theme.secondary} 68%, #140908)` }}
+              />
               <div className="border-b px-5 py-5 md:px-8" style={{ borderColor: `${activeCommunity.theme.primary}66` }}>
                 <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
+                  <div className="flex items-end gap-4">
+                    <div className="-mt-14 flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-4 border-[#210906] shadow-2xl md:h-28 md:w-28">
+                      {activeCommunity.logoUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={activeCommunity.logoUrl} alt={`${activeCommunity.name} logo`} className="h-full w-full object-cover" />
+                      ) : (
+                        <span
+                          className="inline-flex h-full w-full items-center justify-center text-xs font-semibold uppercase text-white"
+                          style={{ backgroundColor: activeCommunity.theme.primary }}
+                        >
+                          Community
+                        </span>
+                      )}
+                    </div>
+                    <div>
                     <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-orange-200/90">{activeCommunity.role}</p>
                     <h1 className="text-4xl font-extrabold text-white">r/{activeCommunity.name}</h1>
                     <p className="mt-1 max-w-3xl text-sm text-orange-100/80">{activeCommunity.description}</p>
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <button className="rounded-full border px-4 py-2 text-sm font-semibold text-white" style={{ borderColor: `${activeCommunity.theme.primary}88` }}>+ Create Post</button>

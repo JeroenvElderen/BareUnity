@@ -7,15 +7,101 @@ import Topbar from "@/components/Topbar";
 import Sidebar from "@/components/Sidebar";
 
 const tabs = ["Overview", "Posts", "Comments", "Saved", "History", "Upvoted"];
+const PROFILE_SETTINGS_STORAGE_KEY = "bareunity-profile-settings";
 
 type MediaPost = {
   id: string;
   media_url: string | null;
 };
 
+type FriendStatus = "online" | "away" | "offline";
+
+type Friend = {
+  id: string;
+  username: string;
+  status: FriendStatus;
+};
+
+type FriendRequest = {
+  id: string;
+  username: string;
+  mutualFriends: number;
+};
+
+type PrivacySettings = {
+  showEmail: boolean;
+  showActivity: boolean;
+  allowFriendRequests: boolean;
+};
+
+const starterFriends: Friend[] = [
+  { id: "f1", username: "suntrail_sam", status: "online" },
+  { id: "f2", username: "openairlena", status: "away" },
+];
+
+const starterRequests: FriendRequest[] = [
+  { id: "r1", username: "naturealex", mutualFriends: 3 },
+  { id: "r2", username: "campmila", mutualFriends: 1 },
+];
+
+function readStoredSettings() {
+  if (typeof window === "undefined") {
+    return {
+      profilePrimary: "#345f45",
+      profileSecondary: "#1f3326",
+      privacy: { showEmail: false, showActivity: true, allowFriendRequests: true } as PrivacySettings,
+      friends: starterFriends,
+      friendRequests: starterRequests,
+    };
+  }
+
+  const raw = window.localStorage.getItem(PROFILE_SETTINGS_STORAGE_KEY);
+  if (!raw) {
+    return {
+      profilePrimary: "#345f45",
+      profileSecondary: "#1f3326",
+      privacy: { showEmail: false, showActivity: true, allowFriendRequests: true } as PrivacySettings,
+      friends: starterFriends,
+      friendRequests: starterRequests,
+    };
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as {
+      profilePrimary?: string;
+      profileSecondary?: string;
+      privacy?: PrivacySettings;
+      friends?: Friend[];
+      friendRequests?: FriendRequest[];
+    };
+
+    return {
+      profilePrimary: parsed.profilePrimary ?? "#345f45",
+      profileSecondary: parsed.profileSecondary ?? "#1f3326",
+      privacy: parsed.privacy ?? { showEmail: false, showActivity: true, allowFriendRequests: true },
+      friends: parsed.friends ?? starterFriends,
+      friendRequests: parsed.friendRequests ?? starterRequests,
+    };
+  } catch {
+    return {
+      profilePrimary: "#345f45",
+      profileSecondary: "#1f3326",
+      privacy: { showEmail: false, showActivity: true, allowFriendRequests: true } as PrivacySettings,
+      friends: starterFriends,
+      friendRequests: starterRequests,
+    };
+  }
+}
+
 export default function ProfilePage() {
+  const [initialSettings] = useState(readStoredSettings);
   const [user, setUser] = useState<User | null>(null);
   const [mediaPosts, setMediaPosts] = useState<MediaPost[]>([]);
+  const [profilePrimary, setProfilePrimary] = useState(initialSettings.profilePrimary);
+  const [profileSecondary, setProfileSecondary] = useState(initialSettings.profileSecondary);
+  const [privacy, setPrivacy] = useState<PrivacySettings>(initialSettings.privacy);
+  const [friends, setFriends] = useState<Friend[]>(initialSettings.friends);
+  const [friendRequests, setFriendRequests] = useState<FriendRequest[]>(initialSettings.friendRequests);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setUser(data.session?.user ?? null));
@@ -28,6 +114,17 @@ export default function ProfilePage() {
 
     return () => sub.subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.setItem(
+      PROFILE_SETTINGS_STORAGE_KEY,
+      JSON.stringify({ profilePrimary, profileSecondary, privacy, friends, friendRequests }),
+    );
+  }, [profilePrimary, profileSecondary, privacy, friends, friendRequests]);
 
   useEffect(() => {
     const userId = user?.id;
@@ -58,6 +155,19 @@ export default function ProfilePage() {
     return user.user_metadata?.username || user.email?.split("@")[0] || "Naturist";
   }, [user]);
 
+  function updatePrivacy<K extends keyof PrivacySettings>(key: K, value: PrivacySettings[K]) {
+    setPrivacy((current) => ({ ...current, [key]: value }));
+  }
+
+  function acceptRequest(request: FriendRequest) {
+    setFriendRequests((current) => current.filter((item) => item.id !== request.id));
+    setFriends((current) => [...current, { id: `friend-${request.id}`, username: request.username, status: "online" }]);
+  }
+
+  function declineRequest(id: string) {
+    setFriendRequests((current) => current.filter((item) => item.id !== id));
+  }
+
   return (
     <div className="min-h-screen bg-bg text-text">
       <Topbar />
@@ -70,7 +180,7 @@ export default function ProfilePage() {
               <section className="space-y-4">
                 <div className="rounded-2xl border border-pine/20 bg-card/70 p-4">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full border border-sand/40 bg-pine text-xl font-bold text-sand">
+                    <div className="flex h-16 w-16 items-center justify-center rounded-full border border-sand/40 text-xl font-bold text-sand" style={{ background: `linear-gradient(135deg, ${profilePrimary}, ${profileSecondary})` }}>
                       {username.slice(0, 1).toUpperCase()}
                     </div>
                     <div>
@@ -99,7 +209,7 @@ export default function ProfilePage() {
                     <span className="text-xs text-muted">Recent uploads</span>
                   </div>
 
-                {mediaPosts.length === 0 ? (
+                  {mediaPosts.length === 0 ? (
                     <p className="text-sm text-muted">No media uploaded yet.</p>
                   ) : (
                     <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
@@ -116,10 +226,74 @@ export default function ProfilePage() {
 
               <aside className="space-y-4">
                 <div className="rounded-2xl border border-pine/20 bg-card p-4">
-                  <div className="mb-3 h-24 rounded-xl bg-gradient-to-r from-pine-2 to-pine" />
+                  <div className="mb-3 h-24 rounded-xl" style={{ background: `linear-gradient(90deg, ${profilePrimary}, ${profileSecondary})` }} />
                   <h3 className="text-xl font-bold text-sand">{username}</h3>
                   <p className="text-sm text-muted">🌿 Living naturally and building a kind community.</p>
                 </div>
+                
+                <section className="rounded-2xl border border-pine/20 bg-card p-4">
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-sand/85">Custom profile colors</h3>
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    <label className="text-xs text-muted">
+                      Primary
+                      <input type="color" value={profilePrimary} onChange={(event) => setProfilePrimary(event.target.value)} className="mt-1 h-9 w-full rounded border border-sand/20 bg-transparent" />
+                    </label>
+                    <label className="text-xs text-muted">
+                      Secondary
+                      <input type="color" value={profileSecondary} onChange={(event) => setProfileSecondary(event.target.value)} className="mt-1 h-9 w-full rounded border border-sand/20 bg-transparent" />
+                    </label>
+                  </div>
+                </section>
+
+                <section className="rounded-2xl border border-pine/20 bg-card p-4">
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-sand/85">Privacy settings</h3>
+                  <div className="mt-3 space-y-2 text-sm">
+                    <label className="flex items-center justify-between gap-2">
+                      Show email on profile
+                      <input type="checkbox" checked={privacy.showEmail} onChange={(event) => updatePrivacy("showEmail", event.target.checked)} />
+                    </label>
+                    <label className="flex items-center justify-between gap-2">
+                      Show activity status
+                      <input type="checkbox" checked={privacy.showActivity} onChange={(event) => updatePrivacy("showActivity", event.target.checked)} />
+                    </label>
+                    <label className="flex items-center justify-between gap-2">
+                      Allow friend requests
+                      <input type="checkbox" checked={privacy.allowFriendRequests} onChange={(event) => updatePrivacy("allowFriendRequests", event.target.checked)} />
+                    </label>
+                  </div>
+                </section>
+
+                <section className="rounded-2xl border border-pine/20 bg-card p-4">
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-sand/85">Friend requests</h3>
+                  <div className="mt-3 space-y-3">
+                    {friendRequests.length === 0 ? (
+                      <p className="text-sm text-muted">No pending requests.</p>
+                    ) : (
+                      friendRequests.map((request) => (
+                        <div key={request.id} className="rounded-xl border border-sand/15 bg-pine/20 p-3">
+                          <p className="font-semibold text-sand">u/{request.username}</p>
+                          <p className="text-xs text-muted">{request.mutualFriends} mutual friends</p>
+                          <div className="mt-2 flex gap-2 text-xs">
+                            <button type="button" onClick={() => acceptRequest(request)} className="rounded-full bg-emerald-600 px-3 py-1 font-semibold text-white">Accept</button>
+                            <button type="button" onClick={() => declineRequest(request.id)} className="rounded-full border border-sand/30 px-3 py-1 font-semibold text-sand">Decline</button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </section>
+
+                <section className="rounded-2xl border border-pine/20 bg-card p-4">
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-sand/85">Friends ({friends.length})</h3>
+                  <ul className="mt-3 space-y-2 text-sm">
+                    {friends.map((friend) => (
+                      <li key={friend.id} className="flex items-center justify-between rounded-lg border border-sand/15 bg-pine/20 px-3 py-2">
+                        <span>u/{friend.username}</span>
+                        <span className="text-xs capitalize text-muted">{friend.status}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
               </aside>
             </div>
           </main>
