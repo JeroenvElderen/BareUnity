@@ -1,117 +1,253 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import Topbar from "@/components/Topbar";
 import Sidebar from "@/components/Sidebar";
-
-type CommunityType = "public" | "private";
-
-type Community = {
-  id: string;
-  name: string;
-  description: string;
-  type: CommunityType;
-};
+import { COMMUNITY_STORAGE_KEY, Community, CommunityPrivacy, readStoredCommunities } from "@/lib/community-data";
 
 export default function CommunitiesPage() {
+  const searchParams = useSearchParams();
+  const [communities, setCommunities] = useState<Community[]>(() => readStoredCommunities());
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
+  const [createParamDismissed, setCreateParamDismissed] = useState(false);
+  const [wizardStep, setWizardStep] = useState(1);
+
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [type, setType] = useState<CommunityType>("public");
-  const [communities, setCommunities] = useState<Community[]>([]);
+  const [privacy, setPrivacy] = useState<CommunityPrivacy>("public");
+  const [mature, setMature] = useState(false);
+  const [primaryColor, setPrimaryColor] = useState("#ff5a0a");
+  const [secondaryColor, setSecondaryColor] = useState("#340b05");
+
+  useEffect(() => {
+    localStorage.setItem(COMMUNITY_STORAGE_KEY, JSON.stringify(communities));
+  }, [communities]);
+
+  const canAdvanceStepOne = name.trim().length > 2 && description.trim().length > 4;
+
+  const roleCounts = useMemo(
+    () => ({
+      owner: communities.filter((community) => community.role === "owner").length,
+      member: communities.filter((community) => community.role === "member").length,
+    }),
+    [communities],
+  );
+
+  function resetWizard() {
+    setWizardStep(1);
+    setName("");
+    setDescription("");
+    setPrivacy("public");
+    setMature(false);
+    setPrimaryColor("#ff5a0a");
+    setSecondaryColor("#340b05");
+  }
+
+  function closeWizard() {
+    setIsWizardOpen(false);
+    setCreateParamDismissed(true);
+    resetWizard();
+    if (typeof window !== "undefined") {
+      window.history.replaceState({}, "", "/communities");
+    }
+  }
 
   function handleCreateCommunity(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!name.trim()) {
+    if (!canAdvanceStepOne) {
       return;
     }
 
+    const normalized = name.trim();
+
     const newCommunity: Community = {
       id: crypto.randomUUID(),
-      name: name.trim(),
+      name: normalized,
       description: description.trim(),
-      type,
+      privacy,
+      mature,
+      role: "owner",
+      theme: {
+        primary: primaryColor,
+        secondary: secondaryColor,
+      },
+      textChannels: ["general"],
+      voiceChannels: ["Lobby"],
     };
 
-    setCommunities((current) => [newCommunity, ...current]);
-    setName("");
-    setDescription("");
-    setType("public");
+    setCommunities((current) => [newCommunity, ...current.filter((community) => community.id !== newCommunity.id)]);
+    closeWizard();
   }
-
-  const publicCount = useMemo(() => communities.filter((community) => community.type === "public").length, [communities]);
-  const privateCount = communities.length - publicCount;
 
   return (
     <div className="min-h-screen bg-bg text-text">
       <Topbar />
-      <div className="mx-auto max-w-[1400px]">
-        <div className="flex">
-          <Sidebar />
+      <div className="flex">
+        <Sidebar />
 
-          <main className="flex-1 px-4 py-6">
-            <div className="mx-auto max-w-3xl space-y-6">
-              <section className="rounded-2xl border border-sand/20 bg-card/75 p-5">
-                <h1 className="text-2xl font-bold text-sand">Create communities</h1>
-                <p className="mt-1 text-sm text-muted">Start a public or private space for your members.</p>
+        <main className="flex-1 px-6 py-6">
+          <section className="rounded-2xl border border-orange-300/25 bg-[#1a0d0b]/75 p-5">
+            <h1 className="text-2xl font-bold text-orange-50">Your communities</h1>
+            <p className="mt-1 text-sm text-orange-100/80">Use the left menu icon to open/close navigation and the + button to create communities.</p>
+            <p className="mt-2 text-xs text-orange-200/80">Owner: {roleCounts.owner} • Member: {roleCounts.member}</p>
 
-                <form className="mt-4 space-y-3" onSubmit={handleCreateCommunity}>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {communities.map((community) => (
+                <Link
+                  key={community.id}
+                  href={`/communities/${community.id}`}
+                  className="rounded-xl border border-orange-300/25 bg-black/20 p-4 transition hover:border-orange-200/60"
+                >
+                  <div className="h-3 w-full rounded-full" style={{ background: `linear-gradient(90deg, ${community.theme.primary}, ${community.theme.secondary})` }} />
+                  <p className="mt-3 font-semibold text-orange-50">r/{community.name}</p>
+                  <p className="text-xs uppercase text-orange-200/80">{community.role}</p>
+                  <p className="mt-3 text-sm text-orange-100/85">{community.description}</p>
+                </Link>
+              ))}
+            </div>
+          </section>
+        </main>
+      </div>
+
+      {(isWizardOpen || (searchParams.get("create") === "1" && !createParamDismissed)) && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4 py-8">
+          <div className="w-full max-w-3xl rounded-2xl border border-slate-300/20 bg-[#111823] p-6 text-slate-100 shadow-2xl">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Create community</p>
+                <h3 className="text-2xl font-bold">Step {wizardStep} of 3</h3>
+              </div>
+              <button onClick={closeWizard} className="rounded-full border border-slate-400/30 px-3 py-1 text-sm" type="button">
+                ✕
+              </button>
+            </div>
+
+            {wizardStep === 1 && (
+              <div className="grid gap-4 md:grid-cols-[1.15fr_0.85fr]">
+                <div className="space-y-3">
+                  <h4 className="text-xl font-semibold">Tell us about your community</h4>
                   <input
                     value={name}
                     onChange={(event) => setName(event.target.value)}
-                    className="w-full rounded-xl border border-sand/20 bg-sand/80 px-3 py-2 text-sm text-pine outline-none"
                     placeholder="Community name"
+                    maxLength={21}
+                    className="w-full rounded-xl border border-slate-400/20 bg-slate-900/40 px-3 py-2 outline-none"
                   />
                   <textarea
                     value={description}
                     onChange={(event) => setDescription(event.target.value)}
-                    className="min-h-20 w-full rounded-xl border border-sand/20 bg-sand/80 px-3 py-2 text-sm text-pine outline-none"
-                    placeholder="Community description"
+                    placeholder="Description"
+                    rows={5}
+                    className="w-full rounded-xl border border-slate-400/20 bg-slate-900/40 px-3 py-2 outline-none"
                   />
-
-                  <div className="flex gap-3">
-                    <label className="flex items-center gap-2 text-sm text-text/90">
-                      <input type="radio" name="communityType" checked={type === "public"} onChange={() => setType("public")} />
-                      Public community
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="text-xs uppercase tracking-wide text-slate-400">
+                      Primary color
+                      <input type="color" value={primaryColor} onChange={(event) => setPrimaryColor(event.target.value)} className="mt-1 h-10 w-full rounded border border-slate-500/30 bg-transparent" />
                     </label>
-                    <label className="flex items-center gap-2 text-sm text-text/90">
-                      <input type="radio" name="communityType" checked={type === "private"} onChange={() => setType("private")} />
-                      Private community
+                    <label className="text-xs uppercase tracking-wide text-slate-400">
+                      Secondary color
+                      <input type="color" value={secondaryColor} onChange={(event) => setSecondaryColor(event.target.value)} className="mt-1 h-10 w-full rounded border border-slate-500/30 bg-transparent" />
                     </label>
                   </div>
+                </div>
+                <div className="rounded-2xl border border-slate-400/20 bg-slate-900/30 p-4">
+                  <p className="text-xs uppercase text-slate-400">Preview</p>
+                  <div className="mt-2 h-8 rounded" style={{ background: `linear-gradient(90deg, ${primaryColor}, ${secondaryColor})` }} />
+                  <p className="mt-3 text-2xl font-bold text-white">r/{name || "communityname"}</p>
+                  <p className="mt-2 text-sm text-slate-300">{description || "Your community description"}</p>
+                </div>
+              </div>
+            )}
 
-                  <button className="rounded-xl bg-pine px-4 py-2 text-sm font-semibold text-sand transition hover:bg-pine-2" type="submit">
-                    Create community
+            {wizardStep === 2 && (
+              <div>
+                <h4 className="text-xl font-semibold">What kind of community is this?</h4>
+                <p className="mt-1 text-sm text-slate-300">Choose who can view and contribute.</p>
+                <div className="mt-4 space-y-2">
+                  {[
+                    { key: "public", label: "Public", helper: "Anyone can view and contribute" },
+                    { key: "restricted", label: "Restricted", helper: "Anyone can view, approved users contribute" },
+                    { key: "private", label: "Private", helper: "Only approved members can view and contribute" },
+                  ].map((item) => (
+                    <button
+                      key={item.key}
+                      onClick={() => setPrivacy(item.key as CommunityPrivacy)}
+                      type="button"
+                      className={`w-full rounded-xl border px-4 py-3 text-left ${
+                        privacy === item.key ? "border-blue-400 bg-slate-700/60" : "border-slate-400/20 bg-slate-900/40"
+                      }`}
+                    >
+                      <p className="font-semibold">{item.label}</p>
+                      <p className="text-sm text-slate-300">{item.helper}</p>
+                    </button>
+                  ))}
+                </div>
+                <label className="mt-4 flex cursor-pointer items-center justify-between rounded-xl border border-slate-400/20 bg-slate-900/40 p-4">
+                  <span>
+                    <p className="font-semibold">Mature (18+)</p>
+                    <p className="text-sm text-slate-300">Users must be over 18 to view and contribute.</p>
+                  </span>
+                  <input checked={mature} onChange={(event) => setMature(event.target.checked)} type="checkbox" />
+                </label>
+              </div>
+            )}
+
+            {wizardStep === 3 && (
+              <form onSubmit={handleCreateCommunity}>
+                <h4 className="text-xl font-semibold">Review and create</h4>
+                <div className="mt-4 rounded-xl border border-slate-400/20 bg-slate-900/40 p-4 text-sm text-slate-200">
+                  <p>
+                    <span className="text-slate-400">Name:</span> r/{name}
+                  </p>
+                  <p className="mt-2">
+                    <span className="text-slate-400">Description:</span> {description}
+                  </p>
+                  <p className="mt-2">
+                    <span className="text-slate-400">Theme:</span>
+                    <span className="ml-2 inline-flex h-3 w-16 rounded" style={{ background: `linear-gradient(90deg, ${primaryColor}, ${secondaryColor})` }} />
+                  </p>
+                  <p className="mt-2">
+                    <span className="text-slate-400">Privacy:</span> <span className="capitalize">{privacy}</span>
+                  </p>
+                  <p className="mt-2">
+                    <span className="text-slate-400">Mature:</span> {mature ? "Yes" : "No"}
+                  </p>
+                </div>
+                <div className="mt-6 flex justify-end gap-2">
+                  <button onClick={() => setWizardStep(2)} type="button" className="rounded-xl border border-slate-400/30 px-4 py-2 text-sm">
+                    Back
                   </button>
-                </form>
-              </section>
-
-              <section className="rounded-2xl border border-sand/20 bg-card/70 p-5">
-                <div className="mb-3 flex items-center justify-between">
-                  <h2 className="text-lg font-bold text-sand">Community list</h2>
-                  <p className="text-xs text-muted">Public: {publicCount} • Private: {privateCount}</p>
+                  <button type="submit" className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500">
+                    Create Community
+                  </button>
                 </div>
+              </form>
+            )}
 
-                <div className="space-y-3">
-                  {communities.length === 0 ? (
-                    <p className="text-sm text-muted">No communities created yet.</p>
-                  ) : (
-                    communities.map((community) => (
-                      <article key={community.id} className="rounded-xl border border-sand/20 bg-pine/20 p-3">
-                        <div className="mb-1 flex items-center gap-2">
-                          <h3 className="font-semibold text-sand">{community.name}</h3>
-                          <span className="rounded-full border border-sand/30 px-2 py-0.5 text-xs uppercase text-sand/90">{community.type}</span>
-                        </div>
-                        <p className="text-sm text-text/85">{community.description || "No description added."}</p>
-                      </article>
-                    ))
-                  )}
-                </div>
-              </section>
-            </div>
-          </main>
+            {wizardStep < 3 && (
+              <div className="mt-6 flex justify-end gap-2">
+                {wizardStep > 1 && (
+                  <button onClick={() => setWizardStep((step) => step - 1)} type="button" className="rounded-xl border border-slate-400/30 px-4 py-2 text-sm">
+                    Back
+                  </button>
+                )}
+                <button
+                  onClick={() => setWizardStep((step) => step + 1)}
+                  disabled={wizardStep === 1 && !canAdvanceStepOne}
+                  type="button"
+                  className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
