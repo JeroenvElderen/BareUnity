@@ -45,37 +45,6 @@
 
 # Communities & Groups
 
-- Restricted communities
-- Invite links
-- Community descriptions
-- Community rules
-- Moderator roles
-- Admin roles
-- Member roles
-- Community join requests
-- Community announcements
-- Pinned posts
-- Community tags
-- Community categories
-- Community search
-- Featured communities
-- Community analytics
-- Community verification
-- Community onboarding
-- Community welcome message
-- Community guidelines page
-- Community templates
-- Community activity feed
-- Community reputation system
-- Community leaderboards
-- Community wikis
-- Community file libraries
-- Community event boards
-- Community member directory
-- Community polls
-- Community milestones
-- Community highlight posts
-- Community moderators chat
 
 ---
 

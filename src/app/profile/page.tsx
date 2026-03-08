@@ -7,6 +7,7 @@ import Topbar from "@/components/Topbar";
 import Sidebar from "@/components/Sidebar";
 
 const tabs = ["Overview", "Posts", "Comments", "Saved", "History", "Upvoted"];
+const settingsMenuItems = ["Profile style", "Privacy", "Friend requests", "Friends"] as const;
 const PROFILE_SETTINGS_STORAGE_KEY = "bareunity-profile-settings";
 
 type MediaPost = {
@@ -97,6 +98,9 @@ export default function ProfilePage() {
   const [initialSettings] = useState(readStoredSettings);
   const [user, setUser] = useState<User | null>(null);
   const [mediaPosts, setMediaPosts] = useState<MediaPost[]>([]);
+  const [activeTab, setActiveTab] = useState("Overview");
+  const [activeSettingsItem, setActiveSettingsItem] = useState<(typeof settingsMenuItems)[number]>("Profile style");
+  const [isSettingsMenuOpen, setIsSettingsMenuOpen] = useState(false);
   const [profilePrimary, setProfilePrimary] = useState(initialSettings.profilePrimary);
   const [profileSecondary, setProfileSecondary] = useState(initialSettings.profileSecondary);
   const [privacy, setPrivacy] = useState<PrivacySettings>(initialSettings.privacy);
@@ -168,6 +172,86 @@ export default function ProfilePage() {
     setFriendRequests((current) => current.filter((item) => item.id !== id));
   }
 
+  function renderSettingsPanel() {
+    if (activeSettingsItem === "Profile style") {
+      return (
+        <section className="rounded-2xl border border-pine/20 bg-card p-4">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-sand/85">Custom profile colors</h3>
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            <label className="text-xs text-muted">
+              Primary
+              <input type="color" value={profilePrimary} onChange={(event) => setProfilePrimary(event.target.value)} className="mt-1 h-9 w-full rounded border border-sand/20 bg-transparent" />
+            </label>
+            <label className="text-xs text-muted">
+              Secondary
+              <input type="color" value={profileSecondary} onChange={(event) => setProfileSecondary(event.target.value)} className="mt-1 h-9 w-full rounded border border-sand/20 bg-transparent" />
+            </label>
+          </div>
+        </section>
+      );
+    }
+
+    if (activeSettingsItem === "Privacy") {
+      return (
+        <section className="rounded-2xl border border-pine/20 bg-card p-4">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-sand/85">Privacy settings</h3>
+          <div className="mt-3 space-y-2 text-sm">
+            <label className="flex items-center justify-between gap-2">
+              Show email on profile
+              <input type="checkbox" checked={privacy.showEmail} onChange={(event) => updatePrivacy("showEmail", event.target.checked)} />
+            </label>
+            <label className="flex items-center justify-between gap-2">
+              Show activity status
+              <input type="checkbox" checked={privacy.showActivity} onChange={(event) => updatePrivacy("showActivity", event.target.checked)} />
+            </label>
+            <label className="flex items-center justify-between gap-2">
+              Allow friend requests
+              <input type="checkbox" checked={privacy.allowFriendRequests} onChange={(event) => updatePrivacy("allowFriendRequests", event.target.checked)} />
+            </label>
+          </div>
+        </section>
+      );
+    }
+
+    if (activeSettingsItem === "Friend requests") {
+      return (
+        <section className="rounded-2xl border border-pine/20 bg-card p-4">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-sand/85">Friend requests</h3>
+          <div className="mt-3 space-y-3">
+            {friendRequests.length === 0 ? (
+              <p className="text-sm text-muted">No pending requests.</p>
+            ) : (
+              friendRequests.map((request) => (
+                <div key={request.id} className="rounded-xl border border-sand/15 bg-pine/20 p-3">
+                  <p className="font-semibold text-sand">u/{request.username}</p>
+                  <p className="text-xs text-muted">{request.mutualFriends} mutual friends</p>
+                  <div className="mt-2 flex gap-2 text-xs">
+                    <button type="button" onClick={() => acceptRequest(request)} className="rounded-full bg-emerald-600 px-3 py-1 font-semibold text-white">Accept</button>
+                    <button type="button" onClick={() => declineRequest(request.id)} className="rounded-full border border-sand/30 px-3 py-1 font-semibold text-sand">Decline</button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+      );
+    }
+
+    return (
+      <section className="rounded-2xl border border-pine/20 bg-card p-4">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-sand/85">Friends ({friends.length})</h3>
+        <ul className="mt-3 space-y-2 text-sm">
+          {friends.map((friend) => (
+            <li key={friend.id} className="flex items-center justify-between rounded-lg border border-sand/15 bg-pine/20 px-3 py-2">
+              <span>u/{friend.username}</span>
+              <span className="text-xs capitalize text-muted">{friend.status}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-bg text-text">
       <Topbar />
@@ -190,17 +274,47 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
-                <div className="flex flex-wrap gap-2">
-                  {tabs.map((tab, index) => (
+                <div className="flex flex-wrap items-center gap-2">
+                  {tabs.map((tab) => (
                     <button
+                    type="button"
                       key={tab}
+                      onClick={() => setActiveTab(tab)}
                       className={`rounded-full px-4 py-2 text-sm font-semibold ${
-                        index === 0 ? "bg-sand text-pine" : "bg-card text-text/85 hover:bg-pine/80"
+                        activeTab === tab ? "bg-sand text-pine" : "bg-card text-text/85 hover:bg-pine/80"
                       }`}
                     >
                       {tab}
                     </button>
                   ))}
+
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setIsSettingsMenuOpen((open) => !open)}
+                      className="rounded-full border border-sand/40 bg-card px-4 py-2 text-sm font-semibold text-sand"
+                    >
+                      Settings ▾
+                    </button>
+
+                    {isSettingsMenuOpen && (
+                      <div className="absolute right-0 top-12 z-20 w-56 rounded-xl border border-sand/20 bg-[#152820] p-2 shadow-2xl">
+                        {settingsMenuItems.map((item) => (
+                          <button
+                            type="button"
+                            key={item}
+                            onClick={() => {
+                              setActiveSettingsItem(item);
+                              setIsSettingsMenuOpen(false);
+                            }}
+                            className={`w-full rounded-lg px-3 py-2 text-left text-sm ${activeSettingsItem === item ? "bg-sand text-pine" : "text-sand/90 hover:bg-pine/60"}`}
+                          >
+                            {item}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div className="rounded-2xl border border-pine/20 bg-card/70 p-4">
@@ -231,69 +345,7 @@ export default function ProfilePage() {
                   <p className="text-sm text-muted">🌿 Living naturally and building a kind community.</p>
                 </div>
                 
-                <section className="rounded-2xl border border-pine/20 bg-card p-4">
-                  <h3 className="text-sm font-semibold uppercase tracking-wide text-sand/85">Custom profile colors</h3>
-                  <div className="mt-3 grid grid-cols-2 gap-3">
-                    <label className="text-xs text-muted">
-                      Primary
-                      <input type="color" value={profilePrimary} onChange={(event) => setProfilePrimary(event.target.value)} className="mt-1 h-9 w-full rounded border border-sand/20 bg-transparent" />
-                    </label>
-                    <label className="text-xs text-muted">
-                      Secondary
-                      <input type="color" value={profileSecondary} onChange={(event) => setProfileSecondary(event.target.value)} className="mt-1 h-9 w-full rounded border border-sand/20 bg-transparent" />
-                    </label>
-                  </div>
-                </section>
-
-                <section className="rounded-2xl border border-pine/20 bg-card p-4">
-                  <h3 className="text-sm font-semibold uppercase tracking-wide text-sand/85">Privacy settings</h3>
-                  <div className="mt-3 space-y-2 text-sm">
-                    <label className="flex items-center justify-between gap-2">
-                      Show email on profile
-                      <input type="checkbox" checked={privacy.showEmail} onChange={(event) => updatePrivacy("showEmail", event.target.checked)} />
-                    </label>
-                    <label className="flex items-center justify-between gap-2">
-                      Show activity status
-                      <input type="checkbox" checked={privacy.showActivity} onChange={(event) => updatePrivacy("showActivity", event.target.checked)} />
-                    </label>
-                    <label className="flex items-center justify-between gap-2">
-                      Allow friend requests
-                      <input type="checkbox" checked={privacy.allowFriendRequests} onChange={(event) => updatePrivacy("allowFriendRequests", event.target.checked)} />
-                    </label>
-                  </div>
-                </section>
-
-                <section className="rounded-2xl border border-pine/20 bg-card p-4">
-                  <h3 className="text-sm font-semibold uppercase tracking-wide text-sand/85">Friend requests</h3>
-                  <div className="mt-3 space-y-3">
-                    {friendRequests.length === 0 ? (
-                      <p className="text-sm text-muted">No pending requests.</p>
-                    ) : (
-                      friendRequests.map((request) => (
-                        <div key={request.id} className="rounded-xl border border-sand/15 bg-pine/20 p-3">
-                          <p className="font-semibold text-sand">u/{request.username}</p>
-                          <p className="text-xs text-muted">{request.mutualFriends} mutual friends</p>
-                          <div className="mt-2 flex gap-2 text-xs">
-                            <button type="button" onClick={() => acceptRequest(request)} className="rounded-full bg-emerald-600 px-3 py-1 font-semibold text-white">Accept</button>
-                            <button type="button" onClick={() => declineRequest(request.id)} className="rounded-full border border-sand/30 px-3 py-1 font-semibold text-sand">Decline</button>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </section>
-
-                <section className="rounded-2xl border border-pine/20 bg-card p-4">
-                  <h3 className="text-sm font-semibold uppercase tracking-wide text-sand/85">Friends ({friends.length})</h3>
-                  <ul className="mt-3 space-y-2 text-sm">
-                    {friends.map((friend) => (
-                      <li key={friend.id} className="flex items-center justify-between rounded-lg border border-sand/15 bg-pine/20 px-3 py-2">
-                        <span>u/{friend.username}</span>
-                        <span className="text-xs capitalize text-muted">{friend.status}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </section>
+                {renderSettingsPanel()}
               </aside>
             </div>
           </main>

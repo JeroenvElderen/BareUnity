@@ -1,14 +1,15 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Topbar from "@/components/Topbar";
 import Sidebar from "@/components/Sidebar";
 import { COMMUNITY_STORAGE_KEY, Community, CommunityPrivacy, readStoredCommunities } from "@/lib/community-data";
 
 export default function CommunitiesPage() {
-  const searchParams = useSearchParams();
+  const [openFromCreateParam] = useState(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("create") === "1");
   const [communities, setCommunities] = useState<Community[]>(() => readStoredCommunities());
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [createParamDismissed, setCreateParamDismissed] = useState(false);
@@ -32,6 +33,7 @@ export default function CommunitiesPage() {
   const roleCounts = useMemo(
     () => ({
       owner: communities.filter((community) => community.role === "owner").length,
+      staff: communities.filter((community) => community.role === "admin" || community.role === "moderator").length,
       member: communities.filter((community) => community.role === "member").length,
     }),
     [communities],
@@ -71,7 +73,7 @@ export default function CommunitiesPage() {
       id: crypto.randomUUID(),
       name: normalized,
       description: description.trim(),
-       logoUrl: logoUrl.trim() || null,
+      logoUrl: logoUrl.trim() || null,
       bannerUrl: bannerUrl.trim() || null,
       privacy,
       mature,
@@ -82,6 +84,14 @@ export default function CommunitiesPage() {
       },
       textChannels: ["general"],
       voiceChannels: ["Lobby"],
+      tags: [],
+      category: null,
+      rules: ["Be kind", "No spam"],
+      announcement: null,
+      welcomeMessage: "Welcome to your new community!",
+      isFeatured: false,
+      isVerified: false,
+      joinMode: privacy === "public" ? "open" : "request",
     };
 
     setCommunities((current) => [newCommunity, ...current.filter((community) => community.id !== newCommunity.id)]);
@@ -98,7 +108,7 @@ export default function CommunitiesPage() {
           <section className="rounded-2xl border border-orange-300/25 bg-[#1a0d0b]/75 p-5">
             <h1 className="text-2xl font-bold text-orange-50">Your communities</h1>
             <p className="mt-1 text-sm text-orange-100/80">Use the left menu icon to open/close navigation and the + button to create communities.</p>
-            <p className="mt-2 text-xs text-orange-200/80">Owner: {roleCounts.owner} • Member: {roleCounts.member}</p>
+            <p className="mt-2 text-xs text-orange-200/80">Owner: {roleCounts.owner} • Staff: {roleCounts.staff} • Member: {roleCounts.member}</p>
 
             <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {communities.map((community) => (
@@ -121,7 +131,7 @@ export default function CommunitiesPage() {
         </main>
       </div>
 
-      {(isWizardOpen || (searchParams.get("create") === "1" && !createParamDismissed)) && (
+      {(isWizardOpen || (openFromCreateParam && !createParamDismissed)) && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4 py-8">
           <div className="w-full max-w-3xl rounded-2xl border border-slate-300/20 bg-[#111823] p-6 text-slate-100 shadow-2xl">
             <div className="mb-4 flex items-center justify-between">

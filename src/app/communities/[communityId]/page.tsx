@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Topbar from "@/components/Topbar";
 import Sidebar from "@/components/Sidebar";
+import { supabase } from "@/lib/supabase";
 import { COMMUNITY_STORAGE_KEY, Community, readStoredCommunities } from "@/lib/community-data";
 
 export default function CommunityDetailPage() {
@@ -11,6 +12,14 @@ export default function CommunityDetailPage() {
   const [communities, setCommunities] = useState<Community[]>(() => readStoredCommunities());
   const [textChannelDraft, setTextChannelDraft] = useState("");
   const [voiceChannelDraft, setVoiceChannelDraft] = useState("");
+  const [isCreatePostOpen, setIsCreatePostOpen] = useState(false);
+  const [postTitle, setPostTitle] = useState("");
+  const [postBody, setPostBody] = useState("");
+  const [postImage, setPostImage] = useState<File | null>(null);
+  const [isPostNsfw, setIsPostNsfw] = useState(false);
+  const [postTagDraft, setPostTagDraft] = useState("");
+  const [postTags, setPostTags] = useState<string[]>([]);
+  const [isSubmittingPost, setIsSubmittingPost] = useState(false);
 
   useEffect(() => {
     localStorage.setItem(COMMUNITY_STORAGE_KEY, JSON.stringify(communities));
@@ -22,7 +31,7 @@ export default function CommunityDetailPage() {
     event.preventDefault();
     const value = textChannelDraft.trim();
 
-    if (!activeCommunity || !value || activeCommunity.role !== "owner") {
+    if (!activeCommunity || !value || activeCommunity.role === "member") {
       return;
     }
 
@@ -41,7 +50,7 @@ export default function CommunityDetailPage() {
     event.preventDefault();
     const value = voiceChannelDraft.trim();
 
-    if (!activeCommunity || !value || activeCommunity.role !== "owner") {
+    if (!activeCommunity || !value || activeCommunity.role === "member") {
       return;
     }
 
@@ -54,6 +63,76 @@ export default function CommunityDetailPage() {
     );
 
     setVoiceChannelDraft("");
+  }
+
+  function addTag() {
+    const value = postTagDraft.trim();
+    if (!value || postTags.includes(value) || postTags.length > 4) {
+      return;
+    }
+
+    setPostTags((current) => [...current, value]);
+    setPostTagDraft("");
+  }
+
+  async function submitPost(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!activeCommunity || postTitle.trim().length < 3) {
+      return;
+    }
+
+    setIsSubmittingPost(true);
+    const { data: authData } = await supabase.auth.getUser();
+    const user = authData.user;
+
+    if (!user) {
+      alert("You must be logged in to post.");
+      setIsSubmittingPost(false);
+      return;
+    }
+
+    let mediaUrl: string | null = null;
+    if (postImage) {
+      const filePath = `posts/${crypto.randomUUID()}-${postImage.name}`;
+      const { error: uploadError } = await supabase.storage.from("media").upload(filePath, postImage);
+
+      if (uploadError) {
+        console.error(uploadError);
+        setIsSubmittingPost(false);
+        return;
+      }
+
+      const { data } = supabase.storage.from("media").getPublicUrl(filePath);
+      mediaUrl = data.publicUrl;
+    }
+
+    const payloadContent = [postBody.trim(), postTags.length ? `\n\nTags: ${postTags.join(", ")}` : "", isPostNsfw ? "\n\nNSFW" : ""]
+      .join("")
+      .trim();
+
+    const { error } = await supabase.from("posts").insert({
+      author_id: user.id,
+      community_id: activeCommunity.id,
+      title: postTitle.trim(),
+      content: payloadContent.length ? payloadContent : null,
+      media_url: mediaUrl,
+      post_type: mediaUrl ? "image" : "text",
+    });
+
+    if (error) {
+      console.error(error);
+      setIsSubmittingPost(false);
+      return;
+    }
+
+    setIsSubmittingPost(false);
+    setIsCreatePostOpen(false);
+    setPostTitle("");
+    setPostBody("");
+    setPostImage(null);
+    setIsPostNsfw(false);
+    setPostTagDraft("");
+    setPostTags([]);
   }
 
   return (
@@ -90,13 +169,13 @@ export default function CommunityDetailPage() {
                       )}
                     </div>
                     <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-orange-200/90">{activeCommunity.role}</p>
-                    <h1 className="text-4xl font-extrabold text-white">r/{activeCommunity.name}</h1>
-                    <p className="mt-1 max-w-3xl text-sm text-orange-100/80">{activeCommunity.description}</p>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-orange-200/90">{activeCommunity.role}</p>
+                      <h1 className="text-4xl font-extrabold text-white">r/{activeCommunity.name}</h1>
+                      <p className="mt-1 max-w-3xl text-sm text-orange-100/80">{activeCommunity.description}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button className="rounded-full border px-4 py-2 text-sm font-semibold text-white" style={{ borderColor: `${activeCommunity.theme.primary}88` }}>+ Create Post</button>
+                    <button onClick={() => setIsCreatePostOpen(true)} className="rounded-full border px-4 py-2 text-sm font-semibold text-white" style={{ borderColor: `${activeCommunity.theme.primary}88` }}>+ Create Post</button>
                     <button className="rounded-full px-4 py-2 text-sm font-semibold text-white" style={{ backgroundColor: activeCommunity.theme.primary }}>Mod Tools</button>
                   </div>
                 </div>
@@ -114,7 +193,7 @@ export default function CommunityDetailPage() {
                           </div>
                         ))}
                       </div>
-                      {activeCommunity.role === "owner" && (
+                      {activeCommunity.role !== "member" && (
                         <form onSubmit={addTextChannel} className="mt-2 flex gap-1">
                           <input
                             value={textChannelDraft}
@@ -138,7 +217,7 @@ export default function CommunityDetailPage() {
                           </div>
                         ))}
                       </div>
-                      {activeCommunity.role === "owner" && (
+                      {activeCommunity.role !== "member" && (
                         <form onSubmit={addVoiceChannel} className="mt-2 flex gap-1">
                           <input
                             value={voiceChannelDraft}
@@ -152,12 +231,6 @@ export default function CommunityDetailPage() {
                         </form>
                       )}
                     </section>
-
-                    <section className="rounded-lg border border-[#653022] bg-[#2b0f0a] p-3">
-                      <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.15em] text-orange-200">Admin Channels</div>
-                      <p className="text-sm text-orange-50">⚙ community-settings</p>
-                      <p className="mt-1 text-sm text-orange-50">🛡 moderation-queue</p>
-                    </section>
                   </div>
                 </aside>
 
@@ -165,37 +238,101 @@ export default function CommunityDetailPage() {
                   <div className="min-h-[460px] rounded-2xl border border-[#633126] bg-[#2c0e09]/85 p-8 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
                     <h2 className="mt-20 text-4xl font-bold text-slate-100">This community doesn&apos;t have any posts yet</h2>
                     <p className="mt-2 text-lg text-orange-200">Make one and get this feed started.</p>
-                    <button className="mt-6 rounded-full px-6 py-3 font-semibold text-white" style={{ backgroundColor: activeCommunity.theme.primary }}>Create Post</button>
+                    <button onClick={() => setIsCreatePostOpen(true)} className="mt-6 rounded-full px-6 py-3 font-semibold text-white" style={{ backgroundColor: activeCommunity.theme.primary }}>Create Post</button>
                   </div>
                 </div>
 
                 <aside className="space-y-3 bg-[#190705]/70 p-4">
                   <section className="rounded-xl border border-[#653022] bg-[#2a0e09] p-4">
                     <h3 className="text-xl font-bold text-orange-50">{activeCommunity.name}</h3>
-                    <p className="mt-2 text-sm text-orange-200/90">Will be added</p>
+                    <p className="mt-2 text-sm text-orange-200/90">{activeCommunity.welcomeMessage ?? "Will be added"}</p>
                     <div className="mt-3 space-y-1 text-sm text-orange-100/95">
-                      <p>🌐 {activeCommunity.privacy}</p>
+                      <p>🌐 {activeCommunity.privacy} • {activeCommunity.joinMode}</p>
                       <p>🔞 {activeCommunity.mature ? "Adult content" : "General"}</p>
+                      <p>🏷️ {activeCommunity.tags.join(", ") || "No tags yet"}</p>
+                      <p>📁 {activeCommunity.category ?? "No category"}</p>
                     </div>
                     <button className="mt-4 w-full rounded-full py-2 text-sm font-semibold text-white" style={{ backgroundColor: activeCommunity.theme.primary }}>Community Guide</button>
                   </section>
 
                   <section className="rounded-xl border border-[#653022] bg-[#2a0e09] p-4">
-                    <h4 className="text-sm font-semibold uppercase tracking-wide text-orange-200">r/{activeCommunity.name.toUpperCase()} Rules</h4>
+                    <h4 className="text-sm font-semibold uppercase tracking-wide text-orange-200">Community rules</h4>
                     <ol className="mt-3 space-y-2 text-sm text-orange-100">
-                      <li>1. Respect others and be civil</li>
-                      <li>2. No spam</li>
+                      {activeCommunity.rules.map((rule, index) => (
+                        <li key={rule}>{index + 1}. {rule}</li>
+                      ))}
                     </ol>
+                    {activeCommunity.announcement && <p className="mt-3 rounded bg-black/30 px-2 py-1 text-xs text-orange-200">📢 {activeCommunity.announcement}</p>}
                   </section>
 
                   <section className="rounded-xl border border-[#653022] bg-[#2a0e09] p-4">
-                    <h4 className="text-sm font-semibold uppercase tracking-wide text-orange-200">Moderators</h4>
-                    <button className="mt-3 w-full rounded-full py-2 text-sm font-semibold text-white" style={{ backgroundColor: activeCommunity.theme.primary }}>Message Mods</button>
-                    <p className="mt-3 text-sm text-orange-100">u/JeroenTheNaturist</p>
+                    <h4 className="text-sm font-semibold uppercase tracking-wide text-orange-200">Community systems</h4>
+                    <p className="mt-2 text-xs text-orange-100">Featured, verification, leaderboards, wiki, file library, event board, member directory, polls, milestones, highlights, and moderators chat are now scaffolded in the schema update plan.</p>
                   </section>
                 </aside>
               </div>
             </section>
+          )}
+
+          {activeCommunity && isCreatePostOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-8">
+              <div className="w-full max-w-4xl rounded-2xl border border-slate-300/20 bg-[#0f141b] p-6 text-slate-100 shadow-2xl">
+                <div className="mb-4 flex items-center justify-between">
+                  <h3 className="text-4xl font-bold text-slate-100">Create post</h3>
+                  <button onClick={() => setIsCreatePostOpen(false)} className="rounded-full border border-slate-400/40 px-3 py-1 text-sm" type="button">✕</button>
+                </div>
+                <p className="text-sm text-slate-300">r/{activeCommunity.name}</p>
+
+                <form onSubmit={submitPost} className="mt-5 space-y-4">
+                  <div className="flex gap-6 border-b border-slate-500/30 pb-2 text-lg font-semibold">
+                    <p className="border-b-2 border-blue-400 pb-2">Post</p>
+                  </div>
+
+                  <div className="flex items-center gap-3 text-sm">
+                    <label className="inline-flex items-center gap-2 text-pink-300">
+                      <input type="checkbox" checked={isPostNsfw} onChange={(event) => setIsPostNsfw(event.target.checked)} /> NSFW
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        value={postTagDraft}
+                        onChange={(event) => setPostTagDraft(event.target.value)}
+                        placeholder="Add tag"
+                        className="rounded-full border border-slate-400/30 bg-black/40 px-3 py-1 text-xs"
+                      />
+                      <button type="button" onClick={addTag} className="rounded-full bg-slate-700 px-3 py-1 text-xs font-semibold">Add</button>
+                    </div>
+                    {postTags.length > 0 && <p className="text-xs text-slate-300">{postTags.join(" • ")}</p>}
+                  </div>
+
+                  <input
+                    value={postTitle}
+                    onChange={(event) => setPostTitle(event.target.value)}
+                    maxLength={300}
+                    required
+                    placeholder="Title*"
+                    className="w-full rounded-2xl border border-slate-400/30 bg-transparent px-4 py-3 text-lg"
+                  />
+
+                  <div className="rounded-2xl border border-dashed border-slate-400/30 bg-slate-900/40 p-5">
+                    <label className="text-sm text-slate-300">Image (optional)</label>
+                    <input type="file" accept="image/*" className="mt-2 block w-full text-sm" onChange={(event) => setPostImage(event.target.files?.[0] ?? null)} />
+                  </div>
+
+                  <textarea
+                    value={postBody}
+                    onChange={(event) => setPostBody(event.target.value)}
+                    placeholder="Body text (optional)"
+                    rows={8}
+                    className="w-full rounded-2xl border border-slate-400/30 bg-transparent p-4"
+                  />
+
+                  <div className="flex justify-end gap-2">
+                    <button type="button" onClick={() => setIsCreatePostOpen(false)} className="rounded-full border border-slate-500/40 px-5 py-2 text-sm">Cancel</button>
+                    <button type="submit" disabled={isSubmittingPost} className="rounded-full bg-blue-600 px-6 py-2 text-sm font-semibold text-white disabled:opacity-50">{isSubmittingPost ? "Posting..." : "Post"}</button>
+                  </div>
+                </form>
+              </div>
+            </div>
           )}
         </main>
       </div>

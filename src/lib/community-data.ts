@@ -1,10 +1,12 @@
 export type CommunityPrivacy = "public" | "restricted" | "private";
-export type CommunityRole = "owner" | "member";
+export type CommunityRole = "owner" | "admin" | "moderator" | "member";
 
 export type CommunityTheme = {
   primary: string;
   secondary: string;
 };
+
+export type JoinMode = "open" | "request" | "invite_only";
 
 export type Community = {
   id: string;
@@ -18,6 +20,14 @@ export type Community = {
   theme: CommunityTheme;
   textChannels: string[];
   voiceChannels: string[];
+  tags: string[];
+  category: string | null;
+  rules: string[];
+  announcement: string | null;
+  welcomeMessage: string | null;
+  isFeatured: boolean;
+  isVerified: boolean;
+  joinMode: JoinMode;
 };
 
 export const COMMUNITY_STORAGE_KEY = "bareunity-communities";
@@ -40,6 +50,14 @@ export const seedCommunities: Community[] = [
     theme: { primary: "#ff5a0a", secondary: "#340b05" },
     textChannels: ["general", "announcements", "introductions"],
     voiceChannels: ["Lobby", "Town Hall"],
+    tags: ["naturism", "events", "support"],
+    category: "Lifestyle",
+    rules: ["Respect others", "No spam", "Keep content relevant to naturism"],
+    announcement: "Summer meetup planning thread is now live.",
+    welcomeMessage: "Welcome! Introduce yourself in #introductions.",
+    isFeatured: true,
+    isVerified: true,
+    joinMode: "open",
   },
   {
     id: "0a2db4c6-03db-43df-a273-bf7c5326f4e4",
@@ -49,10 +67,18 @@ export const seedCommunities: Community[] = [
     bannerUrl: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1600&q=80",
     privacy: "restricted",
     mature: false,
-    role: "member",
+    role: "moderator",
     theme: { primary: "#4d8f55", secondary: "#0f2613" },
     textChannels: ["general", "trip-plans"],
     voiceChannels: ["General"],
+    tags: ["camping", "outdoors"],
+    category: "Travel",
+    rules: ["Camp responsibly", "Share confirmed trip details"],
+    announcement: "Next campfire voice hangout Friday 8pm.",
+    welcomeMessage: "Share your campsite setup in #general.",
+    isFeatured: false,
+    isVerified: false,
+    joinMode: "request",
   },
   {
     id: "7a598228-86af-4f9e-90e0-49e2891ecf3b",
@@ -66,10 +92,30 @@ export const seedCommunities: Community[] = [
     theme: { primary: "#a046bd", secondary: "#2a0f31" },
     textChannels: ["welcome", "resources"],
     voiceChannels: ["Support Room"],
+    tags: ["wellbeing", "mindset"],
+    category: "Support",
+    rules: ["Empathy first", "No harassment", "Protect member privacy"],
+    announcement: null,
+    welcomeMessage: "Take your time and share when ready.",
+    isFeatured: false,
+    isVerified: true,
+    joinMode: "invite_only",
   },
 ];
 
-function normalizeCommunity(community: Community | (Community & { theme?: CommunityTheme })): Community {
+type CommunityDraft = Community & {
+  theme?: CommunityTheme;
+  tags?: string[];
+  category?: string | null;
+  rules?: string[];
+  announcement?: string | null;
+  welcomeMessage?: string | null;
+  isFeatured?: boolean;
+  isVerified?: boolean;
+  joinMode?: JoinMode;
+};
+
+function normalizeCommunity(community: CommunityDraft): Community {
   const nextId = isUuid(community.id)
     ? community.id
     : typeof crypto !== "undefined"
@@ -82,9 +128,16 @@ function normalizeCommunity(community: Community | (Community & { theme?: Commun
     logoUrl: community.logoUrl ?? null,
     bannerUrl: community.bannerUrl ?? null,
     theme: community.theme ?? defaultTheme,
+    tags: community.tags ?? [],
+    category: community.category ?? null,
+    rules: community.rules ?? ["Be respectful"],
+    announcement: community.announcement ?? null,
+    welcomeMessage: community.welcomeMessage ?? null,
+    isFeatured: community.isFeatured ?? false,
+    isVerified: community.isVerified ?? false,
+    joinMode: community.joinMode ?? "open",
   };
 }
-
 
 function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
@@ -101,7 +154,7 @@ export function readStoredCommunities() {
   }
 
   try {
-    const parsed = JSON.parse(stored) as Array<Community & { theme?: CommunityTheme }>;
+    const parsed = JSON.parse(stored) as CommunityDraft[];
     return parsed.map((community) => normalizeCommunity(community));
   } catch {
     return seedCommunities;
