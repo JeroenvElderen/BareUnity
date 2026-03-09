@@ -41,27 +41,22 @@ export default function PostCard({ post }: { post: Post }) {
   }
 
   return (
-    <article className="rounded-2xl border border-sand/20 bg-card/75 p-4 shadow-[0_24px_50px_-36px_rgba(0,0,0,0.95)] backdrop-blur transition hover:-translate-y-0.5 hover:border-sand/35">
-      <div className="mb-3 flex items-center gap-3">
-        {profile?.avatar_url && (
-          <Image
-            src={profile.avatar_url}
-            alt="User avatar"
-            width={40}
-            height={40}
-            className="rounded-full border border-sand/40"
-          />
+    <article className="glass-card-strong p-4 md:p-5">
+      <div className="mb-4 flex items-center gap-3">
+        {profile?.avatar_url ? (
+          <Image src={profile.avatar_url} alt="User avatar" width={44} height={44} className="rounded-full border border-accent/30" />
+        ) : (
+          <div className="h-11 w-11 rounded-full border border-accent/30 bg-white/10" />
         )}
 
         <div>
-          <p className="font-semibold text-sand">{profile?.username ?? "Unknown"}</p>
-          <p className="text-sm text-text/65">{new Date(post.created_at).toLocaleString()}</p>
+          <p className="font-semibold text-accent">{profile?.username ?? "Unknown"}</p>
+          <p className="text-xs text-muted">{new Date(post.created_at).toLocaleString()}</p>
         </div>
       </div>
 
-      {post.title && <h2 className="mb-2 text-lg font-bold text-text">{post.title}</h2>}
-
-      {post.content && <p className="mb-3 text-text/90">{post.content}</p>}
+      {post.title && <h2 className="mb-2 text-xl font-semibold text-text">{post.title}</h2>}
+      {post.content && <p className="mb-4 text-sm leading-6 text-text/90">{post.content}</p>}
 
       {post.media_url && (
         <Image
@@ -69,30 +64,30 @@ export default function PostCard({ post }: { post: Post }) {
           alt="Post image"
           width={800}
           height={500}
-          className="max-h-[500px] rounded-xl border border-sand/20 object-cover"
+          className="max-h-[520px] w-full rounded-2xl border border-accent/20 object-cover"
         />
       )}
 
-      <div className="mt-4 rounded-xl border border-sand/15 bg-pine-2/55 p-3">
+      <div className="mt-4 rounded-2xl border border-accent/15 bg-bg/40 p-3">
         <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => applyVote(vote === 1 ? 0 : 1)}
-              className={`rounded-lg border border-sand/25 px-3 py-1 text-sm font-semibold ${vote === 1 ? "bg-sand text-pine" : "bg-sand/15 text-sand"}`}
+              className={`rounded-lg border px-3 py-1 text-sm font-semibold transition ${vote === 1 ? "border-accent/55 bg-accent/80 text-[#102744]" : "border-accent/20 bg-white/5 text-text"}`}
             >
               ▲ Upvote
             </button>
-            <span className="min-w-10 text-center text-sm font-semibold text-text">{score}</span>
+            <span className="min-w-10 text-center text-sm font-semibold text-text/90">{score}</span>
             <button
               type="button"
               onClick={() => applyVote(vote === -1 ? 0 : -1)}
-              className={`rounded-lg border border-sand/25 px-3 py-1 text-sm font-semibold ${vote === -1 ? "bg-sand text-pine" : "bg-sand/15 text-sand"}`}
+              className={`rounded-lg border px-3 py-1 text-sm font-semibold transition ${vote === -1 ? "border-brand-2/50 bg-brand-2/75 text-[#102744]" : "border-accent/20 bg-white/5 text-text"}`}
             >
               ▼ Downvote
             </button>
           </div>
-          <p className="text-sm font-medium text-text/75">{commentCountLabel}</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-muted">{commentCountLabel}</p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -101,13 +96,9 @@ export default function PostCard({ post }: { post: Post }) {
             value={commentText}
             onChange={(e) => setCommentText(e.target.value)}
             placeholder="Add a comment"
-            className="w-full rounded-lg border border-sand/20 bg-sand/90 px-3 py-2 text-sm text-pine outline-none placeholder:text-pine/55 focus:ring-2 focus:ring-sand/35"
+            className="w-full rounded-lg border border-accent/20 bg-white/5 px-3 py-2 text-sm text-text outline-none placeholder:text-muted focus:border-accent/35"
           />
-          <button
-            type="button"
-            onClick={addComment}
-            className="rounded-lg border border-sand/25 bg-sand/15 px-3 py-2 text-sm font-semibold text-sand transition hover:bg-sand/30"
-          >
+          <button type="button" onClick={addComment} className="soft-button px-3 py-2 text-sm">
             Comment
           </button>
         </div>
@@ -115,9 +106,9 @@ export default function PostCard({ post }: { post: Post }) {
         {comments.length > 0 && (
           <div className="mt-3 space-y-2">
             {comments.map((comment) => (
-              <div key={comment.id} className="rounded-lg border border-sand/10 bg-card/80 px-3 py-2">
-                <p className="text-xs font-semibold uppercase tracking-wide text-sand/70">{comment.author}</p>
-                <p className="text-sm text-text">{comment.body}</p>
+              <div key={comment.id} className="rounded-xl border border-accent/15 bg-white/5 px-3 py-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-accent/75">{comment.author}</p>
+                <p className="text-sm text-text/90">{comment.body}</p>
               </div>
             ))}
           </div>

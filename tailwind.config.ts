@@ -10,17 +10,19 @@ const config: Config = {
         text: "rgb(var(--text) / <alpha-value>)",
         muted: "rgb(var(--muted) / <alpha-value>)",
         border: "rgb(var(--border) / <alpha-value>)",
-        pine: "rgb(var(--pine) / <alpha-value>)",
-        "pine-2": "rgb(var(--pine-2) / <alpha-value>)",
-        sand: "rgb(var(--sand) / <alpha-value>)",
-        "sand-2": "rgb(var(--sand-2) / <alpha-value>)",
         ring: "rgb(var(--ring) / <alpha-value>)",
+
+        brand: "rgb(var(--brand) / <alpha-value>)",
+        "brand-2": "rgb(var(--brand-2) / <alpha-value>)",
+        accent: "rgb(var(--accent) / <alpha-value>)",
+
+        pine: "rgb(var(--card-2) / <alpha-value>)",
+        "pine-2": "rgb(var(--bg-soft) / <alpha-value>)",
+        sand: "rgb(var(--accent) / <alpha-value>)",
+        "sand-2": "rgb(var(--muted) / <alpha-value>)",
       },
       boxShadow: {
-        soft: "0 1px 2px rgba(0,0,0,0.08)",
-      },
-      borderRadius: {
-        xl: "14px",
+        soft: "0 18px 45px -35px rgba(1,8,20,0.8)",
       },
     },
   },

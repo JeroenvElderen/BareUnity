@@ -16,6 +16,7 @@ export default function CreatePost() {
 
     if (!user) {
       alert("You must be logged in");
+      setLoading(false);
       return;
     }
 
@@ -23,7 +24,6 @@ export default function CreatePost() {
 
     if (image) {
       const filePath = `posts/${crypto.randomUUID()}-${image.name}`;
-
       const { error } = await supabase.storage.from("media").upload(filePath, image);
 
       if (error) {
@@ -49,33 +49,35 @@ export default function CreatePost() {
     setContent("");
     setImage(null);
     setLoading(false);
-
     window.location.reload();
   }
 
   return (
-    <div className="mb-6 rounded-2xl border border-sand/20 bg-card/75 p-4 shadow-[0_20px_45px_-35px_rgba(0,0,0,0.95)] backdrop-blur">
+    <section className="glass-card-strong p-4 md:p-5">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-accent/80">Create post</h2>
+        <span className="text-xs text-muted">Share an update</span>
+      </div>
+
       <textarea
-        placeholder="Share something..."
-        className="mb-3 w-full rounded-xl border border-sand/20 bg-sand/80 p-3 text-pine outline-none placeholder:text-pine/55 focus:ring-2 focus:ring-sand/30"
+        placeholder="What are you experiencing today?"
+        className="mb-3 min-h-28 w-full rounded-2xl border border-accent/20 bg-bg/40 p-3 text-sm text-text outline-none placeholder:text-muted focus:border-accent/35"
         value={content}
         onChange={(e) => setContent(e.target.value)}
       />
 
-      <input
-        type="file"
-        accept="image/*"
-        className="rounded-lg border border-sand/15 bg-sand/10 p-2 text-sm text-text"
-        onChange={(e) => setImage(e.target.files?.[0] || null)}
-      />
+      <div className="flex flex-wrap items-center gap-3">
+        <input
+          type="file"
+          accept="image/*"
+          className="max-w-full rounded-xl border border-accent/20 bg-white/5 p-2 text-xs text-text file:mr-3 file:rounded-lg file:border-0 file:bg-white/10 file:px-2 file:py-1 file:text-text"
+          onChange={(e) => setImage(e.target.files?.[0] || null)}
+        />
 
-      <button
-        onClick={handleSubmit}
-        disabled={loading}
-        className="mt-3 rounded-xl border border-sand/30 bg-gradient-to-r from-pine to-pine-2 px-4 py-2 font-semibold text-sand transition hover:brightness-110 disabled:opacity-60"
-      >
-        {loading ? "Posting..." : "Post"}
-      </button>
-    </div>
+        <button onClick={handleSubmit} disabled={loading} className="premium-button text-sm disabled:opacity-60">
+          {loading ? "Posting..." : "Publish"}
+        </button>
+      </div>
+    </section>
   );
 }

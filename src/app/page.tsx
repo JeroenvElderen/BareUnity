@@ -6,7 +6,6 @@ import Feed from "@/components/Feed";
 import CreatePost from "@/components/CreatePost";
 
 export default function Home() {
-  
   return (
     <div className="min-h-screen text-text">
       <Topbar />
@@ -15,7 +14,15 @@ export default function Home() {
         <div className="flex">
           <Sidebar />
 
-          <main className="flex-1 px-4 py-6">
+          <main className="flex-1 px-4 py-6 md:px-6">
+            <section className="glass-card mb-6 p-6">
+              <p className="text-xs uppercase tracking-[0.24em] text-accent/80">BareUnity social lounge</p>
+              <h1 className="mt-2 text-3xl font-semibold text-text md:text-4xl">A premium, calm social space.</h1>
+              <p className="mt-2 max-w-2xl text-sm text-muted">
+                Discover communities, share stories, and connect with people who value authenticity, wellness, and freedom.
+              </p>
+            </section>
+
             <div className="mx-auto max-w-2xl space-y-6">
               <CreatePost />
               <Feed />
@@ -24,29 +31,27 @@ export default function Home() {
 
           <aside className="hidden px-4 py-6 xl:block xl:w-80 xl:shrink-0">
             <div className="sticky top-20 space-y-4">
-              <div className="rounded-2xl border border-sand/20 bg-card/70 p-4 shadow-[0_18px_45px_-35px_rgba(0,0,0,0.9)] backdrop-blur">
-                <div className="mb-2 font-semibold text-sand">Popular Communities</div>
-                <div className="space-y-2 text-sm text-text/90">
-                  <div className="flex items-center justify-between">
+              <div className="glass-card p-4">
+                <div className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-accent/80">Trending circles</div>
+                <div className="space-y-2 text-sm text-text">
+                  <div className="flex items-center justify-between rounded-xl border border-accent/15 bg-white/5 px-3 py-2">
                     <span>🌿 First Time Naturists</span>
-                    <button className="rounded-lg border border-sand/25 bg-sand/15 px-2 py-1 text-xs transition hover:bg-sand/30">Join</button>
+                    <button className="soft-button px-2 py-1 text-xs">Join</button>
                   </div>
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between rounded-xl border border-accent/15 bg-white/5 px-3 py-2">
                     <span>🏖 Beaches & Spots</span>
-                    <button className="rounded-lg border border-sand/25 bg-sand/15 px-2 py-1 text-xs transition hover:bg-sand/30">Join</button>
+                    <button className="soft-button px-2 py-1 text-xs">Join</button>
                   </div>
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between rounded-xl border border-accent/15 bg-white/5 px-3 py-2">
                     <span>📅 Events</span>
-                    <button className="rounded-lg border border-sand/25 bg-sand/15 px-2 py-1 text-xs transition hover:bg-sand/30">Join</button>
+                    <button className="soft-button px-2 py-1 text-xs">Join</button>
                   </div>
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-sand/20 bg-card/70 p-4 shadow-[0_18px_45px_-35px_rgba(0,0,0,0.9)] backdrop-blur">
-                <div className="mb-2 font-semibold text-sand">Guidelines</div>
-                <p className="text-sm text-text/80">
-                  Naturism-only. No explicit sexual content. Consent required for identifiable images.
-                </p>
+              <div className="glass-card p-4">
+                <div className="mb-2 text-sm font-semibold uppercase tracking-[0.2em] text-accent/80">House rules</div>
+                <p className="text-sm text-muted">Be respectful, keep content consensual, and post only non-explicit naturism-focused media.</p>
               </div>
             </div>
           </aside>
