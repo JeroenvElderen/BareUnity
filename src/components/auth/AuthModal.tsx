@@ -113,7 +113,7 @@ export default function AuthModal({ open, onClose }: Props) {
           </button>
 
           <p className="text-xs text-muted">
-            By continuing, you agree to follow community guidelines. No sexual content, no solicitation,
+            By continuing, you agree to follow channel guidelines. No sexual content, no solicitation,
             consent required for identifiable photos.
           </p>
         </div>

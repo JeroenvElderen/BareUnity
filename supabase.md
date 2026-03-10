@@ -14,6 +14,18 @@ This file is the **current schema reference** for the `public` schema in this pr
 
 ---
 
+## Brand-only mode SQL
+
+To enforce a single shared channel workspace at the database level, run `supabase-brand-mode.sql` in Supabase SQL editor.
+
+It adds:
+- `public.platform_settings` singleton config (`brand_mode`, `allow_user_community_creation`, `primary_community_id`)
+- `public.is_platform_admin(uuid)` helper function
+- RLS policies that:
+  - allow read access to communities
+  - block creating any additional communities
+  - allow channel/membership management only for admins in the primary workspace
+
 ## Current Table Inventory (`public`)
 
 ### Core profile/content
