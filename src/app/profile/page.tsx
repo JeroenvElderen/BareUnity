@@ -342,7 +342,7 @@ export default function ProfilePage() {
                 <div className="rounded-2xl border border-pine/20 bg-card p-4">
                   <div className="mb-3 h-24 rounded-xl" style={{ background: `linear-gradient(90deg, ${profilePrimary}, ${profileSecondary})` }} />
                   <h3 className="text-xl font-bold text-sand">{username}</h3>
-                  <p className="text-sm text-muted">🌿 Living naturally and building a kind community.</p>
+                  <p className="text-sm text-muted">🌿 Living naturally and building a kind channel space.</p>
                 </div>
                 
                 {renderSettingsPanel()}

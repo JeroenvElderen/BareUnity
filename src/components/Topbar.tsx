@@ -14,7 +14,7 @@ export default function Topbar() {
               <span className="text-sm text-accent/80">⌕</span>
               <input
                 className="w-full bg-transparent text-sm text-text outline-none placeholder:text-muted"
-                placeholder="Search communities, stories, creators, events..."
+                placeholder="Search channels, stories, creators, events..."
               />
             </div>
           </div>

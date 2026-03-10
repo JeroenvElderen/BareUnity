@@ -8,7 +8,7 @@ import { ensureProfileExists } from "@/lib/profile";
 
 const mainMenuLinks = [
   { href: "/", label: "Home feed" },
-  { href: "/communities", label: "Communities" },
+  { href: "/channels", label: "Channels" },
   { href: "/events", label: "Events" },
   { href: "/map", label: "Map" },
   { href: "/saved", label: "Saved" },
