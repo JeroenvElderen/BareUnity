@@ -5,11 +5,10 @@ import { useEffect, useMemo, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 
-type TabKey = "Posts" | "Comments" | "Saved" | "Upvoted" | "Settings";
+type TabKey = "Overview" | "Posts" | "Comments" | "Gallery" | "Upvoted" | "Settings";
 type FeedStyle = "balanced" | "magazine";
 
-const tabs: TabKey[] = ["Posts", "Comments", "Saved", "Upvoted", "Settings"];
-const settingsMenuItems = ["Profile style", "Feed style", "Privacy", "Friend requests", "Friends"] as const;
+const tabs: TabKey[] = ["Overview", "Posts", "Comments", "Gallery", "Upvoted", "Settings"];
 
 type MediaPost = { id: string; media_url: string | null; title: string | null; created_at: string };
 type ProfilePost = { id: string; title: string | null; content: string | null; media_url: string | null; created_at: string };
@@ -49,8 +48,7 @@ const defaultSettings = {
 
 export default function ProfilePage() {
   const [user, setUser] = useState<User | null>(null);
-  const [activeTab, setActiveTab] = useState<TabKey>("Posts");
-  const [activeSettingsItem, setActiveSettingsItem] = useState<(typeof settingsMenuItems)[number]>("Profile style");
+  const [activeTab, setActiveTab] = useState<TabKey>("Overview");
 
   const [profilePrimary, setProfilePrimary] = useState(defaultSettings.profilePrimary);
   const [profileSecondary, setProfileSecondary] = useState(defaultSettings.profileSecondary);
@@ -59,6 +57,8 @@ export default function ProfilePage() {
   const [friends, setFriends] = useState<Friend[]>(defaultSettings.friends);
   const [friendRequests, setFriendRequests] = useState<FriendRequest[]>(defaultSettings.friendRequests);
   const [introduction, setIntroduction] = useState(defaultSettings.introduction);
+  const [profileImageUrl, setProfileImageUrl] = useState("");
+  const [bannerImageUrl, setBannerImageUrl] = useState("");
 
   const [profilePosts, setProfilePosts] = useState<ProfilePost[]>([]);
   const [profileComments, setProfileComments] = useState<ProfileComment[]>([]);
@@ -84,10 +84,19 @@ export default function ProfilePage() {
   }, [userPostsCount, totalPostsCount]);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setUser(data.session?.user ?? null));
+    supabase.auth.getSession().then(({ data }) => {
+      const authUser = data.session?.user ?? null;
+      setUser(authUser);
+      setProfileImageUrl((authUser?.user_metadata?.avatar_url as string) ?? "");
+      setBannerImageUrl((authUser?.user_metadata?.banner_url as string) ?? "");
+    });
+
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      if (!session?.user) {
+      const authUser = session?.user ?? null;
+      setUser(authUser);
+      setProfileImageUrl((authUser?.user_metadata?.avatar_url as string) ?? "");
+      setBannerImageUrl((authUser?.user_metadata?.banner_url as string) ?? "");
+      if (!authUser) {
         setProfilePosts([]);
         setProfileComments([]);
         setMediaPosts([]);
@@ -264,8 +273,6 @@ export default function ProfilePage() {
     { label: "Badges", value: badgesCount.toLocaleString() },
   ];
 
-  const featuredCards = ["Featured Story", "Story Slot 2", "Story Slot 3", "Story Slot 4", "Story Slot 5", "Story Slot 6"];
-
   return (
     <div className="min-h-screen bg-[#030816] p-3 text-cyan-50 md:p-5">
       <div className="flex w-full rounded-[26px] border border-cyan-200/15 bg-[#050e21] shadow-[0_0_0_1px_rgba(125,211,252,0.05),0_24px_80px_-30px_rgba(0,0,0,0.8)]">
@@ -304,8 +311,13 @@ export default function ProfilePage() {
 
           <section className="relative overflow-hidden rounded-3xl border border-cyan-100/20 p-6" style={{ background: `linear-gradient(110deg, ${profilePrimary}66, #0e2a3f 50%, ${profileSecondary}99)` }}>
             <div className="flex items-end gap-4">
-              <div className="flex h-20 w-20 items-center justify-center rounded-full border-4 border-[#081124] text-2xl font-bold text-[#041222]" style={{ background: `linear-gradient(145deg, ${profilePrimary}, #1ee2bb)` }}>
-                {username.slice(0, 1).toUpperCase()}
+              <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-4 border-[#081124] text-2xl font-bold text-[#041222]" style={{ background: `linear-gradient(145deg, ${profilePrimary}, #1ee2bb)` }}>
+                {profileImageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={profileImageUrl} alt="Profile" className="h-full w-full object-cover" />
+                ) : (
+                  username.slice(0, 1).toUpperCase()
+                )}
               </div>
               <div>
                 <h1 className="text-4xl font-bold text-cyan-50">{username}</h1>
@@ -323,90 +335,160 @@ export default function ProfilePage() {
             ))}
           </section>
 
-          <section className="mt-4 grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)]">
-            <div className="space-y-4">
-              <article className="rounded-3xl border border-cyan-100/15 bg-[#08182f] p-4">
-                <h2 className="text-2xl font-semibold text-cyan-100">Introduction</h2>
-                <textarea
-                  value={introduction}
-                  onChange={(event) => setIntroduction(event.target.value.slice(0, 220))}
-                  placeholder="Introduce yourself in a short sentence..."
-                  className="mt-3 h-28 w-full resize-none rounded-xl border border-cyan-100/20 bg-[#091629] p-3 text-sm text-cyan-50 outline-none placeholder:text-cyan-100/50"
-                />
-              </article>
-
-              {activeTab === "Settings" && (
-                <>
-                  <div className="grid grid-cols-2 gap-2">
-                    {settingsMenuItems.map((item) => (
-                      <button
-                        key={item}
-                        type="button"
-                        onClick={() => setActiveSettingsItem(item)}
-                        className={`rounded-xl border px-3 py-2 text-left text-xs ${activeSettingsItem === item ? "border-cyan-200/45 bg-cyan-200/20 text-cyan-50" : "border-cyan-100/20 bg-[#091629] text-cyan-100/70"}`}
-                      >
-                        {item}
-                      </button>
+          <section className="mt-4 rounded-3xl border border-cyan-100/15 bg-[#08182f] p-4">
+            {activeTab === "Overview" && (
+              <div className="space-y-3">
+                <h2 className="text-2xl font-semibold text-cyan-100">Profile Overview</h2>
+                <p className="text-sm text-cyan-100/70">Your profile activity at a glance.</p>
+                {profilePosts.length === 0 ? (
+                  <div className="rounded-2xl border border-cyan-100/15 bg-[#091629] p-4 text-sm text-cyan-100/70">No posts yet. Share your first story to populate your overview.</div>
+                ) : (
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {profilePosts.slice(0, 2).map((post) => (
+                      <div key={post.id} className="rounded-2xl border border-cyan-100/15 bg-[#091629] p-4">
+                        <p className="text-xs text-cyan-100/60">{new Date(post.created_at).toLocaleString()}</p>
+                        {post.title && <h3 className="mt-1 text-lg font-semibold">{post.title}</h3>}
+                        {post.content && <p className="mt-2 text-sm text-cyan-100/85">{post.content}</p>}
+                      </div>
                     ))}
                   </div>
+                )}
+              </div>
+            )}
 
-                  {activeSettingsItem === "Profile style" && (
-                    <section className="rounded-2xl border border-white/15 bg-[#0f2037]/80 p-4">
-                      <h3 className="text-sm font-semibold text-cyan-100">Custom profile colors</h3>
-                      <div className="mt-3 grid grid-cols-2 gap-3">
-                        <label className="text-xs text-cyan-100/70">Primary<input type="color" value={profilePrimary} onChange={(event) => setProfilePrimary(event.target.value)} className="mt-1 h-9 w-full rounded border border-white/20 bg-transparent" /></label>
-                        <label className="text-xs text-cyan-100/70">Secondary<input type="color" value={profileSecondary} onChange={(event) => setProfileSecondary(event.target.value)} className="mt-1 h-9 w-full rounded border border-white/20 bg-transparent" /></label>
+            {activeTab === "Posts" && (
+              <div className="space-y-3">
+                {profilePosts.length === 0 ? <p className="text-sm text-cyan-100/65">No posts yet.</p> : profilePosts.map((post) => (
+                  <div key={post.id} className="rounded-2xl border border-cyan-100/15 bg-[#091629] p-4">
+                    <p className="text-xs text-cyan-100/60">{new Date(post.created_at).toLocaleString()}</p>
+                    {post.title && <h3 className="mt-1 text-lg font-semibold">{post.title}</h3>}
+                    {post.content && <p className="mt-2 text-sm text-cyan-100/85">{post.content}</p>}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {activeTab === "Comments" && (
+              <div className="space-y-3">
+                {profileComments.length === 0 ? (
+                  <p className="text-sm text-cyan-100/65">{commentsTableMissing ? "Comments table is not available yet. Run the SQL migration below." : "No comments yet."}</p>
+                ) : profileComments.map((comment) => (
+                  <div key={comment.id} className="rounded-2xl border border-cyan-100/15 bg-[#091629] p-4">
+                    <p className="text-xs text-cyan-100/60">{new Date(comment.created_at).toLocaleString()}</p>
+                    <p className="mt-2 text-sm text-cyan-100/90">{comment.body ?? comment.content ?? "(empty comment)"}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {activeTab === "Gallery" && (
+              <div>
+                {mediaPosts.length === 0 ? (
+                  <p className="text-sm text-cyan-100/65">No uploaded images yet.</p>
+                ) : (
+                  <div className="columns-1 gap-3 sm:columns-2 lg:columns-3">
+                    {mediaPosts.map((post) => (
+                      <div key={post.id} className="mb-3 break-inside-avoid overflow-hidden rounded-xl border border-cyan-100/15 bg-[#071225]">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={post.media_url ?? ""} alt={post.title ?? "Gallery image"} className="w-full object-cover" />
                       </div>
-                    </section>
-                  )}
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
-                  {activeSettingsItem === "Feed style" && (
-                    <section className="rounded-2xl border border-white/15 bg-[#0f2037]/80 p-4">
-                      <h3 className="text-sm font-semibold text-cyan-100">Feed style</h3>
-                      <div className="mt-3 flex gap-2">
-                        <button type="button" onClick={() => setFeedStyle("balanced")} className={`rounded-full px-3 py-1 text-xs ${feedStyle === "balanced" ? "bg-cyan-400 text-[#041222]" : "border border-white/20 text-cyan-100"}`}>Balanced</button>
-                        <button type="button" onClick={() => setFeedStyle("magazine")} className={`rounded-full px-3 py-1 text-xs ${feedStyle === "magazine" ? "bg-cyan-400 text-[#041222]" : "border border-white/20 text-cyan-100"}`}>Magazine</button>
-                      </div>
-                    </section>
-                  )}
+            {activeTab === "Upvoted" && (
+              <div className="grid gap-3 md:grid-cols-2">
+                <section className="rounded-2xl border border-white/15 bg-[#0f2037]/80 p-4">
+                  <h3 className="text-sm font-semibold text-cyan-100">Friends ({friends.length})</h3>
+                  <ul className="mt-3 space-y-2 text-xs text-cyan-100/85">
+                    {friends.map((friend) => (
+                      <li key={friend.id} className="flex items-center justify-between rounded-lg border border-white/15 bg-[#091629] px-3 py-2"><span>u/{friend.username}</span><span className="capitalize text-cyan-100/60">{friend.status}</span></li>
+                    ))}
+                  </ul>
+                </section>
+                <section className="rounded-2xl border border-white/15 bg-[#0f2037]/80 p-4">
+                  <h3 className="text-sm font-semibold text-cyan-100">Pending friend requests</h3>
+                  <div className="mt-3 space-y-2">
+                    {friendRequests.length === 0 ? <p className="text-xs text-cyan-100/70">No pending requests.</p> : friendRequests.map((request) => (
+                      <div key={request.id} className="rounded-xl border border-white/15 bg-[#091629] p-3 text-xs text-cyan-100/85"><p className="font-semibold">u/{request.username}</p><p className="text-cyan-100/60">{request.mutualFriends} mutual friends</p></div>
+                    ))}
+                  </div>
+                </section>
+              </div>
+            )}
 
-                  {activeSettingsItem === "Privacy" && (
-                    <section className="rounded-2xl border border-white/15 bg-[#0f2037]/80 p-4 text-sm text-cyan-100/80">
-                      <h3 className="text-sm font-semibold text-cyan-100">Privacy settings</h3>
-                      <div className="mt-3 space-y-2">
-                        <label className="flex items-center justify-between">Show email<input type="checkbox" checked={privacy.showEmail} onChange={(event) => updatePrivacy("showEmail", event.target.checked)} /></label>
-                        <label className="flex items-center justify-between">Show activity<input type="checkbox" checked={privacy.showActivity} onChange={(event) => updatePrivacy("showActivity", event.target.checked)} /></label>
-                        <label className="flex items-center justify-between">Allow requests<input type="checkbox" checked={privacy.allowFriendRequests} onChange={(event) => updatePrivacy("allowFriendRequests", event.target.checked)} /></label>
-                      </div>
-                    </section>
-                  )}
+            {activeTab === "Settings" && (
+              <div className="space-y-4">
+                <h2 className="text-2xl font-semibold text-cyan-100">Settings</h2>
 
-                  {activeSettingsItem === "Friend requests" && (
-                    <section className="rounded-2xl border border-white/15 bg-[#0f2037]/80 p-4">
-                      <h3 className="text-sm font-semibold text-cyan-100">Friend requests</h3>
-                      <div className="mt-3 space-y-2">
-                        {friendRequests.length === 0 ? (
-                          <p className="text-xs text-cyan-100/70">No pending requests.</p>
-                        ) : (
-                          friendRequests.map((request) => (
-                            <div key={request.id} className="rounded-xl border border-white/15 bg-[#091629] p-3 text-xs text-cyan-100/85">
-                              <p className="font-semibold">u/{request.username}</p>
-                              <p className="text-cyan-100/60">{request.mutualFriends} mutual friends</p>
-                              <div className="mt-2 flex gap-2">
-                                <button type="button" onClick={() => acceptRequest(request)} className="rounded-full bg-emerald-500 px-3 py-1 text-[11px] font-semibold text-white">Accept</button>
-                                <button type="button" onClick={() => declineRequest(request.id)} className="rounded-full border border-white/20 px-3 py-1 text-[11px]">Decline</button>
-                              </div>
+                <section className="rounded-2xl border border-white/15 bg-[#0f2037]/80 p-4">
+                  <h3 className="text-sm font-semibold text-cyan-100">Media</h3>
+                  <div className="mt-3 grid gap-3 md:grid-cols-2">
+                    <label className="text-xs text-cyan-100/70">
+                      Profile picture URL
+                      <input value={profileImageUrl} onChange={(event) => setProfileImageUrl(event.target.value)} className="mt-1 w-full rounded-lg border border-white/20 bg-[#091629] px-3 py-2 text-cyan-100" />
+                    </label>
+                    <label className="text-xs text-cyan-100/70">
+                      Banner picture URL
+                      <input value={bannerImageUrl} onChange={(event) => setBannerImageUrl(event.target.value)} className="mt-1 w-full rounded-lg border border-white/20 bg-[#091629] px-3 py-2 text-cyan-100" />
+                    </label>
+                  </div>
+                </section>
+
+                <section className="rounded-2xl border border-white/15 bg-[#0f2037]/80 p-4">
+                  <h3 className="text-sm font-semibold text-cyan-100">Profile content</h3>
+                  <textarea
+                    value={introduction}
+                    onChange={(event) => setIntroduction(event.target.value.slice(0, 220))}
+                    placeholder="Introduce yourself in a short sentence..."
+                    className="mt-3 h-28 w-full resize-none rounded-xl border border-cyan-100/20 bg-[#091629] p-3 text-sm text-cyan-50 outline-none placeholder:text-cyan-100/50"
+                  />
+                </section>
+
+                <section className="rounded-2xl border border-white/15 bg-[#0f2037]/80 p-4">
+                  <h3 className="text-sm font-semibold text-cyan-100">Profile style</h3>
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    <label className="text-xs text-cyan-100/70">Primary<input type="color" value={profilePrimary} onChange={(event) => setProfilePrimary(event.target.value)} className="mt-1 h-9 w-full rounded border border-white/20 bg-transparent" /></label>
+                    <label className="text-xs text-cyan-100/70">Secondary<input type="color" value={profileSecondary} onChange={(event) => setProfileSecondary(event.target.value)} className="mt-1 h-9 w-full rounded border border-white/20 bg-transparent" /></label>
+                  </div>
+                  <div className="mt-3 flex gap-2">
+                    <button type="button" onClick={() => setFeedStyle("balanced")} className={`rounded-full px-3 py-1 text-xs ${feedStyle === "balanced" ? "bg-cyan-400 text-[#041222]" : "border border-white/20 text-cyan-100"}`}>Balanced</button>
+                    <button type="button" onClick={() => setFeedStyle("magazine")} className={`rounded-full px-3 py-1 text-xs ${feedStyle === "magazine" ? "bg-cyan-400 text-[#041222]" : "border border-white/20 text-cyan-100"}`}>Magazine</button>
+                  </div>
+                </section>
+
+                <section className="rounded-2xl border border-white/15 bg-[#0f2037]/80 p-4 text-sm text-cyan-100/80">
+                  <h3 className="text-sm font-semibold text-cyan-100">Privacy</h3>
+                  <div className="mt-3 space-y-2">
+                    <label className="flex items-center justify-between">Show email<input type="checkbox" checked={privacy.showEmail} onChange={(event) => updatePrivacy("showEmail", event.target.checked)} /></label>
+                    <label className="flex items-center justify-between">Show activity<input type="checkbox" checked={privacy.showActivity} onChange={(event) => updatePrivacy("showActivity", event.target.checked)} /></label>
+                    <label className="flex items-center justify-between">Allow requests<input type="checkbox" checked={privacy.allowFriendRequests} onChange={(event) => updatePrivacy("allowFriendRequests", event.target.checked)} /></label>
+                  </div>
+                </section>
+
+                <section className="rounded-2xl border border-white/15 bg-[#0f2037]/80 p-4">
+                  <h3 className="text-sm font-semibold text-cyan-100">Connections</h3>
+                  <div className="mt-3 grid gap-3 md:grid-cols-2">
+                    <div>
+                      <h4 className="text-xs font-semibold text-cyan-100/80">Pending requests</h4>
+                      <div className="mt-2 space-y-2">
+                        {friendRequests.length === 0 ? <p className="text-xs text-cyan-100/70">No pending requests.</p> : friendRequests.map((request) => (
+                          <div key={request.id} className="rounded-xl border border-white/15 bg-[#091629] p-3 text-xs text-cyan-100/85">
+                            <p className="font-semibold">u/{request.username}</p>
+                            <p className="text-cyan-100/60">{request.mutualFriends} mutual friends</p>
+                            <div className="mt-2 flex gap-2">
+                              <button type="button" onClick={() => acceptRequest(request)} className="rounded-full bg-emerald-500 px-3 py-1 text-[11px] font-semibold text-white">Accept</button>
+                              <button type="button" onClick={() => declineRequest(request.id)} className="rounded-full border border-white/20 px-3 py-1 text-[11px]">Decline</button>
                             </div>
-                          ))
-                        )}
+                          </div>
+                        ))}
                       </div>
-                    </section>
-                  )}
-
-                  {activeSettingsItem === "Friends" && (
-                    <section className="rounded-2xl border border-white/15 bg-[#0f2037]/80 p-4">
-                      <h3 className="text-sm font-semibold text-cyan-100">Friends ({friends.length})</h3>
-                      <ul className="mt-3 space-y-2 text-xs text-cyan-100/85">
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-semibold text-cyan-100/80">Friends ({friends.length})</h4>
+                      <ul className="mt-2 space-y-2 text-xs text-cyan-100/85">
                         {friends.map((friend) => (
                           <li key={friend.id} className="flex items-center justify-between rounded-lg border border-white/15 bg-[#091629] px-3 py-2">
                             <span>u/{friend.username}</span>
@@ -414,78 +496,11 @@ export default function ProfilePage() {
                           </li>
                         ))}
                       </ul>
-                    </section>
-                  )}
-                </>
-              )}
-            </div>
-
-            <article className="rounded-3xl border border-cyan-100/15 bg-[#08182f] p-4">
-              {activeTab === "Posts" && (
-                <div className="space-y-3">
-                  {profilePosts.length === 0 ? <p className="text-sm text-cyan-100/65">No posts yet.</p> : profilePosts.map((post) => (
-                    <div key={post.id} className="rounded-2xl border border-cyan-100/15 bg-[#091629] p-4">
-                      <p className="text-xs text-cyan-100/60">{new Date(post.created_at).toLocaleString()}</p>
-                      {post.title && <h3 className="mt-1 text-lg font-semibold">{post.title}</h3>}
-                      {post.content && <p className="mt-2 text-sm text-cyan-100/85">{post.content}</p>}
                     </div>
-                  ))}
-                </div>
-              )}
-
-              {activeTab === "Comments" && (
-                <div className="space-y-3">
-                  {profileComments.length === 0 ? (
-                    <p className="text-sm text-cyan-100/65">{commentsTableMissing ? "Comments table is not available yet. Run the SQL migration below." : "No comments yet."}</p>
-                  ) : profileComments.map((comment) => (
-                    <div key={comment.id} className="rounded-2xl border border-cyan-100/15 bg-[#091629] p-4">
-                      <p className="text-xs text-cyan-100/60">{new Date(comment.created_at).toLocaleString()}</p>
-                      <p className="mt-2 text-sm text-cyan-100/90">{comment.body ?? comment.content ?? "(empty comment)"}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {activeTab === "Saved" && (
-                <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
-                  {mediaPosts.length === 0 ? <p className="text-sm text-cyan-100/65">No uploaded images yet.</p> : mediaPosts.map((post) => (
-                    <div key={post.id} className="overflow-hidden rounded-xl border border-cyan-100/15 bg-[#071225]">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={post.media_url ?? ""} alt={post.title ?? "Saved image"} className="h-36 w-full object-cover" />
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {activeTab === "Upvoted" && (
-                <div className="grid gap-3 md:grid-cols-2">
-                  <section className="rounded-2xl border border-white/15 bg-[#0f2037]/80 p-4">
-                    <h3 className="text-sm font-semibold text-cyan-100">Friends ({friends.length})</h3>
-                    <ul className="mt-3 space-y-2 text-xs text-cyan-100/85">
-                      {friends.map((friend) => (
-                        <li key={friend.id} className="flex items-center justify-between rounded-lg border border-white/15 bg-[#091629] px-3 py-2"><span>u/{friend.username}</span><span className="capitalize text-cyan-100/60">{friend.status}</span></li>
-                      ))}
-                    </ul>
-                  </section>
-                  <section className="rounded-2xl border border-white/15 bg-[#0f2037]/80 p-4">
-                    <h3 className="text-sm font-semibold text-cyan-100">Pending friend requests</h3>
-                    <div className="mt-3 space-y-2">
-                      {friendRequests.length === 0 ? <p className="text-xs text-cyan-100/70">No pending requests.</p> : friendRequests.map((request) => (
-                        <div key={request.id} className="rounded-xl border border-white/15 bg-[#091629] p-3 text-xs text-cyan-100/85"><p className="font-semibold">u/{request.username}</p><p className="text-cyan-100/60">{request.mutualFriends} mutual friends</p></div>
-                      ))}
-                    </div>
-                  </section>
-                </div>
-              )}
-            </article>
-
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {featuredCards.map((card) => (
-                <div key={card} className="rounded-2xl border border-cyan-100/15 bg-gradient-to-r from-white/5 to-cyan-100/5 p-4">
-                  <h3 className="text-xl font-semibold text-cyan-100">{card}</h3>
-                </div>
-              ))}
-            </div>
+                  </div>
+                </section>
+              </div>
+            )}
           </section>
         </main>
       </div>
