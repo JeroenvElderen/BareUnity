@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import type { FeedView } from "@/components/Feed";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import Topbar from "@/components/Topbar";
 import Sidebar from "@/components/Sidebar";
+import { FEED_VIEW_STORAGE_KEY, readStoredFeedView } from "@/lib/feed-preferences";
 
 const tabs = ["Overview", "Posts", "Comments", "Saved", "History", "Upvoted"];
-const settingsMenuItems = ["Profile style", "Privacy", "Friend requests", "Friends"] as const;
+const settingsMenuItems = ["Profile style", "Feed style", "Privacy", "Friend requests", "Friends"] as const;
 const PROFILE_SETTINGS_STORAGE_KEY = "bareunity-profile-settings";
 
 type MediaPost = {
@@ -106,6 +108,7 @@ export default function ProfilePage() {
   const [privacy, setPrivacy] = useState<PrivacySettings>(initialSettings.privacy);
   const [friends, setFriends] = useState<Friend[]>(initialSettings.friends);
   const [friendRequests, setFriendRequests] = useState<FriendRequest[]>(initialSettings.friendRequests);
+  const [feedStyle, setFeedStyle] = useState<FeedView>(() => readStoredFeedView());
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setUser(data.session?.user ?? null));
@@ -129,6 +132,14 @@ export default function ProfilePage() {
       JSON.stringify({ profilePrimary, profileSecondary, privacy, friends, friendRequests }),
     );
   }, [profilePrimary, profileSecondary, privacy, friends, friendRequests]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.setItem(FEED_VIEW_STORAGE_KEY, feedStyle);
+  }, [feedStyle]);
 
   useEffect(() => {
     const userId = user?.id;
@@ -191,6 +202,35 @@ export default function ProfilePage() {
       );
     }
 
+    if (activeSettingsItem === "Feed style") {
+      return (
+        <section className="rounded-2xl border border-accent/20 bg-card/70 p-4">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-accent/85">Feed style</h3>
+          <p className="mt-1 text-xs text-muted">Choose how posts are laid out on the home feed.</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setFeedStyle("balanced")}
+              className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition ${
+                feedStyle === "balanced" ? "bg-brand text-bg" : "border border-accent/30 text-accent hover:bg-bg/60"
+              }`}
+            >
+              Pinterest balanced
+            </button>
+            <button
+              type="button"
+              onClick={() => setFeedStyle("magazine")}
+              className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition ${
+                feedStyle === "magazine" ? "bg-brand text-bg" : "border border-accent/30 text-accent hover:bg-bg/60"
+              }`}
+            >
+              Magazine zigzag
+            </button>
+          </div>
+        </section>
+      );
+    }
+    
     if (activeSettingsItem === "Privacy") {
       return (
         <section className="rounded-2xl border border-accent/20 bg-card/70 p-4">
