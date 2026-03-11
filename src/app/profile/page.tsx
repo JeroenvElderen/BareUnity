@@ -175,16 +175,16 @@ export default function ProfilePage() {
   function renderSettingsPanel() {
     if (activeSettingsItem === "Profile style") {
       return (
-        <section className="rounded-2xl border border-pine/20 bg-card p-4">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-sand/85">Custom profile colors</h3>
+        <section className="rounded-2xl border border-accent/20 bg-card/70 p-4">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-accent/85">Custom profile colors</h3>
           <div className="mt-3 grid grid-cols-2 gap-3">
             <label className="text-xs text-muted">
               Primary
-              <input type="color" value={profilePrimary} onChange={(event) => setProfilePrimary(event.target.value)} className="mt-1 h-9 w-full rounded border border-sand/20 bg-transparent" />
+              <input type="color" value={profilePrimary} onChange={(event) => setProfilePrimary(event.target.value)} className="mt-1 h-9 w-full rounded border border-accent/20 bg-transparent" />
             </label>
             <label className="text-xs text-muted">
               Secondary
-              <input type="color" value={profileSecondary} onChange={(event) => setProfileSecondary(event.target.value)} className="mt-1 h-9 w-full rounded border border-sand/20 bg-transparent" />
+              <input type="color" value={profileSecondary} onChange={(event) => setProfileSecondary(event.target.value)} className="mt-1 h-9 w-full rounded border border-accent/20 bg-transparent" />
             </label>
           </div>
         </section>
@@ -193,8 +193,8 @@ export default function ProfilePage() {
 
     if (activeSettingsItem === "Privacy") {
       return (
-        <section className="rounded-2xl border border-pine/20 bg-card p-4">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-sand/85">Privacy settings</h3>
+        <section className="rounded-2xl border border-accent/20 bg-card/70 p-4">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-accent/85">Privacy settings</h3>
           <div className="mt-3 space-y-2 text-sm">
             <label className="flex items-center justify-between gap-2">
               Show email on profile
@@ -215,19 +215,19 @@ export default function ProfilePage() {
 
     if (activeSettingsItem === "Friend requests") {
       return (
-        <section className="rounded-2xl border border-pine/20 bg-card p-4">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-sand/85">Friend requests</h3>
+        <section className="rounded-2xl border border-accent/20 bg-card/70 p-4">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-accent/85">Friend requests</h3>
           <div className="mt-3 space-y-3">
             {friendRequests.length === 0 ? (
               <p className="text-sm text-muted">No pending requests.</p>
             ) : (
               friendRequests.map((request) => (
-                <div key={request.id} className="rounded-xl border border-sand/15 bg-pine/20 p-3">
-                  <p className="font-semibold text-sand">u/{request.username}</p>
+                <div key={request.id} className="rounded-xl border border-accent/20 bg-bg/50 p-3">
+                  <p className="font-semibold text-accent">u/{request.username}</p>
                   <p className="text-xs text-muted">{request.mutualFriends} mutual friends</p>
                   <div className="mt-2 flex gap-2 text-xs">
                     <button type="button" onClick={() => acceptRequest(request)} className="rounded-full bg-emerald-600 px-3 py-1 font-semibold text-white">Accept</button>
-                    <button type="button" onClick={() => declineRequest(request.id)} className="rounded-full border border-sand/30 px-3 py-1 font-semibold text-sand">Decline</button>
+                    <button type="button" onClick={() => declineRequest(request.id)} className="rounded-full border border-accent/30 px-3 py-1 font-semibold text-accent">Decline</button>
                   </div>
                 </div>
               ))
@@ -238,11 +238,11 @@ export default function ProfilePage() {
     }
 
     return (
-      <section className="rounded-2xl border border-pine/20 bg-card p-4">
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-sand/85">Friends ({friends.length})</h3>
+      <section className="rounded-2xl border border-accent/20 bg-card/70 p-4">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-accent/85">Friends ({friends.length})</h3>
         <ul className="mt-3 space-y-2 text-sm">
           {friends.map((friend) => (
-            <li key={friend.id} className="flex items-center justify-between rounded-lg border border-sand/15 bg-pine/20 px-3 py-2">
+            <li key={friend.id} className="flex items-center justify-between rounded-lg border border-accent/20 bg-bg/50 px-3 py-2">
               <span>u/{friend.username}</span>
               <span className="text-xs capitalize text-muted">{friend.status}</span>
             </li>
@@ -253,22 +253,27 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-bg text-text">
+    <div className="min-h-screen bg-[#030711] text-cyan-50">
       <Topbar />
       <div className="mx-auto max-w-[1400px]">
         <div className="flex">
           <Sidebar />
 
-          <main className="flex-1 px-4 py-6">
+          <main className="flex-1 px-4 py-6 md:px-8">
             <div className="mx-auto grid max-w-6xl gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
               <section className="space-y-4">
-                <div className="rounded-2xl border border-pine/20 bg-card/70 p-4">
+                <div className="overflow-hidden rounded-3xl border border-cyan-300/20 bg-[#0a1424]">
+                  <div className="h-40 bg-cover bg-center" style={{ backgroundImage: "url(https://images.unsplash.com/photo-1510784722466-f2aa9c52fff6?q=80&w=1600&auto=format&fit=crop)" }} />
+                  <p className="px-4 py-3 text-sm text-cyan-100/70">A fresh profile canvas built for highlights, media, and quick actions.</p>
+                </div>
+
+                <div className="rounded-3xl border border-cyan-300/20 bg-[#0d1b2f] p-5">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full border border-sand/40 text-xl font-bold text-sand" style={{ background: `linear-gradient(135deg, ${profilePrimary}, ${profileSecondary})` }}>
+                    <div className="flex h-16 w-16 items-center justify-center rounded-full border border-accent/35 text-xl font-bold text-accent" style={{ background: `linear-gradient(135deg, ${profilePrimary}, ${profileSecondary})` }}>
                       {username.slice(0, 1).toUpperCase()}
                     </div>
                     <div>
-                      <h1 className="text-3xl font-bold text-sand">{username}</h1>
+                      <h1 className="text-3xl font-bold text-accent">{username}</h1>
                       <p className="text-sm text-muted">u/{username}</p>
                     </div>
                   </div>
@@ -281,7 +286,7 @@ export default function ProfilePage() {
                       key={tab}
                       onClick={() => setActiveTab(tab)}
                       className={`rounded-full px-4 py-2 text-sm font-semibold ${
-                        activeTab === tab ? "bg-sand text-pine" : "bg-card text-text/85 hover:bg-pine/80"
+                        activeTab === tab ? "bg-brand text-bg" : "bg-card/70 text-text/85 hover:bg-bg/60"
                       }`}
                     >
                       {tab}
@@ -292,13 +297,13 @@ export default function ProfilePage() {
                     <button
                       type="button"
                       onClick={() => setIsSettingsMenuOpen((open) => !open)}
-                      className="rounded-full border border-sand/40 bg-card px-4 py-2 text-sm font-semibold text-sand"
+                      className="rounded-full border border-accent/35 bg-card/70 px-4 py-2 text-sm font-semibold text-accent"
                     >
                       Settings ▾
                     </button>
 
                     {isSettingsMenuOpen && (
-                      <div className="absolute right-0 top-12 z-20 w-56 rounded-xl border border-sand/20 bg-[#152820] p-2 shadow-2xl">
+                      <div className="absolute right-0 top-12 z-20 w-56 rounded-xl border border-accent/20 bg-card/85 p-2 shadow-2xl">
                         {settingsMenuItems.map((item) => (
                           <button
                             type="button"
@@ -307,7 +312,7 @@ export default function ProfilePage() {
                               setActiveSettingsItem(item);
                               setIsSettingsMenuOpen(false);
                             }}
-                            className={`w-full rounded-lg px-3 py-2 text-left text-sm ${activeSettingsItem === item ? "bg-sand text-pine" : "text-sand/90 hover:bg-pine/60"}`}
+                            className={`w-full rounded-lg px-3 py-2 text-left text-sm ${activeSettingsItem === item ? "bg-brand text-bg" : "text-accent hover:bg-bg/60"}`}
                           >
                             {item}
                           </button>
@@ -317,9 +322,9 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-pine/20 bg-card/70 p-4">
+                <div className="rounded-2xl border border-accent/20 bg-card/70/70 p-4">
                   <div className="mb-3 flex items-center justify-between">
-                    <h2 className="text-lg font-bold text-sand">Profile media gallery</h2>
+                    <h2 className="text-lg font-bold text-accent">Profile media gallery</h2>
                     <span className="text-xs text-muted">Recent uploads</span>
                   </div>
 
@@ -328,7 +333,7 @@ export default function ProfilePage() {
                   ) : (
                     <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
                       {mediaPosts.map((post) => (
-                        <div key={post.id} className="overflow-hidden rounded-xl border border-sand/20 bg-pine/30">
+                        <div key={post.id} className="overflow-hidden rounded-xl border border-accent/20 bg-bg/55">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img src={post.media_url ?? ""} alt="Profile media" className="h-32 w-full object-cover" />
                         </div>
@@ -339,9 +344,9 @@ export default function ProfilePage() {
               </section>
 
               <aside className="space-y-4">
-                <div className="rounded-2xl border border-pine/20 bg-card p-4">
+                <div className="rounded-2xl border border-accent/20 bg-card/70 p-4">
                   <div className="mb-3 h-24 rounded-xl" style={{ background: `linear-gradient(90deg, ${profilePrimary}, ${profileSecondary})` }} />
-                  <h3 className="text-xl font-bold text-sand">{username}</h3>
+                  <h3 className="text-xl font-bold text-accent">{username}</h3>
                   <p className="text-sm text-muted">🌿 Living naturally and building a kind channel space.</p>
                 </div>
                 

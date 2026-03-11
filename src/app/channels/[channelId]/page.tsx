@@ -7,6 +7,8 @@ import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/lib/supabase";
 import { CHANNEL_WORKSPACE_STORAGE_KEY, ChannelWorkspace, readStoredChannelWorkspaces } from "@/lib/channel-data";
 
+const CHANNEL_WORKSPACE_FOREIGN_KEY = "channel_id";
+
 export default function ChannelWorkspacePage() {
   const { channelId } = useParams<{ channelId: string }>();
   const [channelWorkspaces, setChannelWorkspaces] = useState<ChannelWorkspace[]>(() => readStoredChannelWorkspaces());
@@ -212,7 +214,7 @@ export default function ChannelWorkspacePage() {
 
     const { error } = await supabase.from("posts").insert({
       author_id: user.id,
-      community_id: activeChannelWorkspace.id,
+      [CHANNEL_WORKSPACE_FOREIGN_KEY]: activeChannelWorkspace.id,
       title: postTitle.trim(),
       content: payloadContent.length ? payloadContent : null,
       media_url: mediaUrl,
@@ -236,32 +238,32 @@ export default function ChannelWorkspacePage() {
   }
 
   return (
-    <div className="min-h-screen bg-bg text-text">
+    <div className="min-h-screen bg-[#030711] text-cyan-50">
       <Topbar />
       <div className="flex">
         <Sidebar />
 
-        <main className="flex-1">
+        <main className="flex-1 px-2 md:px-4">
           {!activeChannelWorkspace ? (
-            <section className="m-6 rounded-2xl border border-dashed border-orange-300/30 bg-[#1a0d0b]/50 p-8 text-center text-orange-100/80">Channel workspace not found.</section>
+            <section className="m-6 rounded-2xl border border-dashed border-accent/35 bg-card/40 p-8 text-center text-muted">Channel workspace not found.</section>
           ) : (
-            <section className="overflow-hidden border border-l-0 shadow-[0_40px_80px_-45px_rgba(0,0,0,0.9)]" style={{ borderColor: `${activeChannelWorkspace.theme.primary}66`, backgroundColor: activeChannelWorkspace.theme.secondary }}>
-              <div className="h-32 bg-cover bg-center md:h-40" style={activeChannelWorkspace.bannerUrl ? { backgroundImage: `url(${activeChannelWorkspace.bannerUrl})` } : { background: `linear-gradient(105deg, ${activeChannelWorkspace.theme.primary}, ${activeChannelWorkspace.theme.secondary} 68%, #140908)` }} />
+            <section className="overflow-hidden rounded-[28px] border shadow-[0_24px_90px_-50px_rgba(34,211,238,0.7)]" style={{ borderColor: `${activeChannelWorkspace.theme.primary}66`, backgroundColor: activeChannelWorkspace.theme.secondary }}>
+              <div className="hidden h-32 bg-cover bg-center md:h-40" style={activeChannelWorkspace.bannerUrl ? { backgroundImage: `url(${activeChannelWorkspace.bannerUrl})` } : { background: `linear-gradient(105deg, ${activeChannelWorkspace.theme.primary}, ${activeChannelWorkspace.theme.secondary} 68%, #140908)` }} />
 
-              <div className="border-b px-5 py-5 md:px-8" style={{ borderColor: `${activeChannelWorkspace.theme.primary}66` }}>
+              <div className="hidden border-b px-5 py-5 md:px-8" style={{ borderColor: `${activeChannelWorkspace.theme.primary}66` }}>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-orange-200/90">{activeChannelWorkspace.role}</p>
-                    <h1 className="text-4xl font-extrabold text-white">{activeChannelWorkspace.name}</h1>
-                    <p className="mt-1 max-w-3xl text-sm text-orange-100/80">{activeChannelWorkspace.description}</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted">{activeChannelWorkspace.role}</p>
+                    <h1 className="text-4xl font-extrabold text-text">{activeChannelWorkspace.name}</h1>
+                    <p className="mt-1 max-w-3xl text-sm text-muted">{activeChannelWorkspace.description}</p>
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <button onClick={() => setIsCreatePostOpen(true)} className="rounded-full border px-4 py-2 text-sm font-semibold text-white" style={{ borderColor: `${activeChannelWorkspace.theme.primary}88` }}>
+                    <button onClick={() => setIsCreatePostOpen(true)} className="rounded-full border px-4 py-2 text-sm font-semibold text-text" style={{ borderColor: `${activeChannelWorkspace.theme.primary}88` }}>
                       + Create post
                     </button>
                     {canManageChannelWorkspace && (
-                      <button onClick={() => setIsSettingsOpen(true)} className="rounded-full px-4 py-2 text-sm font-semibold text-white" style={{ backgroundColor: activeChannelWorkspace.theme.primary }}>
+                      <button onClick={() => setIsSettingsOpen(true)} className="rounded-full px-4 py-2 text-sm font-semibold text-text" style={{ backgroundColor: activeChannelWorkspace.theme.primary }}>
                         Channel workspace settings
                       </button>
                     )}
@@ -270,82 +272,97 @@ export default function ChannelWorkspacePage() {
               </div>
 
               <div className="grid min-h-[calc(100vh-208px)] lg:grid-cols-[280px_1fr_320px]">
-                <aside className="space-y-3 border-r border-[#5a2016] bg-[#170706]/95 p-4">
-                  <section className="rounded-lg border border-[#653022] bg-[#2b0f0a] p-3">
-                    <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.15em] text-orange-200">Text channels</div>
+                <aside className="space-y-3 border-r border-accent/15 bg-bg/55 p-4">
+                  <section className="rounded-lg border border-accent/20 bg-card/50 p-3">
+                    <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.15em] text-accent/80">Text channels</div>
                     <div className="space-y-1">
                       {activeChannelWorkspace.textChannels.map((channel) => (
-                        <div key={channel} className="rounded-md bg-black/35 px-2 py-1 text-sm text-orange-50"># {channel}</div>
+                        <div key={channel} className="rounded-md bg-bg/45 px-2 py-1 text-sm text-text"># {channel}</div>
                       ))}
                     </div>
                     {activeChannelWorkspace.role !== "member" && (
                       <form onSubmit={addTextChannel} className="mt-2 flex gap-1">
-                        <input value={textChannelDraft} onChange={(event) => setTextChannelDraft(event.target.value)} placeholder="new-text-channel" className="w-full rounded border border-orange-300/25 bg-black/40 px-2 py-1 text-xs outline-none" />
-                        <button type="submit" className="rounded bg-orange-600 px-2 text-xs font-semibold text-white hover:bg-orange-500">+</button>
+                        <input value={textChannelDraft} onChange={(event) => setTextChannelDraft(event.target.value)} placeholder="new-text-channel" className="w-full rounded border border-accent/25 bg-bg/45 px-2 py-1 text-xs outline-none" />
+                        <button type="submit" className="rounded bg-brand px-2 text-xs font-semibold text-text hover:brightness-105">+</button>
                       </form>
                     )}
                   </section>
 
-                  <section className="rounded-lg border border-[#653022] bg-[#2b0f0a] p-3">
-                    <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.15em] text-orange-200">Voice channels</div>
+                  <section className="rounded-lg border border-accent/20 bg-card/50 p-3">
+                    <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.15em] text-accent/80">Voice channels</div>
                     <div className="space-y-1">
                       {activeChannelWorkspace.voiceChannels.map((channel) => (
-                        <div key={channel} className="rounded-md bg-black/35 px-2 py-1 text-sm text-orange-50">🔊 {channel}</div>
+                        <div key={channel} className="rounded-md bg-bg/45 px-2 py-1 text-sm text-text">🔊 {channel}</div>
                       ))}
                     </div>
                     {activeChannelWorkspace.role !== "member" && (
                       <form onSubmit={addVoiceChannel} className="mt-2 flex gap-1">
-                        <input value={voiceChannelDraft} onChange={(event) => setVoiceChannelDraft(event.target.value)} placeholder="new-voice-channel" className="w-full rounded border border-orange-300/25 bg-black/40 px-2 py-1 text-xs outline-none" />
-                        <button type="submit" className="rounded bg-orange-600 px-2 text-xs font-semibold text-white hover:bg-orange-500">+</button>
+                        <input value={voiceChannelDraft} onChange={(event) => setVoiceChannelDraft(event.target.value)} placeholder="new-voice-channel" className="w-full rounded border border-accent/25 bg-bg/45 px-2 py-1 text-xs outline-none" />
+                        <button type="submit" className="rounded bg-brand px-2 text-xs font-semibold text-text hover:brightness-105">+</button>
                       </form>
                     )}
                   </section>
                 </aside>
 
-                <div className="border-r border-[#5a2016] bg-[#200905]/45 p-6">
-                  <div className="min-h-[460px] rounded-2xl border border-[#633126] bg-[#2c0e09]/85 p-8 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
-                    <h2 className="mt-20 text-4xl font-bold text-slate-100">No posts yet</h2>
-                    <p className="mt-2 text-lg text-orange-200">Create the first post and start the conversation.</p>
-                    <button onClick={() => setIsCreatePostOpen(true)} className="mt-6 rounded-full px-6 py-3 font-semibold text-white" style={{ backgroundColor: activeChannelWorkspace.theme.primary }}>Create post</button>
+                <div className="border-r border-accent/15 bg-bg/45 p-6">
+                  <div className="min-h-[460px] rounded-2xl border border-accent/20 bg-card/55 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <article className="overflow-hidden rounded-xl border border-accent/25 bg-bg/45">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src="https://images.unsplash.com/photo-1502082553048-f009c37129b9?q=80&w=1200&auto=format&fit=crop" alt="Example post" className="h-36 w-full object-cover" />
+                        <p className="p-3 text-sm text-muted">Sample post: Trail meetup this Saturday at sunrise.</p>
+                      </article>
+                      <article className="overflow-hidden rounded-xl border border-accent/25 bg-bg/45">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src="https://images.unsplash.com/photo-1472396961693-142e6e269027?q=80&w=1200&auto=format&fit=crop" alt="Example post" className="h-36 w-full object-cover" />
+                        <p className="p-3 text-sm text-muted">Sample post: Quiet naturist zone map update + safety notes.</p>
+                      </article>
+                    </div>
+                    <button onClick={() => setIsCreatePostOpen(true)} className="mt-5 rounded-full px-6 py-3 text-sm font-semibold text-text" style={{ backgroundColor: activeChannelWorkspace.theme.primary }}>Create post</button>
                   </div>
                 </div>
 
-                <aside className="space-y-3 bg-[#190705]/70 p-4">
-                  <section className="rounded-xl border border-[#653022] bg-[#2a0e09] p-4">
-                    <h3 className="text-xl font-bold text-orange-50">{activeChannelWorkspace.name}</h3>
-                    <p className="mt-2 text-sm text-orange-200/90">{activeChannelWorkspace.welcomeMessage ?? "Welcome message can be configured in workspace settings."}</p>
-                    <div className="mt-3 space-y-1 text-sm text-orange-100/95">
+                <aside className="space-y-3 bg-bg/55 p-4">
+                  <section className="overflow-hidden rounded-xl border border-accent/20 bg-card/50">
+                    <div className="h-28 bg-cover bg-center" style={{ backgroundImage: "url(https://images.unsplash.com/photo-1441974231531-c6227db76b6e?q=80&w=1200&auto=format&fit=crop)" }} />
+                    <p className="px-4 py-3 text-xs text-muted">Fresh visual style for every channel page.</p>
+                  </section>
+
+                  <section className="rounded-xl border border-accent/20 bg-card/50 p-4">
+                    <h3 className="text-xl font-bold text-text">{activeChannelWorkspace.name}</h3>
+                    <p className="mt-2 text-sm text-muted">{activeChannelWorkspace.welcomeMessage ?? "Welcome message can be configured in workspace settings."}</p>
+                    <div className="mt-3 space-y-1 text-sm text-muted">
                       <p>🌐 {activeChannelWorkspace.privacy} • {activeChannelWorkspace.joinMode}</p>
                       <p>🔞 {activeChannelWorkspace.mature ? "Mature" : "General"}</p>
                       <p>🏷️ {activeChannelWorkspace.tags.join(", ") || "No tags yet"}</p>
                     </div>
                   </section>
 
-                  <section className="rounded-xl border border-[#653022] bg-[#2a0e09] p-4">
-                    <h4 className="text-sm font-semibold uppercase tracking-wide text-orange-200">Rules</h4>
-                    <ol className="mt-3 space-y-2 text-sm text-orange-100">
+                  <section className="rounded-xl border border-accent/20 bg-card/50 p-4">
+                    <h4 className="text-sm font-semibold uppercase tracking-wide text-accent/80">Rules</h4>
+                    <ol className="mt-3 space-y-2 text-sm text-muted">
                       {activeChannelWorkspace.rules.map((rule, index) => (
                         <li key={`${rule}-${index}`}>{index + 1}. {rule}</li>
                       ))}
                     </ol>
                   </section>
 
-                  <section className="rounded-xl border border-[#653022] bg-[#2a0e09] p-4">
-                    <h4 className="text-sm font-semibold uppercase tracking-wide text-orange-200">Flairs</h4>
+                  <section className="rounded-xl border border-accent/20 bg-card/50 p-4">
+                    <h4 className="text-sm font-semibold uppercase tracking-wide text-accent/80">Flairs</h4>
                     <div className="mt-2 flex flex-wrap gap-2">
                       {activeChannelWorkspace.flairs.length === 0 ? (
-                        <p className="text-xs text-orange-100">No flairs configured yet.</p>
+                        <p className="text-xs text-muted">No flairs configured yet.</p>
                       ) : (
                         activeChannelWorkspace.flairs.map((flair) => (
-                          <span key={flair.id} className="rounded-full px-2 py-1 text-xs text-white" style={{ backgroundColor: flair.color }}>{flair.label}</span>
+                          <span key={flair.id} className="rounded-full px-2 py-1 text-xs text-text" style={{ backgroundColor: flair.color }}>{flair.label}</span>
                         ))
                       )}
                     </div>
                   </section>
 
-                  <section className="rounded-xl border border-[#653022] bg-[#2a0e09] p-4">
-                    <h4 className="text-sm font-semibold uppercase tracking-wide text-orange-200">Auto moderation</h4>
-                    <ul className="mt-2 space-y-1 text-xs text-orange-100">
+                  <section className="rounded-xl border border-accent/20 bg-card/50 p-4">
+                    <h4 className="text-sm font-semibold uppercase tracking-wide text-accent/80">Auto moderation</h4>
+                    <ul className="mt-2 space-y-1 text-xs text-muted">
                       {activeChannelWorkspace.autoModerationRules.length === 0 ? (
                         <li>No rules configured.</li>
                       ) : (
@@ -364,7 +381,7 @@ export default function ChannelWorkspacePage() {
 
           {activeChannelWorkspace && isSettingsOpen && canManageChannelWorkspace && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-8">
-              <div className="w-full max-w-5xl rounded-2xl border border-slate-300/20 bg-[#0f141b] p-6 text-slate-100 shadow-2xl">
+              <div className="w-full max-w-5xl rounded-2xl border border-slate-300/20 bg-[#0f141b] p-6 text-text shadow-2xl">
                 <div className="mb-4 flex items-center justify-between">
                   <div>
                     <h3 className="text-3xl font-bold">Channel workspace settings</h3>
@@ -385,7 +402,7 @@ export default function ChannelWorkspacePage() {
                       ))}
                     </ul>
                     <div className="mt-3 flex gap-2">
-                      <input value={ruleDraft} onChange={(event) => setRuleDraft(event.target.value)} placeholder="Add rule" className="w-full rounded border border-slate-500/40 bg-black/30 px-2 py-1 text-sm" />
+                      <input value={ruleDraft} onChange={(event) => setRuleDraft(event.target.value)} placeholder="Add rule" className="w-full rounded border border-slate-500/40 bg-bg/45 px-2 py-1 text-sm" />
                       <button type="button" onClick={addRule} className="rounded bg-blue-600 px-3 py-1 text-xs">Add</button>
                     </div>
                   </section>
@@ -394,14 +411,14 @@ export default function ChannelWorkspacePage() {
                     <h4 className="font-semibold">Flairs</h4>
                     <div className="mt-3 flex flex-wrap gap-2">
                       {activeChannelWorkspace.flairs.map((flair) => (
-                        <span key={flair.id} className="inline-flex items-center gap-2 rounded-full px-2 py-1 text-xs text-white" style={{ backgroundColor: flair.color }}>
+                        <span key={flair.id} className="inline-flex items-center gap-2 rounded-full px-2 py-1 text-xs text-text" style={{ backgroundColor: flair.color }}>
                           {flair.label}
                           <button onClick={() => removeFlair(flair.id)} type="button" className="rounded border border-white/30 px-1">x</button>
                         </span>
                       ))}
                     </div>
                     <div className="mt-3 space-y-2">
-                      <input value={flairLabel} onChange={(event) => setFlairLabel(event.target.value)} placeholder="Flair label" className="w-full rounded border border-slate-500/40 bg-black/30 px-2 py-1 text-sm" />
+                      <input value={flairLabel} onChange={(event) => setFlairLabel(event.target.value)} placeholder="Flair label" className="w-full rounded border border-slate-500/40 bg-bg/45 px-2 py-1 text-sm" />
                       <input type="color" value={flairColor} onChange={(event) => setFlairColor(event.target.value)} className="h-9 w-full" />
                       <button type="button" onClick={addFlair} className="rounded bg-blue-600 px-3 py-1 text-xs">Add flair</button>
                     </div>
@@ -422,9 +439,9 @@ export default function ChannelWorkspacePage() {
                       ))}
                     </ul>
                     <div className="mt-3 space-y-2">
-                      <input value={autoRuleName} onChange={(event) => setAutoRuleName(event.target.value)} placeholder="Rule name" className="w-full rounded border border-slate-500/40 bg-black/30 px-2 py-1 text-sm" />
-                      <input value={autoRuleKeyword} onChange={(event) => setAutoRuleKeyword(event.target.value)} placeholder="Keyword / phrase" className="w-full rounded border border-slate-500/40 bg-black/30 px-2 py-1 text-sm" />
-                      <select value={autoRuleAction} onChange={(event) => setAutoRuleAction(event.target.value as "flag" | "remove")} className="w-full rounded border border-slate-500/40 bg-black/30 px-2 py-1 text-sm">
+                      <input value={autoRuleName} onChange={(event) => setAutoRuleName(event.target.value)} placeholder="Rule name" className="w-full rounded border border-slate-500/40 bg-bg/45 px-2 py-1 text-sm" />
+                      <input value={autoRuleKeyword} onChange={(event) => setAutoRuleKeyword(event.target.value)} placeholder="Keyword / phrase" className="w-full rounded border border-slate-500/40 bg-bg/45 px-2 py-1 text-sm" />
+                      <select value={autoRuleAction} onChange={(event) => setAutoRuleAction(event.target.value as "flag" | "remove")} className="w-full rounded border border-slate-500/40 bg-bg/45 px-2 py-1 text-sm">
                         <option value="flag">Flag for review</option>
                         <option value="remove">Auto remove</option>
                       </select>
@@ -438,9 +455,9 @@ export default function ChannelWorkspacePage() {
 
           {activeChannelWorkspace && isCreatePostOpen && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-8">
-              <div className="w-full max-w-4xl rounded-2xl border border-slate-300/20 bg-[#0f141b] p-6 text-slate-100 shadow-2xl">
+              <div className="w-full max-w-4xl rounded-2xl border border-slate-300/20 bg-[#0f141b] p-6 text-text shadow-2xl">
                 <div className="mb-4 flex items-center justify-between">
-                  <h3 className="text-4xl font-bold text-slate-100">Create post</h3>
+                  <h3 className="text-4xl font-bold text-text">Create post</h3>
                   <button onClick={() => setIsCreatePostOpen(false)} className="rounded-full border border-slate-400/40 px-3 py-1 text-sm" type="button">✕</button>
                 </div>
                 <p className="text-sm text-slate-300">{activeChannelWorkspace.name}</p>
@@ -451,7 +468,7 @@ export default function ChannelWorkspacePage() {
                       <input type="checkbox" checked={isPostMature} onChange={(event) => setIsPostMature(event.target.checked)} /> Mature
                     </label>
                     <div className="flex items-center gap-2">
-                      <input value={postTagDraft} onChange={(event) => setPostTagDraft(event.target.value)} placeholder="Add tag" className="rounded-full border border-slate-400/30 bg-black/40 px-3 py-1 text-xs" />
+                      <input value={postTagDraft} onChange={(event) => setPostTagDraft(event.target.value)} placeholder="Add tag" className="rounded-full border border-slate-400/30 bg-bg/45 px-3 py-1 text-xs" />
                       <button type="button" onClick={addTag} className="rounded-full bg-slate-700 px-3 py-1 text-xs font-semibold">Add</button>
                     </div>
                     {postTags.length > 0 && <p className="text-xs text-slate-300">{postTags.join(" • ")}</p>}
@@ -468,7 +485,7 @@ export default function ChannelWorkspacePage() {
 
                   <div className="flex justify-end gap-2">
                     <button type="button" onClick={() => setIsCreatePostOpen(false)} className="rounded-full border border-slate-500/40 px-5 py-2 text-sm">Cancel</button>
-                    <button type="submit" disabled={isSubmittingPost} className="rounded-full bg-blue-600 px-6 py-2 text-sm font-semibold text-white disabled:opacity-50">{isSubmittingPost ? "Posting..." : "Post"}</button>
+                    <button type="submit" disabled={isSubmittingPost} className="rounded-full bg-blue-600 px-6 py-2 text-sm font-semibold text-text disabled:opacity-50">{isSubmittingPost ? "Posting..." : "Post"}</button>
                   </div>
                 </form>
               </div>

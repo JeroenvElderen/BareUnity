@@ -160,9 +160,9 @@
 - Topic browsing
 - Search users
 - Search posts
-- Search communities
+- Search channels
 - Hashtag search
-- Recommended communities
+- Recommended channels
 - Recommended posts
 - Content ranking algorithms
 - Location-based discovery
@@ -172,7 +172,7 @@
 - Trending hashtags
 - Discovery notifications
 - Popular creators
-- New community suggestions
+- New channel suggestions
 - Interest-based feeds
 - Curated content collections
 - Algorithm transparency panel
@@ -304,7 +304,7 @@
 - Creator subscriptions
 - Donations
 - Virtual currency
-- Paid communities
+- Paid channels
 - Event ticket sales
 - Marketplace listings
 - Affiliate links
@@ -337,7 +337,7 @@
 
 - Interactive maps
 - Nearby users
-- Nearby communities
+- Nearby channels
 - Location tagging
 - Location-based feeds
 - Travel guides
