@@ -66,7 +66,7 @@ export default function Sidebar() {
 
       <aside
         id="mobile-sidebar-menu"
-        className={`fixed left-0 top-16 z-30 flex h-[calc(100vh-64px)] min-w-24 flex-col items-center border-r border-accent/20 bg-bg/92 px-3 py-5 transition-transform duration-200 md:translate-x-0 ${
+        className={`fixed left-0 top-16 z-30 flex h-[calc(100vh-64px)] w-24 flex-col items-center md:w-24 xl:w-28 2xl:w-48 border-r border-accent/20 bg-bg/92 px-3 py-5 transition-transform duration-200 md:translate-x-0 ${
           isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
         } md:flex`}
       >
