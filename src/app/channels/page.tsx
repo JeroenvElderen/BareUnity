@@ -18,8 +18,8 @@ export default function ChannelsPage() {
       <div className="flex">
         <Sidebar />
 
-        <main className="min-w-0 flex-1 px-6 py-6">
-          <div className="grid gap-5 lg:grid-cols-[1.2fr_1fr]">
+        <main className="min-w-0 flex-1 px-4 py-6 md:px-6">
+          <div className="mx-auto grid w-full max-w-[min(72rem,calc(100vw-8.5rem))] gap-5 lg:grid-cols-[1.2fr_1fr]">
             <section className="space-y-4 rounded-3xl border border-accent/20 bg-card/60 p-4">
               {["sunrise-talk", "event-planning", "wellness-checkins"].map((name) => (
                 <div key={name} className="rounded-2xl border border-accent/20 bg-bg/55 p-3 text-sm text-muted">

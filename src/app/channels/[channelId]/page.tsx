@@ -243,8 +243,9 @@ export default function ChannelWorkspacePage() {
       <div className="flex">
         <Sidebar />
 
-        <main className="min-w-0 flex-1 px-2 md:px-4">
-          {!activeChannelWorkspace ? (
+        <main className="min-w-0 flex-1 px-2 md:px-6 lg:px-8">
+          <div className="mx-auto w-full max-w-[min(96rem,calc(100vw-8.5rem))]">
+            {!activeChannelWorkspace ? (
             <section className="m-6 rounded-2xl border border-dashed border-accent/35 bg-card/40 p-8 text-center text-muted">Channel workspace not found.</section>
           ) : (
             <section className="overflow-hidden rounded-[28px] border shadow-[0_24px_90px_-50px_rgba(34,211,238,0.7)]" style={{ borderColor: `${activeChannelWorkspace.theme.primary}66`, backgroundColor: activeChannelWorkspace.theme.secondary }}>
@@ -490,7 +491,8 @@ export default function ChannelWorkspacePage() {
                 </form>
               </div>
             </div>
-          )}
+            )}
+          </div>
         </main>
       </div>
     </div>

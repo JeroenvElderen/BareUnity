@@ -14,28 +14,26 @@ export default function Home() {
   return (
     <div className="min-h-screen text-text">
       <Topbar />
-      <div className="mx-auto max-w-[1500px]">
-        <div className="flex">
-          <Sidebar />
-          <main className="min-w-0 flex-1 px-4 py-6 md:px-8">
-            <div className="mx-auto w-full max-w-[min(72rem,calc(100vw-9rem))] space-y-4">
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => setShowComposer((current) => !current)}
-                  className={`glass-pill rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] shadow-[0_12px_28px_-18px_rgba(75,212,196,0.95)] transition ${
-                    showComposer ? "border-accent/65 bg-accent/70 text-[#0f2f36]" : "text-accent"
-                  }`}
-                >
-                  {showComposer ? "Hide create post" : "Create post"}
-                </button>
-              </div>
-
-              {showComposer && <CreatePost />}
-              <Feed view={view} />
+      <div className="flex">
+        <Sidebar />
+        <main className="min-w-0 flex-1 px-4 py-6 md:px-6">
+          <div className="mx-auto w-full max-w-[min(72rem,calc(100vw-8.5rem))] space-y-4">
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowComposer((current) => !current)}
+                className={`glass-pill rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] shadow-[0_12px_28px_-18px_rgba(75,212,196,0.95)] transition ${
+                  showComposer ? "border-accent/65 bg-accent/70 text-[#0f2f36]" : "text-accent"
+                }`}
+              >
+                {showComposer ? "Hide create post" : "Create post"}
+              </button>
             </div>
-          </main>
-        </div>
+            
+            {showComposer && <CreatePost />}
+            <Feed view={view} />
+          </div>
+        </main>
       </div>
     </div>
   );

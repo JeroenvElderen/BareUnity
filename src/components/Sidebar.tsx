@@ -66,7 +66,7 @@ export default function Sidebar() {
 
       <aside
         id="mobile-sidebar-menu"
-        className={`fixed left-0 top-16 z-30 flex h-[calc(100vh-64px)] w-24 flex-col items-center border-r border-accent/20 bg-bg/92 px-3 py-5 transition-transform duration-200 md:w-28 md:translate-x-0 ${
+        className={`fixed left-0 top-16 z-30 flex h-[calc(100vh-64px)] min-w-24 flex-col items-center border-r border-accent/20 bg-bg/92 px-3 py-5 transition-transform duration-200 md:translate-x-0 ${
           isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
         } md:flex`}
       >
@@ -90,7 +90,7 @@ export default function Sidebar() {
         </div>
       </aside>
 
-      <div className="hidden w-24 shrink-0 md:block md:w-28" aria-hidden />
+      <div className="hidden w-24 shrink-0 md:block" aria-hidden />
     </>
   );
 }
