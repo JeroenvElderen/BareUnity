@@ -5,6 +5,8 @@ import { supabase } from "@/lib/supabase";
 import PostCard from "./PostCard";
 import { Post } from "@/types/database";
 
+export type FeedView = "balanced" | "magazine";
+
 type SupabasePost = {
   id: string;
   title: string | null;
@@ -17,7 +19,7 @@ type SupabasePost = {
   }[];
 };
 
-export default function Feed() {
+export default function Feed({ view }: { view: FeedView }) {
 
   const [posts, setPosts] = useState<Post[]>([]);
 
@@ -63,10 +65,20 @@ export default function Feed() {
     );
   }
 
+  if (view === "balanced") {
+    return (
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-4">
+        {posts.map((post) => (
+          <PostCard key={post.id} post={post} view={view} />
+        ))}
+      </div>
+    );
+  }
+  
   return (
-    <div className="space-y-6">
-      {posts.map((post) => (
-        <PostCard key={post.id} post={post} />
+    <div className="space-y-4">
+      {posts.map((post, index) => (
+        <PostCard key={post.id} post={post} view={view} emphasize={index % 4 === 0} />
       ))}
     </div>
   );

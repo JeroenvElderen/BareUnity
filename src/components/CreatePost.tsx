@@ -61,7 +61,7 @@ export default function CreatePost() {
 
       <textarea
         placeholder="What are you experiencing today?"
-        className="mb-3 min-h-28 w-full rounded-2xl border border-accent/20 bg-bg/40 p-3 text-sm text-text outline-none placeholder:text-muted focus:border-accent/35"
+        className="glass-input mb-3 min-h-28 w-full rounded-2xl p-3 text-sm text-text outline-none placeholder:text-muted focus:border-accent/60"
         value={content}
         onChange={(e) => setContent(e.target.value)}
       />
@@ -70,7 +70,7 @@ export default function CreatePost() {
         <input
           type="file"
           accept="image/*"
-          className="max-w-full rounded-xl border border-accent/20 bg-white/5 p-2 text-xs text-text file:mr-3 file:rounded-lg file:border-0 file:bg-white/10 file:px-2 file:py-1 file:text-text"
+          className="glass-input max-w-full rounded-xl p-2 text-xs text-text file:mr-3 file:rounded-lg file:border-0 file:bg-bg/80 file:px-2 file:py-1 file:text-text"
           onChange={(e) => setImage(e.target.files?.[0] || null)}
         />
 

@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Image from "next/image";
 import { Post } from "@/types/database";
+import type { FeedView } from "./Feed";
 
 type Comment = {
   id: string;
@@ -10,7 +11,7 @@ type Comment = {
   body: string;
 };
 
-export default function PostCard({ post }: { post: Post }) {
+export default function PostCard({ post, view, emphasize = false }: { post: Post; view: FeedView; emphasize?: boolean }) {
   const [vote, setVote] = useState<-1 | 0 | 1>(0);
   const [score, setScore] = useState(0);
   const [commentText, setCommentText] = useState("");
@@ -40,8 +41,10 @@ export default function PostCard({ post }: { post: Post }) {
     setCommentText("");
   }
 
+  const isBalanced = view === "balanced";
+
   return (
-    <article className="glass-card-strong p-4 md:p-5">
+    <article className={`glass-card-strong ${isBalanced ? "h-full p-4" : `p-4 md:p-5 ${emphasize ? "md:p-6" : ""}`}`}>
       <div className="mb-4 flex items-center gap-3">
         {profile?.avatar_url ? (
           <Image src={profile.avatar_url} alt="User avatar" width={44} height={44} className="rounded-full border border-accent/30" />
@@ -55,7 +58,7 @@ export default function PostCard({ post }: { post: Post }) {
         </div>
       </div>
 
-      {post.title && <h2 className="mb-2 text-xl font-semibold text-text">{post.title}</h2>}
+      {post.title && <h2 className={`mb-2 font-semibold text-text ${isBalanced ? "text-base" : "text-xl"}`}>{post.title}</h2>}
       {post.content && <p className="mb-4 text-sm leading-6 text-text/90">{post.content}</p>}
 
       {post.media_url && (
@@ -64,17 +67,17 @@ export default function PostCard({ post }: { post: Post }) {
           alt="Post image"
           width={800}
           height={500}
-          className="max-h-[520px] w-full rounded-2xl border border-accent/20 object-cover"
+          className={`w-full rounded-2xl border border-accent/20 object-cover ${isBalanced ? "h-44" : emphasize ? "max-h-[620px]" : "max-h-[520px]"}`}
         />
       )}
 
-      <div className="mt-4 rounded-2xl border border-accent/15 bg-bg/40 p-3">
+      <div className={`mt-4 rounded-2xl border border-accent/15 bg-bg/40 p-3 ${isBalanced ? "space-y-3" : ""}`}>
         <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => applyVote(vote === 1 ? 0 : 1)}
-              className={`rounded-lg border px-3 py-1 text-sm font-semibold transition ${vote === 1 ? "border-accent/55 bg-accent/80 text-[#102744]" : "border-accent/20 bg-white/5 text-text"}`}
+              className={`rounded-lg border px-3 py-1 text-sm font-semibold transition ${vote === 1 ? "border-accent/55 bg-accent/80 text-[#0f2f36]" : "border-accent/20 bg-white/5 text-text"}`}
             >
               ▲ Upvote
             </button>
@@ -82,7 +85,7 @@ export default function PostCard({ post }: { post: Post }) {
             <button
               type="button"
               onClick={() => applyVote(vote === -1 ? 0 : -1)}
-              className={`rounded-lg border px-3 py-1 text-sm font-semibold transition ${vote === -1 ? "border-brand-2/50 bg-brand-2/75 text-[#102744]" : "border-accent/20 bg-white/5 text-text"}`}
+              className={`rounded-lg border px-3 py-1 text-sm font-semibold transition ${vote === -1 ? "border-brand-2/50 bg-brand-2/75 text-[#0f2f36]" : "border-accent/20 bg-white/5 text-text"}`}
             >
               ▼ Downvote
             </button>

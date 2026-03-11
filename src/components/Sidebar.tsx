@@ -44,13 +44,13 @@ export default function Sidebar() {
 
   return (
     <>
-      <aside className="fixed left-0 top-16 z-20 flex h-[calc(100vh-64px)] min-w-24 flex-col items-center border-r border-accent/15 bg-bg/75 px-3 py-5 backdrop-blur-2xl">
-        <div className="mb-5 rounded-full border border-accent/30 bg-brand/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.24em] text-accent">Nature Hubs</div>
+      <aside className="fixed left-0 top-16 z-20 flex h-[calc(100vh-64px)] min-w-24 flex-col items-center border-r border-accent/20 bg-bg/92 px-3 py-5">
+        <div className="glass-pill mb-5 rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.24em] text-accent">Nature Hubs</div>
         <div className="mt-1 flex w-full flex-col items-center gap-3">
           {channelWorkspaces.map((workspace) => (
             <Link key={workspace.id} href={`/channels/${workspace.id}`} className="group relative" title={workspace.name}>
               <span
-                className="relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl border border-accent/25 bg-card/70 transition-all duration-200 group-hover:-translate-y-0.5 group-hover:border-accent/60"
+                className="glass-input relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl transition-all duration-200 group-hover:-translate-y-0.5 group-hover:border-accent/60"
                 style={{ boxShadow: `0 10px 24px -14px ${workspace.theme.primary}aa` }}
               >
                 {workspace.logoUrl ? (
