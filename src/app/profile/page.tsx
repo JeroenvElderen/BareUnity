@@ -230,7 +230,7 @@ export default function ProfilePage() {
         </section>
       );
     }
-    
+
     if (activeSettingsItem === "Privacy") {
       return (
         <section className="rounded-2xl border border-accent/20 bg-card/70 p-4">
@@ -299,8 +299,8 @@ export default function ProfilePage() {
         <div className="flex">
           <Sidebar />
 
-          <main className="flex-1 px-4 py-6 md:px-8">
-            <div className="mx-auto grid max-w-6xl gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+          <main className="min-w-0 flex-1 px-4 py-6 md:px-8">
+            <div className="mx-auto grid w-full max-w-[min(72rem,calc(100vw-9rem))] gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
               <section className="space-y-4">
                 <div className="overflow-hidden rounded-3xl border border-cyan-300/20 bg-[#0a1424]">
                   <div className="h-40 bg-cover bg-center" style={{ backgroundImage: "url(https://images.unsplash.com/photo-1510784722466-f2aa9c52fff6?q=80&w=1600&auto=format&fit=crop)" }} />

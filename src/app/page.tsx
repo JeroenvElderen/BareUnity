@@ -17,8 +17,8 @@ export default function Home() {
       <div className="mx-auto max-w-[1500px]">
         <div className="flex">
           <Sidebar />
-          <main className="flex-1 px-4 py-6 md:px-8">
-            <div className="mx-auto max-w-6xl space-y-4">
+          <main className="min-w-0 flex-1 px-4 py-6 md:px-8">
+            <div className="mx-auto w-full max-w-[min(72rem,calc(100vw-9rem))] space-y-4">
               <div className="flex justify-end">
                 <button
                   type="button"

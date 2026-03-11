@@ -18,7 +18,7 @@ export default function ChannelsPage() {
       <div className="flex">
         <Sidebar />
 
-        <main className="flex-1 px-6 py-6">
+        <main className="min-w-0 flex-1 px-6 py-6">
           <div className="grid gap-5 lg:grid-cols-[1.2fr_1fr]">
             <section className="space-y-4 rounded-3xl border border-accent/20 bg-card/60 p-4">
               {["sunrise-talk", "event-planning", "wellness-checkins"].map((name) => (

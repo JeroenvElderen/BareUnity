@@ -243,7 +243,7 @@ export default function ChannelWorkspacePage() {
       <div className="flex">
         <Sidebar />
 
-        <main className="flex-1 px-2 md:px-4">
+        <main className="min-w-0 flex-1 px-2 md:px-4">
           {!activeChannelWorkspace ? (
             <section className="m-6 rounded-2xl border border-dashed border-accent/35 bg-card/40 p-8 text-center text-muted">Channel workspace not found.</section>
           ) : (
@@ -271,7 +271,7 @@ export default function ChannelWorkspacePage() {
                 </div>
               </div>
 
-              <div className="grid min-h-[calc(100vh-208px)] lg:grid-cols-[280px_1fr_320px]">
+              <div className="grid min-h-[calc(100vh-208px)] xl:grid-cols-[260px_minmax(0,1fr)_300px]">
                 <aside className="space-y-3 border-r border-accent/15 bg-bg/55 p-4">
                   <section className="rounded-lg border border-accent/20 bg-card/50 p-3">
                     <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.15em] text-accent/80">Text channels</div>
