@@ -8,73 +8,40 @@ import { ensureProfileExists } from "@/lib/profile";
 
 export default function SignupPage() {
   const router = useRouter();
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function handleSignup() {
     setLoading(true);
-
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
-
+    const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) {
       alert(error.message);
       setLoading(false);
       return;
     }
-
     if (data.user) {
       await ensureProfileExists(data.user);
     }
-    
     alert("Account created! Check your email.");
     router.push("/login");
   }
 
   return (
     <main className="flex min-h-screen items-center justify-center px-4 py-8 text-text">
-      <section className="grid w-full max-w-5xl overflow-hidden rounded-3xl border border-accent/20 bg-bg/45 shadow-[0_36px_90px_-45px_rgba(2,10,30,1)] backdrop-blur-xl md:grid-cols-2">
-        <div className="bg-gradient-to-br from-brand-2/30 via-card/25 to-brand/25 p-10">
-          <p className="text-xs uppercase tracking-[0.24em] text-accent/80">Create account</p>
-          <h1 className="mt-3 text-4xl font-semibold text-text">Join BareUnity.</h1>
-          <p className="mt-4 text-sm text-muted">Build your profile and discover curated naturist spaces designed for mindful living.</p>
+      <section className="grid w-full max-w-6xl gap-4 md:grid-cols-[1fr_420px]">
+        <div className="overflow-hidden rounded-3xl border border-accent/20 bg-card/60">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=1400&auto=format&fit=crop" alt="Open sky" className="h-full min-h-[420px] w-full object-cover" />
         </div>
 
-        <div className="bg-bg/40 p-8 md:p-10">
-          <h2 className="text-2xl font-semibold text-text">Sign up</h2>
-
-            <div className="mt-6 space-y-4">
-            <input
-              type="email"
-              placeholder="Email"
-              className="w-full rounded-xl border border-accent/20 bg-white/5 p-3 text-text outline-none placeholder:text-muted focus:border-accent/35"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-
-            <input
-              type="password"
-              placeholder="Password"
-              className="w-full rounded-xl border border-accent/20 bg-white/5 p-3 text-text outline-none placeholder:text-muted focus:border-accent/35"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-
-            <button onClick={handleSignup} disabled={loading} className="premium-button w-full py-3 disabled:opacity-60">
-              {loading ? "Creating account..." : "Sign up"}
-            </button>
+        <div className="rounded-3xl border border-accent/20 bg-card/60 p-6">
+          <div className="space-y-4">
+            <input type="email" placeholder="Email" className="w-full rounded-xl border border-accent/25 bg-card/55 p-3 text-text outline-none placeholder:text-muted" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <input type="password" placeholder="Password" className="w-full rounded-xl border border-accent/25 bg-card/55 p-3 text-text outline-none placeholder:text-muted" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <button onClick={handleSignup} disabled={loading} className="w-full rounded-xl bg-brand px-4 py-3 font-semibold text-[#2a2f22]">{loading ? "Creating account..." : "Sign up"}</button>
           </div>
-
-          <p className="mt-6 text-sm text-muted">
-            Already have an account?{" "}
-            <Link href="/login" className="font-semibold text-accent underline underline-offset-2">
-              Log in
-            </Link>
-          </p>
+          <p className="mt-6 text-sm text-muted">Already have an account? <Link href="/login" className="font-semibold text-accent underline">Log in</Link></p>
         </div>
       </section>
     </main>
