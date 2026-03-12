@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+
+import { supabase } from "@/lib/supabase";
 
 type NaturistSpot = {
   id: string;
@@ -8,6 +10,24 @@ type NaturistSpot = {
   description: string;
   coordinates: [number, number];
   privacy: "Public" | "Discreet";
+};
+
+type SupabaseMapSpot = {
+  id: string;
+  name: string;
+  description: string;
+  latitude: number;
+  longitude: number;
+  privacy: "Public" | "Discreet" | null;
+};
+
+type GeocodeResult = {
+  place_id: string;
+  display_name: string;
+  lat: string;
+  lon: string;
+  type: string;
+  class: string;
 };
 
 declare global {
@@ -20,12 +40,14 @@ declare global {
         zoom: number;
       }) => {
         remove: () => void;
+        flyTo: (config: { center: [number, number]; zoom?: number }) => void;
       };
       Marker: new (config?: { element?: HTMLElement }) => {
         setLngLat: (coords: [number, number]) => {
           setPopup: (popup: unknown) => {
             addTo: (map: unknown) => void;
           };
+          addTo: (map: unknown) => void;
         };
       };
       Popup: new (config?: { offset?: number }) => {
@@ -35,7 +57,7 @@ declare global {
   }
 }
 
-const NATURIST_SPOTS: NaturistSpot[] = [
+const FALLBACK_NATURIST_SPOTS: NaturistSpot[] = [
   {
     id: "dunes-cove",
     name: "Sun Dunes Cove",
@@ -94,9 +116,86 @@ function loadMapLibreAssets() {
   return mapLibreLoader;
 }
 
+function escapeHtml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function toNaturistSpot(row: SupabaseMapSpot): NaturistSpot {
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    coordinates: [row.longitude, row.latitude],
+    privacy: row.privacy === "Public" ? "Public" : "Discreet",
+  };
+}
+
 export default function NaturistMapChannel() {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
+  const [dataError, setDataError] = useState<string | null>(null);
+  const [spots, setSpots] = useState<NaturistSpot[]>(FALLBACK_NATURIST_SPOTS);
+
+  const [isAddingSpot, setIsAddingSpot] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchResults, setSearchResults] = useState<GeocodeResult[]>([]);
+  const [selectedCoords, setSelectedCoords] = useState<[number, number] | null>(null);
+  const [selectedLocationLabel, setSelectedLocationLabel] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [newSpot, setNewSpot] = useState({
+    name: "",
+    description: "",
+    privacy: "Discreet" as NaturistSpot["privacy"],
+  });
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadSpots() {
+      const { data, error } = await supabase
+        .from("naturist_map_spots")
+        .select("id, name, description, latitude, longitude, privacy")
+        .order("name", { ascending: true });
+
+      if (!active) return;
+
+      if (error) {
+        console.error(error);
+        setDataError("Could not load locations from Supabase. Showing fallback locations.");
+        return;
+      }
+
+      const mapped = (data as SupabaseMapSpot[] | null)?.map(toNaturistSpot) ?? [];
+      if (mapped.length > 0) {
+        setSpots(mapped);
+      }
+    }
+
+    loadSpots();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const mapCenter = useMemo<[number, number]>(() => {
+    if (selectedCoords) return selectedCoords;
+    if (spots.length === 0) return [4.9, 52.2];
+
+    const [lngTotal, latTotal] = spots.reduce(
+      ([lngSum, latSum], spot) => [lngSum + spot.coordinates[0], latSum + spot.coordinates[1]],
+      [0, 0],
+    );
+
+    return [lngTotal / spots.length, latTotal / spots.length];
+  }, [selectedCoords, spots]);
 
   useEffect(() => {
     let active = true;
@@ -126,11 +225,11 @@ export default function NaturistMapChannel() {
             },
             layers: [{ id: "osm", type: "raster", source: "osm" }],
           },
-          center: [4.9, 52.2],
-          zoom: 7,
+          center: mapCenter,
+          zoom: selectedCoords ? 12 : 7,
         });
 
-        NATURIST_SPOTS.forEach((spot) => {
+        spots.forEach((spot) => {
           const markerEl = document.createElement("button");
           markerEl.className = "naturist-marker";
           markerEl.type = "button";
@@ -138,11 +237,19 @@ export default function NaturistMapChannel() {
           markerEl.textContent = spot.privacy === "Public" ? "☀" : "🌿";
 
           const popup = new maplibregl.Popup({ offset: 20 }).setHTML(
-            `<div class="text-sm"><strong>${spot.name}</strong><p>${spot.description}</p><p><em>${spot.privacy} spot</em></p></div>`,
+            `<div class="naturist-popup text-sm"><strong>${escapeHtml(spot.name)}</strong><p>${escapeHtml(spot.description)}</p><p><em>${escapeHtml(spot.privacy)} spot</em></p></div>`,
           );
 
           new maplibregl.Marker({ element: markerEl }).setLngLat(spot.coordinates).setPopup(popup).addTo(mapInstance);
         });
+
+        if (selectedCoords) {
+          const draftMarker = document.createElement("span");
+          draftMarker.className = "naturist-marker naturist-marker-draft";
+          draftMarker.textContent = "＋";
+
+          new maplibregl.Marker({ element: draftMarker }).setLngLat(selectedCoords).addTo(mapInstance);
+        }
       } catch (error) {
         console.error(error);
         setMapError("Interactive map could not be loaded from CDN. Showing fallback view.");
@@ -155,7 +262,102 @@ export default function NaturistMapChannel() {
       active = false;
       mapInstance?.remove();
     };
-  }, []);
+  }, [mapCenter, selectedCoords, spots]);
+
+  async function searchPlaces(event?: FormEvent<HTMLFormElement>) {
+    event?.preventDefault();
+
+    const trimmed = searchQuery.trim();
+    if (!trimmed) return;
+
+    setSearchLoading(true);
+    setSaveError(null);
+
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=8&q=${encodeURIComponent(trimmed)}`,
+      );
+
+      if (!response.ok) {
+        throw new Error(`Search failed with status ${response.status}`);
+      }
+
+      const data = (await response.json()) as GeocodeResult[];
+      setSearchResults(data);
+      if (data.length === 0) {
+        setSaveError("No matching places found. Try a nearby town or landmark.");
+      }
+    } catch (error) {
+      console.error(error);
+      setSaveError("Location search is unavailable right now. Please try again.");
+    } finally {
+      setSearchLoading(false);
+    }
+  }
+
+  function selectSearchResult(result: GeocodeResult) {
+    const coords: [number, number] = [Number(result.lon), Number(result.lat)];
+    setSelectedCoords(coords);
+    setSelectedLocationLabel(result.display_name);
+    setSaveError(null);
+
+    if (!newSpot.name) {
+      setNewSpot((current) => ({
+        ...current,
+        name: result.display_name.split(",")[0]?.trim() || current.name,
+      }));
+    }
+  }
+
+  async function createSpot(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSaveError(null);
+
+    if (!selectedCoords) {
+      setSaveError("Select a location from search results first.");
+      return;
+    }
+
+    if (!newSpot.name.trim() || !newSpot.description.trim()) {
+      setSaveError("Name and description are required.");
+      return;
+    }
+
+    setSaving(true);
+
+    const payload = {
+      name: newSpot.name.trim(),
+      description: newSpot.description.trim(),
+      latitude: selectedCoords[1],
+      longitude: selectedCoords[0],
+      privacy: newSpot.privacy,
+    };
+
+    const { data, error } = await supabase
+      .from("naturist_map_spots")
+      .insert(payload)
+      .select("id, name, description, latitude, longitude, privacy")
+      .single();
+
+    if (error) {
+      console.error(error);
+      setSaveError("Could not save location. Please make sure the public insert policy is enabled in Supabase.");
+      setSaving(false);
+      return;
+    }
+
+    if (data) {
+      setSpots((current) => [toNaturistSpot(data as SupabaseMapSpot), ...current]);
+    }
+
+    setSaving(false);
+    setIsAddingSpot(false);
+    setSearchQuery("");
+    setSearchResults([]);
+    setSelectedCoords(null);
+    setSelectedLocationLabel(null);
+    setNewSpot({ name: "", description: "", privacy: "Discreet" });
+  }
 
   return (
     <section className="rounded-3xl border border-accent/20 bg-card/40 p-4 md:p-6">
@@ -167,18 +369,109 @@ export default function NaturistMapChannel() {
         </p>
       </div>
 
+      {dataError ? <p className="mb-3 text-xs text-amber-200/90">{dataError}</p> : null}
+
       {mapError ? (
         <div className="space-y-3">
           <p className="text-xs text-amber-200/90">{mapError}</p>
           <iframe
             title="Naturist locations map fallback"
             src="https://www.openstreetmap.org/export/embed.html?bbox=3.7%2C51.75%2C5.7%2C52.8&layer=mapnik&marker=52.2%2C4.9"
-            className="h-[420px] w-full overflow-hidden rounded-2xl border border-accent/20"
+            className="h-105 w-full overflow-hidden rounded-2xl border border-accent/20"
             loading="lazy"
           />
         </div>
       ) : (
-        <div ref={mapContainerRef} className="h-[420px] w-full overflow-hidden rounded-2xl border border-accent/20" />
+        <div className="relative">
+          <div ref={mapContainerRef} className="h-[420px] w-full overflow-hidden rounded-2xl border border-accent/20" />
+
+          <button
+            type="button"
+            className="premium-button absolute right-3 top-3 z-10 text-sm"
+            onClick={() => {
+              setIsAddingSpot((current) => !current);
+              setSaveError(null);
+            }}
+          >
+            {isAddingSpot ? "Close" : "Add location"}
+          </button>
+
+          {isAddingSpot ? (
+            <div className="glass-card absolute left-3 top-3 z-10 max-h-[390px] w-[min(420px,calc(100%-1.5rem))] overflow-y-auto p-3 text-sm">
+              <form className="space-y-3" onSubmit={searchPlaces}>
+                <p className="text-xs text-muted">Search beaches, resorts, buildings, or remote places, then select a result.</p>
+                <div className="flex gap-2">
+                  <input
+                    className="glass-input min-w-0 flex-1 rounded-lg px-3 py-2"
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    placeholder="Search location"
+                  />
+                  <button type="submit" className="soft-button text-xs" disabled={searchLoading}>
+                    {searchLoading ? "Searching..." : "Search"}
+                  </button>
+                </div>
+              </form>
+
+              {searchResults.length > 0 ? (
+                <ul className="mt-3 space-y-2">
+                  {searchResults.map((result) => (
+                    <li key={result.place_id}>
+                      <button
+                        type="button"
+                        className="glass-input w-full rounded-lg px-2 py-2 text-left"
+                        onClick={() => selectSearchResult(result)}
+                      >
+                        <p className="text-xs text-cyan-50">{result.display_name}</p>
+                        <p className="text-[11px] uppercase tracking-wide text-muted">{result.class} • {result.type}</p>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+
+              <form className="mt-3 space-y-2" onSubmit={createSpot}>
+                {selectedLocationLabel ? (
+                  <p className="rounded-lg border border-accent/25 bg-accent/8 px-2 py-1 text-xs text-cyan-50">
+                    Selected: {selectedLocationLabel}
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted">No location selected yet.</p>
+                )}
+
+                <input
+                  className="glass-input w-full rounded-lg px-3 py-2"
+                  value={newSpot.name}
+                  onChange={(event) => setNewSpot((current) => ({ ...current, name: event.target.value }))}
+                  placeholder="Spot name"
+                  required
+                />
+                <textarea
+                  className="glass-input w-full rounded-lg px-3 py-2"
+                  rows={3}
+                  value={newSpot.description}
+                  onChange={(event) => setNewSpot((current) => ({ ...current, description: event.target.value }))}
+                  placeholder="Description"
+                  required
+                />
+                <select
+                  className="glass-input w-full rounded-lg px-3 py-2"
+                  value={newSpot.privacy}
+                  onChange={(event) => setNewSpot((current) => ({ ...current, privacy: event.target.value as NaturistSpot["privacy"] }))}
+                >
+                  <option value="Public">Public</option>
+                  <option value="Discreet">Discreet</option>
+                </select>
+
+                {saveError ? <p className="text-xs text-rose-200">{saveError}</p> : null}
+
+                <button type="submit" className="premium-button w-full text-sm" disabled={saving}>
+                  {saving ? "Saving..." : "Save to Supabase"}
+                </button>
+              </form>
+            </div>
+          ) : null}
+        </div>
       )}
     </section>
   );
