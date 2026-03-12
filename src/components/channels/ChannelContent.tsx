@@ -1,5 +1,6 @@
 import GeneralNatureChannel from "@/components/channels/GeneralNatureChannel";
 import MindfulLivingChannel from "@/components/channels/MindfulLivingChannel";
+import NaturistMapChannel from "@/components/channels/NaturistMapChannel";
 import RetreatsChannel from "@/components/channels/RetreatsChannel";
 import { ChannelContentType } from "@/lib/channel-data";
 
@@ -11,6 +12,7 @@ type ChannelContentProps = {
 export default function ChannelContent({ channelId, contentType }: ChannelContentProps) {
   if (contentType === "retreats" || channelId === "retreats") return <RetreatsChannel />;
   if (contentType === "mindful" || channelId === "mindful-living") return <MindfulLivingChannel />;
+  if (contentType === "map" || channelId === "naturist-map") return <NaturistMapChannel />;
   if (contentType === "general" || channelId === "general-nature") return <GeneralNatureChannel />;
 
   return (

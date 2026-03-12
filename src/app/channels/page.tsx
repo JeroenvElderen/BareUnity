@@ -4,7 +4,6 @@ export const dynamic = "force-dynamic";
 
 import Topbar from "@/components/Topbar";
 import Sidebar from "@/components/Sidebar";
-import OwnerChannelEditorHelp from "@/components/channels/OwnerChannelEditorHelp";
 
 export default function ChannelsPage() {
   return (
@@ -15,7 +14,6 @@ export default function ChannelsPage() {
 
         <main className="min-w-0 flex-1 px-4 py-6 md:px-6">
           <div className="mx-auto w-full max-w-[min(72rem,calc(100vw-8.5rem))] space-y-4">
-            <OwnerChannelEditorHelp />
             <section className="rounded-3xl border border-accent/20 bg-card/50 p-6 text-sm text-muted">
               Select a channel from the sidebar to load its dedicated component here.
             </section>

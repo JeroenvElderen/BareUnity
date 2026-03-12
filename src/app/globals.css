@@ -46,6 +46,25 @@ body::before {
 }
 
 @layer components {
+  .naturist-marker {
+    display: grid;
+    height: 2rem;
+    width: 2rem;
+    place-items: center;
+    border-radius: 9999px;
+    border: 1px solid rgb(var(--accent) / 0.7);
+    background: linear-gradient(160deg, rgb(var(--brand) / 0.92), rgb(var(--brand-2) / 0.9));
+    color: rgb(242 255 250);
+    font-size: 1rem;
+    box-shadow: 0 8px 20px -10px rgba(0, 0, 0, 0.65);
+    transition: transform 120ms ease;
+    cursor: pointer;
+  }
+
+  .naturist-marker:hover {
+    transform: scale(1.08);
+  }
+  
   .glass-card {
     border-radius: 1rem;
     border: 1px solid rgb(var(--accent) / 0.22);

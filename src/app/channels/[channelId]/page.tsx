@@ -5,7 +5,6 @@ import { useParams } from "next/navigation";
 import Topbar from "@/components/Topbar";
 import Sidebar from "@/components/Sidebar";
 import ChannelContent from "@/components/channels/ChannelContent";
-import OwnerChannelEditorHelp from "@/components/channels/OwnerChannelEditorHelp";
 import { Channel, getInitials, readChannelsFromSupabase } from "@/lib/channel-data";
 
 export default function ChannelPage() {
@@ -54,8 +53,7 @@ export default function ChannelPage() {
                 </div>
               )}
             </section>
-
-            <OwnerChannelEditorHelp />
+            
             {activeChannel && <ChannelContent channelId={activeChannel.id} contentType={activeChannel.contentType} />}
           </div>
         </main>
