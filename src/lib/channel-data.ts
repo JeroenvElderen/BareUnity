@@ -15,6 +15,7 @@ type ChannelRow = {
   id: string;
   name: string;
   icon_url?: string | null;
+  content_type?: string | null;
   content_config?: { component_key?: string | null } | null;
   is_enabled?: boolean | null;
 };
@@ -39,14 +40,14 @@ function normalizeChannel(row: ChannelRow): Channel {
     id: row.id,
     name: row.name,
     iconUrl: row.icon_url ?? null,
-    contentType: normalizeContentType(row.content_config?.component_key),
+    contentType: normalizeContentType(row.content_config?.component_key ?? row.content_type),
   };
 }
 
 export async function readChannelsFromSupabase() {
   const { data, error } = await supabase
     .from("channels")
-    .select("id, name, icon_url, content_config, is_enabled")
+    .select("id, name, icon_url, content_type, content_config, is_enabled")
     .eq("is_enabled", true)
     .order("position", { ascending: true })
     .order("name", { ascending: true });

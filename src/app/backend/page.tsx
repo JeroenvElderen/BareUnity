@@ -11,7 +11,7 @@ type EditableChannel = {
   slug: string;
   icon_url: string | null;
   content_type: "forum" | "map" | "feed" | "events" | "custom";
-  component_key: "general" | "retreats" | "mindful" | "custom";
+  component_key: "general" | "retreats" | "mindful" | "map" | "custom";
   position: number;
   is_enabled: boolean;
 };
@@ -180,6 +180,7 @@ export default function BackendPage() {
                   <option value="general">general</option>
                   <option value="retreats">retreats</option>
                   <option value="mindful">mindful</option>
+                  <option value="map">map</option>
                   <option value="custom">custom</option>
                 </select>
                 <label className="flex items-center gap-2 text-sm text-muted"><input type="checkbox" checked={form.is_enabled} onChange={(e) => setForm((s) => ({ ...s, is_enabled: e.target.checked }))} /> Enabled</label>
@@ -206,6 +207,7 @@ export default function BackendPage() {
                       <option value="general">general</option>
                       <option value="retreats">retreats</option>
                       <option value="mindful">mindful</option>
+                      <option value="map">map</option>
                       <option value="custom">custom</option>
                     </select>
                     <label className="flex items-center gap-2 text-sm text-muted"><input type="checkbox" checked={channel.is_enabled} onChange={(e) => setChannels((rows) => rows.map((row) => row.id === channel.id ? { ...row, is_enabled: e.target.checked } : row))} /> Enabled</label>
