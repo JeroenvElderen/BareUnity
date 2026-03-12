@@ -6,19 +6,17 @@ import { useMemo, useState } from "react";
 import CreatePost from "@/components/CreatePost";
 import Feed from "@/components/Feed";
 import { readStoredFeedView } from "@/lib/feed-preferences";
-import { Channel } from "@/lib/channel-data";
 
 export default function Home() {
   const view = useMemo(() => readStoredFeedView(), []);
   const [showComposer, setShowComposer] = useState(false);
-  const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
 
   return (
     <div className="min-h-screen text-text">
       <Topbar />
       <div className="flex">
-        <Sidebar selectedChannelId={selectedChannel?.id ?? null} onChannelSelect={setSelectedChannel} />
-        <main className={`min-w-0 flex-1 px-4 py-6 md:px-6 ${selectedChannel ? "hidden" : ""}`}>
+        <Sidebar />
+        <main className="min-w-0 flex-1 px-4 py-6 md:px-6">
           <div className="mx-auto w-full max-w-[min(72rem,calc(100vw-8.5rem))] space-y-4">
             <div className="flex justify-end">
               <button
@@ -31,7 +29,7 @@ export default function Home() {
                 {showComposer ? "Hide create post" : "Create post"}
               </button>
             </div>
-            
+
             {showComposer && <CreatePost />}
             <Feed view={view} />
           </div>
