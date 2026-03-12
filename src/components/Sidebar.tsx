@@ -2,41 +2,18 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CSSProperties, useEffect, useMemo, useState } from "react";
-import { Channel, getInitials, readChannelsFromSupabase } from "@/lib/channel-data";
+import { CSSProperties, useMemo, useState } from "react";
 
 type SidebarProps = {
-  onChannelSelect?: (channel: Channel) => void;
-  selectedChannelId?: string | null;
+  onHomeSelect?: () => void;
+  isHomeActive?: boolean;
 };
 
-export default function Sidebar({ onChannelSelect, selectedChannelId = null }: SidebarProps) {
+export default function Sidebar({ onHomeSelect, isHomeActive = false }: SidebarProps) {
   const pathname = usePathname();
-  const [channels, setChannels] = useState<Channel[]>([]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  useEffect(() => {
-    let isMounted = true;
-
-    async function loadChannels() {
-      const rows = await readChannelsFromSupabase();
-      if (isMounted) setChannels(rows);
-    }
-
-    loadChannels();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [pathname]);
-
-  const sidebarWidth = useMemo(() => {
-    const longestChannelNameLength = channels.reduce((maxLength, channel) => Math.max(maxLength, channel.name.length), 0);
-    const widthInCh = Math.max(longestChannelNameLength + 8, 18);
-
-    return `clamp(12rem, ${widthInCh}ch, 28rem)`;
-  }, [channels]);
-
+  const sidebarWidth = useMemo(() => "clamp(12rem, 18ch, 28rem)", []);
   const sidebarStyle = { "--sidebar-width": sidebarWidth } as CSSProperties;
 
   return (
@@ -69,50 +46,36 @@ export default function Sidebar({ onChannelSelect, selectedChannelId = null }: S
       >
         <div className="glass-pill mb-5 self-center rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.24em] text-accent">Nature Hubs</div>
         <div className="mt-1 flex w-full flex-col gap-2">
-          {channels.map((channel) => (
-            onChannelSelect ? (
-              <button
-                key={channel.id}
-                type="button"
-                className={`glass-input group relative flex h-11 w-full items-center gap-2 overflow-hidden rounded-2xl px-3 text-left text-sm font-semibold text-text transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/60 ${
-                  selectedChannelId === channel.id ? "border-accent/70" : ""
-                }`}
-                title={channel.name}
-                onClick={() => {
-                  onChannelSelect(channel);
-                  setIsMobileMenuOpen(false);
-                }}
-              >
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-accent/30 text-[11px] font-bold uppercase text-text/90">
-                  {channel.iconUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={channel.iconUrl} alt={`${channel.name} icon`} className="h-full w-full object-cover" />
-                  ) : (
-                    getInitials(channel.name) || "#"
-                  )}
-                </span>
-                <span className="whitespace-nowrap">{channel.name}</span>
-              </button>
-            ) : (
-              <Link
-                key={channel.id}
-                href={`/channels/${channel.id}`}
-                className="glass-input group relative flex h-11 w-full items-center gap-2 overflow-hidden rounded-2xl px-3 text-sm font-semibold text-text transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/60"
-                title={channel.name}
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-accent/30 text-[11px] font-bold uppercase text-text/90">
-                  {channel.iconUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={channel.iconUrl} alt={`${channel.name} icon`} className="h-full w-full object-cover" />
-                  ) : (
-                    getInitials(channel.name) || "#"
-                  )}
-                </span>
-                <span className="whitespace-nowrap">{channel.name}</span>
-              </Link>
-            )
-          ))}
+          {onHomeSelect ? (
+            <button
+              type="button"
+              className={`glass-input group relative flex h-11 w-full items-center gap-2 overflow-hidden rounded-2xl px-3 text-left text-sm font-semibold text-text transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/60 ${
+                isHomeActive ? "border-accent/70" : ""
+              }`}
+              onClick={() => {
+                onHomeSelect();
+                setIsMobileMenuOpen(false);
+              }}
+            >
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-accent/30 text-[11px] font-bold uppercase text-text/90">
+                HM
+              </span>
+              <span className="whitespace-nowrap">Home feed</span>
+            </button>
+          ) : (
+            <Link
+              href="/"
+              className={`glass-input group relative flex h-11 w-full items-center gap-2 overflow-hidden rounded-2xl px-3 text-sm font-semibold text-text transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/60 ${
+                pathname === "/" ? "border-accent/70" : ""
+              }`}
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-accent/30 text-[11px] font-bold uppercase text-text/90">
+                HM
+              </span>
+              <span className="whitespace-nowrap">Home feed</span>
+            </Link>
+          )}
         </div>
       </aside>
 
