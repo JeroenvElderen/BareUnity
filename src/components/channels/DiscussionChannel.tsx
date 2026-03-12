@@ -1,11 +1,11 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 type DiscussionMessageRow = {
   id: string;
-  content: string | null;
+  body: string | null;
   created_at: string;
   author_id: string | null;
   profiles: { username: string | null } | { username: string | null }[] | null;
@@ -50,8 +50,14 @@ function normalizeMessage(row: DiscussionMessageRow, currentUserId: string | nul
     author,
     sentAt: formatTime(row.created_at),
     isCurrentUser: Boolean(currentUserId && row.author_id === currentUserId),
-    text: row.content?.trim() || "",
+    text: row.body?.trim() || "",
   };
+}
+
+
+function upsertMessage(next: DiscussionMessage, list: DiscussionMessage[]) {
+  const filtered = list.filter((item) => !(item.id === next.id || (next.isCurrentUser && item.text === next.text && item.sentAt === "sending...")));
+  return [...filtered, next];
 }
 
 export default function DiscussionChannel({ channelId }: { channelId: string }) {
@@ -60,6 +66,7 @@ export default function DiscussionChannel({ channelId }: { channelId: string }) 
   const [draft, setDraft] = useState("");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const currentUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -67,10 +74,12 @@ export default function DiscussionChannel({ channelId }: { channelId: string }) 
     supabase.auth.getUser().then(({ data }) => {
       if (!isMounted) return;
       setCurrentUserId(data.user?.id ?? null);
+      currentUserIdRef.current = data.user?.id ?? null;
     });
 
     const { data: authSub } = supabase.auth.onAuthStateChange((_event, session) => {
       setCurrentUserId(session?.user?.id ?? null);
+      currentUserIdRef.current = session?.user?.id ?? null;
     });
 
     return () => {
@@ -85,10 +94,9 @@ export default function DiscussionChannel({ channelId }: { channelId: string }) 
     async function loadMessages() {
       setLoading(true);
       const { data, error } = await supabase
-        .from("posts")
-        .select("id, content, created_at, author_id, profiles(username)")
+        .from("channel_messages")
+        .select("id, body, created_at, author_id, profiles!channel_messages_author_id_fkey(username)")
         .eq("channel_id", channelId)
-        .is("media_url", null)
         .order("created_at", { ascending: true })
         .limit(150);
 
@@ -123,28 +131,24 @@ export default function DiscussionChannel({ channelId }: { channelId: string }) 
         {
           event: "INSERT",
           schema: "public",
-          table: "posts",
+          table: "channel_messages",
           filter: `channel_id=eq.${channelId}`,
         },
-        async (payload) => {
-          const row = payload.new as { id?: string };
-          if (!row.id) return;
+        (payload) => {
+          const row = payload.new as { id?: string; body?: string | null; created_at?: string; author_id?: string | null };
+          if (!row.id || !row.created_at) return;
 
-          const { data, error } = await supabase
-            .from("posts")
-            .select("id, content, created_at, author_id, profiles(username)")
-            .eq("id", row.id)
-            .single();
+          const message: DiscussionMessage = {
+            id: row.id,
+            text: row.body?.trim() || "",
+            sentAt: formatTime(row.created_at),
+            isCurrentUser: Boolean(currentUserIdRef.current && row.author_id === currentUserIdRef.current),
+            author: currentUserIdRef.current && row.author_id === currentUserIdRef.current ? "You" : "Member",
+          };
 
-          if (error || !data) return;
-
-          const message = normalizeMessage(data as DiscussionMessageRow, currentUserId);
           if (!message.text) return;
 
-          setMessages((prev) => {
-            if (prev.some((item) => item.id === message.id)) return prev;
-            return [...prev, message];
-          });
+          setMessages((prev) => upsertMessage(message, prev));
         },
       )
       .subscribe();
@@ -152,7 +156,7 @@ export default function DiscussionChannel({ channelId }: { channelId: string }) 
     return () => {
       supabase.removeChannel(realtimeChannel);
     };
-  }, [channelId, currentUserId]);
+  }, [channelId]);
 
   const canSend = useMemo(() => draft.trim().length > 0, [draft]);
 
@@ -174,21 +178,43 @@ export default function DiscussionChannel({ channelId }: { channelId: string }) 
     setDraft("");
     setStatus(null);
 
-    const { error } = await supabase.from("posts").insert({
-      channel_id: channelId,
-      content: trimmed,
-      title: null,
-      media_url: null,
-    });
+    if (!currentUserId) {
+      setMessages((prev) => prev.filter((message) => message.id !== optimisticId));
+      setStatus("Sign in to send a message.");
+      return;
+    }
 
-    if (error) {
+    const { data, error } = await supabase
+      .from("channel_messages")
+      .insert({
+        channel_id: channelId,
+        author_id: currentUserId,
+        body: trimmed,
+      })
+      .select("id, body, created_at, author_id")
+      .single();
+
+    if (error || !data) {
       console.error(error);
       setMessages((prev) => prev.filter((message) => message.id !== optimisticId));
       setStatus("Message failed to send.");
       return;
     }
 
-    setMessages((prev) => prev.filter((message) => message.id !== optimisticId));
+    const confirmedMessage: DiscussionMessage = {
+      id: data.id,
+      author: "You",
+      sentAt: formatTime(data.created_at),
+      isCurrentUser: true,
+      text: data.body?.trim() || "",
+    };
+
+    if (!confirmedMessage.text) {
+      setMessages((prev) => prev.filter((message) => message.id !== optimisticId));
+      return;
+    }
+
+    setMessages((prev) => upsertMessage(confirmedMessage, prev));
   }
 
   return (
