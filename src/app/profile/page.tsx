@@ -274,17 +274,17 @@ export default function ProfilePage() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#030816] p-3 text-cyan-50 md:p-5">
-      <div className="flex w-full rounded-[26px] border border-cyan-200/15 bg-[#050e21] shadow-[0_0_0_1px_rgba(125,211,252,0.05),0_24px_80px_-30px_rgba(0,0,0,0.8)]">
-        <aside className="hidden w-[250px] shrink-0 border-r border-cyan-100/15 bg-gradient-to-b from-[#172544] to-[#071334] p-4 md:flex md:flex-col">
-          <div className="text-3xl font-black tracking-tight text-emerald-400">BareUnity</div>
-          <nav className="mt-6 space-y-2 text-lg">
+    <div className="min-h-screen bg-[#030816] p-3 text-cyan-50 md:p-4">
+      <div className="mx-auto flex w-full max-w-7xl rounded-[24px] border border-cyan-200/15 bg-[#050e21] shadow-[0_0_0_1px_rgba(125,211,252,0.05),0_24px_80px_-30px_rgba(0,0,0,0.8)]">
+        <aside className="hidden w-[230px] shrink-0 border-r border-cyan-100/15 bg-gradient-to-b from-[#172544] to-[#071334] p-4 md:flex md:flex-col">
+          <div className="text-2xl font-black tracking-tight text-emerald-400">BareUnity</div>
+          <nav className="mt-5 space-y-2 text-base">
             {tabs.map((tab) => (
               <button
                 key={tab}
                 type="button"
                 onClick={() => setActiveTab(tab)}
-                className={`block w-full rounded-xl px-4 py-2 text-left transition ${activeTab === tab ? "bg-gradient-to-r from-emerald-500/35 to-cyan-500/35 text-cyan-50" : "bg-[#1d2a4d]/55 text-cyan-100/80 hover:bg-[#24355f]/75"}`}
+                className={`block w-full rounded-xl px-3 py-2 text-left transition ${activeTab === tab ? "bg-gradient-to-r from-emerald-500/35 to-cyan-500/35 text-cyan-50" : "bg-[#1d2a4d]/55 text-cyan-100/80 hover:bg-[#24355f]/75"}`}
               >
                 {tab}
               </button>
@@ -295,7 +295,7 @@ export default function ProfilePage() {
           </Link>
         </aside>
 
-        <main className="min-w-0 flex-1 p-3 md:p-6">
+        <main className="min-w-0 flex-1 p-3 md:p-5">
           <div className="mb-3 flex gap-2 overflow-x-auto pb-1 md:hidden">
             {tabs.map((tab) => (
               <button
@@ -309,9 +309,9 @@ export default function ProfilePage() {
             ))}
           </div>
 
-          <section className="relative overflow-hidden rounded-3xl border border-cyan-100/20 p-6" style={{ background: `linear-gradient(110deg, ${profilePrimary}66, #0e2a3f 50%, ${profileSecondary}99)` }}>
-            <div className="flex items-end gap-4">
-              <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-4 border-[#081124] text-2xl font-bold text-[#041222]" style={{ background: `linear-gradient(145deg, ${profilePrimary}, #1ee2bb)` }}>
+          <section className="relative overflow-hidden rounded-3xl border border-cyan-100/20 p-5" style={{ background: `linear-gradient(110deg, ${profilePrimary}66, #0e2a3f 50%, ${profileSecondary}99)` }}>
+            <div className="flex items-end gap-3">
+              <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border-4 border-[#081124] text-xl font-bold text-[#041222]" style={{ background: `linear-gradient(145deg, ${profilePrimary}, #1ee2bb)` }}>
                 {profileImageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={profileImageUrl} alt="Profile" className="h-full w-full object-cover" />
@@ -320,8 +320,8 @@ export default function ProfilePage() {
                 )}
               </div>
               <div>
-                <h1 className="text-4xl font-bold text-cyan-50">{username}</h1>
-                <p className="text-base text-cyan-100/70">Premium Member</p>
+                <h1 className="text-3xl font-bold text-cyan-50">{username}</h1>
+                <p className="text-sm text-cyan-100/70">Premium Member</p>
               </div>
             </div>
           </section>
@@ -329,8 +329,8 @@ export default function ProfilePage() {
           <section className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
             {statCards.map((stat) => (
               <article key={stat.label} className="rounded-2xl border border-cyan-100/15 bg-[#08182f] p-4">
-                <p className="text-3xl font-semibold leading-none text-cyan-100">{stat.value}</p>
-                <p className="mt-1 text-xl text-cyan-100/80">{stat.label}</p>
+                <p className="text-2xl font-semibold leading-none text-cyan-100">{stat.value}</p>
+                <p className="mt-1 text-sm text-cyan-100/80">{stat.label}</p>
               </article>
             ))}
           </section>
@@ -338,7 +338,7 @@ export default function ProfilePage() {
           <section className="mt-4 rounded-3xl border border-cyan-100/15 bg-[#08182f] p-4">
             {activeTab === "Overview" && (
               <div className="space-y-3">
-                <h2 className="text-2xl font-semibold text-cyan-100">Profile Overview</h2>
+                <h2 className="text-xl font-semibold text-cyan-100">Profile Overview</h2>
                 <p className="text-sm text-cyan-100/70">Your profile activity at a glance.</p>
                 {profilePosts.length === 0 ? (
                   <div className="rounded-2xl border border-cyan-100/15 bg-[#091629] p-4 text-sm text-cyan-100/70">No posts yet. Share your first story to populate your overview.</div>
