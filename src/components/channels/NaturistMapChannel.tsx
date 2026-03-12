@@ -382,12 +382,12 @@ export default function NaturistMapChannel() {
           />
         </div>
       ) : (
-        <div className="relative">
+        <div>
           <div ref={mapContainerRef} className="h-[420px] w-full overflow-hidden rounded-2xl border border-accent/20" />
 
           <button
             type="button"
-            className="premium-button absolute right-3 top-3 z-10 text-sm"
+            className="premium-button mt-3 text-sm"
             onClick={() => {
               setIsAddingSpot((current) => !current);
               setSaveError(null);
@@ -397,7 +397,7 @@ export default function NaturistMapChannel() {
           </button>
 
           {isAddingSpot ? (
-            <div className="glass-card absolute left-3 top-3 z-10 max-h-[390px] w-[min(420px,calc(100%-1.5rem))] overflow-y-auto p-3 text-sm">
+            <div className="glass-card mt-3 max-h-[390px] w-full max-w-[420px] overflow-y-auto p-3 text-sm">
               <form className="space-y-3" onSubmit={searchPlaces}>
                 <p className="text-xs text-muted">Search beaches, resorts, buildings, or remote places, then select a result.</p>
                 <div className="flex gap-2">
