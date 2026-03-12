@@ -195,8 +195,7 @@ export default function ProfilePage() {
       let { error } = await supabase.from("profile_settings").upsert(payload, { onConflict: "user_id" });
 
       if (error?.message?.includes("introduction")) {
-        const withoutIntroduction = { ...payload };
-        delete withoutIntroduction.introduction;
+        const withoutIntroduction = Object.fromEntries(Object.entries(payload).filter(([key]) => key !== "introduction"));
         error = (await supabase.from("profile_settings").upsert(withoutIntroduction, { onConflict: "user_id" })).error;
       }
 

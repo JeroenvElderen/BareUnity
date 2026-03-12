@@ -3,43 +3,25 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { CHANNEL_WORKSPACE_STORAGE_KEY, ChannelWorkspace } from "@/lib/channel-data";
-
-function readStoredChannelWorkspaces() {
-  if (typeof window === "undefined") {
-    return [] as ChannelWorkspace[];
-  }
-
-  const stored = window.localStorage.getItem(CHANNEL_WORKSPACE_STORAGE_KEY);
-  if (!stored) {
-    return [] as ChannelWorkspace[];
-  }
-
-  try {
-    return JSON.parse(stored) as ChannelWorkspace[];
-  } catch {
-    return [] as ChannelWorkspace[];
-  }
-}
+import { Channel, getInitials, readChannelsFromSupabase } from "@/lib/channel-data";
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const [channelWorkspaces, setChannelWorkspaces] = useState<ChannelWorkspace[]>(() => []);
+  const [channels, setChannels] = useState<Channel[]>([]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    function refresh() {
-      setChannelWorkspaces(readStoredChannelWorkspaces());
+    let isMounted = true;
+
+    async function loadChannels() {
+      const rows = await readChannelsFromSupabase();
+      if (isMounted) setChannels(rows);
     }
 
-    const timer = window.setTimeout(refresh, 0);
-    window.addEventListener("storage", refresh);
-    window.addEventListener("focus", refresh);
+    loadChannels();
 
     return () => {
-      window.clearTimeout(timer);
-      window.removeEventListener("storage", refresh);
-      window.removeEventListener("focus", refresh);
+      isMounted = false;
     };
   }, [pathname]);
 
@@ -72,17 +54,14 @@ export default function Sidebar() {
       >
         <div className="glass-pill mb-5 rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.24em] text-accent">Nature Hubs</div>
         <div className="mt-1 flex w-full flex-col items-center gap-3">
-          {channelWorkspaces.map((workspace) => (
-            <Link key={workspace.id} href={`/channels/${workspace.id}`} className="group relative" title={workspace.name} onClick={() => setIsMobileMenuOpen(false)}>
-              <span
-                className="glass-input relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl transition-all duration-200 group-hover:-translate-y-0.5 group-hover:border-accent/60"
-                style={{ boxShadow: `0 10px 24px -14px ${workspace.theme.primary}aa` }}
-              >
-                {workspace.logoUrl ? (
+          {channels.map((channel) => (
+            <Link key={channel.id} href={`/channels/${channel.id}`} className="group relative" title={channel.name} onClick={() => setIsMobileMenuOpen(false)}>
+              <span className="glass-input relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl text-xs font-bold text-text transition-all duration-200 group-hover:-translate-y-0.5 group-hover:border-accent/60">
+                {channel.iconUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={workspace.logoUrl} alt={`${workspace.name} logo`} className="h-full w-full object-cover" />
+                  <img src={channel.iconUrl} alt={`${channel.name} icon`} className="h-full w-full object-cover" />
                 ) : (
-                  <span className="h-3.5 w-3.5 rounded-full bg-text" aria-hidden />
+                  getInitials(channel.name) || "#"
                 )}
               </span>
             </Link>
