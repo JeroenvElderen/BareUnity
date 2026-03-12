@@ -1,14 +1,12 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { CSSProperties, useEffect, useMemo, useState } from "react";
 import { Channel, getInitials, readChannelsFromSupabase } from "@/lib/channel-data";
 
 type SidebarProps = {
-  onHomeSelect?: () => void;
+  onHomeSelect: () => void;
   isHomeActive?: boolean;
-  onChannelSelect?: (channelId: string) => void;
+  onChannelSelect: (channelId: string) => void;
   activeChannelId?: string;
   channelFilter?: (channel: Channel) => boolean;
 };
@@ -20,7 +18,6 @@ export default function Sidebar({
   activeChannelId,
   channelFilter,
 }: SidebarProps) {
-  const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [channels, setChannels] = useState<Channel[]>([]);
 
@@ -76,75 +73,36 @@ export default function Sidebar({
       >
         <div className="glass-pill mb-5 self-center rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.24em] text-accent">Nature Hubs</div>
         <div className="mt-1 flex w-full flex-col gap-2 overflow-y-auto">
-          {onHomeSelect ? (
-            <button
-              type="button"
-              className={`glass-input group relative flex h-11 w-full items-center gap-2 overflow-hidden rounded-2xl px-3 text-left text-sm font-semibold text-text transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/60 ${
-                isHomeActive ? "border-accent/70" : ""
-              }`}
-              onClick={() => {
-                onHomeSelect();
-                setIsMobileMenuOpen(false);
-              }}
-            >
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-accent/30 text-[11px] font-bold uppercase text-text/90">
-                HM
-              </span>
-              <span className="whitespace-nowrap">Home feed</span>
-            </button>
-          ) : (
-            <Link
-              href="/"
-              className={`glass-input group relative flex h-11 w-full items-center gap-2 overflow-hidden rounded-2xl px-3 text-sm font-semibold text-text transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/60 ${
-                pathname === "/" ? "border-accent/70" : ""
-              }`}
-              onClick={() => setIsMobileMenuOpen(false)}
-            >
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-accent/30 text-[11px] font-bold uppercase text-text/90">
-                HM
-              </span>
-              <span className="whitespace-nowrap">Home feed</span>
-            </Link>
-          )}
+          <button
+            type="button"
+            className={`glass-input group relative flex h-11 w-full items-center gap-2 overflow-hidden rounded-2xl px-3 text-left text-sm font-semibold text-text transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/60 ${
+              isHomeActive ? "border-accent/70" : ""
+            }`}
+            onClick={() => {
+              onHomeSelect();
+              setIsMobileMenuOpen(false);
+            }}
+          >
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-accent/30 text-[11px] font-bold uppercase text-text/90">
+              HM
+            </span>
+            <span className="whitespace-nowrap">Home feed</span>
+          </button>
 
           {visibleChannels.map((channel) => {
-            const href = `/channels/${channel.id}`;
-            const isActive = activeChannelId ? activeChannelId === channel.id : pathname === href;
-
-            if (onChannelSelect) {
-              return (
-                <button
-                  key={channel.id}
-                  type="button"
-                  className={`glass-input group relative flex h-11 w-full items-center gap-2 overflow-hidden rounded-2xl px-3 text-left text-sm font-semibold text-text transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/60 ${
-                    isActive ? "border-accent/70" : ""
-                  }`}
-                  onClick={() => {
-                    onChannelSelect(channel.id);
-                    setIsMobileMenuOpen(false);
-                  }}
-                >
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-accent/30 text-[11px] font-bold uppercase text-text/90">
-                    {channel.iconUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={channel.iconUrl} alt={`${channel.name} icon`} className="h-full w-full object-cover" />
-                    ) : (
-                      getInitials(channel.name)
-                    )}
-                  </span>
-                  <span className="truncate">{channel.name}</span>
-                </button>
-              );
-            }
+            const isActive = activeChannelId === channel.id;
 
             return (
-              <Link
+              <button
                 key={channel.id}
-                href={href}
-                className={`glass-input group relative flex h-11 w-full items-center gap-2 overflow-hidden rounded-2xl px-3 text-sm font-semibold text-text transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/60 ${
+                type="button"
+                className={`glass-input group relative flex h-11 w-full items-center gap-2 overflow-hidden rounded-2xl px-3 text-left text-sm font-semibold text-text transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/60 ${
                   isActive ? "border-accent/70" : ""
                 }`}
-                onClick={() => setIsMobileMenuOpen(false)}
+                onClick={() => {
+                  onChannelSelect(channel.id);
+                  setIsMobileMenuOpen(false);
+                }}
               >
                 <span className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-accent/30 text-[11px] font-bold uppercase text-text/90">
                   {channel.iconUrl ? (
@@ -155,7 +113,7 @@ export default function Sidebar({
                   )}
                 </span>
                 <span className="truncate">{channel.name}</span>
-              </Link>
+              </button>
             );
           })}
         </div>

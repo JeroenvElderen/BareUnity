@@ -1,8 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
+import Topbar from "@/components/Topbar";
+import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/lib/supabase";
 
 type TabKey = "Overview" | "Posts" | "Comments" | "Gallery" | "Upvoted" | "Settings";
@@ -30,6 +32,18 @@ type ProfileSettingsRow = {
   introduction?: string | null;
 };
 
+const avatarExamples = [
+  "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=300&q=80",
+  "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=300&q=80",
+  "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?auto=format&fit=crop&w=300&q=80",
+];
+
+const bannerExamples = [
+  "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80",
+  "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=800&q=80",
+  "https://images.unsplash.com/photo-1472396961693-142e6e269027?auto=format&fit=crop&w=800&q=80",
+];
+
 const defaultSettings = {
   profilePrimary: "#1fd8b5",
   profileSecondary: "#112b44",
@@ -47,9 +61,9 @@ const defaultSettings = {
 };
 
 export default function ProfilePage() {
+  const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>("Overview");
-
   const [profilePrimary, setProfilePrimary] = useState(defaultSettings.profilePrimary);
   const [profileSecondary, setProfileSecondary] = useState(defaultSettings.profileSecondary);
   const [feedStyle, setFeedStyle] = useState<FeedStyle>(defaultSettings.feedStyle);
@@ -59,18 +73,15 @@ export default function ProfilePage() {
   const [introduction, setIntroduction] = useState(defaultSettings.introduction);
   const [profileImageUrl, setProfileImageUrl] = useState("");
   const [bannerImageUrl, setBannerImageUrl] = useState("");
-
   const [profilePosts, setProfilePosts] = useState<ProfilePost[]>([]);
   const [profileComments, setProfileComments] = useState<ProfileComment[]>([]);
   const [mediaPosts, setMediaPosts] = useState<MediaPost[]>([]);
-
   const [badgesCount, setBadgesCount] = useState(0);
   const [followersCount, setFollowersCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
   const [totalPostsCount, setTotalPostsCount] = useState(0);
   const [userPostsCount, setUserPostsCount] = useState(0);
   const [commentsTableMissing, setCommentsTableMissing] = useState(false);
-
   const [loadedSettingsUserId, setLoadedSettingsUserId] = useState<string | null>(null);
 
   const username = useMemo(() => {
@@ -172,7 +183,7 @@ export default function ProfilePage() {
       setLoadedSettingsUserId(user.id);
     }
 
-    loadSettings();
+    void loadSettings();
   }, [user?.id]);
 
   useEffect(() => {
@@ -209,11 +220,7 @@ export default function ProfilePage() {
     async function loadProfileData() {
       if (!user?.id) return;
 
-      const postsResult = await supabase
-        .from("posts")
-        .select("id, title, content, media_url, created_at", { count: "exact" })
-        .eq("author_id", user.id)
-        .order("created_at", { ascending: false });
+      const postsResult = await supabase.from("posts").select("id, title, content, media_url, created_at", { count: "exact" }).eq("author_id", user.id).order("created_at", { ascending: false });
       if (!postsResult.error) {
         const posts = (postsResult.data ?? []) as ProfilePost[];
         setProfilePosts(posts);
@@ -224,16 +231,9 @@ export default function ProfilePage() {
       const totalPostsResult = await supabase.from("posts").select("id", { count: "exact", head: true });
       if (!totalPostsResult.error) setTotalPostsCount(totalPostsResult.count ?? 0);
 
-      const commentsResult = await supabase
-        .from("comments")
-        .select("id, body, content, created_at")
-        .eq("author_id", user.id)
-        .order("created_at", { ascending: false });
-      if (!commentsResult.error) {
-        setProfileComments((commentsResult.data ?? []) as ProfileComment[]);
-      } else if (commentsResult.error.message.includes("relation") || commentsResult.error.message.includes("does not exist")) {
-        setCommentsTableMissing(true);
-      }
+      const commentsResult = await supabase.from("comments").select("id, body, content, created_at").eq("author_id", user.id).order("created_at", { ascending: false });
+      if (!commentsResult.error) setProfileComments((commentsResult.data ?? []) as ProfileComment[]);
+      else if (commentsResult.error.message.includes("relation") || commentsResult.error.message.includes("does not exist")) setCommentsTableMissing(true);
 
       const followersResult = await supabase.from("friendships").select("id", { count: "exact", head: true }).eq("friend_user_id", user.id);
       if (!followersResult.error) setFollowersCount(followersResult.count ?? 0);
@@ -242,26 +242,15 @@ export default function ProfilePage() {
       if (!followingResult.error) setFollowingCount(followingResult.count ?? 0);
 
       let badgesResult = await supabase.from("user_badges").select("id", { count: "exact", head: true }).eq("user_id", user.id);
-      if (badgesResult.error) {
-        badgesResult = await supabase.from("badges").select("id", { count: "exact", head: true }).eq("user_id", user.id);
-      }
+      if (badgesResult.error) badgesResult = await supabase.from("badges").select("id", { count: "exact", head: true }).eq("user_id", user.id);
       if (!badgesResult.error) setBadgesCount(badgesResult.count ?? 0);
     }
 
-    loadProfileData();
+    void loadProfileData();
   }, [user?.id]);
 
   function updatePrivacy<K extends keyof PrivacySettings>(key: K, value: PrivacySettings[K]) {
     setPrivacy((current) => ({ ...current, [key]: value }));
-  }
-
-  function acceptRequest(request: FriendRequest) {
-    setFriendRequests((current) => current.filter((item) => item.id !== request.id));
-    setFriends((current) => [...current, { id: `friend-${request.id}`, username: request.username, status: "online" }]);
-  }
-
-  function declineRequest(id: string) {
-    setFriendRequests((current) => current.filter((item) => item.id !== id));
   }
 
   const statCards = [
@@ -273,234 +262,146 @@ export default function ProfilePage() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#030816] p-3 text-cyan-50 md:p-4">
-      <div className="mx-auto flex w-full max-w-7xl rounded-[24px] border border-cyan-200/15 bg-[#050e21] shadow-[0_0_0_1px_rgba(125,211,252,0.05),0_24px_80px_-30px_rgba(0,0,0,0.8)]">
-        <aside className="hidden w-[230px] shrink-0 border-r border-cyan-100/15 bg-gradient-to-b from-[#172544] to-[#071334] p-4 md:flex md:flex-col">
-          <div className="text-2xl font-black tracking-tight text-emerald-400">BareUnity</div>
-          <nav className="mt-5 space-y-2 text-base">
-            {tabs.map((tab) => (
-              <button
-                key={tab}
-                type="button"
-                onClick={() => setActiveTab(tab)}
-                className={`block w-full rounded-xl px-3 py-2 text-left transition ${activeTab === tab ? "bg-gradient-to-r from-emerald-500/35 to-cyan-500/35 text-cyan-50" : "bg-[#1d2a4d]/55 text-cyan-100/80 hover:bg-[#24355f]/75"}`}
-              >
-                {tab}
-              </button>
-            ))}
-          </nav>
-          <Link href="/" className="mt-auto block rounded-xl border border-emerald-300/35 bg-emerald-400/15 px-4 py-2 text-center text-sm font-semibold text-emerald-200 transition hover:bg-emerald-300/25">
-            ← Return Home
-          </Link>
-        </aside>
+    <div className="min-h-screen text-text">
+      <Topbar />
+      <div className="flex">
+        <Sidebar
+          onHomeSelect={() => router.push("/")}
+          onChannelSelect={() => router.push("/")}
+          isHomeActive={false}
+        />
 
-        <main className="min-w-0 flex-1 p-3 md:p-5">
-          <div className="mb-3 flex gap-2 overflow-x-auto pb-1 md:hidden">
-            {tabs.map((tab) => (
-              <button
-                key={tab}
-                type="button"
-                onClick={() => setActiveTab(tab)}
-                className={`shrink-0 rounded-full px-3 py-1 text-sm ${activeTab === tab ? "bg-cyan-300/25 text-cyan-50" : "border border-cyan-100/25 text-cyan-100/80"}`}
-              >
-                {tab}
-              </button>
-            ))}
+        <main className="min-w-0 flex-1 px-4 py-6 md:px-6">
+          <div className="mx-auto w-full max-w-[min(76rem,calc(100vw-8.5rem))] space-y-4">
+            <section className="relative overflow-hidden rounded-3xl border border-accent/20 bg-card/55 p-5">
+              {bannerImageUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={bannerImageUrl} alt="Profile banner" className="absolute inset-0 h-full w-full object-cover opacity-35" />
+              )}
+              <div className="relative flex items-end gap-4">
+                <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-4 border-bg bg-accent/25 text-2xl font-bold text-text">
+                  {profileImageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={profileImageUrl} alt="Profile" className="h-full w-full object-cover" />
+                  ) : (
+                    username.slice(0, 1).toUpperCase()
+                  )}
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold">{username}</h1>
+                  <p className="text-sm text-muted">Naturist member profile</p>
+                  {introduction && <p className="mt-2 max-w-3xl text-sm text-text/90">{introduction}</p>}
+                </div>
+              </div>
+            </section>
+
+            <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+              {statCards.map((stat) => (
+                <article key={stat.label} className="glass-card p-4">
+                  <p className="text-2xl font-semibold leading-none">{stat.value}</p>
+                  <p className="mt-1 text-sm text-muted">{stat.label}</p>
+                </article>
+              ))}
+            </section>
+
+            <section className="glass-card p-4">
+              <div className="flex flex-wrap gap-2">
+                {tabs.map((tab) => (
+                  <button key={tab} type="button" onClick={() => setActiveTab(tab)} className={`rounded-full px-3 py-1 text-sm ${activeTab === tab ? "bg-accent text-[#08232c]" : "border border-accent/30 text-text"}`}>
+                    {tab}
+                  </button>
+                ))}
+              </div>
+
+              {activeTab === "Overview" && <p className="mt-4 text-sm text-muted">Track your profile highlights, reach, and settings from one unified place.</p>}
+
+              {activeTab === "Posts" && (
+                <div className="mt-4 space-y-3">
+                  {profilePosts.length === 0 ? <p className="text-sm text-muted">No posts yet.</p> : profilePosts.map((post) => (
+                    <article key={post.id} className="rounded-2xl border border-accent/20 bg-bg/40 p-4">
+                      <p className="text-xs text-muted">{new Date(post.created_at).toLocaleString()}</p>
+                      {post.title && <h3 className="mt-1 text-lg font-semibold">{post.title}</h3>}
+                      {post.content && <p className="mt-2 text-sm text-text/90">{post.content}</p>}
+                    </article>
+                  ))}
+                </div>
+              )}
+
+              {activeTab === "Comments" && (
+                <div className="mt-4 space-y-2 text-sm">
+                  {commentsTableMissing ? <p className="text-muted">Comments table not available in this environment.</p> : null}
+                  {!commentsTableMissing && profileComments.length === 0 ? <p className="text-muted">No comments yet.</p> : profileComments.map((comment) => (
+                    <article key={comment.id} className="rounded-xl border border-accent/20 bg-bg/40 p-3">
+                      <p className="text-xs text-muted">{new Date(comment.created_at).toLocaleString()}</p>
+                      <p className="mt-1 text-text/90">{comment.body ?? comment.content}</p>
+                    </article>
+                  ))}
+                </div>
+              )}
+
+              {activeTab === "Gallery" && (
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {mediaPosts.length === 0 ? <p className="text-sm text-muted">No media posts yet.</p> : mediaPosts.map((post) => (
+                    <article key={post.id} className="overflow-hidden rounded-2xl border border-accent/20 bg-bg/30">
+                      {post.media_url && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={post.media_url} alt={post.title ?? "Gallery image"} className="h-44 w-full object-cover" />
+                      )}
+                      <div className="p-3 text-sm">{post.title ?? "Untitled"}</div>
+                    </article>
+                  ))}
+                </div>
+              )}
+
+              {activeTab === "Upvoted" && <p className="mt-4 text-sm text-muted">Upvoted content will appear here once vote tracking is enabled.</p>}
+
+              {activeTab === "Settings" && (
+                <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                  <section className="rounded-2xl border border-accent/20 bg-bg/35 p-4">
+                    <h3 className="text-sm font-semibold uppercase tracking-wider text-accent">Image examples</h3>
+                    <p className="mt-1 text-xs text-muted">Pick a suggested avatar or banner to match the site style.</p>
+                    <div className="mt-3 grid grid-cols-3 gap-2">
+                      {avatarExamples.map((url) => (
+                        <button key={url} type="button" onClick={() => setProfileImageUrl(url)} className="overflow-hidden rounded-xl border border-accent/25">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={url} alt="Avatar example" className="h-16 w-full object-cover" />
+                        </button>
+                      ))}
+                    </div>
+                    <div className="mt-3 grid grid-cols-1 gap-2">
+                      {bannerExamples.map((url) => (
+                        <button key={url} type="button" onClick={() => setBannerImageUrl(url)} className="overflow-hidden rounded-xl border border-accent/25">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={url} alt="Banner example" className="h-20 w-full object-cover" />
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+
+                  <section className="rounded-2xl border border-accent/20 bg-bg/35 p-4 text-sm">
+                    <h3 className="font-semibold uppercase tracking-wider text-accent">Profile settings</h3>
+                    <textarea value={introduction} onChange={(event) => setIntroduction(event.target.value.slice(0, 220))} className="mt-3 h-24 w-full rounded-xl border border-accent/20 bg-bg/50 p-3" placeholder="Short introduction" />
+                    <div className="mt-3 grid grid-cols-2 gap-3">
+                      <label>Primary<input type="color" value={profilePrimary} onChange={(event) => setProfilePrimary(event.target.value)} className="mt-1 h-9 w-full" /></label>
+                      <label>Secondary<input type="color" value={profileSecondary} onChange={(event) => setProfileSecondary(event.target.value)} className="mt-1 h-9 w-full" /></label>
+                    </div>
+                    <label className="mt-3 block">Profile image URL<input value={profileImageUrl} onChange={(event) => setProfileImageUrl(event.target.value)} className="mt-1 w-full rounded-xl border border-accent/20 bg-bg/50 px-3 py-2" /></label>
+                    <label className="mt-3 block">Banner image URL<input value={bannerImageUrl} onChange={(event) => setBannerImageUrl(event.target.value)} className="mt-1 w-full rounded-xl border border-accent/20 bg-bg/50 px-3 py-2" /></label>
+                    <div className="mt-3 flex gap-2">
+                      <button type="button" onClick={() => setFeedStyle("balanced")} className={`rounded-full px-3 py-1 text-xs ${feedStyle === "balanced" ? "bg-accent text-[#08232c]" : "border border-accent/30"}`}>Balanced</button>
+                      <button type="button" onClick={() => setFeedStyle("magazine")} className={`rounded-full px-3 py-1 text-xs ${feedStyle === "magazine" ? "bg-accent text-[#08232c]" : "border border-accent/30"}`}>Magazine</button>
+                    </div>
+                    <div className="mt-3 space-y-2">
+                      <label className="flex items-center justify-between">Show email<input type="checkbox" checked={privacy.showEmail} onChange={(event) => updatePrivacy("showEmail", event.target.checked)} /></label>
+                      <label className="flex items-center justify-between">Show activity<input type="checkbox" checked={privacy.showActivity} onChange={(event) => updatePrivacy("showActivity", event.target.checked)} /></label>
+                      <label className="flex items-center justify-between">Allow requests<input type="checkbox" checked={privacy.allowFriendRequests} onChange={(event) => updatePrivacy("allowFriendRequests", event.target.checked)} /></label>
+                    </div>
+                    <p className="mt-3 text-xs text-muted">Friends: {friends.length} · Pending requests: {friendRequests.length}</p>
+                  </section>
+                </div>
+              )}
+            </section>
           </div>
-
-          <section className="relative overflow-hidden rounded-3xl border border-cyan-100/20 p-5" style={{ background: `linear-gradient(110deg, ${profilePrimary}66, #0e2a3f 50%, ${profileSecondary}99)` }}>
-            <div className="flex items-end gap-3">
-              <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border-4 border-[#081124] text-xl font-bold text-[#041222]" style={{ background: `linear-gradient(145deg, ${profilePrimary}, #1ee2bb)` }}>
-                {profileImageUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={profileImageUrl} alt="Profile" className="h-full w-full object-cover" />
-                ) : (
-                  username.slice(0, 1).toUpperCase()
-                )}
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold text-cyan-50">{username}</h1>
-                <p className="text-sm text-cyan-100/70">Premium Member</p>
-              </div>
-            </div>
-          </section>
-
-          <section className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-            {statCards.map((stat) => (
-              <article key={stat.label} className="rounded-2xl border border-cyan-100/15 bg-[#08182f] p-4">
-                <p className="text-2xl font-semibold leading-none text-cyan-100">{stat.value}</p>
-                <p className="mt-1 text-sm text-cyan-100/80">{stat.label}</p>
-              </article>
-            ))}
-          </section>
-
-          <section className="mt-4 rounded-3xl border border-cyan-100/15 bg-[#08182f] p-4">
-            {activeTab === "Overview" && (
-              <div className="space-y-3">
-                <h2 className="text-xl font-semibold text-cyan-100">Profile Overview</h2>
-                <p className="text-sm text-cyan-100/70">Your profile activity at a glance.</p>
-                {profilePosts.length === 0 ? (
-                  <div className="rounded-2xl border border-cyan-100/15 bg-[#091629] p-4 text-sm text-cyan-100/70">No posts yet. Share your first story to populate your overview.</div>
-                ) : (
-                  <div className="grid gap-3 md:grid-cols-2">
-                    {profilePosts.slice(0, 2).map((post) => (
-                      <div key={post.id} className="rounded-2xl border border-cyan-100/15 bg-[#091629] p-4">
-                        <p className="text-xs text-cyan-100/60">{new Date(post.created_at).toLocaleString()}</p>
-                        {post.title && <h3 className="mt-1 text-lg font-semibold">{post.title}</h3>}
-                        {post.content && <p className="mt-2 text-sm text-cyan-100/85">{post.content}</p>}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {activeTab === "Posts" && (
-              <div className="space-y-3">
-                {profilePosts.length === 0 ? <p className="text-sm text-cyan-100/65">No posts yet.</p> : profilePosts.map((post) => (
-                  <div key={post.id} className="rounded-2xl border border-cyan-100/15 bg-[#091629] p-4">
-                    <p className="text-xs text-cyan-100/60">{new Date(post.created_at).toLocaleString()}</p>
-                    {post.title && <h3 className="mt-1 text-lg font-semibold">{post.title}</h3>}
-                    {post.content && <p className="mt-2 text-sm text-cyan-100/85">{post.content}</p>}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {activeTab === "Comments" && (
-              <div className="space-y-3">
-                {profileComments.length === 0 ? (
-                  <p className="text-sm text-cyan-100/65">{commentsTableMissing ? "Comments table is not available yet. Run the SQL migration below." : "No comments yet."}</p>
-                ) : profileComments.map((comment) => (
-                  <div key={comment.id} className="rounded-2xl border border-cyan-100/15 bg-[#091629] p-4">
-                    <p className="text-xs text-cyan-100/60">{new Date(comment.created_at).toLocaleString()}</p>
-                    <p className="mt-2 text-sm text-cyan-100/90">{comment.body ?? comment.content ?? "(empty comment)"}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {activeTab === "Gallery" && (
-              <div>
-                {mediaPosts.length === 0 ? (
-                  <p className="text-sm text-cyan-100/65">No uploaded images yet.</p>
-                ) : (
-                  <div className="columns-1 gap-3 sm:columns-2 lg:columns-3">
-                    {mediaPosts.map((post) => (
-                      <div key={post.id} className="mb-3 break-inside-avoid overflow-hidden rounded-xl border border-cyan-100/15 bg-[#071225]">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={post.media_url ?? ""} alt={post.title ?? "Gallery image"} className="w-full object-cover" />
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {activeTab === "Upvoted" && (
-              <div className="grid gap-3 md:grid-cols-2">
-                <section className="rounded-2xl border border-white/15 bg-[#0f2037]/80 p-4">
-                  <h3 className="text-sm font-semibold text-cyan-100">Friends ({friends.length})</h3>
-                  <ul className="mt-3 space-y-2 text-xs text-cyan-100/85">
-                    {friends.map((friend) => (
-                      <li key={friend.id} className="flex items-center justify-between rounded-lg border border-white/15 bg-[#091629] px-3 py-2"><span>u/{friend.username}</span><span className="capitalize text-cyan-100/60">{friend.status}</span></li>
-                    ))}
-                  </ul>
-                </section>
-                <section className="rounded-2xl border border-white/15 bg-[#0f2037]/80 p-4">
-                  <h3 className="text-sm font-semibold text-cyan-100">Pending friend requests</h3>
-                  <div className="mt-3 space-y-2">
-                    {friendRequests.length === 0 ? <p className="text-xs text-cyan-100/70">No pending requests.</p> : friendRequests.map((request) => (
-                      <div key={request.id} className="rounded-xl border border-white/15 bg-[#091629] p-3 text-xs text-cyan-100/85"><p className="font-semibold">u/{request.username}</p><p className="text-cyan-100/60">{request.mutualFriends} mutual friends</p></div>
-                    ))}
-                  </div>
-                </section>
-              </div>
-            )}
-
-            {activeTab === "Settings" && (
-              <div className="space-y-4">
-                <h2 className="text-2xl font-semibold text-cyan-100">Settings</h2>
-
-                <section className="rounded-2xl border border-white/15 bg-[#0f2037]/80 p-4">
-                  <h3 className="text-sm font-semibold text-cyan-100">Media</h3>
-                  <div className="mt-3 grid gap-3 md:grid-cols-2">
-                    <label className="text-xs text-cyan-100/70">
-                      Profile picture URL
-                      <input value={profileImageUrl} onChange={(event) => setProfileImageUrl(event.target.value)} className="mt-1 w-full rounded-lg border border-white/20 bg-[#091629] px-3 py-2 text-cyan-100" />
-                    </label>
-                    <label className="text-xs text-cyan-100/70">
-                      Banner picture URL
-                      <input value={bannerImageUrl} onChange={(event) => setBannerImageUrl(event.target.value)} className="mt-1 w-full rounded-lg border border-white/20 bg-[#091629] px-3 py-2 text-cyan-100" />
-                    </label>
-                  </div>
-                </section>
-
-                <section className="rounded-2xl border border-white/15 bg-[#0f2037]/80 p-4">
-                  <h3 className="text-sm font-semibold text-cyan-100">Profile content</h3>
-                  <textarea
-                    value={introduction}
-                    onChange={(event) => setIntroduction(event.target.value.slice(0, 220))}
-                    placeholder="Introduce yourself in a short sentence..."
-                    className="mt-3 h-28 w-full resize-none rounded-xl border border-cyan-100/20 bg-[#091629] p-3 text-sm text-cyan-50 outline-none placeholder:text-cyan-100/50"
-                  />
-                </section>
-
-                <section className="rounded-2xl border border-white/15 bg-[#0f2037]/80 p-4">
-                  <h3 className="text-sm font-semibold text-cyan-100">Profile style</h3>
-                  <div className="mt-3 grid grid-cols-2 gap-3">
-                    <label className="text-xs text-cyan-100/70">Primary<input type="color" value={profilePrimary} onChange={(event) => setProfilePrimary(event.target.value)} className="mt-1 h-9 w-full rounded border border-white/20 bg-transparent" /></label>
-                    <label className="text-xs text-cyan-100/70">Secondary<input type="color" value={profileSecondary} onChange={(event) => setProfileSecondary(event.target.value)} className="mt-1 h-9 w-full rounded border border-white/20 bg-transparent" /></label>
-                  </div>
-                  <div className="mt-3 flex gap-2">
-                    <button type="button" onClick={() => setFeedStyle("balanced")} className={`rounded-full px-3 py-1 text-xs ${feedStyle === "balanced" ? "bg-cyan-400 text-[#041222]" : "border border-white/20 text-cyan-100"}`}>Balanced</button>
-                    <button type="button" onClick={() => setFeedStyle("magazine")} className={`rounded-full px-3 py-1 text-xs ${feedStyle === "magazine" ? "bg-cyan-400 text-[#041222]" : "border border-white/20 text-cyan-100"}`}>Magazine</button>
-                  </div>
-                </section>
-
-                <section className="rounded-2xl border border-white/15 bg-[#0f2037]/80 p-4 text-sm text-cyan-100/80">
-                  <h3 className="text-sm font-semibold text-cyan-100">Privacy</h3>
-                  <div className="mt-3 space-y-2">
-                    <label className="flex items-center justify-between">Show email<input type="checkbox" checked={privacy.showEmail} onChange={(event) => updatePrivacy("showEmail", event.target.checked)} /></label>
-                    <label className="flex items-center justify-between">Show activity<input type="checkbox" checked={privacy.showActivity} onChange={(event) => updatePrivacy("showActivity", event.target.checked)} /></label>
-                    <label className="flex items-center justify-between">Allow requests<input type="checkbox" checked={privacy.allowFriendRequests} onChange={(event) => updatePrivacy("allowFriendRequests", event.target.checked)} /></label>
-                  </div>
-                </section>
-
-                <section className="rounded-2xl border border-white/15 bg-[#0f2037]/80 p-4">
-                  <h3 className="text-sm font-semibold text-cyan-100">Connections</h3>
-                  <div className="mt-3 grid gap-3 md:grid-cols-2">
-                    <div>
-                      <h4 className="text-xs font-semibold text-cyan-100/80">Pending requests</h4>
-                      <div className="mt-2 space-y-2">
-                        {friendRequests.length === 0 ? <p className="text-xs text-cyan-100/70">No pending requests.</p> : friendRequests.map((request) => (
-                          <div key={request.id} className="rounded-xl border border-white/15 bg-[#091629] p-3 text-xs text-cyan-100/85">
-                            <p className="font-semibold">u/{request.username}</p>
-                            <p className="text-cyan-100/60">{request.mutualFriends} mutual friends</p>
-                            <div className="mt-2 flex gap-2">
-                              <button type="button" onClick={() => acceptRequest(request)} className="rounded-full bg-emerald-500 px-3 py-1 text-[11px] font-semibold text-white">Accept</button>
-                              <button type="button" onClick={() => declineRequest(request.id)} className="rounded-full border border-white/20 px-3 py-1 text-[11px]">Decline</button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-semibold text-cyan-100/80">Friends ({friends.length})</h4>
-                      <ul className="mt-2 space-y-2 text-xs text-cyan-100/85">
-                        {friends.map((friend) => (
-                          <li key={friend.id} className="flex items-center justify-between rounded-lg border border-white/15 bg-[#091629] px-3 py-2">
-                            <span>u/{friend.username}</span>
-                            <span className="capitalize text-cyan-100/60">{friend.status}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                </section>
-              </div>
-            )}
-          </section>
         </main>
       </div>
     </div>

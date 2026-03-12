@@ -14,7 +14,7 @@ export default function ChannelContent({ channelId, contentType }: ChannelConten
   if (contentType === "retreats" || channelId === "retreats") return <RetreatsChannel />;
   if (contentType === "mindful" || channelId === "mindful-living") return <MindfulLivingChannel />;
   if (contentType === "map" || channelId === "naturist-map") return <NaturistMapChannel />;
-  if (contentType === "discussion" || channelId === "discussion") return <DiscussionChannel />;
+  if (contentType === "discussion" || channelId === "discussion") return <DiscussionChannel channelId={channelId} />;
   if (contentType === "general" || channelId === "general-nature") return <GeneralNatureChannel />;
 
   return (

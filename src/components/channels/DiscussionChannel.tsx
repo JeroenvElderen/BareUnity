@@ -1,3 +1,16 @@
+"use client";
+
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { supabase } from "@/lib/supabase";
+
+type DiscussionMessageRow = {
+  id: string;
+  content: string | null;
+  created_at: string;
+  author_id: string | null;
+  profiles: { username: string | null } | { username: string | null }[] | null;
+};
+
 type DiscussionMessage = {
   id: string;
   author: string;
@@ -5,44 +18,6 @@ type DiscussionMessage = {
   isCurrentUser: boolean;
   text: string;
 };
-
-const SAMPLE_MESSAGES: DiscussionMessage[] = [
-  {
-    id: "m1",
-    author: "Jennifer",
-    sentAt: "9:12am",
-    isCurrentUser: false,
-    text: "I have shared an update. Please have a look.",
-  },
-  {
-    id: "m2",
-    author: "Jennifer",
-    sentAt: "9:12am",
-    isCurrentUser: false,
-    text: "No, I have not thought about that. I better get some statistics from the Internet. I should not have any problems since the Internet has all kinds of data.",
-  },
-  {
-    id: "m3",
-    author: "You",
-    sentAt: "9:12am",
-    isCurrentUser: true,
-    text: "Pictures are disabled in this channel, but your point is great. In order for you to succeed, you need to keep everyone interested and involved.",
-  },
-  {
-    id: "m4",
-    author: "Jennifer",
-    sentAt: "9:12am",
-    isCurrentUser: false,
-    text: "You are absolutely right. I will take time to practice and to learn to relax and express myself really well. Wish me luck, Catherine!",
-  },
-  {
-    id: "m5",
-    author: "You",
-    sentAt: "Just now",
-    isCurrentUser: true,
-    text: "I know you. You can do it. Good luck, Jennifer!",
-  },
-];
 
 function getInitials(name: string) {
   return name
@@ -61,54 +36,228 @@ function MessageAvatar({ author }: { author: string }) {
   );
 }
 
-export default function DiscussionChannel() {
+function formatTime(timestamp: string) {
+  const date = new Date(timestamp);
+  return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }).toLowerCase();
+}
+
+function normalizeMessage(row: DiscussionMessageRow, currentUserId: string | null): DiscussionMessage {
+  const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
+  const author = profile?.username?.trim() || "Member";
+
+  return {
+    id: row.id,
+    author,
+    sentAt: formatTime(row.created_at),
+    isCurrentUser: Boolean(currentUserId && row.author_id === currentUserId),
+    text: row.content?.trim() || "",
+  };
+}
+
+export default function DiscussionChannel({ channelId }: { channelId: string }) {
+  const [messages, setMessages] = useState<DiscussionMessage[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [draft, setDraft] = useState("");
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    supabase.auth.getUser().then(({ data }) => {
+      if (!isMounted) return;
+      setCurrentUserId(data.user?.id ?? null);
+    });
+
+    const { data: authSub } = supabase.auth.onAuthStateChange((_event, session) => {
+      setCurrentUserId(session?.user?.id ?? null);
+    });
+
+    return () => {
+      isMounted = false;
+      authSub.subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadMessages() {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("posts")
+        .select("id, content, created_at, author_id, profiles(username)")
+        .eq("channel_id", channelId)
+        .is("media_url", null)
+        .order("created_at", { ascending: true })
+        .limit(150);
+
+      if (!isMounted) return;
+
+      if (error) {
+        console.error(error);
+        setStatus("Could not load messages.");
+      } else {
+        const normalized = ((data ?? []) as DiscussionMessageRow[])
+          .map((row) => normalizeMessage(row, currentUserId))
+          .filter((message) => message.text.length > 0);
+        setMessages(normalized);
+        setStatus(null);
+      }
+
+      setLoading(false);
+    }
+
+    loadMessages();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [channelId, currentUserId]);
+
+  useEffect(() => {
+    const realtimeChannel = supabase
+      .channel(`discussion-${channelId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "posts",
+          filter: `channel_id=eq.${channelId}`,
+        },
+        async (payload) => {
+          const row = payload.new as { id?: string };
+          if (!row.id) return;
+
+          const { data, error } = await supabase
+            .from("posts")
+            .select("id, content, created_at, author_id, profiles(username)")
+            .eq("id", row.id)
+            .single();
+
+          if (error || !data) return;
+
+          const message = normalizeMessage(data as DiscussionMessageRow, currentUserId);
+          if (!message.text) return;
+
+          setMessages((prev) => {
+            if (prev.some((item) => item.id === message.id)) return prev;
+            return [...prev, message];
+          });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(realtimeChannel);
+    };
+  }, [channelId, currentUserId]);
+
+  const canSend = useMemo(() => draft.trim().length > 0, [draft]);
+
+  async function handleSend(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const trimmed = draft.trim();
+    if (!trimmed) return;
+
+    const optimisticId = `tmp-${Date.now()}`;
+    const optimisticMessage: DiscussionMessage = {
+      id: optimisticId,
+      author: "You",
+      sentAt: "sending...",
+      isCurrentUser: true,
+      text: trimmed,
+    };
+
+    setMessages((prev) => [...prev, optimisticMessage]);
+    setDraft("");
+    setStatus(null);
+
+    const { error } = await supabase.from("posts").insert({
+      channel_id: channelId,
+      content: trimmed,
+      title: null,
+      media_url: null,
+    });
+
+    if (error) {
+      console.error(error);
+      setMessages((prev) => prev.filter((message) => message.id !== optimisticId));
+      setStatus("Message failed to send.");
+      return;
+    }
+
+    setMessages((prev) => prev.filter((message) => message.id !== optimisticId));
+  }
+
   return (
     <section className="rounded-3xl border border-accent/20 bg-card/35 p-4 md:p-6">
-      <div className="mb-6 flex justify-center">
-        <span className="rounded-lg border border-accent/25 bg-bg/70 px-3 py-1 text-xs font-medium text-muted">Today</span>
-      </div>
-
       <div className="mb-5 rounded-2xl border border-amber-300/30 bg-amber-100/10 px-3 py-2 text-xs text-amber-100/85">
         This channel is text-only. Image messages are disabled.
       </div>
 
       <div className="space-y-7">
-        {SAMPLE_MESSAGES.map((message) => {
-          const isRight = message.isCurrentUser;
+        {loading ? (
+          <p className="text-sm text-muted">Loading discussion…</p>
+        ) : messages.length === 0 ? (
+          <p className="text-sm text-muted">No messages yet. Start the conversation.</p>
+        ) : (
+          messages.map((message) => {
+            const isRight = message.isCurrentUser;
 
-          return (
-            <article key={message.id} className={`flex ${isRight ? "justify-end" : "justify-start"}`}>
-              <div className={`max-w-[88%] md:max-w-[64%] ${isRight ? "items-end" : "items-start"} flex flex-col`}>
-                <div className={`relative ${isRight ? "pr-6" : "pl-6"}`}>
-                  <div
-                    className={`relative rounded-[1.6rem] px-5 pt-4 pb-5 text-sm leading-relaxed shadow-sm ${
-                      isRight
-                        ? "pr-9 bg-gradient-to-r from-indigo-500 to-violet-500 text-white"
-                        : "pl-9 border border-accent/15 bg-white/70 text-slate-600"
-                    }`}
-                  >
-                    <p className="whitespace-pre-line">{message.text}</p>
+            return (
+              <article key={message.id} className={`flex ${isRight ? "justify-end" : "justify-start"}`}>
+                <div className={`max-w-[88%] md:max-w-[64%] ${isRight ? "items-end" : "items-start"} flex flex-col`}>
+                  <div className={`relative ${isRight ? "pr-6" : "pl-6"}`}>
+                    <div
+                      className={`relative rounded-[1.6rem] px-5 pb-5 pt-4 text-sm leading-relaxed shadow-sm ${
+                        isRight
+                          ? "bg-gradient-to-r from-indigo-500 to-violet-500 pr-9 text-white"
+                          : "border border-accent/15 bg-white/70 pl-9 text-slate-600"
+                      }`}
+                    >
+                      <p className="whitespace-pre-line">{message.text}</p>
+                    </div>
 
+                    <div className={`pointer-events-none absolute -bottom-6 ${isRight ? "right-0" : "left-0"} z-10`}>
+                      <span
+                        className="absolute left-1/2 top-1/2 h-[4.1rem] w-[4.1rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#030711]"
+                        aria-hidden
+                      />
+                      <MessageAvatar author={message.author} />
+                    </div>
                   </div>
 
-                  <div className={`pointer-events-none absolute -bottom-6 ${isRight ? "right-0" : "left-0"} z-10`}>
-                    <span
-                      className="absolute left-1/2 top-1/2 h-[4.1rem] w-[4.1rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#030711]"
-                      aria-hidden
-                    />
-                    <MessageAvatar author={message.author} />
+                  <div className={`mt-2 flex items-center gap-2 text-xs text-muted ${isRight ? "pr-14" : "pl-14"}`}>
+                    <span>•••</span>
+                    <span>{message.sentAt}</span>
                   </div>
                 </div>
-
-                <div className={`mt-2 flex items-center gap-2 text-xs text-muted ${isRight ? "pr-14" : "pl-14"}`}>
-                  <span>•••</span>
-                  <span>{message.sentAt}</span>
-                </div>
-              </div>
-            </article>
-          );
-        })}
+              </article>
+            );
+          })
+        )}
       </div>
+
+      <form onSubmit={handleSend} className="mt-6 flex gap-2">
+        <input
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          maxLength={1000}
+          className="flex-1 rounded-xl border border-accent/30 bg-bg/80 px-3 py-2 text-sm text-text outline-none focus:border-accent"
+          placeholder="Type your message"
+        />
+        <button
+          type="submit"
+          disabled={!canSend}
+          className="rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Send
+        </button>
+      </form>
+
+      {status ? <p className="mt-3 text-xs text-amber-200">{status}</p> : null}
     </section>
   );
 }
