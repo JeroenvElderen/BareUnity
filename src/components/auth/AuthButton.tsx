@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import type { User } from "@supabase/supabase-js";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
@@ -13,6 +14,26 @@ const mainMenuLinks = [
   { href: "/map", label: "Map" },
   { href: "/saved", label: "Saved" },
 ];
+
+function MenuIcon({ children, className = "" }: { children: ReactNode; className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      {children}
+    </svg>
+  );
+}
 
 function getInitials(user: User) {
   const source =
@@ -98,49 +119,75 @@ export default function AuthButton() {
         </button>
 
         {open && (
-          <div
-            role="menu"
-            className="absolute right-0 top-12 z-50 w-64 rounded-xl border border-sand/20 bg-pine-2 p-2 shadow-2xl"
-          >
-            <div className="mb-2 rounded-lg bg-sand/10 px-3 py-2">
-              <p className="text-sm font-semibold text-text">{username}</p>
-              <p className="text-xs text-text/65">{user.email}</p>
+          <div role="menu" className="profile-menu-card absolute right-0 top-12 z-50 w-[220px]">
+            <div className="profile-menu-user">
+              <p className="truncate text-sm font-semibold text-text">{username}</p>
+              <p className="truncate text-xs text-text/65">{user.email}</p>
             </div>
 
-            <div className="space-y-2 text-sm">
-              <div>
-                <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-text/60">Main menu</p>
-                <div className="space-y-1">
-                  {mainMenuLinks.map((item) => (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      onClick={() => setOpen(false)}
-                      className="block rounded-lg px-3 py-2 text-text/90 transition hover:bg-sand/15"
-                    >
-                      {item.label}
-                    </Link>
-                  ))}
-                </div>
-              </div>
+            <ul className="profile-menu-list">
+              {mainMenuLinks.map((item) => (
+                <li key={item.href}>
+                  <Link href={item.href} onClick={() => setOpen(false)} className="profile-menu-element">
+                    <MenuIcon className="profile-menu-icon">
+                      <path d="M3 10.5 12 3l9 7.5" />
+                      <path d="M5 9.5V21h14V9.5" />
+                    </MenuIcon>
+                    <span className="profile-menu-label">{item.label}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
 
-              <div className="border-t border-sand/15 pt-2">
-                <Link
-                  href="/profile"
-                  onClick={() => setOpen(false)}
-                  className="block rounded-lg px-3 py-2 text-text/90 transition hover:bg-sand/15"
-                >
-                  View profile
+            <div className="profile-menu-separator" />
+
+            <ul className="profile-menu-list">
+              <li>
+                <Link href="/profile" onClick={() => setOpen(false)} className="profile-menu-element">
+                  <MenuIcon className="profile-menu-icon">
+                    <circle cx="10" cy="8" r="5" />
+                    <path d="M2 21a8 8 0 0 1 16 0" />
+                  </MenuIcon>
+                  <span className="profile-menu-label">View Profile</span>
                 </Link>
-                <button
-                  type="button"
-                  onClick={logout}
-                  className="block w-full rounded-lg px-3 py-2 text-left text-text/90 transition hover:bg-sand/15"
-                >
-                  Log out
+                </li>
+              <li>
+                <Link href="/profile" onClick={() => setOpen(false)} className="profile-menu-element">
+                  <MenuIcon className="profile-menu-icon">
+                    <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </MenuIcon>
+                  <span className="profile-menu-label">Settings</span>
+                </Link>
+              </li>
+              <li>
+                <button type="button" onClick={logout} className="profile-menu-element profile-menu-delete">
+                  <MenuIcon className="profile-menu-icon">
+                    <path d="M3 6h18" />
+                    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                    <line x1="10" x2="10" y1="11" y2="17" />
+                    <line x1="14" x2="14" y1="11" y2="17" />
+                  </MenuIcon>
+                  <span className="profile-menu-label">Log out</span>
                 </button>
-              </div>
-            </div>
+              </li>
+            </ul>
+
+            <div className="profile-menu-separator" />
+
+            <ul className="profile-menu-list">
+              <li>
+                <Link href="/channels" onClick={() => setOpen(false)} className="profile-menu-element profile-menu-team">
+                  <MenuIcon className="profile-menu-icon">
+                    <path d="M18 21a8 8 0 0 0-16 0" />
+                    <circle cx="10" cy="8" r="5" />
+                    <path d="M22 20c0-3.37-2-6.5-4-8a5 5 0 0 0-.45-8.3" />
+                  </MenuIcon>
+                  <span className="profile-menu-label">Team Access</span>
+                </Link>
+              </li>
+            </ul>
           </div>
         )}
       </div>

@@ -137,3 +137,98 @@ body::before {
     background: rgb(var(--accent) / 0.16);
   }
 }
+
+@layer components {
+  .profile-menu-card {
+    border-radius: 10px;
+    border: 1px solid rgb(var(--accent) / 0.2);
+    background-color: rgba(36, 40, 50, 1);
+    background-image: linear-gradient(139deg, rgba(36, 40, 50, 1) 0%, rgba(36, 40, 50, 1) 0%, rgba(37, 28, 40, 1) 100%);
+    padding: 10px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    box-shadow: 0 26px 46px -28px rgba(0, 0, 0, 0.9);
+  }
+
+  .profile-menu-user {
+    margin: 0 10px;
+    border-radius: 8px;
+    background: rgb(255 255 255 / 0.06);
+    padding: 8px 10px;
+  }
+
+  .profile-menu-separator {
+    border-top: 1.5px solid #42434a;
+  }
+
+  .profile-menu-list {
+    list-style-type: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 0 10px;
+    margin: 0;
+  }
+
+  .profile-menu-element {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #7e8590;
+    padding: 4px 7px;
+    border-radius: 6px;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.3s ease-out;
+  }
+
+  .profile-menu-icon {
+    width: 19px;
+    height: 19px;
+    color: #7e8590;
+    transition: all 0.3s ease-out;
+    flex-shrink: 0;
+  }
+
+  .profile-menu-label {
+    font-weight: 600;
+    font-size: 14px;
+    line-height: 1.2;
+  }
+
+  .profile-menu-element:hover {
+    background-color: #5353ff;
+    color: #ffffff;
+    transform: translate(1px, -1px);
+  }
+
+  .profile-menu-element:hover .profile-menu-icon {
+    color: #ffffff;
+  }
+
+  .profile-menu-delete:hover {
+    background-color: #8e2a2a;
+  }
+
+  .profile-menu-element:active {
+    transform: scale(0.99);
+  }
+
+  .profile-menu-team,
+  .profile-menu-team .profile-menu-icon {
+    color: #bd89ff;
+  }
+
+  .profile-menu-team:hover {
+    background-color: rgba(56, 45, 71, 0.836);
+    color: #bd89ff;
+    transform: translate(1px, -1px);
+  }
+
+  .profile-menu-team:hover .profile-menu-icon {
+    color: #bd89ff;
+  }
+}

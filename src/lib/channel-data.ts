@@ -2,7 +2,7 @@ import { supabase } from "@/lib/supabase";
 
 export const CHANNEL_ADMIN_EMAIL = "jeroen.vanelderen@hotmail.com";
 
-export type ChannelContentType = "general" | "retreats" | "mindful" | "map" | "custom";
+export type ChannelContentType = "general" | "retreats" | "mindful" | "map" | "discussion" | "custom";
 
 export type Channel = {
   id: string;
@@ -25,6 +25,7 @@ const STATIC_CHANNELS: Channel[] = [
   { id: "retreats", name: "Retreats", iconUrl: null, contentType: "retreats" },
   { id: "mindful-living", name: "Mindful Living", iconUrl: null, contentType: "mindful" },
   { id: "naturist-map", name: "Naturist Map", iconUrl: null, contentType: "map" },
+  { id: "discussion", name: "Discussion", iconUrl: null, contentType: "discussion" },
 ];
 
 function normalizeContentType(raw: string | null | undefined): ChannelContentType {
@@ -32,6 +33,7 @@ function normalizeContentType(raw: string | null | undefined): ChannelContentTyp
   if (raw === "mindful") return "mindful";
   if (raw === "map" || raw === "naturist-map" || raw === "naturist_map") return "map";
   if (raw === "custom") return "custom";
+  if (raw === "discussion" || raw === "chat") return "discussion";
   return "general";
 }
 
