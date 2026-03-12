@@ -10,9 +10,16 @@ type SidebarProps = {
   isHomeActive?: boolean;
   onChannelSelect?: (channelId: string) => void;
   activeChannelId?: string;
+  channelFilter?: (channel: Channel) => boolean;
 };
 
-export default function Sidebar({ onHomeSelect, isHomeActive = false, onChannelSelect, activeChannelId }: SidebarProps) {
+export default function Sidebar({
+  onHomeSelect,
+  isHomeActive = false,
+  onChannelSelect,
+  activeChannelId,
+  channelFilter,
+}: SidebarProps) {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [channels, setChannels] = useState<Channel[]>([]);
@@ -34,6 +41,10 @@ export default function Sidebar({ onHomeSelect, isHomeActive = false, onChannelS
 
   const sidebarWidth = useMemo(() => "clamp(12rem, 18ch, 28rem)", []);
   const sidebarStyle = { "--sidebar-width": sidebarWidth } as CSSProperties;
+  const visibleChannels = useMemo(
+    () => (channelFilter ? channels.filter((channel) => channelFilter(channel)) : channels),
+    [channelFilter, channels],
+  );
 
   return (
     <>
@@ -96,7 +107,7 @@ export default function Sidebar({ onHomeSelect, isHomeActive = false, onChannelS
             </Link>
           )}
 
-          {channels.map((channel) => {
+          {visibleChannels.map((channel) => {
             const href = `/channels/${channel.id}`;
             const isActive = activeChannelId ? activeChannelId === channel.id : pathname === href;
 
