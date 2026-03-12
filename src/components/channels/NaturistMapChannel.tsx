@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type NaturistSpot = {
   id: string;
@@ -96,6 +96,7 @@ function loadMapLibreAssets() {
 
 export default function NaturistMapChannel() {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const [mapError, setMapError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -144,6 +145,7 @@ export default function NaturistMapChannel() {
         });
       } catch (error) {
         console.error(error);
+        setMapError("Interactive map could not be loaded from CDN. Showing fallback view.");
       }
     }
 
@@ -165,7 +167,19 @@ export default function NaturistMapChannel() {
         </p>
       </div>
 
-      <div ref={mapContainerRef} className="h-[420px] w-full overflow-hidden rounded-2xl border border-accent/20" />
+      {mapError ? (
+        <div className="space-y-3">
+          <p className="text-xs text-amber-200/90">{mapError}</p>
+          <iframe
+            title="Naturist locations map fallback"
+            src="https://www.openstreetmap.org/export/embed.html?bbox=3.7%2C51.75%2C5.7%2C52.8&layer=mapnik&marker=52.2%2C4.9"
+            className="h-[420px] w-full overflow-hidden rounded-2xl border border-accent/20"
+            loading="lazy"
+          />
+        </div>
+      ) : (
+        <div ref={mapContainerRef} className="h-[420px] w-full overflow-hidden rounded-2xl border border-accent/20" />
+      )}
     </section>
   );
 }

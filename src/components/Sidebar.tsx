@@ -8,9 +8,11 @@ import { Channel, getInitials, readChannelsFromSupabase } from "@/lib/channel-da
 type SidebarProps = {
   onHomeSelect?: () => void;
   isHomeActive?: boolean;
+  onChannelSelect?: (channelId: string) => void;
+  activeChannelId?: string;
 };
 
-export default function Sidebar({ onHomeSelect, isHomeActive = false }: SidebarProps) {
+export default function Sidebar({ onHomeSelect, isHomeActive = false, onChannelSelect, activeChannelId }: SidebarProps) {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [channels, setChannels] = useState<Channel[]>([]);
@@ -96,7 +98,33 @@ export default function Sidebar({ onHomeSelect, isHomeActive = false }: SidebarP
 
           {channels.map((channel) => {
             const href = `/channels/${channel.id}`;
-            const isActive = pathname === href;
+            const isActive = activeChannelId ? activeChannelId === channel.id : pathname === href;
+
+            if (onChannelSelect) {
+              return (
+                <button
+                  key={channel.id}
+                  type="button"
+                  className={`glass-input group relative flex h-11 w-full items-center gap-2 overflow-hidden rounded-2xl px-3 text-left text-sm font-semibold text-text transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/60 ${
+                    isActive ? "border-accent/70" : ""
+                  }`}
+                  onClick={() => {
+                    onChannelSelect(channel.id);
+                    setIsMobileMenuOpen(false);
+                  }}
+                >
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-accent/30 text-[11px] font-bold uppercase text-text/90">
+                    {channel.iconUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={channel.iconUrl} alt={`${channel.name} icon`} className="h-full w-full object-cover" />
+                    ) : (
+                      getInitials(channel.name)
+                    )}
+                  </span>
+                  <span className="truncate">{channel.name}</span>
+                </button>
+              );
+            }
 
             return (
               <Link
