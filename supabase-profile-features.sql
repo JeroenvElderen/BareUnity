@@ -11,6 +11,8 @@ create table if not exists public.profile_settings (
   user_id uuid primary key references auth.users(id) on delete cascade,
   profile_primary text,
   profile_secondary text,
+  avatar_url text,
+  banner_url text,
   show_email boolean default false,
   show_activity boolean default true,
   allow_friend_requests boolean default true,
@@ -23,6 +25,8 @@ create table if not exists public.profile_settings (
 
 alter table public.profile_settings add column if not exists profile_primary text;
 alter table public.profile_settings add column if not exists profile_secondary text;
+alter table public.profile_settings add column if not exists avatar_url text;
+alter table public.profile_settings add column if not exists banner_url text;
 alter table public.profile_settings add column if not exists show_email boolean default false;
 alter table public.profile_settings add column if not exists show_activity boolean default true;
 alter table public.profile_settings add column if not exists allow_friend_requests boolean default true;
@@ -120,6 +124,72 @@ begin
   end if;
   if not exists (select 1 from pg_policies where schemaname='public' and tablename='user_badges' and policyname='user_badges_select_own') then
     create policy user_badges_select_own on public.user_badges for select to authenticated using (auth.uid() = user_id);
+  end if;
+end $$;
+
+-- 6) Storage policies for profile media (avatar/banner uploads)
+-- Expected bucket: public.profile-media
+insert into storage.buckets (id, name, public)
+values ('profile-media', 'profile-media', true)
+on conflict (id) do nothing;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_policies
+    where schemaname='storage' and tablename='objects' and policyname='profile_media_read_public'
+  ) then
+    create policy profile_media_read_public
+      on storage.objects
+      for select
+      to public
+      using (bucket_id = 'profile-media');
+  end if;
+
+  if not exists (
+    select 1 from pg_policies
+    where schemaname='storage' and tablename='objects' and policyname='profile_media_insert_own'
+  ) then
+    create policy profile_media_insert_own
+      on storage.objects
+      for insert
+      to authenticated
+      with check (
+        bucket_id = 'profile-media'
+        and auth.uid()::text = (storage.foldername(name))[1]
+      );
+  end if;
+
+  if not exists (
+    select 1 from pg_policies
+    where schemaname='storage' and tablename='objects' and policyname='profile_media_update_own'
+  ) then
+    create policy profile_media_update_own
+      on storage.objects
+      for update
+      to authenticated
+      using (
+        bucket_id = 'profile-media'
+        and auth.uid()::text = (storage.foldername(name))[1]
+      )
+      with check (
+        bucket_id = 'profile-media'
+        and auth.uid()::text = (storage.foldername(name))[1]
+      );
+  end if;
+
+  if not exists (
+    select 1 from pg_policies
+    where schemaname='storage' and tablename='objects' and policyname='profile_media_delete_own'
+  ) then
+    create policy profile_media_delete_own
+      on storage.objects
+      for delete
+      to authenticated
+      using (
+        bucket_id = 'profile-media'
+        and auth.uid()::text = (storage.foldername(name))[1]
+      );
   end if;
 end $$;
 

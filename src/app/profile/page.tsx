@@ -31,6 +31,8 @@ type PrivacySettings = { showEmail: boolean; showActivity: boolean; allowFriendR
 type ProfileSettingsRow = {
   profile_primary: string;
   profile_secondary: string;
+  avatar_url: string | null;
+  banner_url: string | null;
   show_email: boolean;
   show_activity: boolean;
   allow_friend_requests: boolean;
@@ -137,14 +139,14 @@ export default function ProfilePage() {
 
       let query = await supabase
         .from("profile_settings")
-        .select("profile_primary, profile_secondary, show_email, show_activity, allow_friend_requests, feed_style, friends, friend_requests, introduction")
+        .select("profile_primary, profile_secondary, avatar_url, banner_url, show_email, show_activity, allow_friend_requests, feed_style, friends, friend_requests, introduction")
         .eq("user_id", user.id)
         .maybeSingle<ProfileSettingsRow>();
 
       if (query.error?.message?.includes("introduction")) {
         query = await supabase
           .from("profile_settings")
-          .select("profile_primary, profile_secondary, show_email, show_activity, allow_friend_requests, feed_style, friends, friend_requests")
+          .select("profile_primary, profile_secondary, avatar_url, banner_url, show_email, show_activity, allow_friend_requests, feed_style, friends, friend_requests")
           .eq("user_id", user.id)
           .maybeSingle<ProfileSettingsRow>();
       }
@@ -162,6 +164,8 @@ export default function ProfilePage() {
             user_id: user.id,
             profile_primary: defaultSettings.profilePrimary,
             profile_secondary: defaultSettings.profileSecondary,
+            avatar_url: null,
+            banner_url: null,
             show_email: defaultSettings.privacy.showEmail,
             show_activity: defaultSettings.privacy.showActivity,
             allow_friend_requests: defaultSettings.privacy.allowFriendRequests,
@@ -181,6 +185,8 @@ export default function ProfilePage() {
       setProfilePrimary(data.profile_primary ?? defaultSettings.profilePrimary);
       setProfileSecondary(data.profile_secondary ?? defaultSettings.profileSecondary);
       setFeedStyle(data.feed_style ?? defaultSettings.feedStyle);
+      setProfileImageUrl(data.avatar_url ?? "");
+      setBannerImageUrl(data.banner_url ?? "");
       setPrivacy({
         showEmail: data.show_email ?? defaultSettings.privacy.showEmail,
         showActivity: data.show_activity ?? defaultSettings.privacy.showActivity,
@@ -203,6 +209,8 @@ export default function ProfilePage() {
         user_id: user.id,
         profile_primary: profilePrimary,
         profile_secondary: profileSecondary,
+        avatar_url: profileImageUrl || null,
+        banner_url: bannerImageUrl || null,
         show_email: privacy.showEmail,
         show_activity: privacy.showActivity,
         allow_friend_requests: privacy.allowFriendRequests,
@@ -223,7 +231,7 @@ export default function ProfilePage() {
     }, 350);
 
     return () => window.clearTimeout(timeout);
-  }, [user?.id, loadedSettingsUserId, profilePrimary, profileSecondary, feedStyle, privacy, friends, friendRequests, introduction]);
+  }, [user?.id, loadedSettingsUserId, profilePrimary, profileSecondary, profileImageUrl, bannerImageUrl, feedStyle, privacy, friends, friendRequests, introduction]);
 
   useEffect(() => {
     async function loadProfileData() {
