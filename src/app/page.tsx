@@ -1,4 +1,5 @@
 import { db } from "@/server/db";
+import { Prisma } from "@prisma/client";
 
 type FeedPost = {
   id: string;
@@ -59,6 +60,23 @@ function initialsFromName(name: string) {
     .toUpperCase();
 }
 
+function isPreparedStatementError(error: unknown) {
+  if (!(error instanceof Prisma.PrismaClientUnknownRequestError)) return false;
+
+  return error.message.includes('code: "26000"') || error.message.includes("prepared statement") || error.message.includes("does not exist");
+}
+
+async function withPrismaRetry<T>(operation: () => Promise<T>): Promise<T> {
+  try {
+    return await operation();
+  } catch (error) {
+    if (!isPreparedStatementError(error)) throw error;
+
+    await db.$disconnect();
+    return operation();
+  }
+}
+
 export default async function Home() {
   let posts: FeedPost[] = [];
   let channels: SidebarChannel[] = [];
@@ -67,8 +85,9 @@ export default async function Home() {
   let authorProfiles: BasicProfile[] = [];
 
   try {
-    [posts, channels, profile, activityProfiles] = await Promise.all([
-      db.posts.findMany({
+    const [postsResult, channelsResult, profileResult, activityProfilesResult] = await Promise.allSettled([
+      withPrismaRetry(() =>
+        db.posts.findMany({
         take: 8,
         orderBy: { created_at: "desc" },
         include: {
@@ -83,8 +102,10 @@ export default async function Home() {
             },
           },
         },
-      }),
-      db.channels.findMany({
+        }),
+      ),
+      withPrismaRetry(() =>
+        db.channels.findMany({
         where: { is_enabled: true },
         orderBy: [{ featured: "desc" }, { position: "asc" }, { created_at: "desc" }],
         take: 5,
@@ -92,11 +113,15 @@ export default async function Home() {
           id: true,
           name: true,
         },
-      }),
-      db.profiles.findFirst({
-        orderBy: { created_at: "desc" },
-      }),
-      db.profiles.findMany({
+        }),
+      ),
+      withPrismaRetry(() =>
+        db.profiles.findFirst({
+          orderBy: { created_at: "desc" },
+        }),
+      ),
+      withPrismaRetry(() =>
+        db.profiles.findMany({
         take: 3,
         orderBy: { created_at: "desc" },
         select: {
@@ -104,13 +129,20 @@ export default async function Home() {
           display_name: true,
           username: true,
         },
-      }),
+        }),
+      ),
     ]);
+
+    posts = postsResult.status === "fulfilled" ? postsResult.value : [];
+    channels = channelsResult.status === "fulfilled" ? channelsResult.value : [];
+    profile = profileResult.status === "fulfilled" ? profileResult.value : null;
+    activityProfiles = activityProfilesResult.status === "fulfilled" ? activityProfilesResult.value : [];
 
     const authorIds = Array.from(new Set(posts.map((post) => post.author_id).filter(Boolean))) as string[];
 
-    authorProfiles = authorIds.length
-      ? await db.profiles.findMany({
+    if (authorIds.length) {
+      authorProfiles = await withPrismaRetry(() =>
+        db.profiles.findMany({
           where: {
             id: {
               in: authorIds,
@@ -121,8 +153,9 @@ export default async function Home() {
             username: true,
             display_name: true,
           },
-        })
-      : [];
+        }),
+      );
+    }
   } catch (error) {
     console.error("Failed to load home feed data", error);
   }
