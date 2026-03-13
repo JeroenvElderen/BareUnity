@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { User } from "@supabase/supabase-js";
-import Topbar from "@/components/Topbar";
 import { supabase } from "@/lib/supabase";
 
 type TabKey = "Overview" | "Posts" | "Comments" | "Gallery" | "Upvoted" | "Settings";
@@ -29,18 +28,6 @@ type ProfileSettingsRow = {
   friend_requests: FriendRequest[] | null;
   introduction?: string | null;
 };
-
-const avatarExamples = [
-  "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=300&q=80",
-  "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=300&q=80",
-  "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?auto=format&fit=crop&w=300&q=80",
-];
-
-const bannerExamples = [
-  "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80",
-  "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=800&q=80",
-  "https://images.unsplash.com/photo-1472396961693-142e6e269027?auto=format&fit=crop&w=800&q=80",
-];
 
 const defaultSettings = {
   profilePrimary: "#1fd8b5",
@@ -92,6 +79,8 @@ export default function ProfilePage() {
   const [userPostsCount, setUserPostsCount] = useState(0);
   const [commentsTableMissing, setCommentsTableMissing] = useState(false);
   const [loadedSettingsUserId, setLoadedSettingsUserId] = useState<string | null>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const bannerInputRef = useRef<HTMLInputElement>(null);
 
   const username = useMemo(() => {
     if (!user) return "Guest";
@@ -259,16 +248,17 @@ export default function ProfilePage() {
     setPrivacy((current) => ({ ...current, [key]: value }));
   }
 
-  function cycleAvatarImage() {
-    const currentIndex = avatarExamples.indexOf(profileImageUrl);
-    const nextIndex = (currentIndex + 1) % avatarExamples.length;
-    setProfileImageUrl(avatarExamples[nextIndex]);
-  }
+  function handleImageUpload(file: File | null, target: "avatar" | "banner") {
+    if (!file) return;
 
-  function cycleBannerImage() {
-    const currentIndex = bannerExamples.indexOf(bannerImageUrl);
-    const nextIndex = (currentIndex + 1) % bannerExamples.length;
-    setBannerImageUrl(bannerExamples[nextIndex]);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const imageData = typeof reader.result === "string" ? reader.result : "";
+      if (!imageData) return;
+      if (target === "avatar") setProfileImageUrl(imageData);
+      if (target === "banner") setBannerImageUrl(imageData);
+    };
+    reader.readAsDataURL(file);
   }
 
   const statCards = [
@@ -281,9 +271,8 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_0%_0%,rgba(124,92,255,0.2),transparent_35%),radial-gradient(circle_at_100%_10%,rgba(45,212,191,0.12),transparent_25%),#0a0b10] text-[#eef2ff]">
-      <Topbar />
-      <main className="min-h-[calc(100vh-64px)] p-3 sm:p-6">
-        <div className="mx-auto grid max-h-[calc(100vh-88px)] w-full max-w-[1360px] grid-cols-1 overflow-hidden rounded-[26px] border border-[#242941] bg-gradient-to-b from-white/[0.02] to-white/[0] shadow-[0_20px_80px_rgba(0,0,0,0.45)] sm:max-h-[calc(100vh-112px)] lg:grid-cols-[250px_1fr_320px]">
+      <main className="min-h-screen p-3 sm:p-6">
+        <div className="mx-auto grid min-h-[calc(100vh-24px)] w-full max-w-[1360px] grid-cols-1 overflow-hidden rounded-[26px] border border-[#242941] bg-gradient-to-b from-white/[0.02] to-white/[0] shadow-[0_20px_80px_rgba(0,0,0,0.45)] sm:min-h-[calc(100vh-48px)] lg:grid-cols-[250px_1fr_320px]">
           <aside className="border-b border-[#242941] bg-[rgba(9,11,19,0.66)] px-4 py-[22px] lg:border-b-0 lg:border-r">
             <div className="mb-2 text-[22px] font-bold">Profile <span className="text-[#7c5cff]">Hub</span></div>
             <p className="mb-5 text-xs text-[#8e97b8]">Use this left menu for profile sections, settings, and gallery.</p>
@@ -408,16 +397,30 @@ export default function ProfilePage() {
 
             <div className="mb-3 text-[13px] text-[#8e97b8]">Profile media</div>
             <div className="space-y-3 rounded-[14px] border border-[#242941] bg-[#121522] p-3">
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(event) => handleImageUpload(event.target.files?.[0] ?? null, "avatar")}
+              />
+              <input
+                ref={bannerInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(event) => handleImageUpload(event.target.files?.[0] ?? null, "banner")}
+              />
               <button
                 type="button"
-                onClick={cycleAvatarImage}
+                onClick={() => avatarInputRef.current?.click()}
                 className="w-full rounded-xl border border-[#2b3150] bg-[#171c2d] px-3 py-2 text-left text-xs font-semibold text-[#dce2ff] transition hover:border-[#4c5a8f]"
               >
                 Change avatar image
               </button>
               <button
                 type="button"
-                onClick={cycleBannerImage}
+                onClick={() => bannerInputRef.current?.click()}
                 className="w-full rounded-xl border border-[#2b3150] bg-[#171c2d] px-3 py-2 text-left text-xs font-semibold text-[#dce2ff] transition hover:border-[#4c5a8f]"
               >
                 Change banner image
