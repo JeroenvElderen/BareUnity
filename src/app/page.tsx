@@ -1,5 +1,34 @@
 import { db } from "@/server/db";
 
+type FeedPost = {
+  id: string;
+  title: string | null;
+  content: string | null;
+  created_at: Date | null;
+  author_id: string | null;
+  channel_id: string | null;
+  media_url: string | null;
+  post_type: string | null;
+  channels: { name: string } | null;
+  _count: { comments: number };
+};
+
+type SidebarChannel = {
+  id: string;
+  name: string;
+};
+
+type BasicProfile = {
+  id: string;
+  username: string;
+  display_name: string | null;
+};
+
+type UserProfile = {
+  username: string;
+  display_name: string | null;
+};
+
 const numberFormatter = new Intl.NumberFormat("en", { notation: "compact" });
 
 function formatRelativeTime(date: Date | null) {
@@ -31,11 +60,11 @@ function initialsFromName(name: string) {
 }
 
 export default async function Home() {
-  let posts: Awaited<ReturnType<typeof db.posts.findMany>> = [];
-  let channels: Awaited<ReturnType<typeof db.channels.findMany>> = [];
-  let profile: Awaited<ReturnType<typeof db.profiles.findFirst>> = null;
-  let activityProfiles: Awaited<ReturnType<typeof db.profiles.findMany>> = [];
-  let authorProfiles: Array<{ id: string; username: string; display_name: string | null }> = [];
+  let posts: FeedPost[] = [];
+  let channels: SidebarChannel[] = [];
+  let profile: UserProfile | null = null;
+  let activityProfiles: BasicProfile[] = [];
+  let authorProfiles: BasicProfile[] = [];
 
   try {
     [posts, channels, profile, activityProfiles] = await Promise.all([
