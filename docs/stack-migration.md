@@ -82,115 +82,59 @@ http://localhost:3000/api/auth/signin
 
 ---
 
-# 🚧 Next Steps
-
 ## 4) Configure tRPC
 
-tRPC will provide a fully typed API layer between Next.js and Prisma.
+tRPC is configured as the typed API layer between Next.js and Prisma.
 
-Tasks:
+Implemented:
 
-### 4.1 Create server router
+* server router and root router
+* context including Prisma + Auth.js session
+* tRPC API route (`/api/trpc`)
+* app-level providers for TanStack Query + tRPC client
 
-Create the following files:
+Files:
 
 ```
 src/server/api/trpc.ts
 src/server/api/root.ts
-```
-
-These define:
-
-* base router
-* procedures
-* context setup
-
----
-
-### 4.2 Add context
-
-Context should include:
-
-* Prisma client
-* Auth.js session
-
-Example flow:
-
-```
-request → auth session → Prisma queries
-```
-
----
-
-### 4.3 Add tRPC API route
-
-Create:
-
-```
+src/server/api/routers/*
 src/app/api/trpc/[trpc]/route.ts
-```
-
-This exposes the tRPC API endpoint.
-
----
-
-### 4.4 Add client provider
-
-Create:
-
-```
 src/app/providers.tsx
 ```
-
-Add:
-
-* TanStack Query client
-* tRPC client
-
-Wrap the application layout with this provider.
 
 ---
 
 ## 5) Add Zustand stores
 
-Create domain stores under:
+Zustand has been introduced for client-only UI state.
 
-```
-src/stores/*
-```
+Implemented:
 
-Use Zustand for **client-side UI state only**.
+* `src/stores/ui-store.ts` for sidebar UI state
 
-Examples:
+Guideline remains:
 
-* modal state
-* navigation state
-* UI preferences
-
-Remote data should remain handled by **TanStack Query + tRPC**.
+* UI-only state in Zustand
+* remote data in TanStack Query + tRPC
 
 ---
 
 ## 6) Add shadcn/ui
 
-Initialize the component system:
+Implemented baseline:
 
-```bash
-npx shadcn@latest init
-```
+* `button`
+* `card`
+* `input`
 
-Add baseline components as needed:
+Current status:
 
-```
-button
-card
-input
-dialog
-```
-
-Replace custom UI primitives with shadcn components.
+* `dialog` is pending because adding `@radix-ui/react-dialog` is blocked by the current npm registry policy (`403 Forbidden`).
 
 ---
+
+# 🚧 Next Steps
 
 ## 7) Supabase responsibilities
 
@@ -215,13 +159,3 @@ Prisma is responsible for:
 * [ ] Confirm build runs `prisma generate` before `next build`
 * [ ] Validate Auth.js callback URLs for production domain
 * [ ] Deploy application
-
----
-
-# Remaining rollout order
-
-1. Configure tRPC endpoints
-2. Add TanStack Query + tRPC client provider
-3. Add Zustand stores
-4. Initialize shadcn/ui
-5. Deploy to Vercel
