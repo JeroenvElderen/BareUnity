@@ -7,14 +7,6 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { ensureProfileExists } from "@/lib/profile";
 
-const mainMenuLinks = [
-  { href: "/", label: "Home feed" },
-  { href: "/channels", label: "Channels" },
-  { href: "/events", label: "Events" },
-  { href: "/map", label: "Map" },
-  { href: "/saved", label: "Saved" },
-];
-
 function MenuIcon({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
     <svg
@@ -36,18 +28,16 @@ function MenuIcon({ children, className = "" }: { children: ReactNode; className
 }
 
 function getInitials(user: User) {
-  const source =
-    user.user_metadata?.username ||
-    user.user_metadata?.full_name ||
-    user.email ||
-    "U";
+  const source = user.user_metadata?.username || user.user_metadata?.full_name || user.email || "U";
 
-  return String(source)
-    .split(/[@\s._-]+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part: string) => part[0]?.toUpperCase())
-    .join("") || "U";
+  return (
+    String(source)
+      .split(/[@\s._-]+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part: string) => part[0]?.toUpperCase())
+      .join("") || "U"
+  );
 }
 
 export default function AuthButton() {
@@ -58,33 +48,25 @@ export default function AuthButton() {
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       setUser(data.user);
-      if (data.user) {
-        ensureProfileExists(data.user);
-      }
+      if (data.user) ensureProfileExists(data.user);
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       const nextUser = session?.user ?? null;
       setUser(nextUser);
-      if (nextUser) {
-        ensureProfileExists(nextUser);
-      }
+      if (nextUser) ensureProfileExists(nextUser);
       setOpen(false);
     });
+
     return () => sub.subscription.unsubscribe();
   }, []);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (!menuRef.current?.contains(event.target as Node)) {
-        setOpen(false);
-      }
+      if (!menuRef.current?.contains(event.target as Node)) setOpen(false);
     }
 
-    if (open) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-
+    if (open) document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [open]);
 
@@ -112,9 +94,7 @@ export default function AuthButton() {
             // eslint-disable-next-line @next/next/no-img-element
             <img src={avatarUrl} alt={`${username} avatar`} className="h-full w-full object-cover" />
           ) : (
-            <span className="inline-flex h-full w-full items-center justify-center bg-sand text-sm font-bold text-pine shadow-inner">
-              {initials}
-            </span>
+            <span className="inline-flex h-full w-full items-center justify-center bg-sand text-sm font-bold text-pine shadow-inner">{initials}</span>
           )}
         </button>
 
@@ -126,7 +106,13 @@ export default function AuthButton() {
             </div>
 
             <ul className="profile-menu-list">
-              {mainMenuLinks.map((item) => (
+              {[
+                { href: "/", label: "Home feed" },
+                { href: "/channels", label: "Channels" },
+                { href: "/events", label: "Events" },
+                { href: "/map", label: "Map" },
+                { href: "/saved", label: "Saved" },
+              ].map((item) => (
                 <li key={item.href}>
                   <Link href={item.href} onClick={() => setOpen(false)} className="profile-menu-element">
                     <MenuIcon className="profile-menu-icon">
@@ -150,9 +136,9 @@ export default function AuthButton() {
                   </MenuIcon>
                   <span className="profile-menu-label">View Profile</span>
                 </Link>
-                </li>
+              </li>
               <li>
-                <Link href="/profile" onClick={() => setOpen(false)} className="profile-menu-element">
+                <Link href="/settings" onClick={() => setOpen(false)} className="profile-menu-element">
                   <MenuIcon className="profile-menu-icon">
                     <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
                     <circle cx="12" cy="12" r="3" />
@@ -196,10 +182,7 @@ export default function AuthButton() {
 
   return (
     <div className="flex items-center gap-2">
-      <Link
-        href="/login"
-        className="rounded-xl border border-sand/30 bg-sand/20 px-4 py-2 text-sm font-semibold text-sand transition hover:bg-sand/35"
-      >
+      <Link href="/login" className="rounded-xl border border-sand/30 bg-sand/20 px-4 py-2 text-sm font-semibold text-sand transition hover:bg-sand/35">
         Log in
       </Link>
       <Link
