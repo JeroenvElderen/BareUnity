@@ -92,7 +92,7 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_0%_0%,rgba(124,92,255,0.2),transparent_35%),radial-gradient(circle_at_100%_10%,rgba(45,212,191,0.12),transparent_25%),#0a0b10] p-3 text-[#eef2ff] sm:p-6">
-      <div className="mx-auto grid w-full max-w-[1360px] grid-cols-1 overflow-hidden rounded-[26px] border border-[#242941] bg-gradient-to-b from-white/[0.02] to-white/[0] shadow-[0_20px_80px_rgba(0,0,0,0.45)] lg:grid-cols-[250px_1fr_340px]">
+      <div className="mx-auto grid min-h-[calc(100vh-1.5rem)] w-full max-w-[1360px] grid-cols-1 overflow-hidden rounded-[26px] border border-[#242941] bg-gradient-to-b from-white/[0.02] to-white/[0] shadow-[0_20px_80px_rgba(0,0,0,0.45)] sm:min-h-[calc(100vh-3rem)] lg:grid-cols-[250px_1fr_340px]">
         <aside className="border-b border-[#242941] bg-[rgba(9,11,19,0.66)] px-4 py-[22px] lg:border-b-0 lg:border-r">
           <div className="mb-[26px] text-[22px] font-bold tracking-[0.2px]">
             Bare<span className="text-[#7c5cff]">Unity</span>

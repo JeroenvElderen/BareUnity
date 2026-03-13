@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import Topbar from "@/components/Topbar";
 import { supabase } from "@/lib/supabase";
@@ -57,6 +57,18 @@ const defaultSettings = {
   ],
   introduction: "",
 };
+
+function formatRelativeTime(dateValue: string) {
+  const date = new Date(dateValue);
+  const diffMs = Date.now() - date.getTime();
+  const minute = 60 * 1000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+
+  if (diffMs < hour) return `${Math.max(1, Math.floor(diffMs / minute))}m ago`;
+  if (diffMs < day) return `${Math.floor(diffMs / hour)}h ago`;
+  return `${Math.floor(diffMs / day)}d ago`;
+}
 
 export default function ProfilePage() {
   const [user, setUser] = useState<User | null>(null);
@@ -158,10 +170,7 @@ export default function ProfilePage() {
           { onConflict: "user_id" },
         );
 
-        if (createError && !createError.message.includes("introduction")) {
-          console.error(createError);
-        }
-
+        if (createError && !createError.message.includes("introduction")) console.error(createError);
         setLoadedSettingsUserId(user.id);
         return;
       }
@@ -250,6 +259,18 @@ export default function ProfilePage() {
     setPrivacy((current) => ({ ...current, [key]: value }));
   }
 
+  function cycleAvatarImage() {
+    const currentIndex = avatarExamples.indexOf(profileImageUrl);
+    const nextIndex = (currentIndex + 1) % avatarExamples.length;
+    setProfileImageUrl(avatarExamples[nextIndex]);
+  }
+
+  function cycleBannerImage() {
+    const currentIndex = bannerExamples.indexOf(bannerImageUrl);
+    const nextIndex = (currentIndex + 1) % bannerExamples.length;
+    setBannerImageUrl(bannerExamples[nextIndex]);
+  }
+
   const statCards = [
     { label: "Followers", value: followersCount.toLocaleString() },
     { label: "Following", value: followingCount.toLocaleString() },
@@ -259,17 +280,37 @@ export default function ProfilePage() {
   ];
 
   return (
-    <div className="min-h-screen text-text">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_0%_0%,rgba(124,92,255,0.2),transparent_35%),radial-gradient(circle_at_100%_10%,rgba(45,212,191,0.12),transparent_25%),#0a0b10] text-[#eef2ff]">
       <Topbar />
-      <main className="px-4 py-6 md:px-6">
-        <div className="mx-auto w-full max-w-6xl space-y-4">
-            <section className="relative overflow-hidden rounded-3xl border border-accent/20 bg-card/55 p-5">
-              {bannerImageUrl && (
+      <main className="min-h-[calc(100vh-64px)] p-3 sm:p-6">
+        <div className="mx-auto grid max-h-[calc(100vh-88px)] w-full max-w-[1360px] grid-cols-1 overflow-hidden rounded-[26px] border border-[#242941] bg-gradient-to-b from-white/[0.02] to-white/[0] shadow-[0_20px_80px_rgba(0,0,0,0.45)] sm:max-h-[calc(100vh-112px)] lg:grid-cols-[250px_1fr_320px]">
+          <aside className="border-b border-[#242941] bg-[rgba(9,11,19,0.66)] px-4 py-[22px] lg:border-b-0 lg:border-r">
+            <div className="mb-2 text-[22px] font-bold">Profile <span className="text-[#7c5cff]">Hub</span></div>
+            <p className="mb-5 text-xs text-[#8e97b8]">Use this left menu for profile sections, settings, and gallery.</p>
+            <div className="mb-[22px] grid gap-2 text-sm">
+              {tabs.map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setActiveTab(tab)}
+                  className={`rounded-xl px-3 py-[11px] text-left ${activeTab === tab ? "border border-[rgba(124,92,255,0.4)] bg-[rgba(124,92,255,0.16)] text-[#eef2ff]" : "border border-transparent text-[#8e97b8]"}`}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+          </aside>
+
+          <section className="overflow-hidden p-[14px] sm:p-[22px]">
+            <section className="mb-4 overflow-hidden rounded-[18px] border border-[#242941] bg-[#121522]">
+              {bannerImageUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={bannerImageUrl} alt="Profile banner" className="absolute inset-0 h-full w-full object-cover opacity-35" />
+                <img src={bannerImageUrl} alt="Profile banner" className="h-[150px] w-full object-cover opacity-70" />
+              ) : (
+                <div className="h-[150px] w-full bg-[linear-gradient(135deg,rgba(124,92,255,0.5),rgba(45,212,191,0.25))]" />
               )}
-              <div className="relative flex items-end gap-4">
-                <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-4 border-bg bg-accent/25 text-2xl font-bold text-text">
+              <div className="-mt-8 flex items-end gap-3 p-4">
+                <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border-2 border-[#1a1f33] bg-gradient-to-br from-[#8d76ff] to-[#2dd4bf] text-lg font-semibold text-white">
                   {profileImageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={profileImageUrl} alt="Profile" className="h-full w-full object-cover" />
@@ -278,120 +319,112 @@ export default function ProfilePage() {
                   )}
                 </div>
                 <div>
-                  <h1 className="text-3xl font-bold">{username}</h1>
-                  <p className="text-sm text-muted">Naturist member profile</p>
-                  {introduction && <p className="mt-2 max-w-3xl text-sm text-text/90">{introduction}</p>}
+                  <h1 className="text-2xl font-bold">{username}</h1>
+                  <p className="text-xs text-[#8e97b8]">@{user?.email?.split("@")[0] ?? "naturist"}</p>
+                  {introduction ? <p className="mt-1 text-sm text-[#dce2ff]">{introduction}</p> : null}
                 </div>
               </div>
             </section>
 
-            <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-              {statCards.map((stat) => (
-                <article key={stat.label} className="glass-card p-4">
-                  <p className="text-2xl font-semibold leading-none">{stat.value}</p>
-                  <p className="mt-1 text-sm text-muted">{stat.label}</p>
-                </article>
-              ))}
-            </section>
+            {activeTab === "Overview" && <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{statCards.map((stat) => <article key={stat.label} className="rounded-[18px] border border-[#242941] bg-[#121522] p-[14px]"><p className="text-2xl font-semibold">{stat.value}</p><p className="mt-1 text-sm text-[#8e97b8]">{stat.label}</p></article>)}</section>}
 
-            <section className="glass-card p-4">
-              <div className="flex flex-wrap gap-2">
-                {tabs.map((tab) => (
-                  <button key={tab} type="button" onClick={() => setActiveTab(tab)} className={`rounded-full px-3 py-1 text-sm ${activeTab === tab ? "bg-accent text-[#08232c]" : "border border-accent/30 text-text"}`}>
-                    {tab}
-                  </button>
+            {activeTab === "Posts" && (
+              <section className="grid max-h-[620px] grid-cols-1 gap-3 overflow-y-auto pr-1">
+                {profilePosts.length === 0 ? <article className="rounded-[18px] border border-[#242941] bg-[#121522] p-[14px] text-sm text-[#8e97b8]">No posts yet.</article> : profilePosts.map((post) => (
+                  <article key={post.id} className="rounded-[18px] border border-[#242941] bg-[#121522] p-[14px]">
+                    <div className="mb-[10px] flex items-start justify-between"><div><strong className="block text-sm">{post.title ?? "Untitled post"}</strong><span className="text-xs text-[#8e97b8]">{formatRelativeTime(post.created_at)}</span></div></div>
+                    <p className="mb-[10px] text-[13px] text-[#dce2ff]">{post.content ?? "No post content yet."}</p>
+                    {post.media_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={post.media_url} alt={post.title ?? "Post media"} className="h-[130px] w-full rounded-[14px] border border-[#2b3150] object-cover" />
+                    ) : null}
+                  </article>
                 ))}
+              </section>
+            )}
+
+            {activeTab === "Comments" && <section className="space-y-2 text-sm">{commentsTableMissing ? <p className="text-[#8e97b8]">Comments table not available in this environment.</p> : null}{!commentsTableMissing && profileComments.length === 0 ? <p className="text-[#8e97b8]">No comments yet.</p> : null}{profileComments.map((comment) => <article key={comment.id} className="rounded-xl border border-[#242941] bg-[#121522] p-3"><p className="text-xs text-[#8e97b8]">{formatRelativeTime(comment.created_at)}</p><p className="mt-1 text-[#dce2ff]">{comment.body ?? comment.content}</p></article>)}</section>}
+
+            {activeTab === "Gallery" && (
+              <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {mediaPosts.length === 0 ? <p className="text-sm text-[#8e97b8]">No media posts yet.</p> : mediaPosts.map((post) => (
+                  <article key={post.id} className="overflow-hidden rounded-2xl border border-[#242941] bg-[#121522]">
+                    {post.media_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={post.media_url} alt={post.title ?? "Gallery image"} className="h-44 w-full object-cover" />
+                    ) : null}
+                    <div className="p-3 text-sm">{post.title ?? "Untitled"}</div>
+                  </article>
+                ))}
+              </section>
+            )}
+
+            {activeTab === "Upvoted" && <p className="text-sm text-[#8e97b8]">Upvoted content will appear here once vote tracking is enabled.</p>}
+
+            {activeTab === "Settings" && (
+              <section className="grid gap-4 lg:grid-cols-2">
+                <article className="rounded-2xl border border-[#242941] bg-[#121522] p-4 text-sm">
+                  <h3 className="font-semibold text-[#2dd4bf]">Profile basics</h3>
+                  <textarea value={introduction} onChange={(event) => setIntroduction(event.target.value.slice(0, 220))} className="mt-3 h-24 w-full rounded-xl border border-[#2b3150] bg-[#0d1020] p-3" placeholder="Short introduction" />
+                  <label className="mt-3 block">Profile image URL<input value={profileImageUrl} onChange={(event) => setProfileImageUrl(event.target.value)} className="mt-1 w-full rounded-xl border border-[#2b3150] bg-[#0d1020] px-3 py-2" /></label>
+                  <label className="mt-3 block">Banner image URL<input value={bannerImageUrl} onChange={(event) => setBannerImageUrl(event.target.value)} className="mt-1 w-full rounded-xl border border-[#2b3150] bg-[#0d1020] px-3 py-2" /></label>
+                </article>
+                <article className="rounded-2xl border border-[#242941] bg-[#121522] p-4 text-sm">
+                  <h3 className="font-semibold text-[#2dd4bf]">Experience + privacy</h3>
+                  <div className="mt-3 flex gap-2">
+                    <button type="button" onClick={() => setFeedStyle("balanced")} className={`rounded-full px-3 py-1 text-xs ${feedStyle === "balanced" ? "bg-accent text-[#08232c]" : "border border-accent/30"}`}>Balanced</button>
+                    <button type="button" onClick={() => setFeedStyle("magazine")} className={`rounded-full px-3 py-1 text-xs ${feedStyle === "magazine" ? "bg-accent text-[#08232c]" : "border border-accent/30"}`}>Magazine</button>
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    <label className="flex items-center justify-between">Show email<input type="checkbox" checked={privacy.showEmail} onChange={(event) => updatePrivacy("showEmail", event.target.checked)} /></label>
+                    <label className="flex items-center justify-between">Show activity<input type="checkbox" checked={privacy.showActivity} onChange={(event) => updatePrivacy("showActivity", event.target.checked)} /></label>
+                    <label className="flex items-center justify-between">Allow requests<input type="checkbox" checked={privacy.allowFriendRequests} onChange={(event) => updatePrivacy("allowFriendRequests", event.target.checked)} /></label>
+                  </div>
+                  <p className="mt-3 text-xs text-[#8e97b8]">Friends: {friends.length} · Pending requests: {friendRequests.length}</p>
+                </article>
+              </section>
+            )}
+          </section>
+
+          <aside className="border-t border-[#242941] bg-[rgba(9,11,19,0.66)] p-[22px_18px] lg:border-l lg:border-t-0">
+            <div className="mb-3 text-[13px] text-[#8e97b8]">Profile overview</div>
+            <div className="mb-[18px] rounded-[14px] border border-[#242941] bg-[#121522] px-3 pb-3 pt-[18px] text-center">
+              <div className="mx-auto mb-[10px] flex h-[66px] w-[66px] items-center justify-center overflow-hidden rounded-full border-2 border-[rgba(124,92,255,0.45)] bg-gradient-to-br from-[#7c5cff] to-[#2dd4bf]">
+                {profileImageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={profileImageUrl} alt="Profile" className="h-full w-full object-cover" />
+                ) : (
+                  <span className="text-lg font-semibold">{username.slice(0, 1).toUpperCase()}</span>
+                )}
               </div>
+              <strong>{username}</strong>
+              <div className="mt-0.5 text-xs text-[#8e97b8]">@{user?.email?.split("@")[0] ?? "naturist"}</div>
+              <div className="mt-[14px] grid grid-cols-3 gap-2">
+                <div className="rounded-[10px] border border-[#2b3150] bg-[#171c2d] px-[6px] py-2"><strong className="block text-[13px]">{followersCount.toLocaleString()}</strong><span className="text-[10px] text-[#8e97b8]">Followers</span></div>
+                <div className="rounded-[10px] border border-[#2b3150] bg-[#171c2d] px-[6px] py-2"><strong className="block text-[13px]">{followingCount.toLocaleString()}</strong><span className="text-[10px] text-[#8e97b8]">Following</span></div>
+                <div className="rounded-[10px] border border-[#2b3150] bg-[#171c2d] px-[6px] py-2"><strong className="block text-[13px]">{userPostsCount.toLocaleString()}</strong><span className="text-[10px] text-[#8e97b8]">Posts</span></div>
+              </div>
+            </div>
 
-              {activeTab === "Overview" && <p className="mt-4 text-sm text-muted">Track your profile highlights, reach, and settings from one unified place.</p>}
-
-              {activeTab === "Posts" && (
-                <div className="mt-4 space-y-3">
-                  {profilePosts.length === 0 ? <p className="text-sm text-muted">No posts yet.</p> : profilePosts.map((post) => (
-                    <article key={post.id} className="rounded-2xl border border-accent/20 bg-bg/40 p-4">
-                      <p className="text-xs text-muted">{new Date(post.created_at).toLocaleString()}</p>
-                      {post.title && <h3 className="mt-1 text-lg font-semibold">{post.title}</h3>}
-                      {post.content && <p className="mt-2 text-sm text-text/90">{post.content}</p>}
-                    </article>
-                  ))}
-                </div>
-              )}
-
-              {activeTab === "Comments" && (
-                <div className="mt-4 space-y-2 text-sm">
-                  {commentsTableMissing ? <p className="text-muted">Comments table not available in this environment.</p> : null}
-                  {!commentsTableMissing && profileComments.length === 0 ? <p className="text-muted">No comments yet.</p> : profileComments.map((comment) => (
-                    <article key={comment.id} className="rounded-xl border border-accent/20 bg-bg/40 p-3">
-                      <p className="text-xs text-muted">{new Date(comment.created_at).toLocaleString()}</p>
-                      <p className="mt-1 text-text/90">{comment.body ?? comment.content}</p>
-                    </article>
-                  ))}
-                </div>
-              )}
-
-              {activeTab === "Gallery" && (
-                <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {mediaPosts.length === 0 ? <p className="text-sm text-muted">No media posts yet.</p> : mediaPosts.map((post) => (
-                    <article key={post.id} className="overflow-hidden rounded-2xl border border-accent/20 bg-bg/30">
-                      {post.media_url && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={post.media_url} alt={post.title ?? "Gallery image"} className="h-44 w-full object-cover" />
-                      )}
-                      <div className="p-3 text-sm">{post.title ?? "Untitled"}</div>
-                    </article>
-                  ))}
-                </div>
-              )}
-
-              {activeTab === "Upvoted" && <p className="mt-4 text-sm text-muted">Upvoted content will appear here once vote tracking is enabled.</p>}
-
-              {activeTab === "Settings" && (
-                <div className="mt-4 grid gap-4 lg:grid-cols-2">
-                  <section className="rounded-2xl border border-accent/20 bg-bg/35 p-4">
-                    <h3 className="text-sm font-semibold uppercase tracking-wider text-accent">Image examples</h3>
-                    <p className="mt-1 text-xs text-muted">Pick a suggested avatar or banner to match the site style.</p>
-                    <div className="mt-3 grid grid-cols-3 gap-2">
-                      {avatarExamples.map((url) => (
-                        <button key={url} type="button" onClick={() => setProfileImageUrl(url)} className="overflow-hidden rounded-xl border border-accent/25">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={url} alt="Avatar example" className="h-16 w-full object-cover" />
-                        </button>
-                      ))}
-                    </div>
-                    <div className="mt-3 grid grid-cols-1 gap-2">
-                      {bannerExamples.map((url) => (
-                        <button key={url} type="button" onClick={() => setBannerImageUrl(url)} className="overflow-hidden rounded-xl border border-accent/25">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={url} alt="Banner example" className="h-20 w-full object-cover" />
-                        </button>
-                      ))}
-                    </div>
-                  </section>
-
-                  <section className="rounded-2xl border border-accent/20 bg-bg/35 p-4 text-sm">
-                    <h3 className="font-semibold uppercase tracking-wider text-accent">Profile settings</h3>
-                    <textarea value={introduction} onChange={(event) => setIntroduction(event.target.value.slice(0, 220))} className="mt-3 h-24 w-full rounded-xl border border-accent/20 bg-bg/50 p-3" placeholder="Short introduction" />
-                    <div className="mt-3 grid grid-cols-2 gap-3">
-                      <label>Primary<input type="color" value={profilePrimary} onChange={(event) => setProfilePrimary(event.target.value)} className="mt-1 h-9 w-full" /></label>
-                      <label>Secondary<input type="color" value={profileSecondary} onChange={(event) => setProfileSecondary(event.target.value)} className="mt-1 h-9 w-full" /></label>
-                    </div>
-                    <label className="mt-3 block">Profile image URL<input value={profileImageUrl} onChange={(event) => setProfileImageUrl(event.target.value)} className="mt-1 w-full rounded-xl border border-accent/20 bg-bg/50 px-3 py-2" /></label>
-                    <label className="mt-3 block">Banner image URL<input value={bannerImageUrl} onChange={(event) => setBannerImageUrl(event.target.value)} className="mt-1 w-full rounded-xl border border-accent/20 bg-bg/50 px-3 py-2" /></label>
-                    <div className="mt-3 flex gap-2">
-                      <button type="button" onClick={() => setFeedStyle("balanced")} className={`rounded-full px-3 py-1 text-xs ${feedStyle === "balanced" ? "bg-accent text-[#08232c]" : "border border-accent/30"}`}>Balanced</button>
-                      <button type="button" onClick={() => setFeedStyle("magazine")} className={`rounded-full px-3 py-1 text-xs ${feedStyle === "magazine" ? "bg-accent text-[#08232c]" : "border border-accent/30"}`}>Magazine</button>
-                    </div>
-                    <div className="mt-3 space-y-2">
-                      <label className="flex items-center justify-between">Show email<input type="checkbox" checked={privacy.showEmail} onChange={(event) => updatePrivacy("showEmail", event.target.checked)} /></label>
-                      <label className="flex items-center justify-between">Show activity<input type="checkbox" checked={privacy.showActivity} onChange={(event) => updatePrivacy("showActivity", event.target.checked)} /></label>
-                      <label className="flex items-center justify-between">Allow requests<input type="checkbox" checked={privacy.allowFriendRequests} onChange={(event) => updatePrivacy("allowFriendRequests", event.target.checked)} /></label>
-                    </div>
-                    <p className="mt-3 text-xs text-muted">Friends: {friends.length} · Pending requests: {friendRequests.length}</p>
-                  </section>
-                </div>
-              )}
-            </section>
-          </div>
+            <div className="mb-3 text-[13px] text-[#8e97b8]">Profile media</div>
+            <div className="space-y-3 rounded-[14px] border border-[#242941] bg-[#121522] p-3">
+              <button
+                type="button"
+                onClick={cycleAvatarImage}
+                className="w-full rounded-xl border border-[#2b3150] bg-[#171c2d] px-3 py-2 text-left text-xs font-semibold text-[#dce2ff] transition hover:border-[#4c5a8f]"
+              >
+                Change avatar image
+              </button>
+              <button
+                type="button"
+                onClick={cycleBannerImage}
+                className="w-full rounded-xl border border-[#2b3150] bg-[#171c2d] px-3 py-2 text-left text-xs font-semibold text-[#dce2ff] transition hover:border-[#4c5a8f]"
+              >
+                Change banner image
+              </button>
+            </div>
+          </aside>
+        </div>
       </main>
     </div>
   );
