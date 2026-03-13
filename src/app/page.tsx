@@ -1,5 +1,5 @@
 import HomeFeedClient from "@/components/HomeFeedClient";
-import { ChannelContentType } from "@/lib/channel-data";
+import { ChannelContentType, getChannels } from "@/lib/channel-data";
 import { db } from "@/server/db";
 import { Prisma } from "@prisma/client";
 
@@ -70,7 +70,7 @@ export default async function Home() {
     const [postsResult, channelsResult, profileResult, activityProfilesResult] = await Promise.allSettled([
       withPrismaRetry(() =>
         db.posts.findMany({
-        take: 8,
+          take: 8,
           orderBy: { created_at: "desc" },
           include: {
             channels: {
@@ -88,7 +88,7 @@ export default async function Home() {
       ),
       withPrismaRetry(() =>
         db.channels.findMany({
-        where: { is_enabled: true },
+          where: { is_enabled: true },
           orderBy: [{ featured: "desc" }, { position: "asc" }, { created_at: "desc" }],
           take: 5,
           select: {
@@ -117,7 +117,10 @@ export default async function Home() {
     ]);
 
     posts = postsResult.status === "fulfilled" ? postsResult.value : [];
-    channels = channelsResult.status === "fulfilled" ? channelsResult.value.map((channel) => ({ ...channel, contentType: normalizeContentType(channel.content_type) })) : [];
+    channels =
+      channelsResult.status === "fulfilled"
+        ? channelsResult.value.map((channel) => ({ ...channel, contentType: normalizeContentType(channel.content_type) }))
+        : getChannels();
     profile = profileResult.status === "fulfilled" ? profileResult.value : null;
     activityProfiles = activityProfilesResult.status === "fulfilled" ? activityProfilesResult.value : [];
 

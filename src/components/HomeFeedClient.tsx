@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import ChannelContent from "@/components/channels/ChannelContent";
+import { useMemo } from "react";
+import SidebarMenu from "@/components/SidebarMenu";
 import { ChannelContentType } from "@/lib/channel-data";
 
 type FeedPost = {
@@ -74,58 +74,16 @@ function initialsFromName(name: string) {
     .toUpperCase();
 }
 
-function getChannelEmoji(name: string) {
-  const key = name.toLowerCase();
-  if (key.includes("retreat")) return "🏕️";
-  if (key.includes("mindful")) return "🧘";
-  if (key.includes("map")) return "🗺️";
-  if (key.includes("discussion")) return "💬";
-  if (key.includes("nature")) return "🌿";
-  return "✨";
-}
-
 export default function HomeFeedClient({ posts, channels, profile, activityProfiles, authorProfiles }: HomeFeedClientProps) {
-  const [activeSection, setActiveSection] = useState<string>("home");
   const authorMap = useMemo(() => new Map(authorProfiles.map((entry) => [entry.id, entry])), [authorProfiles]);
   const topPostCommentCount = posts.reduce((max, post) => Math.max(max, post._count.comments), 0);
-  const activeChannel = channels.find((channel) => channel.id === activeSection) ?? null;
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_0%_0%,rgba(124,92,255,0.2),transparent_35%),radial-gradient(circle_at_100%_10%,rgba(45,212,191,0.12),transparent_25%),#0a0b10] p-3 text-[#eef2ff] sm:p-6">
       <div className="mx-auto grid min-h-[calc(100vh-1.5rem)] w-full max-w-none grid-cols-1 overflow-hidden rounded-[26px] border border-[#242941] bg-gradient-to-b from-white/[0.02] to-white/[0] shadow-[0_20px_80px_rgba(0,0,0,0.45)] sm:min-h-[calc(100vh-3rem)] lg:grid-cols-[250px_1fr_340px]">
-        <aside className="border-b border-[#242941] bg-[rgba(9,11,19,0.66)] px-4 py-[22px] lg:border-b-0 lg:border-r">
-          <div className="mb-[26px] text-[22px] font-bold tracking-[0.2px]">
-            Bare<span className="text-[#7c5cff]">Unity</span>
-          </div>
-
-          <div className="mb-[22px] grid gap-2 text-sm">
-            <button
-              type="button"
-              onClick={() => setActiveSection("home")}
-              className={`rounded-xl px-3 py-[11px] text-left ${
-                activeSection === "home"
-                  ? "border border-[rgba(124,92,255,0.4)] bg-[rgba(124,92,255,0.16)] text-[#eef2ff]"
-                  : "border border-transparent text-[#8e97b8]"
-              }`}
-            >
-              🏠 Home Feed
-            </button>
-            {channels.map((channel) => (
-              <button
-                type="button"
-                key={channel.id}
-                onClick={() => setActiveSection(channel.id)}
-                className={`rounded-xl px-3 py-[11px] text-left ${
-                  activeSection === channel.id
-                    ? "border border-[rgba(124,92,255,0.4)] bg-[rgba(124,92,255,0.16)] text-[#eef2ff]"
-                    : "border border-transparent text-[#8e97b8]"
-                }`}
-              >
-                {getChannelEmoji(channel.name)} {channel.name}
-              </button>
-            ))}
-          </div>
-        </aside>
+        <div className="border-b border-[#242941] p-3 lg:border-b-0 lg:border-r lg:p-4">
+          <SidebarMenu channels={channels} />
+        </div>
 
         <section className="overflow-hidden p-[14px] sm:p-[22px]">
           <div className="mb-4 grid grid-cols-1 items-center gap-3 xl:grid-cols-[1fr_auto]">
@@ -139,13 +97,7 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
             </div>
           </div>
 
-          {activeChannel ? (
-            <div className="rounded-[18px] border border-[#242941] bg-[#121522] p-[14px]">
-              <h2 className="mb-4 text-sm text-[#b8c0e8]">{getChannelEmoji(activeChannel.name)} {activeChannel.name}</h2>
-              <ChannelContent channelId={activeChannel.id} channelName={activeChannel.name} contentType={activeChannel.contentType} />
-            </div>
-          ) : (
-            <>
+          <>
               <section className="mb-4 rounded-[18px] border border-[#242941] bg-[#121522] p-[14px]">
                 <div className="mb-[10px] flex items-center gap-[10px]">
                   <div className="h-[34px] w-[34px] rounded-full bg-gradient-to-br from-[#8d76ff] to-[#2dd4bf]" />
@@ -216,11 +168,9 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
                 ) : null}
               </section>
             </>
-          )}
         </section>
 
         <aside className="border-t border-[#242941] bg-[rgba(9,11,19,0.66)] p-[22px_18px] lg:border-l lg:border-t-0">
-          <div className="mb-3 text-[13px] tracking-[0.2px] text-[#8e97b8]">Your profile</div>
           <div className="mb-[18px] rounded-[14px] border border-[#242941] bg-[#121522] px-3 pb-3 pt-[18px] text-center">
             <div className="mx-auto mb-[10px] h-[66px] w-[66px] rounded-full border-2 border-[rgba(124,92,255,0.45)] bg-gradient-to-br from-[#7c5cff] to-[#2dd4bf]" />
             <strong>{profile?.display_name ?? profile?.username ?? "Welcome"}</strong>

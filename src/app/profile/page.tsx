@@ -308,7 +308,6 @@ export default function ProfilePage() {
 
           <aside className="hidden border-b border-[#242941] bg-[rgba(9,11,19,0.66)] px-4 py-[22px] lg:block lg:border-b-0 lg:border-r">
             <div className="mb-2 text-[22px] font-bold">Profile <span className="text-[#7c5cff]">Hub</span></div>
-            <p className="mb-5 text-xs text-[#8e97b8]">Use this left menu for profile sections, settings, and gallery.</p>
             <div className="mb-[22px] grid gap-2 text-sm">
               <Link
                 href="/"
@@ -435,7 +434,6 @@ export default function ProfilePage() {
           </section>
 
           <aside className="order-2 border-t border-[#242941] bg-[rgba(9,11,19,0.66)] p-[18px_14px] sm:p-[22px_18px] lg:order-none lg:border-l lg:border-t-0">
-            <div className="mb-3 text-[13px] text-[#8e97b8]">Profile overview</div>
             <div className="mb-[18px] rounded-[14px] border border-[#242941] bg-[#121522] px-3 pb-3 pt-[18px] text-center">
               <div className="mx-auto mb-[10px] flex h-[66px] w-[66px] items-center justify-center overflow-hidden rounded-full border-2 border-[rgba(124,92,255,0.45)] bg-gradient-to-br from-[#7c5cff] to-[#2dd4bf]">
                 {profileImageUrl ? (

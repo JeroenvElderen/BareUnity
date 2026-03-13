@@ -1,5 +1,3 @@
-import { supabase } from "@/lib/supabase";
-
 export const CHANNEL_ADMIN_EMAIL = "jeroen.vanelderen@hotmail.com";
 
 export type ChannelContentType = "general" | "retreats" | "mindful" | "map" | "discussion" | "custom";
@@ -11,16 +9,7 @@ export type Channel = {
   contentType: ChannelContentType;
 };
 
-type ChannelRow = {
-  id: string;
-  name: string;
-  icon_url?: string | null;
-  content_type?: string | null;
-  content_config?: { component_key?: string | null } | null;
-  is_enabled?: boolean | null;
-};
-
-const STATIC_CHANNELS: Channel[] = [
+export const CHANNELS: Channel[] = [
   { id: "general-nature", name: "General Nature", iconUrl: null, contentType: "general" },
   { id: "retreats", name: "Retreats", iconUrl: null, contentType: "retreats" },
   { id: "mindful-living", name: "Mindful Living", iconUrl: null, contentType: "mindful" },
@@ -28,39 +17,12 @@ const STATIC_CHANNELS: Channel[] = [
   { id: "discussion", name: "Discussion", iconUrl: null, contentType: "discussion" },
 ];
 
-function normalizeContentType(raw: string | null | undefined): ChannelContentType {
-  if (raw === "retreats") return "retreats";
-  if (raw === "mindful") return "mindful";
-  if (raw === "map" || raw === "naturist-map" || raw === "naturist_map" || raw === "naturistmap") return "map";
-  if (raw === "custom") return "custom";
-  if (raw === "discussion" || raw === "chat") return "discussion";
-  return "general";
+export function getChannels() {
+  return CHANNELS;
 }
 
-function normalizeChannel(row: ChannelRow): Channel {
-  return {
-    id: row.id,
-    name: row.name,
-    iconUrl: row.icon_url ?? null,
-    contentType: normalizeContentType(row.content_config?.component_key ?? row.content_type),
-  };
-}
-
-export async function readChannelsFromSupabase() {
-  const { data, error } = await supabase
-    .from("channels")
-    .select("id, name, icon_url, content_type, content_config, is_enabled")
-    .eq("is_enabled", true)
-    .order("position", { ascending: true })
-    .order("name", { ascending: true });
-
-  if (error) {
-    console.error(error);
-    return STATIC_CHANNELS;
-  }
-
-  const channels = (data ?? []).map((row) => normalizeChannel(row as ChannelRow));
-  return channels.length ? channels : STATIC_CHANNELS;
+export function getChannelById(channelId: string) {
+  return CHANNELS.find((channel) => channel.id === channelId) ?? null;
 }
 
 export function isChannelAdmin(email: string | null | undefined) {
