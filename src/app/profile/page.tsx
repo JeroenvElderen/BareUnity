@@ -79,6 +79,7 @@ export default function ProfilePage() {
   const [userPostsCount, setUserPostsCount] = useState(0);
   const [commentsTableMissing, setCommentsTableMissing] = useState(false);
   const [loadedSettingsUserId, setLoadedSettingsUserId] = useState<string | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
 
@@ -272,8 +273,33 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_0%_0%,rgba(124,92,255,0.2),transparent_35%),radial-gradient(circle_at_100%_10%,rgba(45,212,191,0.12),transparent_25%),#0a0b10] text-[#eef2ff]">
       <main className="min-h-screen p-3 sm:p-6">
-        <div className="mx-auto grid min-h-[calc(100vh-24px)] w-full max-w-[1360px] grid-cols-1 overflow-hidden rounded-[26px] border border-[#242941] bg-gradient-to-b from-white/[0.02] to-white/[0] shadow-[0_20px_80px_rgba(0,0,0,0.45)] sm:min-h-[calc(100vh-48px)] lg:grid-cols-[250px_1fr_320px]">
-          <aside className="border-b border-[#242941] bg-[rgba(9,11,19,0.66)] px-4 py-[22px] lg:border-b-0 lg:border-r">
+        <div className="mx-auto grid min-h-[calc(100vh-24px)] w-full max-w-none grid-cols-1 overflow-hidden rounded-[26px] border border-[#242941] bg-gradient-to-b from-white/[0.02] to-white/[0] shadow-[0_20px_80px_rgba(0,0,0,0.45)] sm:min-h-[calc(100vh-48px)] lg:grid-cols-[250px_1fr_320px]">
+          {mobileMenuOpen ? (
+            <div className="fixed inset-0 z-50 lg:hidden" aria-modal="true" role="dialog">
+              <button type="button" aria-label="Close profile navigation" className="absolute inset-0 bg-[#06070d]/70 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)} />
+              <aside className="relative h-full w-[84vw] max-w-[320px] border-r border-[#242941] bg-[#0d111f] px-4 py-5">
+                <div className="mb-2 text-[22px] font-bold">Profile <span className="text-[#7c5cff]">Hub</span></div>
+                <p className="mb-5 text-xs text-[#8e97b8]">Use this menu for profile sections, settings, and gallery.</p>
+                <div className="mb-[22px] grid gap-2 text-sm">
+                  {tabs.map((tab) => (
+                    <button
+                      key={tab}
+                      type="button"
+                      onClick={() => {
+                        setActiveTab(tab);
+                        setMobileMenuOpen(false);
+                      }}
+                      className={`rounded-xl px-3 py-[11px] text-left ${activeTab === tab ? "border border-[rgba(124,92,255,0.4)] bg-[rgba(124,92,255,0.16)] text-[#eef2ff]" : "border border-transparent text-[#8e97b8]"}`}
+                    >
+                      {tab}
+                    </button>
+                  ))}
+                </div>
+              </aside>
+            </div>
+          ) : null}
+
+          <aside className="hidden border-b border-[#242941] bg-[rgba(9,11,19,0.66)] px-4 py-[22px] lg:block lg:border-b-0 lg:border-r">
             <div className="mb-2 text-[22px] font-bold">Profile <span className="text-[#7c5cff]">Hub</span></div>
             <p className="mb-5 text-xs text-[#8e97b8]">Use this left menu for profile sections, settings, and gallery.</p>
             <div className="mb-[22px] grid gap-2 text-sm">
@@ -290,16 +316,36 @@ export default function ProfilePage() {
             </div>
           </aside>
 
-          <section className="overflow-hidden p-[14px] sm:p-[22px]">
+          <section className="order-1 overflow-hidden p-[14px] sm:p-[22px] lg:order-none">
+            <div className="mb-3 flex items-center justify-between rounded-xl border border-[#242941] bg-[#121522] p-3 lg:hidden">
+              <div>
+                <p className="text-sm font-semibold">Profile sections</p>
+                <p className="text-xs text-[#8e97b8]">{activeTab}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMobileMenuOpen(true)}
+                aria-label="Open profile navigation"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#2b3150] bg-[#171c2d]"
+              >
+                <span className="sr-only">Open menu</span>
+                <span className="flex flex-col gap-1">
+                  <span className="h-[2px] w-5 rounded-full bg-[#dce2ff]" />
+                  <span className="h-[2px] w-5 rounded-full bg-[#dce2ff]" />
+                  <span className="h-[2px] w-5 rounded-full bg-[#dce2ff]" />
+                </span>
+              </button>
+            </div>
+
             <section className="mb-4 overflow-hidden rounded-[18px] border border-[#242941] bg-[#121522]">
               {bannerImageUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={bannerImageUrl} alt="Profile banner" className="h-[150px] w-full object-cover opacity-70" />
+                <img src={bannerImageUrl} alt="Profile banner" className="h-[130px] w-full object-cover opacity-70 sm:h-[150px]" />
               ) : (
-                <div className="h-[150px] w-full bg-[linear-gradient(135deg,rgba(124,92,255,0.5),rgba(45,212,191,0.25))]" />
+                <div className="h-[130px] w-full bg-[linear-gradient(135deg,rgba(124,92,255,0.5),rgba(45,212,191,0.25))] sm:h-[150px]" />
               )}
-              <div className="-mt-8 flex items-end gap-3 p-4">
-                <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border-2 border-[#1a1f33] bg-gradient-to-br from-[#8d76ff] to-[#2dd4bf] text-lg font-semibold text-white">
+              <div className="-mt-7 flex items-end gap-3 p-3 sm:-mt-8 sm:p-4">
+                <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border-2 border-[#1a1f33] bg-gradient-to-br from-[#8d76ff] to-[#2dd4bf] text-lg font-semibold text-white sm:h-16 sm:w-16">
                   {profileImageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={profileImageUrl} alt="Profile" className="h-full w-full object-cover" />
@@ -307,8 +353,8 @@ export default function ProfilePage() {
                     username.slice(0, 1).toUpperCase()
                   )}
                 </div>
-                <div>
-                  <h1 className="text-2xl font-bold">{username}</h1>
+                <div className="min-w-0">
+                  <h1 className="truncate text-xl font-bold sm:text-2xl">{username}</h1>
                   <p className="text-xs text-[#8e97b8]">@{user?.email?.split("@")[0] ?? "naturist"}</p>
                   {introduction ? <p className="mt-1 text-sm text-[#dce2ff]">{introduction}</p> : null}
                 </div>
@@ -375,7 +421,7 @@ export default function ProfilePage() {
             )}
           </section>
 
-          <aside className="border-t border-[#242941] bg-[rgba(9,11,19,0.66)] p-[22px_18px] lg:border-l lg:border-t-0">
+          <aside className="order-2 border-t border-[#242941] bg-[rgba(9,11,19,0.66)] p-[18px_14px] sm:p-[22px_18px] lg:order-none lg:border-l lg:border-t-0">
             <div className="mb-3 text-[13px] text-[#8e97b8]">Profile overview</div>
             <div className="mb-[18px] rounded-[14px] border border-[#242941] bg-[#121522] px-3 pb-3 pt-[18px] text-center">
               <div className="mx-auto mb-[10px] flex h-[66px] w-[66px] items-center justify-center overflow-hidden rounded-full border-2 border-[rgba(124,92,255,0.45)] bg-gradient-to-br from-[#7c5cff] to-[#2dd4bf]">

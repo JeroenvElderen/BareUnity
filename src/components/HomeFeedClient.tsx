@@ -92,7 +92,7 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_0%_0%,rgba(124,92,255,0.2),transparent_35%),radial-gradient(circle_at_100%_10%,rgba(45,212,191,0.12),transparent_25%),#0a0b10] p-3 text-[#eef2ff] sm:p-6">
-      <div className="mx-auto grid min-h-[calc(100vh-1.5rem)] w-full max-w-[1360px] grid-cols-1 overflow-hidden rounded-[26px] border border-[#242941] bg-gradient-to-b from-white/[0.02] to-white/[0] shadow-[0_20px_80px_rgba(0,0,0,0.45)] sm:min-h-[calc(100vh-3rem)] lg:grid-cols-[250px_1fr_340px]">
+      <div className="mx-auto grid min-h-[calc(100vh-1.5rem)] w-full max-w-none grid-cols-1 overflow-hidden rounded-[26px] border border-[#242941] bg-gradient-to-b from-white/[0.02] to-white/[0] shadow-[0_20px_80px_rgba(0,0,0,0.45)] sm:min-h-[calc(100vh-3rem)] lg:grid-cols-[250px_1fr_340px]">
         <aside className="border-b border-[#242941] bg-[rgba(9,11,19,0.66)] px-4 py-[22px] lg:border-b-0 lg:border-r">
           <div className="mb-[26px] text-[22px] font-bold tracking-[0.2px]">
             Bare<span className="text-[#7c5cff]">Unity</span>
@@ -124,11 +124,6 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
                 {getChannelEmoji(channel.name)} {channel.name}
               </button>
             ))}
-          </div>
-
-          <div className="mt-3 rounded-[14px] border border-[rgba(124,92,255,0.35)] bg-[linear-gradient(170deg,rgba(124,92,255,0.2),rgba(124,92,255,0.04))] p-[14px]">
-            <p className="mb-3 text-xs leading-[1.45] text-[#ccd3f8]">Design goal: increase discovery while keeping creators focused on fast posting.</p>
-            <button className="rounded-full bg-[#7c5cff] px-3 py-2 text-xs font-semibold text-white">View prototype notes</button>
           </div>
         </aside>
 
