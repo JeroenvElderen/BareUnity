@@ -1,10 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import Topbar from "@/components/Topbar";
-import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/lib/supabase";
 
 type TabKey = "Overview" | "Posts" | "Comments" | "Gallery" | "Upvoted" | "Settings";
@@ -61,7 +59,6 @@ const defaultSettings = {
 };
 
 export default function ProfilePage() {
-  const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>("Overview");
   const [profilePrimary, setProfilePrimary] = useState(defaultSettings.profilePrimary);
@@ -264,15 +261,8 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen text-text">
       <Topbar />
-      <div className="flex">
-        <Sidebar
-          onHomeSelect={() => router.push("/")}
-          onChannelSelect={() => router.push("/")}
-          isHomeActive={false}
-        />
-
-        <main className="min-w-0 flex-1 px-4 py-6 md:px-6">
-          <div className="mx-auto w-full max-w-[min(76rem,calc(100vw-8.5rem))] space-y-4">
+      <main className="px-4 py-6 md:px-6">
+        <div className="mx-auto w-full max-w-6xl space-y-4">
             <section className="relative overflow-hidden rounded-3xl border border-accent/20 bg-card/55 p-5">
               {bannerImageUrl && (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -402,8 +392,7 @@ export default function ProfilePage() {
               )}
             </section>
           </div>
-        </main>
-      </div>
+      </main>
     </div>
   );
 }

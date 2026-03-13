@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import Topbar from "@/components/Topbar";
-import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/lib/supabase";
 
 type SettingsTab = "Account" | "Profile" | "Privacy" | "Preferences" | "Notifications" | "Email";
@@ -37,11 +36,9 @@ export default function SettingsPage() {
   return (
     <div className="min-h-screen text-text">
       <Topbar />
-      <div className="flex">
-        <Sidebar isHomeActive={false} onHomeSelect={() => undefined} onChannelSelect={() => undefined} />
-        <main className="min-w-0 flex-1 px-4 py-6 md:px-6">
-          <section className="mx-auto w-full max-w-[min(80rem,calc(100vw-8.5rem))] rounded-3xl border border-accent/20 bg-card/55 p-6 md:p-8">
-            <h1 className="mb-6 text-3xl font-semibold text-text">Settings</h1>
+      <main className="px-4 py-6 md:px-6">
+        <section className="mx-auto w-full max-w-5xl rounded-3xl border border-accent/20 bg-card/55 p-6 md:p-8">
+          <h1 className="mb-6 text-3xl font-semibold text-text">Settings</h1>
 
             <div className="mb-6 flex flex-wrap gap-6 border-b border-sand/20 pb-3">
               {tabs.map((tab) => (
@@ -117,8 +114,7 @@ export default function SettingsPage() {
               </div>
             )}
           </section>
-        </main>
-      </div>
+      </main>
     </div>
   );
 }

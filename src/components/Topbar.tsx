@@ -1,12 +1,15 @@
 "use client";
 
+import Link from "next/link";
 import AuthButton from "./auth/AuthButton";
 
 export default function Topbar() {
   return (
     <header className="sticky top-0 z-30 border-b border-accent/20 bg-bg/92">
       <div className="mx-auto flex h-16 w-full max-w-[1400px] items-center gap-3 px-4 md:px-6">
-        <div className="glass-pill rounded-full px-4 py-1 text-xs font-bold uppercase tracking-[0.18em] text-accent">BareUnity</div>
+        <Link href="/" className="glass-pill rounded-full px-4 py-1 text-xs font-bold uppercase tracking-[0.18em] text-accent transition hover:border-accent/65 hover:text-text">
+          BareUnity
+        </Link>
 
         <div className="flex flex-1 items-center">
           <div className="mx-auto w-full max-w-2xl">
