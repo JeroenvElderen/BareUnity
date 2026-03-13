@@ -142,7 +142,7 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
           {activeChannel ? (
             <div className="rounded-[18px] border border-[#242941] bg-[#121522] p-[14px]">
               <h2 className="mb-4 text-sm text-[#b8c0e8]">{getChannelEmoji(activeChannel.name)} {activeChannel.name}</h2>
-              <ChannelContent channelId={activeChannel.id} contentType={activeChannel.contentType} />
+              <ChannelContent channelId={activeChannel.id} channelName={activeChannel.name} contentType={activeChannel.contentType} />
             </div>
           ) : (
             <>

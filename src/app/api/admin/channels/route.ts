@@ -12,7 +12,7 @@ type ChannelPayload = {
   slug: string;
   icon_url?: string | null;
   content_type: "forum" | "map" | "feed" | "events" | "custom";
-  component_key: "general" | "retreats" | "mindful" | "map" | "custom";
+  component_key: "general" | "retreats" | "mindful" | "map" | "discussion" | "custom";
   position: number;
   is_enabled: boolean;
 };

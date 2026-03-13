@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import type { User } from "@supabase/supabase-js";
 import Topbar from "@/components/Topbar";
 import { supabase } from "@/lib/supabase";
@@ -36,8 +37,14 @@ export default function SettingsPage() {
   return (
     <div className="min-h-screen text-text">
       <Topbar />
-      <main className="px-4 py-6 md:px-6">
-        <section className="mx-auto w-full max-w-5xl rounded-3xl border border-accent/20 bg-card/55 p-6 md:p-8">
+      <main className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-4 px-4 py-6 md:px-6 lg:grid-cols-[220px_1fr]">
+        <aside className="h-fit rounded-3xl border border-accent/20 bg-card/35 p-4">
+          <p className="mb-3 text-xs uppercase tracking-[0.18em] text-muted">Sidebar</p>
+          <Link href="/" className="block rounded-xl border border-accent/40 bg-accent/10 px-3 py-2 text-sm font-medium text-text">
+            🏠 Back to Home Feed
+          </Link>
+        </aside>
+        <section className="w-full rounded-3xl border border-accent/20 bg-card/55 p-6 md:p-8">
           <h1 className="mb-6 text-3xl font-semibold text-text">Settings</h1>
 
             <div className="mb-6 flex flex-wrap gap-6 border-b border-sand/20 pb-3">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import Topbar from "@/components/Topbar";
 import { CHANNEL_ADMIN_EMAIL, isChannelAdmin } from "@/lib/channel-data";
 import { supabase } from "@/lib/supabase";
@@ -11,7 +12,7 @@ type EditableChannel = {
   slug: string;
   icon_url: string | null;
   content_type: "forum" | "map" | "feed" | "events" | "custom";
-  component_key: "general" | "retreats" | "mindful" | "map" | "custom";
+  component_key: "general" | "retreats" | "mindful" | "map" | "discussion" | "custom";
   position: number;
   is_enabled: boolean;
 };
@@ -150,7 +151,14 @@ export default function BackendPage() {
   return (
     <div className="min-h-screen text-text">
       <Topbar />
-      <main className="mx-auto w-full max-w-5xl px-4 py-6 md:px-6">
+      <main className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-4 px-4 py-6 md:px-6 lg:grid-cols-[220px_1fr]">
+        <aside className="h-fit rounded-3xl border border-accent/20 bg-card/35 p-4">
+          <p className="mb-3 text-xs uppercase tracking-[0.18em] text-muted">Sidebar</p>
+          <Link href="/" className="block rounded-xl border border-accent/40 bg-accent/10 px-3 py-2 text-sm font-medium text-text">
+            🏠 Back to Home Feed
+          </Link>
+        </aside>
+        <div>
         <section className="rounded-3xl border border-accent/20 bg-card/50 p-6">
           <h1 className="text-xl font-semibold">Backend · Channel Manager</h1>
           {!owner ? (
@@ -181,6 +189,7 @@ export default function BackendPage() {
                   <option value="retreats">retreats</option>
                   <option value="mindful">mindful</option>
                   <option value="map">map</option>
+                  <option value="discussion">discussion</option>
                   <option value="custom">custom</option>
                 </select>
                 <label className="flex items-center gap-2 text-sm text-muted"><input type="checkbox" checked={form.is_enabled} onChange={(e) => setForm((s) => ({ ...s, is_enabled: e.target.checked }))} /> Enabled</label>
@@ -208,6 +217,7 @@ export default function BackendPage() {
                       <option value="retreats">retreats</option>
                       <option value="mindful">mindful</option>
                       <option value="map">map</option>
+                      <option value="discussion">discussion</option>
                       <option value="custom">custom</option>
                     </select>
                     <label className="flex items-center gap-2 text-sm text-muted"><input type="checkbox" checked={channel.is_enabled} onChange={(e) => setChannels((rows) => rows.map((row) => row.id === channel.id ? { ...row, is_enabled: e.target.checked } : row))} /> Enabled</label>
@@ -223,6 +233,7 @@ export default function BackendPage() {
         )}
 
         {status && <p className="mt-4 text-sm text-muted">{status}</p>}
+        </div>
       </main>
     </div>
   );

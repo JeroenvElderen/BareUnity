@@ -196,6 +196,7 @@ export default function DiscussionChannel({ channelId }: { channelId: string }) 
 
   const displayMessages = messages.length > 0 ? messages : cachedMessages;
   const isLoadingMessages = loading && displayMessages.length === 0;
+  const memberCount = useMemo(() => new Set(displayMessages.map((message) => message.author)).size, [displayMessages]);
 
   const canSend = useMemo(() => draft.trim().length > 0, [draft]);
 
@@ -260,8 +261,18 @@ export default function DiscussionChannel({ channelId }: { channelId: string }) 
 
   return (
     <section className="rounded-3xl border border-accent/20 bg-card/35 p-4 md:p-6">
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-accent/15 pb-4">
+        <div>
+          <h2 className="text-base font-semibold text-text">Discussion</h2>
+          <p className="text-xs text-muted">Channel {channelId.slice(0, 8)} · Real-time community chat</p>
+        </div>
+        <div className="flex items-center gap-2 text-xs text-muted">
+          <span className="rounded-full border border-accent/25 bg-bg/40 px-2.5 py-1">{displayMessages.length} messages</span>
+          <span className="rounded-full border border-accent/25 bg-bg/40 px-2.5 py-1">{memberCount} members</span>
+        </div>
+      </div>
 
-      <div className="space-y-5">
+      <div className="max-h-[420px] space-y-5 overflow-y-auto pr-1">
         {isLoadingMessages ? (
           <p className="text-sm text-muted">Loading discussion…</p>
         ) : displayMessages.length === 0 ? (
@@ -298,7 +309,7 @@ export default function DiscussionChannel({ channelId }: { channelId: string }) 
         )}
       </div>
 
-      <form onSubmit={handleSend} className="mt-6 flex gap-2">
+      <form onSubmit={handleSend} className="mt-6 flex gap-2 border-t border-accent/15 pt-4">
         <input
           value={draft}
           onChange={(event) => setDraft(event.target.value)}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 
@@ -281,6 +282,12 @@ export default function ProfilePage() {
                 <div className="mb-2 text-[22px] font-bold">Profile <span className="text-[#7c5cff]">Hub</span></div>
                 <p className="mb-5 text-xs text-[#8e97b8]">Use this menu for profile sections, settings, and gallery.</p>
                 <div className="mb-[22px] grid gap-2 text-sm">
+                  <Link
+                    href="/"
+                    className="rounded-xl border border-[rgba(124,92,255,0.4)] bg-[rgba(124,92,255,0.16)] px-3 py-[11px] text-left text-[#eef2ff]"
+                  >
+                    🏠 Home Feed
+                  </Link>
                   {tabs.map((tab) => (
                     <button
                       key={tab}
@@ -303,6 +310,12 @@ export default function ProfilePage() {
             <div className="mb-2 text-[22px] font-bold">Profile <span className="text-[#7c5cff]">Hub</span></div>
             <p className="mb-5 text-xs text-[#8e97b8]">Use this left menu for profile sections, settings, and gallery.</p>
             <div className="mb-[22px] grid gap-2 text-sm">
+              <Link
+                href="/"
+                className="rounded-xl border border-[rgba(124,92,255,0.4)] bg-[rgba(124,92,255,0.16)] px-3 py-[11px] text-left text-[#eef2ff]"
+              >
+                🏠 Home Feed
+              </Link>
               {tabs.map((tab) => (
                 <button
                   key={tab}

@@ -154,6 +154,7 @@ export default function NaturistMapChannel() {
     description: "",
     privacy: "Discreet" as NaturistSpot["privacy"],
   });
+  const [privacyFilter, setPrivacyFilter] = useState<"All" | NaturistSpot["privacy"]>("All");
 
   useEffect(() => {
     let active = true;
@@ -197,6 +198,11 @@ export default function NaturistMapChannel() {
     return [lngTotal / spots.length, latTotal / spots.length];
   }, [selectedCoords, spots]);
 
+  const visibleSpots = useMemo(
+    () => (privacyFilter === "All" ? spots : spots.filter((spot) => spot.privacy === privacyFilter)),
+    [privacyFilter, spots],
+  );
+
   useEffect(() => {
     let active = true;
     let mapInstance: { remove: () => void } | null = null;
@@ -229,7 +235,7 @@ export default function NaturistMapChannel() {
           zoom: selectedCoords ? 12 : 7,
         });
 
-        spots.forEach((spot) => {
+        visibleSpots.forEach((spot) => {
           const markerEl = document.createElement("button");
           markerEl.className = "naturist-marker";
           markerEl.type = "button";
@@ -262,7 +268,7 @@ export default function NaturistMapChannel() {
       active = false;
       mapInstance?.remove();
     };
-  }, [mapCenter, selectedCoords, spots]);
+  }, [mapCenter, selectedCoords, visibleSpots]);
 
   async function searchPlaces(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
@@ -367,6 +373,20 @@ export default function NaturistMapChannel() {
           Explore naturist-friendly beaches, discreet hideaways, and calm nature locations. Always verify local regulations and respect
           privacy at each site.
         </p>
+        <div className="flex flex-wrap gap-2 text-xs">
+          {(["All", "Public", "Discreet"] as const).map((option) => (
+            <button
+              key={option}
+              type="button"
+              onClick={() => setPrivacyFilter(option)}
+              className={`rounded-full border px-3 py-1.5 transition ${
+                privacyFilter === option ? "border-accent/60 bg-accent/15 text-text" : "border-accent/20 text-muted hover:border-accent/40"
+              }`}
+            >
+              {option} ({option === "All" ? spots.length : spots.filter((spot) => spot.privacy === option).length})
+            </button>
+          ))}
+        </div>
       </div>
 
       {dataError ? <p className="mb-3 text-xs text-amber-200/90">{dataError}</p> : null}
@@ -382,9 +402,29 @@ export default function NaturistMapChannel() {
           />
         </div>
       ) : (
-        <div>
+        <div className="grid gap-3 xl:grid-cols-[1fr_280px]">
           <div ref={mapContainerRef} className="h-[420px] w-full overflow-hidden rounded-2xl border border-accent/20" />
-
+          <aside className="rounded-2xl border border-accent/20 bg-bg/30 p-3">
+            <h3 className="text-sm font-semibold text-text">Visible locations</h3>
+            <div className="mt-2 max-h-[365px] space-y-2 overflow-y-auto pr-1">
+              {visibleSpots.map((spot) => (
+                <button
+                  key={spot.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedCoords(spot.coordinates);
+                    setSelectedLocationLabel(spot.name);
+                  }}
+                  className="glass-input w-full rounded-xl px-3 py-2 text-left"
+                >
+                  <p className="text-sm font-medium text-cyan-50">{spot.name}</p>
+                  <p className="line-clamp-2 text-xs text-muted">{spot.description}</p>
+                </button>
+              ))}
+              {visibleSpots.length === 0 ? <p className="text-xs text-muted">No spots match this filter yet.</p> : null}
+            </div>
+          </aside>
+          
           <button
             type="button"
             className="premium-button mt-3 text-sm"
