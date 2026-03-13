@@ -1,129 +1,281 @@
-export default function Home() {
-  const posts = [
-    {
-      author: "Luna Rivers",
-      handle: "@luna.nature",
-      time: "2h",
-      badge: "Mindful Living",
-      text: "Sunrise yoga by the cedar trail felt grounding today. Sharing 3 breath techniques that helped me reset.",
-      stats: "142 likes · 27 comments",
-    },
-    {
-      author: "Kai Meadow",
-      handle: "@kai.retreats",
-      time: "4h",
-      badge: "Retreats",
-      text: "Weekend retreat schedule is up: forest walk, tea circle, and a beginner-friendly body-positivity workshop.",
-      stats: "201 likes · 49 comments",
-    },
-    {
-      author: "BareUnity Team",
-      handle: "@bareunity",
-      time: "6h",
-      badge: "Community",
-      text: "New channels are live! Explore Naturist Map updates and local event check-ins with improved moderation tools.",
-      stats: "318 likes · 76 comments",
-    },
-  ];
+import { db } from "@/server/db";
+
+const numberFormatter = new Intl.NumberFormat("en", { notation: "compact" });
+
+function formatRelativeTime(date: Date | null) {
+  if (!date) return "just now";
+
+  const diffMs = Date.now() - date.getTime();
+  const minute = 60 * 1000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+
+  if (diffMs < hour) {
+    return `${Math.max(1, Math.floor(diffMs / minute))}m ago`;
+  }
+
+  if (diffMs < day) {
+    return `${Math.floor(diffMs / hour)}h ago`;
+  }
+
+  return `${Math.floor(diffMs / day)}d ago`;
+}
+
+function initialsFromName(name: string) {
+  return name
+    .split(" ")
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+}
+
+export default async function Home() {
+  let posts: Awaited<ReturnType<typeof db.posts.findMany>> = [];
+  let channels: Awaited<ReturnType<typeof db.channels.findMany>> = [];
+  let profile: Awaited<ReturnType<typeof db.profiles.findFirst>> = null;
+  let activityProfiles: Awaited<ReturnType<typeof db.profiles.findMany>> = [];
+  let authorProfiles: Array<{ id: string; username: string; display_name: string | null }> = [];
+
+  try {
+    [posts, channels, profile, activityProfiles] = await Promise.all([
+      db.posts.findMany({
+        take: 8,
+        orderBy: { created_at: "desc" },
+        include: {
+          channels: {
+            select: {
+              name: true,
+            },
+          },
+          _count: {
+            select: {
+              comments: true,
+            },
+          },
+        },
+      }),
+      db.channels.findMany({
+        where: { is_enabled: true },
+        orderBy: [{ featured: "desc" }, { position: "asc" }, { created_at: "desc" }],
+        take: 5,
+        select: {
+          id: true,
+          name: true,
+        },
+      }),
+      db.profiles.findFirst({
+        orderBy: { created_at: "desc" },
+      }),
+      db.profiles.findMany({
+        take: 3,
+        orderBy: { created_at: "desc" },
+        select: {
+          id: true,
+          display_name: true,
+          username: true,
+        },
+      }),
+    ]);
+
+    const authorIds = Array.from(new Set(posts.map((post) => post.author_id).filter(Boolean))) as string[];
+
+    authorProfiles = authorIds.length
+      ? await db.profiles.findMany({
+          where: {
+            id: {
+              in: authorIds,
+            },
+          },
+          select: {
+            id: true,
+            username: true,
+            display_name: true,
+          },
+        })
+      : [];
+  } catch (error) {
+    console.error("Failed to load home feed data", error);
+  }
+
+  const authorMap = new Map(authorProfiles.map((entry) => [entry.id, entry]));
+
+  const topPostCommentCount = posts.reduce((max, post) => Math.max(max, post._count.comments), 0);
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100">
-      <div className="mx-auto grid max-w-[1320px] grid-cols-12 gap-4 px-4 py-6 lg:px-8">
-        <aside className="col-span-12 rounded-2xl border border-slate-800 bg-slate-900/70 p-5 md:col-span-3 xl:col-span-2">
-          <h1 className="mb-6 text-xl font-bold">
-            Bare<span className="text-violet-400">Unity</span>
-          </h1>
-          <nav className="space-y-2 text-sm">
-            {[
-              "Home Feed",
-              "Channels",
-              "Discover",
-              "Messages",
-              "Notifications",
-              "Profile",
-            ].map((item, i) => (
-              <div
-                key={item}
-                className={`rounded-lg border px-3 py-2 ${
-                  i === 0
-                    ? "border-violet-500/50 bg-violet-500/15 text-white"
-                    : "border-transparent text-slate-300 hover:border-slate-700 hover:bg-slate-800/70"
-                }`}
-              >
-                {item}
+    <main className="min-h-screen bg-[radial-gradient(circle_at_0%_0%,rgba(124,92,255,0.2),transparent_35%),radial-gradient(circle_at_100%_10%,rgba(45,212,191,0.12),transparent_25%),#0a0b10] p-6 text-[#eef2ff]">
+      <div className="mx-auto grid h-[900px] w-full max-w-[1360px] grid-cols-1 overflow-hidden rounded-[26px] border border-[#242941] bg-gradient-to-b from-white/[0.02] to-white/[0] shadow-[0_20px_80px_rgba(0,0,0,0.45)] lg:grid-cols-[250px_1fr_340px]">
+        <aside className="border-r border-[#242941] bg-[rgba(9,11,19,0.66)] px-4 py-[22px]">
+          <div className="mb-[26px] text-[22px] font-bold tracking-[0.2px]">
+            Bare<span className="text-[#7c5cff]">Unity</span>
+          </div>
+
+          <div className="mb-[22px] grid gap-2 text-sm">
+            <div className="rounded-xl border border-[rgba(124,92,255,0.4)] bg-[rgba(124,92,255,0.16)] px-3 py-[11px] text-[#eef2ff]">🏠 Home Feed</div>
+            {channels.map((channel) => (
+              <div key={channel.id} className="rounded-xl border border-transparent px-3 py-[11px] text-[#8e97b8]">
+                # {channel.name}
               </div>
             ))}
-          </nav>
+            </div>
+
+          <div className="mt-3 rounded-[14px] border border-[rgba(124,92,255,0.35)] bg-[linear-gradient(170deg,rgba(124,92,255,0.2),rgba(124,92,255,0.04))] p-[14px]">
+            <p className="mb-3 text-xs leading-[1.45] text-[#ccd3f8]">
+              Design goal: increase discovery while keeping creators focused on fast posting.
+            </p>
+            <button className="rounded-full bg-[#7c5cff] px-3 py-2 text-xs font-semibold text-white">View prototype notes</button>
+          </div>
         </aside>
 
-        <section className="col-span-12 md:col-span-9 xl:col-span-7">
-          <div className="mb-4 rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
-            <div className="mb-3 flex items-center gap-3">
-              <div className="h-9 w-9 rounded-full bg-gradient-to-br from-violet-500 to-cyan-400" />
-              <div className="flex-1 rounded-xl border border-slate-700 bg-slate-800/70 px-3 py-2 text-sm text-slate-400">
-                Share a mindful moment with your community...
-              </div>
+        <section className="overflow-hidden p-[22px]">
+          <div className="mb-4 grid grid-cols-1 items-center gap-3 xl:grid-cols-[1fr_auto]">
+            <div className="rounded-[14px] border border-[#242941] bg-[#121522] px-[14px] py-[13px] text-sm text-[#8e97b8]">
+              🔎 Search channels, creators, and tags...
             </div>
-            <div className="flex justify-between text-xs text-slate-400">
-              <div className="space-x-3">
-                <span>📷 Photo</span>
-                <span>📍 Location</span>
-                <span>🧘 Mood</span>
-              </div>
-              <button className="rounded-lg bg-violet-500 px-3 py-1.5 font-medium text-white hover:bg-violet-400">
-                Post
-              </button>
+            <div className="flex gap-[10px]">
+              {[
+                "For You",
+                "Following",
+                channels[0] ? `#${channels[0].name}` : "Trending",
+              ].map((chip) => (
+                <div key={chip} className="rounded-[10px] border border-[#242941] bg-[#121522] px-[11px] py-[10px] text-xs text-[#8e97b8]">
+                  {chip}
+                </div>
+              ))}
             </div>
           </div>
 
-          <div className="space-y-3">
-            {posts.map((post) => (
-              <article key={post.author + post.time} className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
-                <div className="mb-2 flex items-start justify-between">
-                  <div>
-                    <p className="font-semibold">{post.author}</p>
-                    <p className="text-xs text-slate-400">
-                      {post.handle} · {post.time}
-                    </p>
+          <section className="mb-4 rounded-[18px] border border-[#242941] bg-[#121522] p-[14px]">
+            <div className="mb-[10px] flex items-center gap-[10px]">
+              <div className="h-[34px] w-[34px] rounded-full bg-gradient-to-br from-[#8d76ff] to-[#2dd4bf]" />
+              <div className="flex-1 rounded-xl border border-[#242941] bg-[#171a2a] px-3 py-[11px] text-[13px] text-[#8e97b8]">
+                Share your progress with #{channels[0]?.name.toLowerCase().replace(/\s+/g, "-") ?? "design"} and #growth...
+              </div>
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="flex gap-2">
+                {[
+                  "📷 Image",
+                  "🎬 Clip",
+                  "📊 Poll",
+                ].map((tool) => (
+                  <div key={tool} className="rounded-full border border-[#2a3150] bg-[#1e2338] px-[10px] py-[7px] text-[11px] text-[#c9cff0]">
+                    {tool}
                   </div>
-                  <span className="rounded-full border border-cyan-400/40 bg-cyan-400/10 px-2 py-1 text-xs text-cyan-300">
-                    {post.badge}
-                  </span>
-                </div>
-                <p className="mb-3 text-sm text-slate-200">{post.text}</p>
-                <div className="mb-3 h-32 rounded-xl border border-slate-700 bg-gradient-to-br from-violet-500/25 to-cyan-500/10" />
-                <div className="text-xs text-slate-400">{post.stats}</div>
+                ))}
+              </div>
+              <button className="rounded-[10px] bg-[#7c5cff] px-3 py-[9px] text-xs font-semibold text-white">Publish</button>
+            </div>
+            </section>
+
+          <section className="grid h-[calc(100%-160px)] grid-cols-1 gap-3 overflow-y-auto pr-1">
+            {posts.map((post) => {
+              const author = post.author_id ? authorMap.get(post.author_id) : null;
+              const authorName = author?.display_name ?? author?.username ?? "Community member";
+              const authorHandle = author?.username ?? "bareunity";
+              const isTopPost = post._count.comments === topPostCommentCount && topPostCommentCount > 0;
+
+              return (
+                <article key={post.id} className="rounded-[18px] border border-[#242941] bg-[#121522] p-[14px]">
+                  <div className="mb-[10px] flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-[10px]">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-[#8d76ff] to-[#2dd4bf] text-xs font-semibold text-white">
+                        {initialsFromName(authorName)}
+                      </div>
+                      <div>
+                        <strong className="block text-sm">{authorName}</strong>
+                        <span className="text-xs text-[#8e97b8]">
+                          @{authorHandle} · {formatRelativeTime(post.created_at)} · #{post.channels?.name?.toLowerCase().replace(/\s+/g, "-") ?? "general"}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="h-fit rounded-full border border-[rgba(45,212,191,0.4)] bg-[rgba(45,212,191,0.08)] px-2 py-[5px] text-[11px] text-[#2dd4bf]">
+                      {isTopPost ? "High engagement" : "Recent"}
+                    </div>
+                  </div>
+
+                  <p className="mb-[10px] text-[13px] leading-[1.5] text-[#dce2ff]">{post.content ?? post.title ?? "No post content yet."}</p>
+
+                  {post.media_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={post.media_url} alt={post.title ?? "Post media"} className="mb-[10px] h-[130px] w-full rounded-[14px] border border-[#2b3150] object-cover" />
+                  ) : (
+                    <div className="mb-[10px] h-[130px] rounded-[14px] border border-[#2b3150] bg-[linear-gradient(125deg,rgba(124,92,255,0.4),rgba(45,212,191,0.2)),repeating-linear-gradient(45deg,rgba(255,255,255,0.05)_0_6px,transparent_6px_12px)]" />
+                  )}
+
+                  <div className="flex gap-4 text-xs text-[#8e97b8]">
+                    <span>💬 {post._count.comments} comments</span>
+                    <span>📣 {post.channels?.name ?? "General"}</span>
+                    <span>📌 Save</span>
+                  </div>
+                </article>
+              );
+            })}
+
+            {posts.length === 0 ? (
+              <article className="rounded-[18px] border border-[#242941] bg-[#121522] p-[14px] text-sm text-[#8e97b8]">
+                No posts yet. Create the first update from your community.
               </article>
-            ))}
-          </div>
+            ) : null}
+          </section>
         </section>
 
-        <aside className="col-span-12 space-y-3 md:col-span-12 xl:col-span-3">
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
-            <p className="mb-2 text-sm font-semibold">Suggested Channels</p>
-            <ul className="space-y-2 text-sm text-slate-300">
-              <li># Naturist Map</li>
-              <li># Retreats</li>
-              <li># General Nature</li>
-            </ul>
-          </div>
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
-            <p className="mb-2 text-sm font-semibold">Profile Snapshot</p>
-            <p className="text-sm text-slate-300">@you · Explorer tier</p>
-            <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
-              <div className="rounded-lg border border-slate-700 p-2">88
-                <div className="text-slate-400">Posts</div>
+        <aside className="border-l border-[#242941] bg-[rgba(9,11,19,0.66)] p-[22px_18px]">
+          <div className="mb-3 text-[13px] tracking-[0.2px] text-[#8e97b8]">Your profile</div>
+          <div className="mb-[18px] rounded-[14px] border border-[#242941] bg-[#121522] px-3 pb-3 pt-[18px] text-center">
+            <div className="mx-auto mb-[10px] h-[66px] w-[66px] rounded-full border-2 border-[rgba(124,92,255,0.45)] bg-gradient-to-br from-[#7c5cff] to-[#2dd4bf]" />
+            <strong>{profile?.display_name ?? profile?.username ?? "Welcome"}</strong>
+            <div className="mt-0.5 text-xs text-[#8e97b8]">@{profile?.username ?? "creator"} · Product Designer</div>
+            <div className="mt-[14px] grid grid-cols-3 gap-2">
+              <div className="rounded-[10px] border border-[#2b3150] bg-[#171c2d] px-[6px] py-2">
+                <strong className="block text-[13px]">{numberFormatter.format(profile ? posts.length * 140 : 0)}</strong>
+                <span className="text-[10px] text-[#8e97b8]">Followers</span>
               </div>
-              <div className="rounded-lg border border-slate-700 p-2">1.2k
-                <div className="text-slate-400">Followers</div>
+              <div className="rounded-[10px] border border-[#2b3150] bg-[#171c2d] px-[6px] py-2">
+                <strong className="block text-[13px]">{authorProfiles.length}</strong>
+                <span className="text-[10px] text-[#8e97b8]">Following</span>
               </div>
-              <div className="rounded-lg border border-slate-700 p-2">340
-                <div className="text-slate-400">Following</div>
+              <div className="rounded-[10px] border border-[#2b3150] bg-[#171c2d] px-[6px] py-2">
+                <strong className="block text-[13px]">{posts.length}</strong>
+                <span className="text-[10px] text-[#8e97b8]">Posts</span>
               </div>
             </div>
+          </div>
+
+          <div className="mb-3 text-[13px] tracking-[0.2px] text-[#8e97b8]">Goals this week</div>
+          <div className="mb-[18px] rounded-[14px] border border-[#242941] bg-[#121522] p-3 text-xs">
+            <div className="flex items-center justify-between border-b border-dashed border-[#2a3151] py-2">
+              <span>Ship feed prototype</span>
+              <span className="rounded-full border border-[#384271] px-2 py-1 text-[10px] text-[#cfd6fa]">In review</span>
+            </div>
+            <div className="flex items-center justify-between border-b border-dashed border-[#2a3151] py-2">
+              <span>Publish channel update</span>
+              <span className="rounded-full border border-[#384271] px-2 py-1 text-[10px] text-[#cfd6fa]">{Math.min(posts.length, 3)}/3 done</span>
+            </div>
+            <div className="flex items-center justify-between py-2">
+              <span>Reply to comments</span>
+              <span className="rounded-full border border-[#384271] px-2 py-1 text-[10px] text-[#cfd6fa]">
+                {posts.reduce((sum, post) => sum + post._count.comments, 0)} pending
+              </span>
+            </div>
+          </div>
+
+          <div className="mb-3 text-[13px] tracking-[0.2px] text-[#8e97b8]">Recent activity</div>
+          <div className="rounded-[14px] border border-[#242941] bg-[#121522] p-3">
+            {activityProfiles.map((entry, index) => (
+              <div key={entry.id} className={`grid grid-cols-[auto_1fr] gap-[10px] ${index < activityProfiles.length - 1 ? "mb-[10px]" : ""}`}>
+                <div className="mt-[6px] h-2 w-2 rounded-full bg-[#2dd4bf] shadow-[0_0_0_4px_rgba(45,212,191,0.14)]" />
+                <div>
+                  <p className="m-0 text-xs leading-[1.35] text-[#dbe3ff]">
+                    {entry.display_name ?? entry.username} joined and started exploring channels.
+                  </p>
+                  <span className="text-[11px] text-[#8e97b8]">{index + 1}h ago</span>
+                </div>
+              </div>
+            ))}
           </div>
         </aside>
       </div>
-    </main>  
+    </main>
   );
 }

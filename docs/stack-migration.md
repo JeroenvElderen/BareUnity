@@ -159,3 +159,15 @@ Prisma is responsible for:
 * [ ] Confirm build runs `prisma generate` before `next build`
 * [ ] Validate Auth.js callback URLs for production domain
 * [ ] Deploy application
+
+---
+
+# ✅ Additional completion updates
+
+
+## 9) Align developer scripts with Supabase-first workflow
+
+Completed:
+
+* Replaced migration/push scripts with `db:pull` + `db:generate` workflow
+* Updated setup docs to avoid Prisma-managed migrations against Supabase

@@ -3,10 +3,10 @@ import { createTRPCRouter, protectedProcedure, publicProcedure } from "@/server/
 
 export const postRouter = createTRPCRouter({
   list: publicProcedure.query(async ({ ctx }) => {
-    return ctx.db.post.findMany({
-      orderBy: { createdAt: "desc" },
+    return ctx.db.posts.findMany({
+      orderBy: { created_at: "desc" },
       take: 20,
-      select: { id: true, title: true, body: true, createdAt: true },
+      select: { id: true, title: true, content: true, created_at: true },
     });
   }),
 
@@ -18,11 +18,11 @@ export const postRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      return ctx.db.post.create({
+      return ctx.db.posts.create({
         data: {
           title: input.title,
-          body: input.body,
-          authorId: ctx.session.user.id,
+          content: input.body,
+          author_id: ctx.user.id,
         },
       });
     }),

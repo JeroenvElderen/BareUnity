@@ -34,11 +34,11 @@ npm install
 cp .env.example .env.local
 ```
 
-3. Run Prisma generation/migrations:
+3. Sync Prisma schema from Supabase and generate the client:
 
 ```bash
+npm run db:pull
 npm run db:generate
-npm run db:migrate
 ```
 
 4. Start app:
@@ -50,3 +50,14 @@ npm run dev
 ## Notes for this execution environment
 
 Package downloads are blocked in this environment (`npm 403 Forbidden`), so dependency installation cannot be completed here. The repository has been updated so it is ready to install/run in a normal environment with npm access.
+## Prisma + Supabase pooler note
+
+If you use Supabase pooler/pgBouncer and hit errors like `prepared statement ... does not exist`, make sure your runtime Prisma connection is pooler-safe:
+
+- Use a pooled `DATABASE_URL` that includes `pgbouncer=true` (and typically `connection_limit=1`).
+- Keep `DIRECT_URL` pointed to the direct (non-pooler) Postgres host for migrations/introspection.
+- Regenerate Prisma client after env changes:
+
+```bash
+npm run db:generate
+```
