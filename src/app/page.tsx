@@ -19,6 +19,7 @@ type FeedPost = {
 type SidebarChannel = {
   id: string;
   name: string;
+  iconUrl: string | null;
   contentType: ChannelContentType;
 };
 
@@ -94,6 +95,7 @@ export default async function Home() {
           select: {
             id: true,
             name: true,
+            icon_url: true,
             content_type: true,
           },
         }),
@@ -119,7 +121,12 @@ export default async function Home() {
     posts = postsResult.status === "fulfilled" ? postsResult.value : [];
     channels =
       channelsResult.status === "fulfilled"
-        ? channelsResult.value.map((channel) => ({ ...channel, contentType: normalizeContentType(channel.content_type) }))
+        ? channelsResult.value.map((channel) => ({
+            id: channel.id,
+            name: channel.name,
+            iconUrl: channel.icon_url,
+            contentType: normalizeContentType(channel.content_type),
+          }))
         : getChannels();
     profile = profileResult.status === "fulfilled" ? profileResult.value : null;
     activityProfiles = activityProfilesResult.status === "fulfilled" ? activityProfilesResult.value : [];
