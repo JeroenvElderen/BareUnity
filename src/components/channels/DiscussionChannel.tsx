@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
@@ -8,12 +9,13 @@ type DiscussionMessageRow = {
   body: string | null;
   created_at: string;
   author_id: string | null;
-  profiles: { username: string | null } | { username: string | null }[] | null;
+  profiles: { username: string | null; avatar_url: string | null } | { username: string | null; avatar_url: string | null }[] | null;
 };
 
 type DiscussionMessage = {
   id: string;
   author: string;
+  avatarUrl: string | null;
   sentAt: string;
   isCurrentUser: boolean;
   text: string;
@@ -28,9 +30,21 @@ function getInitials(name: string) {
     .join("");
 }
 
-function MessageAvatar({ author }: { author: string }) {
+function MessageAvatar({ author, avatarUrl }: { author: string; avatarUrl: string | null }) {
+  if (avatarUrl) {
+    return (
+      <Image
+        src={avatarUrl}
+        alt={`${author} avatar`}
+        width={40}
+        height={40}
+        className="h-10 w-10 shrink-0 rounded-full border border-white/30 object-cover shadow-sm"
+      />
+    );
+  }
+
   return (
-    <span className="relative z-20 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-[3px] border-white bg-bg text-[0.68rem] font-semibold text-text/90 shadow-sm">
+    <span className="relative z-20 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/30 bg-bg text-[0.68rem] font-semibold text-text/90 shadow-sm">
       {getInitials(author)}
     </span>
   );
@@ -48,6 +62,7 @@ function normalizeMessage(row: DiscussionMessageRow, currentUserId: string | nul
   return {
     id: row.id,
     author,
+    avatarUrl: profile?.avatar_url ?? null,
     sentAt: formatTime(row.created_at),
     isCurrentUser: Boolean(currentUserId && row.author_id === currentUserId),
     text: row.body?.trim() || "",
@@ -65,6 +80,7 @@ export default function DiscussionChannel({ channelId }: { channelId: string }) 
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState("");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [currentUserAvatarUrl, setCurrentUserAvatarUrl] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const currentUserIdRef = useRef<string | null>(null);
 
@@ -74,11 +90,13 @@ export default function DiscussionChannel({ channelId }: { channelId: string }) 
     supabase.auth.getUser().then(({ data }) => {
       if (!isMounted) return;
       setCurrentUserId(data.user?.id ?? null);
+      setCurrentUserAvatarUrl((data.user?.user_metadata?.avatar_url as string | undefined) ?? null);
       currentUserIdRef.current = data.user?.id ?? null;
     });
 
     const { data: authSub } = supabase.auth.onAuthStateChange((_event, session) => {
       setCurrentUserId(session?.user?.id ?? null);
+      setCurrentUserAvatarUrl((session?.user?.user_metadata?.avatar_url as string | undefined) ?? null);
       currentUserIdRef.current = session?.user?.id ?? null;
     });
 
@@ -95,7 +113,7 @@ export default function DiscussionChannel({ channelId }: { channelId: string }) 
       setLoading(true);
       const { data, error } = await supabase
         .from("channel_messages")
-        .select("id, body, created_at, author_id, profiles!channel_messages_author_id_fkey(username)")
+        .select("id, body, created_at, author_id, profiles!channel_messages_author_id_fkey(username, avatar_url)")
         .eq("channel_id", channelId)
         .order("created_at", { ascending: true })
         .limit(150);
@@ -144,6 +162,7 @@ export default function DiscussionChannel({ channelId }: { channelId: string }) 
             sentAt: formatTime(row.created_at),
             isCurrentUser: Boolean(currentUserIdRef.current && row.author_id === currentUserIdRef.current),
             author: currentUserIdRef.current && row.author_id === currentUserIdRef.current ? "You" : "Member",
+            avatarUrl: currentUserIdRef.current && row.author_id === currentUserIdRef.current ? currentUserAvatarUrl : null,
           };
 
           if (!message.text) return;
@@ -156,7 +175,7 @@ export default function DiscussionChannel({ channelId }: { channelId: string }) 
     return () => {
       supabase.removeChannel(realtimeChannel);
     };
-  }, [channelId]);
+  }, [channelId, currentUserAvatarUrl]);
 
   const canSend = useMemo(() => draft.trim().length > 0, [draft]);
 
@@ -169,6 +188,7 @@ export default function DiscussionChannel({ channelId }: { channelId: string }) 
     const optimisticMessage: DiscussionMessage = {
       id: optimisticId,
       author: "You",
+      avatarUrl: currentUserAvatarUrl,
       sentAt: "sending...",
       isCurrentUser: true,
       text: trimmed,
@@ -204,6 +224,7 @@ export default function DiscussionChannel({ channelId }: { channelId: string }) 
     const confirmedMessage: DiscussionMessage = {
       id: data.id,
       author: "You",
+      avatarUrl: currentUserAvatarUrl,
       sentAt: formatTime(data.created_at),
       isCurrentUser: true,
       text: data.body?.trim() || "",
@@ -231,30 +252,24 @@ export default function DiscussionChannel({ channelId }: { channelId: string }) 
 
             return (
               <article key={message.id} className={`flex ${isRight ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[86%] md:max-w-[60%] ${isRight ? "items-end" : "items-start"} flex flex-col`}>
-                  <div className={`relative ${isRight ? "pr-5" : "pl-5"}`}>
+                <div className={`flex max-w-[88%] items-end gap-2 md:max-w-[68%] ${isRight ? "flex-row-reverse" : "flex-row"}`}>
+                  <MessageAvatar author={message.author} avatarUrl={message.avatarUrl} />
+
+                  <div className={`flex flex-col ${isRight ? "items-end" : "items-start"}`}>
                     <div
-                      className={`relative rounded-[1.4rem] px-4 pb-4 pt-3 text-sm leading-relaxed shadow-sm ${
+                      className={`rounded-[1.2rem] px-4 py-3 text-sm leading-relaxed shadow-sm ${
                         isRight
-                          ? "bg-gradient-to-r from-indigo-500 to-violet-500 pr-8 text-white"
-                          : "border border-accent/15 bg-white/70 pl-8 text-slate-600"
+                          ? "bg-gradient-to-r from-indigo-500 to-violet-500 text-white"
+                          : "border border-accent/15 bg-white/70 text-slate-600"
                       }`}
                     >
                       <p className="whitespace-pre-line">{message.text}</p>
                     </div>
 
-                    <div className={`pointer-events-none absolute -bottom-5 ${isRight ? "right-0" : "left-0"} z-10`}>
-                      <span
-                        className="absolute left-1/2 top-1/2 h-[3.35rem] w-[3.35rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#030711]"
-                        aria-hidden
-                      />
-                      <MessageAvatar author={message.author} />
+                    <div className="mt-1.5 flex items-center gap-1.5 text-[0.7rem] text-muted">
+                      <span>•••</span>
+                      <span>{message.sentAt}</span>
                     </div>
-                  </div>
-
-                  <div className={`mt-1.5 flex items-center gap-1.5 text-[0.7rem] text-muted ${isRight ? "pr-12" : "pl-12"}`}>
-                    <span>•••</span>
-                    <span>{message.sentAt}</span>
                   </div>
                 </div>
               </article>

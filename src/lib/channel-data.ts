@@ -31,7 +31,7 @@ const STATIC_CHANNELS: Channel[] = [
 function normalizeContentType(raw: string | null | undefined): ChannelContentType {
   if (raw === "retreats") return "retreats";
   if (raw === "mindful") return "mindful";
-  if (raw === "map" || raw === "naturist-map" || raw === "naturist_map") return "map";
+  if (raw === "map" || raw === "naturist-map" || raw === "naturist_map" || raw === "naturistmap") return "map";
   if (raw === "custom") return "custom";
   if (raw === "discussion" || raw === "chat") return "discussion";
   return "general";
