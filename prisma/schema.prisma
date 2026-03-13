@@ -1,0 +1,271 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+  schemas   = ["public", "auth"]
+}
+
+model badges {
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String
+  description String?
+  icon        String?
+  created_at  DateTime      @default(now()) @db.Timestamptz(6)
+
+  user_badges user_badges[]
+
+  @@schema("public")
+}
+
+model user_badges {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String   @db.Uuid
+  badge_id   String   @db.Uuid
+  awarded_at DateTime @default(now()) @db.Timestamptz(6)
+
+  badges badges @relation(fields: [badge_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, badge_id])
+  @@index([user_id])
+
+  @@schema("public")
+}
+
+model channels {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name           String   @unique
+  slug           String   @unique
+  description    String?
+  privacy        String   @default("public")
+  join_mode      String   @default("open")
+  created_by     String?  @db.Uuid
+  featured       Boolean  @default(false)
+  verified       Boolean  @default(false)
+  mature         Boolean  @default(false)
+  created_at     DateTime @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime @default(now()) @db.Timestamptz(6)
+  icon_url       String?
+  content_type   String   @default("custom")
+  content_config Json     @default("{}")
+  position       Int      @default(0)
+  is_enabled     Boolean  @default(true)
+
+  posts            posts[]
+  events           events[]
+  channel_messages channel_messages[]
+
+  @@index([slug])
+
+  @@schema("public")
+}
+
+model posts {
+  id         String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  author_id  String?    @db.Uuid
+  channel_id String?    @db.Uuid
+  title      String?
+  content    String?
+  media_url  String?
+  post_type  String?    @default("text")
+  created_at DateTime?  @default(now()) @db.Timestamptz(6)
+
+  channels channels? @relation(fields: [channel_id], references: [id])
+  comments comments[]
+  reports  reports[]
+
+  @@index([channel_id])
+
+  @@schema("public")
+}
+
+model comments {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  post_id    String?   @db.Uuid
+  author_id  String?   @db.Uuid
+  parent_id  String?   @db.Uuid
+  content    String
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+
+  posts posts? @relation(fields: [post_id], references: [id], onDelete: Cascade)
+
+  @@index([post_id])
+
+  @@schema("public")
+}
+
+model reports {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reporter_id String?   @db.Uuid
+  post_id     String?   @db.Uuid
+  comment_id  String?   @db.Uuid
+  reason      String?
+  created_at  DateTime? @default(now()) @db.Timestamptz(6)
+
+  posts posts? @relation(fields: [post_id], references: [id])
+
+  @@schema("public")
+}
+
+model profiles {
+  id                      String    @id @db.Uuid
+  username                String    @unique
+  display_name            String?
+  bio                     String?
+  avatar_url              String?
+  location                String?
+  created_at              DateTime? @default(now()) @db.Timestamptz(6)
+  profile_primary_color   String?   @default("#345f45")
+  profile_secondary_color String?   @default("#1f3326")
+
+  @@schema("public")
+}
+
+model profile_settings {
+  user_id               String   @id @db.Uuid
+  profile_primary       String   @default("#1fd8b5")
+  profile_secondary     String   @default("#112b44")
+  show_email            Boolean  @default(false)
+  show_activity         Boolean  @default(true)
+  allow_friend_requests Boolean  @default(true)
+  feed_style            String   @default("balanced")
+  created_at            DateTime @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime @default(now()) @db.Timestamptz(6)
+
+  @@schema("public")
+}
+
+model friendships {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id          String   @db.Uuid
+  friend_user_id   String?  @db.Uuid
+  friend_username  String
+  status           String   @default("offline")
+  created_at       DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([user_id])
+
+  @@schema("public")
+}
+
+model friend_requests {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sender_id      String   @db.Uuid
+  receiver_id    String   @db.Uuid
+  sender_username String
+  mutual_friends Int      @default(0)
+  status         String   @default("pending")
+  created_at     DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([receiver_id])
+
+  @@schema("public")
+}
+
+model channel_messages {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  channel_id String   @db.Uuid
+  author_id  String   @db.Uuid
+  body       String
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  channels channels @relation(fields: [channel_id], references: [id])
+
+  @@schema("public")
+}
+
+model events {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  channel_id   String?   @db.Uuid
+  organizer_id String?   @db.Uuid
+  title        String
+  description  String?
+  location     String?
+  start_time   DateTime? @db.Timestamptz(6)
+  created_at   DateTime? @default(now()) @db.Timestamptz(6)
+
+  channels channels? @relation(fields: [channel_id], references: [id])
+
+  @@schema("public")
+}
+
+model naturist_map_spots {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String
+  description String
+  latitude    Float
+  longitude   Float
+  privacy     String   @default("Discreet")
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  @@schema("public")
+}
+
+model platform_settings {
+  id                            Boolean  @id @default(true)
+  brand_mode                    Boolean  @default(true)
+  allow_user_community_creation Boolean  @default(false)
+  primary_community_id          String?  @db.Uuid
+  primary_channel_id            String?  @db.Uuid
+  updated_at                    DateTime @default(now()) @db.Timestamptz(6)
+
+  @@schema("public")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+
+  @@schema("public")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@schema("public")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+
+  accounts Account[]
+  sessions Session[]
+
+  @@schema("public")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+
+  @@schema("public")
+}
