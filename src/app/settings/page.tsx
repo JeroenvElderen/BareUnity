@@ -1,11 +1,21 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import SidebarMenu from "@/components/SidebarMenu";
 
 type SettingsTab = "Account" | "Profile" | "Privacy" | "Preferences" | "Notifications" | "Email";
 
 const tabs: SettingsTab[] = ["Account", "Profile", "Privacy", "Preferences", "Notifications", "Email"];
+
+const tabMap: Record<string, SettingsTab> = {
+  account: "Account",
+  profile: "Profile",
+  privacy: "Privacy",
+  preferences: "Preferences",
+  notifications: "Notifications",
+  email: "Email",
+};
 
 const accountRows = [
   { label: "Email address", value: "" },
@@ -16,7 +26,15 @@ const accountRows = [
 ];
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<SettingsTab>("Account");
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const initialTab = tabMap[(searchParams.get("tab") ?? "").toLowerCase()] ?? "Account";
+  const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab);
+
+  function selectTab(tab: SettingsTab) {
+    setActiveTab(tab);
+    router.replace(`/settings?tab=${tab.toLowerCase()}`);
+  }
   
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_0%_0%,rgba(124,92,255,0.2),transparent_35%),radial-gradient(circle_at_100%_10%,rgba(45,212,191,0.12),transparent_25%),#0a0b10] p-3 text-[#eef2ff] sm:p-6">
@@ -32,7 +50,7 @@ export default function SettingsPage() {
               <button
                 key={tab}
                 type="button"
-                onClick={() => setActiveTab(tab)}
+                onClick={() => selectTab(tab)}
                 className={`text-sm ${activeTab === tab ? "font-semibold text-white" : "text-[#8e97b8]"}`}
               >
                 {tab}

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import SidebarMenu from "@/components/SidebarMenu";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 
@@ -9,6 +10,15 @@ type TabKey = "Overview" | "Posts" | "Comments" | "Gallery" | "Upvoted" | "Setti
 type FeedStyle = "balanced" | "magazine";
 
 const tabs: TabKey[] = ["Overview", "Posts", "Comments", "Gallery", "Upvoted", "Settings"];
+
+const tabMap: Record<string, TabKey> = {
+  overview: "Overview",
+  posts: "Posts",
+  comments: "Comments",
+  gallery: "Gallery",
+  upvoted: "Upvoted",
+  settings: "Settings",
+};
 
 type MediaPost = { id: string; media_url: string | null; title: string | null; created_at: string };
 type ProfilePost = { id: string; title: string | null; content: string | null; media_url: string | null; created_at: string };
@@ -60,7 +70,10 @@ function formatRelativeTime(dateValue: string) {
 
 export default function ProfilePage() {
   const [user, setUser] = useState<User | null>(null);
-  const [activeTab, setActiveTab] = useState<TabKey>("Overview");
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const initialTab = tabMap[(searchParams.get("tab") ?? "").toLowerCase()] ?? "Overview";
+  const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
   const [profilePrimary, setProfilePrimary] = useState(defaultSettings.profilePrimary);
   const [profileSecondary, setProfileSecondary] = useState(defaultSettings.profileSecondary);
   const [feedStyle, setFeedStyle] = useState<FeedStyle>(defaultSettings.feedStyle);
@@ -80,7 +93,6 @@ export default function ProfilePage() {
   const [userPostsCount, setUserPostsCount] = useState(0);
   const [commentsTableMissing, setCommentsTableMissing] = useState(false);
   const [loadedSettingsUserId, setLoadedSettingsUserId] = useState<string | null>(null);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
 
@@ -246,6 +258,11 @@ export default function ProfilePage() {
     void loadProfileData();
   }, [user?.id]);
 
+  function selectTab(tab: TabKey) {
+    setActiveTab(tab);
+    router.replace(`/profile?tab=${tab.toLowerCase()}`);
+  }
+
   function updatePrivacy<K extends keyof PrivacySettings>(key: K, value: PrivacySettings[K]) {
     setPrivacy((current) => ({ ...current, [key]: value }));
   }
@@ -275,78 +292,25 @@ export default function ProfilePage() {
     <div className="min-h-screen bg-[radial-gradient(circle_at_0%_0%,rgba(124,92,255,0.2),transparent_35%),radial-gradient(circle_at_100%_10%,rgba(45,212,191,0.12),transparent_25%),#0a0b10] text-[#eef2ff]">
       <main className="min-h-screen p-3 sm:p-6">
         <div className="mx-auto grid min-h-[calc(100vh-24px)] w-full max-w-none grid-cols-1 overflow-hidden rounded-[26px] border border-[#242941] bg-gradient-to-b from-white/[0.02] to-white/[0] shadow-[0_20px_80px_rgba(0,0,0,0.45)] sm:min-h-[calc(100vh-48px)] lg:grid-cols-[250px_1fr_320px]">
-          {mobileMenuOpen ? (
-            <div className="fixed inset-0 z-50 lg:hidden" aria-modal="true" role="dialog">
-              <button type="button" aria-label="Close profile navigation" className="absolute inset-0 bg-[#06070d]/70 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)} />
-              <aside className="relative h-full w-[84vw] max-w-[320px] border-r border-[#242941] bg-[#0d111f] px-4 py-5">
-                <div className="mb-2 text-[22px] font-bold">Profile <span className="text-[#7c5cff]">Hub</span></div>
-                <p className="mb-5 text-xs text-[#8e97b8]">Use this menu for profile sections, settings, and gallery.</p>
-                <div className="mb-[22px] grid gap-2 text-sm">
-                  <Link
-                    href="/"
-                    className="rounded-xl border border-[rgba(124,92,255,0.4)] bg-[rgba(124,92,255,0.16)] px-3 py-[11px] text-left text-[#eef2ff]"
-                  >
-                    🏠 Home Feed
-                  </Link>
-                  {tabs.map((tab) => (
-                    <button
-                      key={tab}
-                      type="button"
-                      onClick={() => {
-                        setActiveTab(tab);
-                        setMobileMenuOpen(false);
-                      }}
-                      className={`rounded-xl px-3 py-[11px] text-left ${activeTab === tab ? "border border-[rgba(124,92,255,0.4)] bg-[rgba(124,92,255,0.16)] text-[#eef2ff]" : "border border-transparent text-[#8e97b8]"}`}
-                    >
-                      {tab}
-                    </button>
-                  ))}
-                </div>
-              </aside>
-            </div>
-          ) : null}
-
-          <aside className="hidden border-b border-[#242941] bg-[rgba(9,11,19,0.66)] px-4 py-[22px] lg:block lg:border-b-0 lg:border-r">
-            <div className="mb-2 text-[22px] font-bold">Profile <span className="text-[#7c5cff]">Hub</span></div>
-            <div className="mb-[22px] grid gap-2 text-sm">
-              <Link
-                href="/"
-                className="rounded-xl border border-[rgba(124,92,255,0.4)] bg-[rgba(124,92,255,0.16)] px-3 py-[11px] text-left text-[#eef2ff]"
-              >
-                🏠 Home Feed
-              </Link>
-              {tabs.map((tab) => (
-                <button
-                  key={tab}
-                  type="button"
-                  onClick={() => setActiveTab(tab)}
-                  className={`rounded-xl px-3 py-[11px] text-left ${activeTab === tab ? "border border-[rgba(124,92,255,0.4)] bg-[rgba(124,92,255,0.16)] text-[#eef2ff]" : "border border-transparent text-[#8e97b8]"}`}
-                >
-                  {tab}
-                </button>
-              ))}
-            </div>
-          </aside>
+          <div className="border-b border-[#242941] p-3 lg:border-b-0 lg:border-r lg:p-4">
+            <SidebarMenu />
+          </div>
 
           <section className="order-1 overflow-hidden p-[14px] sm:p-[22px] lg:order-none">
-            <div className="mb-3 flex items-center justify-between rounded-xl border border-[#242941] bg-[#121522] p-3 lg:hidden">
-              <div>
-                <p className="text-sm font-semibold">Profile sections</p>
-                <p className="text-xs text-[#8e97b8]">{activeTab}</p>
+            <div className="mb-3 rounded-xl border border-[#242941] bg-[#121522] p-3">
+              <p className="text-sm font-semibold">Profile sections</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {tabs.map((tab) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => selectTab(tab)}
+                    className={`rounded-full border px-3 py-1.5 text-xs transition ${activeTab === tab ? "border-[rgba(124,92,255,0.55)] bg-[rgba(124,92,255,0.2)] text-[#eef2ff]" : "border-[#2b3150] text-[#8e97b8] hover:text-[#dbe3ff]"}`}
+                  >
+                    {tab}
+                  </button>
+                ))}
               </div>
-              <button
-                type="button"
-                onClick={() => setMobileMenuOpen(true)}
-                aria-label="Open profile navigation"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#2b3150] bg-[#171c2d]"
-              >
-                <span className="sr-only">Open menu</span>
-                <span className="flex flex-col gap-1">
-                  <span className="h-[2px] w-5 rounded-full bg-[#dce2ff]" />
-                  <span className="h-[2px] w-5 rounded-full bg-[#dce2ff]" />
-                  <span className="h-[2px] w-5 rounded-full bg-[#dce2ff]" />
-                </span>
-              </button>
             </div>
 
             <section className="mb-4 overflow-hidden rounded-[18px] border border-[#242941] bg-[#121522]">
