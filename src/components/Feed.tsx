@@ -4,8 +4,12 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import PostCard from "./PostCard";
 import { Post } from "@/types/database";
+import { readCachedValue, writeCachedValue } from "@/lib/client-cache";
 
 export type FeedView = "balanced" | "magazine";
+
+const FEED_CACHE_KEY = "bareunity:feed:posts";
+const FEED_CACHE_TTL_MS = 1000 * 60 * 5;
 
 type SupabasePost = {
   id: string;
@@ -20,8 +24,8 @@ type SupabasePost = {
 };
 
 export default function Feed({ view }: { view: FeedView }) {
-
-  const [posts, setPosts] = useState<Post[]>([]);
+  const [posts, setPosts] = useState<Post[]>(() => readCachedValue<Post[]>(FEED_CACHE_KEY, FEED_CACHE_TTL_MS) ?? []);
+  const [loading, setLoading] = useState(() => posts.length === 0);
 
   useEffect(() => {
     async function loadPosts() {
@@ -42,6 +46,7 @@ export default function Feed({ view }: { view: FeedView }) {
 
       if (error) {
         console.error(error);
+        setLoading(false);
         return;
       }
 
@@ -51,11 +56,21 @@ export default function Feed({ view }: { view: FeedView }) {
       }));
 
       setPosts(formattedPosts);
+      writeCachedValue(FEED_CACHE_KEY, formattedPosts);
+      setLoading(false);
     }
 
-    loadPosts();
+    void loadPosts();
   }, []);
 
+  if (loading) {
+    return (
+      <section className="glass-card p-8 text-center">
+        <p className="text-base text-text">Loading posts…</p>
+      </section>
+    );
+  }
+  
   if (posts.length === 0) {
     return (
       <section className="glass-card p-8 text-center">

@@ -2,6 +2,7 @@
 
 import { CSSProperties, useEffect, useMemo, useState } from "react";
 import { Channel, getInitials, readChannelsFromSupabase } from "@/lib/channel-data";
+import { readCachedValue, writeCachedValue } from "@/lib/client-cache";
 
 type SidebarProps = {
   onHomeSelect: () => void;
@@ -11,6 +12,9 @@ type SidebarProps = {
   channelFilter?: (channel: Channel) => boolean;
 };
 
+const CHANNEL_CACHE_KEY = "bareunity:sidebar:channels";
+const CHANNEL_CACHE_TTL_MS = 1000 * 60 * 15;
+
 export default function Sidebar({
   onHomeSelect,
   isHomeActive = false,
@@ -19,14 +23,17 @@ export default function Sidebar({
   channelFilter,
 }: SidebarProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [channels, setChannels] = useState<Channel[]>([]);
+  const [channels, setChannels] = useState<Channel[]>(() => readCachedValue<Channel[]>(CHANNEL_CACHE_KEY, CHANNEL_CACHE_TTL_MS) ?? []);
 
   useEffect(() => {
     let mounted = true;
 
     async function loadChannels() {
       const rows = await readChannelsFromSupabase();
-      if (mounted) setChannels(rows);
+      if (mounted) {
+        setChannels(rows);
+        writeCachedValue(CHANNEL_CACHE_KEY, rows);
+      }
     }
 
     void loadChannels();

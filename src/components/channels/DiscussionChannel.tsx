@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { readCachedValue, writeCachedValue } from "@/lib/client-cache";
 
 type DiscussionMessageRow = {
   id: string;
@@ -75,6 +76,12 @@ function upsertMessage(next: DiscussionMessage, list: DiscussionMessage[]) {
   return [...filtered, next];
 }
 
+const MESSAGE_CACHE_TTL_MS = 1000 * 60 * 5;
+
+function getMessageCacheKey(targetChannelId: string) {
+  return `bareunity:discussion:${targetChannelId}:messages`;
+}
+
 export default function DiscussionChannel({ channelId }: { channelId: string }) {
   const [messages, setMessages] = useState<DiscussionMessage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,6 +90,10 @@ export default function DiscussionChannel({ channelId }: { channelId: string }) 
   const [currentUserAvatarUrl, setCurrentUserAvatarUrl] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const currentUserIdRef = useRef<string | null>(null);
+  const cachedMessages = useMemo(
+    () => readCachedValue<DiscussionMessage[]>(getMessageCacheKey(channelId), MESSAGE_CACHE_TTL_MS) ?? [],
+    [channelId],
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -110,7 +121,7 @@ export default function DiscussionChannel({ channelId }: { channelId: string }) 
     let isMounted = true;
 
     async function loadMessages() {
-      setLoading(true);
+      setLoading(cachedMessages.length === 0);
       const { data, error } = await supabase
         .from("channel_messages")
         .select("id, body, created_at, author_id, profiles!channel_messages_author_id_fkey(username, avatar_url)")
@@ -128,6 +139,7 @@ export default function DiscussionChannel({ channelId }: { channelId: string }) 
           .map((row) => normalizeMessage(row, currentUserId))
           .filter((message) => message.text.length > 0);
         setMessages(normalized);
+        writeCachedValue(getMessageCacheKey(channelId), normalized);
         setStatus(null);
       }
 
@@ -139,7 +151,12 @@ export default function DiscussionChannel({ channelId }: { channelId: string }) 
     return () => {
       isMounted = false;
     };
-  }, [channelId, currentUserId]);
+  }, [cachedMessages.length, channelId, currentUserId]);
+
+  useEffect(() => {
+    if (!messages.length) return;
+    writeCachedValue(getMessageCacheKey(channelId), messages);
+  }, [channelId, messages]);
 
   useEffect(() => {
     const realtimeChannel = supabase
@@ -176,6 +193,9 @@ export default function DiscussionChannel({ channelId }: { channelId: string }) 
       supabase.removeChannel(realtimeChannel);
     };
   }, [channelId, currentUserAvatarUrl]);
+
+  const displayMessages = messages.length > 0 ? messages : cachedMessages;
+  const isLoadingMessages = loading && displayMessages.length === 0;
 
   const canSend = useMemo(() => draft.trim().length > 0, [draft]);
 
@@ -242,12 +262,12 @@ export default function DiscussionChannel({ channelId }: { channelId: string }) 
     <section className="rounded-3xl border border-accent/20 bg-card/35 p-4 md:p-6">
 
       <div className="space-y-5">
-        {loading ? (
+        {isLoadingMessages ? (
           <p className="text-sm text-muted">Loading discussion…</p>
-        ) : messages.length === 0 ? (
+        ) : displayMessages.length === 0 ? (
           <p className="text-sm text-muted">No messages yet. Start the conversation.</p>
         ) : (
-          messages.map((message) => {
+          displayMessages.map((message) => {
             const isRight = message.isCurrentUser;
 
             return (
