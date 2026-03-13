@@ -219,9 +219,6 @@ export default function DiscussionChannel({ channelId }: { channelId: string }) 
 
   return (
     <section className="rounded-3xl border border-accent/20 bg-card/35 p-4 md:p-6">
-      <div className="mb-5 rounded-2xl border border-amber-300/30 bg-amber-100/10 px-3 py-2 text-xs text-amber-100/85">
-        This channel is text-only. Image messages are disabled.
-      </div>
 
       <div className="space-y-7">
         {loading ? (
