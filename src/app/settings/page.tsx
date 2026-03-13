@@ -40,7 +40,7 @@ export default function SettingsPage() {
             ))}
           </div>
 
-          activeTab === "Account" ? (
+          {activeTab === "Account" ? (
             <div className="space-y-10">
               <div>
                 <h2 className="mb-5 text-4xl font-semibold">General</h2>

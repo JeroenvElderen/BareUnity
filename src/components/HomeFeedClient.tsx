@@ -21,6 +21,7 @@ type FeedPost = {
 type SidebarChannel = {
   id: string;
   name: string;
+  iconUrl: string | null;
   contentType: ChannelContentType;
 };
 
