@@ -30,7 +30,7 @@ function getInitials(name: string) {
 
 function MessageAvatar({ author }: { author: string }) {
   return (
-    <span className="relative z-20 flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-4 border-white bg-bg text-xs font-semibold text-text/90 shadow-sm">
+    <span className="relative z-20 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-[3px] border-white bg-bg text-[0.68rem] font-semibold text-text/90 shadow-sm">
       {getInitials(author)}
     </span>
   );
@@ -220,7 +220,7 @@ export default function DiscussionChannel({ channelId }: { channelId: string }) 
   return (
     <section className="rounded-3xl border border-accent/20 bg-card/35 p-4 md:p-6">
 
-      <div className="space-y-7">
+      <div className="space-y-5">
         {loading ? (
           <p className="text-sm text-muted">Loading discussion…</p>
         ) : messages.length === 0 ? (
@@ -231,28 +231,28 @@ export default function DiscussionChannel({ channelId }: { channelId: string }) 
 
             return (
               <article key={message.id} className={`flex ${isRight ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[88%] md:max-w-[64%] ${isRight ? "items-end" : "items-start"} flex flex-col`}>
-                  <div className={`relative ${isRight ? "pr-6" : "pl-6"}`}>
+                <div className={`max-w-[86%] md:max-w-[60%] ${isRight ? "items-end" : "items-start"} flex flex-col`}>
+                  <div className={`relative ${isRight ? "pr-5" : "pl-5"}`}>
                     <div
-                      className={`relative rounded-[1.6rem] px-5 pb-5 pt-4 text-sm leading-relaxed shadow-sm ${
+                      className={`relative rounded-[1.4rem] px-4 pb-4 pt-3 text-sm leading-relaxed shadow-sm ${
                         isRight
-                          ? "bg-gradient-to-r from-indigo-500 to-violet-500 pr-9 text-white"
-                          : "border border-accent/15 bg-white/70 pl-9 text-slate-600"
+                          ? "bg-gradient-to-r from-indigo-500 to-violet-500 pr-8 text-white"
+                          : "border border-accent/15 bg-white/70 pl-8 text-slate-600"
                       }`}
                     >
                       <p className="whitespace-pre-line">{message.text}</p>
                     </div>
 
-                    <div className={`pointer-events-none absolute -bottom-6 ${isRight ? "right-0" : "left-0"} z-10`}>
+                    <div className={`pointer-events-none absolute -bottom-5 ${isRight ? "right-0" : "left-0"} z-10`}>
                       <span
-                        className="absolute left-1/2 top-1/2 h-[4.1rem] w-[4.1rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#030711]"
+                        className="absolute left-1/2 top-1/2 h-[3.35rem] w-[3.35rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#030711]"
                         aria-hidden
                       />
                       <MessageAvatar author={message.author} />
                     </div>
                   </div>
 
-                  <div className={`mt-2 flex items-center gap-2 text-xs text-muted ${isRight ? "pr-14" : "pl-14"}`}>
+                  <div className={`mt-1.5 flex items-center gap-1.5 text-[0.7rem] text-muted ${isRight ? "pr-12" : "pl-12"}`}>
                     <span>•••</span>
                     <span>{message.sentAt}</span>
                   </div>
