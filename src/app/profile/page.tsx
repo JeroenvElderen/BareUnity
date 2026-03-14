@@ -28,6 +28,9 @@ type FriendStatus = "online" | "away" | "offline";
 type Friend = { id: string; username: string; status: FriendStatus };
 type FriendRequest = { id: string; username: string; mutualFriends: number };
 type PrivacySettings = { showEmail: boolean; showActivity: boolean; allowFriendRequests: boolean };
+type VerificationStatus = "none" | "requested" | "verified";
+type FollowCategory = "close_friends" | "collaborators" | "inspiration";
+type ImpactStats = { helpfulReplies: number; acceptedAnswers: number };
 
 type ProfileSettingsRow = {
   profile_primary: string;
@@ -43,6 +46,10 @@ type ProfileSettingsRow = {
   introduction?: string | null;
   home_theme_pack?: ThemePack | null;
   dashboard_widgets?: DashboardWidgets | null;
+  verification_status?: VerificationStatus | null;
+  notable_contributor_note?: string | null;
+  follow_categories?: FollowCategory[] | null;
+  impact_stats?: ImpactStats | null;
 };
 
 const defaultDashboardWidgets: DashboardWidgets = {
@@ -67,6 +74,10 @@ const defaultSettings = {
   introduction: "",
   homeThemePack: "nature" as ThemePack,
   dashboardWidgets: defaultDashboardWidgets,
+  verificationStatus: "none" as VerificationStatus,
+  notableContributorNote: "",
+  followCategories: ["collaborators"] as FollowCategory[],
+  impactStats: { helpfulReplies: 8, acceptedAnswers: 3 } as ImpactStats,
 };
 
 function formatRelativeTime(dateValue: string) {
@@ -94,6 +105,10 @@ export default function ProfilePage() {
   const [introduction, setIntroduction] = useState(defaultSettings.introduction);
   const [homeThemePack, setHomeThemePack] = useState<ThemePack>(defaultSettings.homeThemePack);
   const [dashboardWidgets, setDashboardWidgets] = useState<DashboardWidgets>(defaultSettings.dashboardWidgets);
+  const [verificationStatus, setVerificationStatus] = useState<VerificationStatus>(defaultSettings.verificationStatus);
+  const [notableContributorNote, setNotableContributorNote] = useState(defaultSettings.notableContributorNote);
+  const [followCategories, setFollowCategories] = useState<FollowCategory[]>(defaultSettings.followCategories);
+  const [impactStats, setImpactStats] = useState<ImpactStats>(defaultSettings.impactStats);
   const [profileImageUrl, setProfileImageUrl] = useState("");
   const [bannerImageUrl, setBannerImageUrl] = useState("");
   const [profilePosts, setProfilePosts] = useState<ProfilePost[]>([]);
@@ -118,6 +133,11 @@ export default function ProfilePage() {
     if (totalPostsCount <= 0) return "0%";
     return `${Math.round((userPostsCount / totalPostsCount) * 100)}%`;
   }, [userPostsCount, totalPostsCount]);
+
+  const reputationScore = useMemo(() => {
+    const participation = userPostsCount * 6 + impactStats.helpfulReplies * 4 + impactStats.acceptedAnswers * 8;
+    return Math.max(0, Math.min(1000, participation));
+  }, [impactStats.acceptedAnswers, impactStats.helpfulReplies, userPostsCount]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -150,11 +170,11 @@ export default function ProfilePage() {
 
       let query = await supabase
         .from("profile_settings")
-        .select("profile_primary, profile_secondary, avatar_url, banner_url, show_email, show_activity, allow_friend_requests, feed_style, friends, friend_requests, introduction, home_theme_pack, dashboard_widgets")
+        .select("profile_primary, profile_secondary, avatar_url, banner_url, show_email, show_activity, allow_friend_requests, feed_style, friends, friend_requests, introduction, home_theme_pack, dashboard_widgets, verification_status, notable_contributor_note, follow_categories, impact_stats")
         .eq("user_id", user.id)
         .maybeSingle<ProfileSettingsRow>();
 
-      if (query.error?.message?.includes("introduction") || query.error?.message?.includes("home_theme_pack") || query.error?.message?.includes("dashboard_widgets")) {
+      if (query.error?.message?.includes("introduction") || query.error?.message?.includes("home_theme_pack") || query.error?.message?.includes("dashboard_widgets") || query.error?.message?.includes("verification_status") || query.error?.message?.includes("notable_contributor_note") || query.error?.message?.includes("follow_categories") || query.error?.message?.includes("impact_stats")) {
         query = await supabase
           .from("profile_settings")
           .select("profile_primary, profile_secondary, avatar_url, banner_url, show_email, show_activity, allow_friend_requests, feed_style, friends, friend_requests")
@@ -186,11 +206,15 @@ export default function ProfilePage() {
             introduction: defaultSettings.introduction,
             home_theme_pack: defaultSettings.homeThemePack,
             dashboard_widgets: defaultSettings.dashboardWidgets,
+            verification_status: defaultSettings.verificationStatus,
+            notable_contributor_note: defaultSettings.notableContributorNote,
+            follow_categories: defaultSettings.followCategories,
+            impact_stats: defaultSettings.impactStats,
           },
           { onConflict: "user_id" },
         );
 
-        if (createError && !createError.message.includes("introduction") && !createError.message.includes("home_theme_pack") && !createError.message.includes("dashboard_widgets")) console.error(createError);
+        if (createError && !createError.message.includes("introduction") && !createError.message.includes("home_theme_pack") && !createError.message.includes("dashboard_widgets") && !createError.message.includes("verification_status") && !createError.message.includes("notable_contributor_note") && !createError.message.includes("follow_categories") && !createError.message.includes("impact_stats")) console.error(createError);
         setLoadedSettingsUserId(user.id);
         return;
       }
@@ -210,6 +234,10 @@ export default function ProfilePage() {
       setIntroduction(data.introduction ?? defaultSettings.introduction);
       setHomeThemePack(data.home_theme_pack ?? defaultSettings.homeThemePack);
       setDashboardWidgets({ ...defaultSettings.dashboardWidgets, ...(data.dashboard_widgets ?? {}) });
+      setVerificationStatus(data.verification_status ?? defaultSettings.verificationStatus);
+      setNotableContributorNote(data.notable_contributor_note ?? defaultSettings.notableContributorNote);
+      setFollowCategories(data.follow_categories ?? defaultSettings.followCategories);
+      setImpactStats({ ...defaultSettings.impactStats, ...(data.impact_stats ?? {}) });
       setLoadedSettingsUserId(user.id);
     }
 
@@ -235,12 +263,16 @@ export default function ProfilePage() {
         introduction,
         home_theme_pack: homeThemePack,
         dashboard_widgets: dashboardWidgets,
+        verification_status: verificationStatus,
+        notable_contributor_note: notableContributorNote,
+        follow_categories: followCategories,
+        impact_stats: impactStats,
       };
 
       let { error } = await supabase.from("profile_settings").upsert(payload, { onConflict: "user_id" });
 
-      if (error?.message?.includes("introduction") || error?.message?.includes("home_theme_pack") || error?.message?.includes("dashboard_widgets")) {
-        const unsupportedColumns = ["introduction", "home_theme_pack", "dashboard_widgets"];
+      if (error?.message?.includes("introduction") || error?.message?.includes("home_theme_pack") || error?.message?.includes("dashboard_widgets") || error?.message?.includes("verification_status") || error?.message?.includes("notable_contributor_note") || error?.message?.includes("follow_categories") || error?.message?.includes("impact_stats")) {
+        const unsupportedColumns = ["introduction", "home_theme_pack", "dashboard_widgets", "verification_status", "notable_contributor_note", "follow_categories", "impact_stats"];
         const withoutUnsupported = Object.fromEntries(Object.entries(payload).filter(([key]) => !unsupportedColumns.includes(key)));
         error = (await supabase.from("profile_settings").upsert(withoutUnsupported, { onConflict: "user_id" })).error;
       }
@@ -249,7 +281,7 @@ export default function ProfilePage() {
     }, 350);
 
     return () => window.clearTimeout(timeout);
-  }, [user?.id, loadedSettingsUserId, profilePrimary, profileSecondary, profileImageUrl, bannerImageUrl, feedStyle, privacy, friends, friendRequests, introduction, homeThemePack, dashboardWidgets]);
+  }, [user?.id, loadedSettingsUserId, profilePrimary, profileSecondary, profileImageUrl, bannerImageUrl, feedStyle, privacy, friends, friendRequests, introduction, homeThemePack, dashboardWidgets, verificationStatus, notableContributorNote, followCategories, impactStats]);
 
   useEffect(() => {
     async function loadProfileData() {
@@ -341,12 +373,19 @@ export default function ProfilePage() {
     if (updatedUserData.user) setUser(updatedUserData.user);
   }
 
+  function toggleFollowCategory(category: FollowCategory) {
+    setFollowCategories((current) => current.includes(category) ? current.filter((value) => value !== category) : [...current, category]);
+  }
+
   const statCards = [
     { label: "Followers", value: followersCount.toLocaleString() },
     { label: "Following", value: followingCount.toLocaleString() },
     { label: "Posts", value: userPostsCount.toLocaleString() },
     { label: "Engagement", value: engagement },
     { label: "Badges", value: badgesCount.toLocaleString() },
+    { label: "Reputation", value: reputationScore.toLocaleString() },
+    { label: "Helpful replies", value: impactStats.helpfulReplies.toLocaleString() },
+    { label: "Accepted answers", value: impactStats.acceptedAnswers.toLocaleString() },
   ];
 
   return (
@@ -358,10 +397,7 @@ export default function ProfilePage() {
           </div>
 
           <section className="order-1 overflow-hidden p-3.5 sm:p-5.5 lg:order-0">
-            <div className="mb-3 rounded-xl border border-[#242941] bg-[#121522] p-3">
-              <p className="text-sm font-semibold">Profile sections</p>
-              <p className="mt-1 text-xs text-[#8e97b8]">Use the sidebar to navigate between overview, posts, comments, gallery, and settings.</p>
-            </div>
+            
 
             <section className="mb-4 overflow-hidden rounded-[18px] border border-[#242941] bg-[#121522]">
               {bannerImageUrl ? (
@@ -445,6 +481,42 @@ export default function ProfilePage() {
                 </article>
 
                 <article className="rounded-2xl border border-[#242941] bg-[#121522] p-4 text-sm">
+                  <h3 className="font-semibold text-[#2dd4bf]">Verification + reputation</h3>
+                  <p className="mt-2 text-xs text-[#8e97b8]">Optional flow for notable contributors with public impact signals.</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {(["none", "requested", "verified"] as VerificationStatus[]).map((status) => (
+                      <button key={status} type="button" onClick={() => setVerificationStatus(status)} className={`rounded-full px-3 py-1 text-xs capitalize ${verificationStatus === status ? "bg-accent text-[#08232c]" : "border border-accent/30"}`}>
+                        {status === "none" ? "Not verified" : status}
+                      </button>
+                    ))}
+                  </div>
+                  <label className="mt-3 block text-xs text-[#8e97b8]">Notable contributor note
+                    <textarea value={notableContributorNote} onChange={(event) => setNotableContributorNote(event.target.value.slice(0, 220))} className="mt-1 h-20 w-full rounded-xl border border-[#2b3150] bg-[#0d1020] p-2 text-sm text-[#dce2ff]" placeholder="Highlight why verification should be reviewed" />
+                  </label>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <label className="text-xs text-[#8e97b8]">Helpful replies
+                      <input type="number" min={0} value={impactStats.helpfulReplies} onChange={(event) => setImpactStats((current) => ({ ...current, helpfulReplies: Math.max(0, Number(event.target.value) || 0) }))} className="mt-1 w-full rounded-xl border border-[#2b3150] bg-[#0d1020] px-2 py-1.5 text-sm" />
+                    </label>
+                    <label className="text-xs text-[#8e97b8]">Accepted answers
+                      <input type="number" min={0} value={impactStats.acceptedAnswers} onChange={(event) => setImpactStats((current) => ({ ...current, acceptedAnswers: Math.max(0, Number(event.target.value) || 0) }))} className="mt-1 w-full rounded-xl border border-[#2b3150] bg-[#0d1020] px-2 py-1.5 text-sm" />
+                    </label>
+                  </div>
+                  <p className="mt-3 text-xs text-[#8e97b8]">Reputation score: <span className="font-semibold text-[#dce2ff]">{reputationScore}</span> based on healthy participation.</p>
+                </article>
+
+                <article className="rounded-2xl border border-[#242941] bg-[#121522] p-4 text-sm">
+                  <h3 className="font-semibold text-[#2dd4bf]">Follow categories</h3>
+                  <p className="mt-2 text-xs text-[#8e97b8]">Organize people you follow into close friends, collaborators, and inspiration lists.</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {(["close_friends", "collaborators", "inspiration"] as FollowCategory[]).map((category) => (
+                      <button key={category} type="button" onClick={() => toggleFollowCategory(category)} className={`rounded-full px-3 py-1 text-xs capitalize ${followCategories.includes(category) ? "bg-accent text-[#08232c]" : "border border-accent/30"}`}>
+                        {category.replace("_", " ")}
+                      </button>
+                    ))}
+                  </div>
+                </article>
+
+                <article className="rounded-2xl border border-[#242941] bg-[#121522] p-4 text-sm">
                   <h3 className="font-semibold text-[#2dd4bf]">Home dashboard</h3>
                   <p className="mt-2 text-xs text-[#8e97b8]">Choose a theme pack and pick which widgets are visible on the home dashboard.</p>
                   <div className="mt-3 flex flex-wrap gap-2">
@@ -476,6 +548,8 @@ export default function ProfilePage() {
               </div>
               <strong>{username}</strong>
               <div className="mt-0.5 text-xs text-[#8e97b8]">@{user?.email?.split("@")[0] ?? "naturist"}</div>
+              <div className="mt-2 text-[11px] text-[#8e97b8]">Verification: <span className="capitalize text-[#dce2ff]">{verificationStatus === "none" ? "Not verified" : verificationStatus}</span></div>
+              <div className="mt-1 text-[11px] text-[#8e97b8]">Impact: {impactStats.helpfulReplies} helpful replies · {impactStats.acceptedAnswers} accepted answers</div>
               <div className="mt-3.5 grid grid-cols-3 gap-2">
                 <div className="rounded-[10px] border border-[#2b3150] bg-[#171c2d] px-1.5 py-2"><strong className="block text-[13px]">{followersCount.toLocaleString()}</strong><span className="text-[10px] text-[#8e97b8]">Followers</span></div>
                 <div className="rounded-[10px] border border-[#2b3150] bg-[#171c2d] px-1.5 py-2"><strong className="block text-[13px]">{followingCount.toLocaleString()}</strong><span className="text-[10px] text-[#8e97b8]">Following</span></div>

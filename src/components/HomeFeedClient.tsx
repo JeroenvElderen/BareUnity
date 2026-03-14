@@ -272,7 +272,7 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
           <div className={`mb-4.5 rounded-[14px] border px-3 pb-3 pt-4.5 text-center ${theme.panel}`}>
             {viewerProfile?.banner_url ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={viewerProfile.banner_url} alt="Profile banner" className="-mx-3 -mt-4.5 mb-3 h-14 w-[calc(100%+24px)] rounded-t-[12px] object-cover opacity-80" />
+              <img src={viewerProfile.banner_url} alt="Profile banner" className="-mx-3 -mt-4.5 mb-3 h-14 w-[calc(100%+24px)] rounded-t-xl object-cover opacity-80" />
             ) : null}
             <div className="mx-auto mb-2.5 flex h-16.5 w-16.5 items-center justify-center overflow-hidden rounded-full border-2 border-[rgba(124,92,255,0.45)] bg-linear-to-br from-[#7c5cff] to-[#2dd4bf]">
               {viewerProfile?.avatar_url ? (

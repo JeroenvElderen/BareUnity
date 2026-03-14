@@ -16,6 +16,7 @@ export default function PostCard({ post, view, emphasize = false }: { post: Post
   const [score, setScore] = useState(0);
   const [commentText, setCommentText] = useState("");
   const [comments, setComments] = useState<Comment[]>([]);
+  const [isHoveringAuthor, setIsHoveringAuthor] = useState(false);
 
   const profile = post.profiles[0];
   const commentCountLabel = useMemo(() => `${comments.length} comment${comments.length === 1 ? "" : "s"}`, [comments.length]);
@@ -45,17 +46,38 @@ export default function PostCard({ post, view, emphasize = false }: { post: Post
 
   return (
     <article className={`glass-card-strong ${isBalanced ? "h-full p-4" : `p-4 md:p-5 ${emphasize ? "md:p-6" : ""}`}`}>
-      <div className="mb-4 flex items-center gap-3">
+      <div className="relative mb-4 flex items-center gap-3">
         {profile?.avatar_url ? (
           <Image src={profile.avatar_url} alt="User avatar" width={44} height={44} className="rounded-full border border-accent/30" />
         ) : (
           <div className="h-11 w-11 rounded-full border border-accent/30 bg-white/10" />
         )}
 
-        <div>
+        <div onMouseEnter={() => setIsHoveringAuthor(true)} onMouseLeave={() => setIsHoveringAuthor(false)}>
           <p className="font-semibold text-accent">{profile?.username ?? "Unknown"}</p>
           <p className="text-xs text-muted">{new Date(post.created_at).toLocaleString()}</p>
         </div>
+
+        {isHoveringAuthor ? (
+          <div className="absolute left-0 top-12 z-10 w-64 rounded-2xl border border-accent/20 bg-bg/95 p-3 shadow-[0_16px_42px_rgba(0,0,0,0.4)]">
+            <p className="text-sm font-semibold text-accent">{profile?.username ?? "Unknown"}</p>
+            <p className="mt-1 text-xs text-muted">Quick profile preview</p>
+            <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
+              <div className="rounded-xl border border-accent/15 bg-white/5 px-2 py-2">
+                <p className="text-base font-semibold text-text">{comments.length}</p>
+                <p className="text-muted">Replies</p>
+              </div>
+              <div className="rounded-xl border border-accent/15 bg-white/5 px-2 py-2">
+                <p className="text-base font-semibold text-text">{Math.max(0, score)}</p>
+                <p className="text-muted">Score</p>
+              </div>
+              <div className="rounded-xl border border-accent/15 bg-white/5 px-2 py-2">
+                <p className="text-base font-semibold text-text">{profile?.avatar_url ? "✓" : "–"}</p>
+                <p className="text-muted">Profile</p>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {post.title && <h2 className={`mb-2 font-semibold text-text ${isBalanced ? "text-base" : "text-xl"}`}>{post.title}</h2>}

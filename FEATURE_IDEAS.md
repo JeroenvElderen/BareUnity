@@ -7,10 +7,8 @@
 - Customizable profile sections (about, links, milestones, skills)
 - Pronouns and communication preferences fields
 - Profile completion score with guided actions
-- Optional profile verification flow for notable contributors
 - Creator portfolio section with featured posts
 - Profile sections that can be public, followers-only, or private
-- Profile cards for quick hover previews
 - Identity badges (founder, moderator, top contributor, local ambassador)
 - Profile timeline with life-cycle highlights
 - Localized profile metadata by language
@@ -24,9 +22,6 @@
 - Intro video support on profile
 - Cover media carousel
 - Interest graph with confidence scoring
-- Reputation score based on healthy participation
-- Public impact stats (helpful replies, accepted answers)
-- Follow categories: close friends, collaborators, inspiration
 
 ## 2) Social Graph and Relationship Mechanics
 
