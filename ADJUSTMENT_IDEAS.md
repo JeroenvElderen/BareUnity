@@ -25,7 +25,6 @@
 - Reduce signup steps to minimum viable fields
 - Add progressive profiling after initial activation
 - Introduce first-session checklist with 3 actions max
-- Personalize onboarding by user intent
 - Pre-fill discovery feed with high-signal starter content
 - Improve empty-state messaging with clear actions
 - Add skip options to avoid onboarding fatigue

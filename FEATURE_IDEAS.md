@@ -4,8 +4,6 @@
 
 ## 1) Identity, Accounts, and Profiles
 
-- Multi-step onboarding journey by user intent (reader, poster, organizer, creator)
-- Username availability checker with suggestions
 - Customizable profile sections (about, links, milestones, skills)
 - Pronouns and communication preferences fields
 - Profile completion score with guided actions
