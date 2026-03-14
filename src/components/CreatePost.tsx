@@ -323,7 +323,7 @@ export default function CreatePost({ onPublished, onCancel }: CreatePostProps) {
       <div className="flex flex-wrap items-center justify-end gap-2">
         {onCancel ? (
           <button type="button" onClick={onCancel} className="rounded-full border border-[#2f3a4c] bg-[#121c29] px-5 py-2.5 text-sm font-semibold text-[#9fb1c5]">
-            Close
+            Cancel
           </button>
         ) : null}
         <button type="button" className="rounded-full border border-[#2f3a4c] bg-[#121c29] px-5 py-2.5 text-sm font-semibold text-[#9fb1c5]" disabled>

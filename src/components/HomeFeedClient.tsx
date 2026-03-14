@@ -95,6 +95,7 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
   const [viewerProfile, setViewerProfile] = useState<UserProfile | null>(profile);
   const [themePack, setThemePack] = useState<ThemePack>("nature");
   const [widgets, setWidgets] = useState<DashboardWidgets>(defaultWidgets);
+  const [isComposerOpen, setIsComposerOpen] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -166,7 +167,7 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
     <main className={`min-h-screen p-3 sm:p-6 ${theme.page}`}>
       <div className={`mx-auto grid min-h-[calc(100vh-1.5rem)] w-full max-w-none grid-cols-1 overflow-hidden rounded-[26px] border bg-linear-to-b from-white/2 to-white/0 shadow-[0_20px_80px_rgba(0,0,0,0.45)] sm:min-h-[calc(100vh-3rem)] lg:grid-cols-[250px_1fr_340px] ${theme.shell}`}>
         <div className={`border-b p-3 lg:border-b-0 lg:border-r lg:p-4 ${theme.shell}`}>
-          <SidebarMenu channels={channels} />
+          <SidebarMenu channels={channels} onCreatePost={() => setIsComposerOpen(true)} />
         </div>
 
         <section className="overflow-hidden p-3.5 sm:p-5.5">
@@ -195,10 +196,6 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
           </section>
 
           <>
-              <div className="mb-4">
-                <CreatePost />
-              </div>
-
               <section className="grid max-h-135 grid-cols-1 gap-3 overflow-y-auto pr-1">
                 {posts.map((post) => {
                   const author = post.author_id ? authorMap.get(post.author_id) : null;
@@ -251,6 +248,20 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
                 ) : null}
               </section>
             </>
+
+          {isComposerOpen ? (
+            <div className="fixed inset-0 z-[60]" role="dialog" aria-modal="true" aria-label="Create post flyout">
+              <button
+                type="button"
+                aria-label="Close create post"
+                onClick={() => setIsComposerOpen(false)}
+                className="absolute inset-0 bg-[#04060c]/75 backdrop-blur-sm"
+              />
+              <div className="relative ml-auto h-full w-full max-w-[960px] overflow-y-auto border-l border-[#2a3445] bg-[#070e18] p-3 sm:p-5">
+                <CreatePost onCancel={() => setIsComposerOpen(false)} onPublished={() => setIsComposerOpen(false)} />
+              </div>
+            </div>
+          ) : null}
         </section>
 
         <aside className={`border-t bg-[rgba(9,11,19,0.66)] p-[22px_18px] lg:border-l lg:border-t-0 ${theme.shell}`}>
