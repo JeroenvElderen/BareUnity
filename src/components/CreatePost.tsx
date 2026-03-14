@@ -3,18 +3,7 @@
 import { useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
-type BlockType = "text" | "media" | "embed" | "code" | "poll";
-
-type EditorBlock = {
-  id: string;
-  type: BlockType;
-  text?: string;
-  embedUrl?: string;
-  code?: string;
-  codeLanguage?: string;
-  pollQuestion?: string;
-  pollOptions?: string[];
-};
+type ComposerTab = "text" | "images" | "link" | "poll" | "ama";
 
 type StudioMedia = {
   id: string;
@@ -22,39 +11,21 @@ type StudioMedia = {
   previewUrl: string;
 };
 
-const tonePresets = ["friendly", "professional", "energetic"] as const;
+type CreatePostProps = {
+  onPublished?: () => void;
+  onCancel?: () => void;
+};
 
-type TonePreset = (typeof tonePresets)[number];
+const tabs: { key: ComposerTab; label: string }[] = [
+  { key: "text", label: "Text" },
+  { key: "images", label: "Images" },
+  { key: "link", label: "Link" },
+  { key: "poll", label: "Poll" },
+  { key: "ama", label: "AMA" },
+];
 
 function uid(prefix: string) {
   return `${prefix}_${crypto.randomUUID()}`;
-}
-
-function summarizeText(text: string) {
-  const sentences = text
-    .split(/(?<=[.!?])\s+/)
-    .map((sentence) => sentence.trim())
-    .filter(Boolean);
-
-  if (sentences.length <= 2) return text;
-  return `${sentences.slice(0, 2).join(" ")} ${sentences.length > 2 ? "…" : ""}`.trim();
-}
-
-function improveClarity(text: string) {
-  return text
-    .replace(/\s+/g, " ")
-    .replace(/\bvery\b/gi, "")
-    .replace(/\breally\b/gi, "")
-    .replace(/\s{2,}/g, " ")
-    .trim();
-}
-
-function applyTone(text: string, tone: TonePreset) {
-  if (!text.trim()) return text;
-
-  if (tone === "professional") return `Update: ${text.charAt(0).toUpperCase()}${text.slice(1)}`;
-  if (tone === "energetic") return `${text.replace(/\.$/, "")} 🚀`;
-  return `${text.replace(/\.$/, "")}. Thanks for reading!`;
 }
 
 function optimizeImage(file: File) {
@@ -92,7 +63,7 @@ function optimizeImage(file: File) {
             resolve(optimized);
           },
           "image/webp",
-          0.78,
+          0.8,
         );
       };
 
@@ -103,62 +74,31 @@ function optimizeImage(file: File) {
   });
 }
 
-export default function CreatePost() {
-  const [content, setContent] = useState("");
+export default function CreatePost({ onPublished, onCancel }: CreatePostProps) {
+  const [activeTab, setActiveTab] = useState<ComposerTab>("images");
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [flair, setFlair] = useState("");
+  const [linkUrl, setLinkUrl] = useState("");
+  const [pollQuestion, setPollQuestion] = useState("");
+  const [pollOptionA, setPollOptionA] = useState("");
+  const [pollOptionB, setPollOptionB] = useState("");
+  const [nsfw, setNsfw] = useState(true);
   const [loading, setLoading] = useState(false);
   const [mediaStudio, setMediaStudio] = useState<StudioMedia[]>([]);
-  const [blocks, setBlocks] = useState<EditorBlock[]>([
-    { id: uid("block"), type: "text", text: "" },
-  ]);
+  const [activeMediaIndex, setActiveMediaIndex] = useState(0);
 
-  const postPreview = useMemo(
-    () =>
-      blocks
-        .map((block) => {
-          if (block.type === "text") return block.text?.trim() ?? "";
-          if (block.type === "embed") return `Embedded: ${block.embedUrl ?? ""}`;
-          if (block.type === "code") return `Code (${block.codeLanguage ?? "txt"})`;
-          if (block.type === "poll") return `Poll: ${block.pollQuestion ?? ""}`;
-          return "Media block";
-        })
-        .filter(Boolean)
-        .join("\n"),
-    [blocks],
-  );
+  const titleCount = title.length;
+  const activeMedia = mediaStudio[activeMediaIndex] ?? null;
 
-  function addBlock(type: BlockType) {
-    setBlocks((current) => [
-      ...current,
-      {
-        id: uid("block"),
-        type,
-        text: type === "text" ? "" : undefined,
-        pollOptions: type === "poll" ? ["Option 1", "Option 2"] : undefined,
-        codeLanguage: type === "code" ? "typescript" : undefined,
-      },
-    ]);
-  }
-
-  function updateBlock(id: string, updates: Partial<EditorBlock>) {
-    setBlocks((current) => current.map((block) => (block.id === id ? { ...block, ...updates } : block)));
-  }
-
-  function removeBlock(id: string) {
-    setBlocks((current) => current.filter((block) => block.id !== id));
-  }
-
-  function runLocalWritingAssistant(mode: "summarize" | "clarity" | TonePreset) {
-    const firstTextBlock = blocks.find((block) => block.type === "text");
-    if (!firstTextBlock?.text) return;
-
-    let transformed = firstTextBlock.text;
-    if (mode === "summarize") transformed = summarizeText(transformed);
-    if (mode === "clarity") transformed = improveClarity(transformed);
-    if (tonePresets.includes(mode as TonePreset)) transformed = applyTone(transformed, mode as TonePreset);
-
-    updateBlock(firstTextBlock.id, { text: transformed });
-    setContent(transformed);
-  }
+  const submitDisabled = useMemo(() => {
+    if (loading) return true;
+    if (!title.trim()) return true;
+    if (!flair.trim()) return true;
+    if (activeTab === "link" && !linkUrl.trim()) return true;
+    if (activeTab === "poll" && (!pollQuestion.trim() || !pollOptionA.trim() || !pollOptionB.trim())) return true;
+    return false;
+  }, [activeTab, flair, linkUrl, loading, pollOptionA, pollOptionB, pollQuestion, title]);
 
   function onFilesAdded(fileList: FileList | null) {
     if (!fileList?.length) return;
@@ -172,12 +112,20 @@ export default function CreatePost() {
     setMediaStudio((current) => [...current, ...next]);
   }
 
-  function reorderMedia(fromIndex: number, toIndex: number) {
+  function removeMedia(id: string) {
     setMediaStudio((current) => {
-      const copy = [...current];
-      const [moved] = copy.splice(fromIndex, 1);
-      copy.splice(toIndex, 0, moved);
-      return copy;
+      const next = current.filter((entry) => entry.id !== id);
+      const nextIndex = Math.max(0, Math.min(activeMediaIndex, next.length - 1));
+      setActiveMediaIndex(nextIndex);
+      return next;
+    });
+  }
+
+  function moveMedia(direction: "prev" | "next") {
+    setActiveMediaIndex((current) => {
+      if (mediaStudio.length === 0) return 0;
+      if (direction === "prev") return (current - 1 + mediaStudio.length) % mediaStudio.length;
+      return (current + 1) % mediaStudio.length;
     });
   }
 
@@ -212,117 +160,184 @@ export default function CreatePost() {
       }
     }
 
-    const serializedBlocks = JSON.stringify(blocks);
-    const textFromBlocks = postPreview || content;
+    const extras = {
+      flair,
+      nsfw,
+      linkUrl: activeTab === "link" ? linkUrl.trim() : null,
+      poll:
+        activeTab === "poll"
+          ? {
+              question: pollQuestion,
+              options: [pollOptionA, pollOptionB],
+            }
+          : null,
+      ama: activeTab === "ama",
+      mediaCount: mediaStudio.length,
+    };
+
+    const contentParts = [body.trim()];
+    if (activeTab === "link" && linkUrl.trim()) contentParts.push(`Link: ${linkUrl.trim()}`);
+    if (activeTab === "poll" && pollQuestion.trim()) {
+      contentParts.push(`Poll: ${pollQuestion.trim()} | ${pollOptionA.trim()} / ${pollOptionB.trim()}`);
+    }
+    if (activeTab === "ama") contentParts.push("AMA post");
+
     const { error } = await supabase.from("posts").insert({
       author_id: user.id,
-      content: textFromBlocks ? `${textFromBlocks}\n\n---blocks---\n${serializedBlocks}` : serializedBlocks,
+      title: title.trim(),
+      content: `${contentParts.filter(Boolean).join("\n\n")}\n\n---composer-meta---\n${JSON.stringify(extras)}`,
       media_url: firstMediaUrl,
-      post_type: "blocks",
+      post_type: activeTab,
     });
 
-    if (error) console.error(error);
+    if (error) {
+      console.error(error);
+      setLoading(false);
+      return;
+    }
 
-    setContent("");
-    setBlocks([{ id: uid("block"), type: "text", text: "" }]);
-    setMediaStudio([]);
     setLoading(false);
+    onPublished?.();
     window.location.reload();
   }
 
   return (
-    <section className="glass-card-strong space-y-4 p-4 md:p-5">
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-accent/80">Block editor</h2>
-        <span className="text-xs text-muted">Text, media, embeds, code, polls</span>
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        {(["text", "media", "embed", "code", "poll"] as BlockType[]).map((type) => (
-          <button key={type} type="button" onClick={() => addBlock(type)} className="rounded-full border border-accent/40 px-3 py-1 text-xs capitalize">
-            + {type}
+    <section className="rounded-[24px] border border-[#2a3445] bg-[linear-gradient(180deg,#060d17_0%,#040a12_100%)] p-4 text-[#dce8f6] sm:p-6">
+      <div className="mb-5 flex flex-wrap gap-5 border-b border-[#1f2a38] pb-2 text-[19px] font-semibold">
+        {tabs.map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => setActiveTab(tab.key)}
+            className={`relative pb-2 transition ${activeTab === tab.key ? "text-white" : "text-[#a8b8ca] hover:text-[#dce8f6]"}`}
+          >
+            {tab.label}
+            {activeTab === tab.key ? <span className="absolute inset-x-0 -bottom-[9px] h-1 rounded-full bg-[#5f86ff]" /> : null}
           </button>
         ))}
       </div>
 
-      <div className="space-y-3">
-        {blocks.map((block) => (
-          <article key={block.id} className="rounded-2xl border border-white/10 bg-bg/40 p-3">
-            <div className="mb-2 flex items-center justify-between">
-              <strong className="text-xs uppercase tracking-wider text-accent/80">{block.type} block</strong>
-              <button type="button" className="text-xs text-muted" onClick={() => removeBlock(block.id)}>
-                Remove
-              </button>
-            </div>
-
-            {block.type === "text" ? <textarea value={block.text ?? ""} onChange={(event) => updateBlock(block.id, { text: event.target.value })} className="glass-input min-h-24 w-full rounded-xl p-2 text-sm" placeholder="Write your story..." /> : null}
-            {block.type === "embed" ? <input value={block.embedUrl ?? ""} onChange={(event) => updateBlock(block.id, { embedUrl: event.target.value })} className="glass-input w-full rounded-xl p-2 text-sm" placeholder="Paste embed URL" /> : null}
-            {block.type === "code" ? (
-              <div className="space-y-2">
-                <input value={block.codeLanguage ?? ""} onChange={(event) => updateBlock(block.id, { codeLanguage: event.target.value })} className="glass-input w-full rounded-xl p-2 text-sm" placeholder="Language" />
-                <textarea value={block.code ?? ""} onChange={(event) => updateBlock(block.id, { code: event.target.value })} className="glass-input min-h-24 w-full rounded-xl p-2 font-mono text-xs" placeholder="Code snippet" />
-              </div>
-            ) : null}
-            {block.type === "poll" ? (
-              <div className="space-y-2">
-                <input value={block.pollQuestion ?? ""} onChange={(event) => updateBlock(block.id, { pollQuestion: event.target.value })} className="glass-input w-full rounded-xl p-2 text-sm" placeholder="Poll question" />
-                {(block.pollOptions ?? []).map((option, index) => (
-                  <input key={`${block.id}_option_${index + 1}`} value={option} onChange={(event) => updateBlock(block.id, { pollOptions: (block.pollOptions ?? []).map((entry, optionIndex) => (optionIndex === index ? event.target.value : entry)) })} className="glass-input w-full rounded-xl p-2 text-sm" placeholder={`Option ${index + 1}`} />
-                ))}
-              </div>
-            ) : null}
-            {block.type === "media" ? <p className="text-xs text-muted">Use the media studio below to attach files to this post.</p> : null}
-          </article>
-        ))}
+      <div className="mb-4 flex flex-wrap items-center gap-2.5">
+        <button
+          type="button"
+          onClick={() => setNsfw((current) => !current)}
+          className={`rounded-full border px-3 py-1.5 text-sm font-semibold ${nsfw ? "border-fuchsia-500/50 bg-fuchsia-500/15 text-fuchsia-400" : "border-[#334154] bg-[#121b27] text-[#aab8c8]"}`}
+        >
+          18 NSFW
+        </button>
+        <label className="inline-flex cursor-pointer items-center justify-center rounded-full border border-[#334154] bg-[#192432] px-3 py-1.5 text-xs text-[#aab8c8] hover:text-[#dce8f6]">
+          ✎ Tag
+          <input className="hidden" value={flair} onChange={(event) => setFlair(event.target.value)} placeholder="Add flair" />
+        </label>
+        <input
+          value={flair}
+          onChange={(event) => setFlair(event.target.value)}
+          placeholder="Add flair*"
+          className="rounded-full border border-[#2c394b] bg-[#0b1420] px-3 py-1.5 text-sm text-[#dce8f6] outline-none placeholder:text-[#7f92a8]"
+        />
       </div>
 
-      <div className="rounded-2xl border border-white/10 bg-bg/40 p-3">
-        <div className="mb-2 flex items-center justify-between">
-          <strong className="text-xs uppercase tracking-wider text-accent/80">AI writing assistance (local + free)</strong>
-          <span className="text-[11px] text-muted">No paid API required</span>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button type="button" className="rounded-full border border-accent/40 px-3 py-1 text-xs" onClick={() => runLocalWritingAssistant("summarize")}>Summarize</button>
-          <button type="button" className="rounded-full border border-accent/40 px-3 py-1 text-xs" onClick={() => runLocalWritingAssistant("clarity")}>Improve clarity</button>
-          {tonePresets.map((tone) => (
-            <button key={tone} type="button" className="rounded-full border border-accent/40 px-3 py-1 text-xs capitalize" onClick={() => runLocalWritingAssistant(tone)}>
-              Tone: {tone}
-            </button>
-          ))}
-        </div>
+      <div className="mb-1 flex items-center justify-between gap-3">
+        <input
+          value={title}
+          onChange={(event) => setTitle(event.target.value.slice(0, 300))}
+          placeholder="Title*"
+          className="w-full rounded-[18px] border border-[#2e3a4d] bg-[#07111d] px-4 py-3 text-[40px] leading-tight text-[#dce8f6] outline-none placeholder:text-[#7f92a8] sm:text-[32px]"
+        />
       </div>
+      <div className="mb-4 text-right text-sm text-[#91a5bc]">{titleCount}/300</div>
+
+      {activeTab === "link" ? (
+        <input
+          value={linkUrl}
+          onChange={(event) => setLinkUrl(event.target.value)}
+          placeholder="Paste link URL"
+          className="mb-4 w-full rounded-[16px] border border-[#2e3a4d] bg-[#07111d] px-4 py-3 text-sm text-[#dce8f6] outline-none placeholder:text-[#7f92a8]"
+        />
+      ) : null}
+
+      {activeTab === "poll" ? (
+        <div className="mb-4 grid gap-2">
+          <input value={pollQuestion} onChange={(event) => setPollQuestion(event.target.value)} placeholder="Poll question" className="w-full rounded-[16px] border border-[#2e3a4d] bg-[#07111d] px-4 py-3 text-sm text-[#dce8f6] outline-none placeholder:text-[#7f92a8]" />
+          <input value={pollOptionA} onChange={(event) => setPollOptionA(event.target.value)} placeholder="Option 1" className="w-full rounded-[16px] border border-[#2e3a4d] bg-[#07111d] px-4 py-3 text-sm text-[#dce8f6] outline-none placeholder:text-[#7f92a8]" />
+          <input value={pollOptionB} onChange={(event) => setPollOptionB(event.target.value)} placeholder="Option 2" className="w-full rounded-[16px] border border-[#2e3a4d] bg-[#07111d] px-4 py-3 text-sm text-[#dce8f6] outline-none placeholder:text-[#7f92a8]" />
+        </div>
+      ) : null}
 
       <div
-        className="rounded-2xl border border-dashed border-accent/50 bg-bg/20 p-4"
+        className="mb-4 rounded-[20px] border border-dashed border-[#334154] bg-[#07111d] p-4"
         onDragOver={(event) => event.preventDefault()}
         onDrop={(event) => {
           event.preventDefault();
           onFilesAdded(event.dataTransfer.files);
         }}
       >
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <strong className="text-sm">Drag-and-drop media studio</strong>
-          <input type="file" accept="image/*,video/*" multiple className="text-xs" onChange={(event) => onFilesAdded(event.target.files)} />
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <p className="text-sm text-[#a8b8ca]">Drag and drop or upload media</p>
+          <label className="cursor-pointer rounded-full border border-[#334154] bg-[#1a2634] px-3 py-1.5 text-xs text-[#dce8f6]">
+            Upload
+            <input type="file" accept="image/*,video/*" multiple className="hidden" onChange={(event) => onFilesAdded(event.target.files)} />
+          </label>
         </div>
-        <p className="mt-1 text-xs text-muted">Images are automatically optimized to webp before upload.</p>
-        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {mediaStudio.map((media, index) => (
-            <div key={media.id} className="overflow-hidden rounded-xl border border-white/10 bg-bg/60 p-2">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={media.previewUrl} alt={media.file.name} className="h-24 w-full rounded-lg object-cover" />
-              <p className="mt-1 truncate text-[11px] text-muted">{media.file.name}</p>
-              <div className="mt-2 flex gap-1">
-                <button type="button" className="rounded bg-white/10 px-2 py-1 text-[10px]" disabled={index === 0} onClick={() => reorderMedia(index, index - 1)}>←</button>
-                <button type="button" className="rounded bg-white/10 px-2 py-1 text-[10px]" disabled={index === mediaStudio.length - 1} onClick={() => reorderMedia(index, index + 1)}>→</button>
-              </div>
-            </div>
-          ))}
-        </div>
+
+        {activeMedia ? (
+          <div className="relative overflow-hidden rounded-[18px] border border-[#334154] bg-[#0a131f]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={activeMedia.previewUrl} alt={activeMedia.file.name} className="mx-auto h-72 w-full object-contain sm:h-100" />
+            <button type="button" onClick={() => moveMedia("prev")} className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-black/55 px-3 py-2 text-white">‹</button>
+            <button type="button" onClick={() => moveMedia("next")} className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-black/55 px-3 py-2 text-white">›</button>
+          </div>
+        ) : (
+          <div className="flex h-48 items-center justify-center rounded-[18px] border border-[#2e3a4d] text-[#90a5ba]">No media selected yet</div>
+        )}
+
+        {mediaStudio.length > 0 ? (
+          <div className="mt-2.5 flex flex-wrap gap-2">
+            {mediaStudio.map((media, index) => (
+              <button
+                key={media.id}
+                type="button"
+                onClick={() => setActiveMediaIndex(index)}
+                className={`rounded-lg border ${index === activeMediaIndex ? "border-[#5f86ff]" : "border-[#324153]"}`}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={media.previewUrl} alt={media.file.name} className="h-12 w-12 rounded-lg object-cover" />
+              </button>
+            ))}
+            {activeMedia ? (
+              <button type="button" onClick={() => removeMedia(activeMedia.id)} className="rounded-lg border border-rose-400/60 bg-rose-500/10 px-2 text-xs text-rose-200">
+                Remove current
+              </button>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
-      <button onClick={handleSubmit} disabled={loading} className="premium-button text-sm disabled:opacity-60">
-        {loading ? "Publishing..." : "Publish block post"}
-      </button>
+      <textarea
+        value={body}
+        onChange={(event) => setBody(event.target.value)}
+        placeholder="Body text (optional)"
+        className="mb-5 min-h-52 w-full rounded-[18px] border border-[#2e3a4d] bg-[#07111d] px-4 py-3 text-[30px] leading-snug text-[#dce8f6] outline-none placeholder:text-[#7f92a8] sm:text-[24px]"
+      />
+
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {onCancel ? (
+          <button type="button" onClick={onCancel} className="rounded-full border border-[#2f3a4c] bg-[#121c29] px-5 py-2.5 text-sm font-semibold text-[#9fb1c5]">
+            Close
+          </button>
+        ) : null}
+        <button type="button" className="rounded-full border border-[#2f3a4c] bg-[#121c29] px-5 py-2.5 text-sm font-semibold text-[#9fb1c5]" disabled>
+          Save Draft
+        </button>
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={submitDisabled}
+          className="rounded-full bg-[#1d2633] px-6 py-2.5 text-sm font-semibold text-[#eaf2ff] disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {loading ? "Posting..." : "Post"}
+        </button>
+      </div>
     </section>
   );
 }

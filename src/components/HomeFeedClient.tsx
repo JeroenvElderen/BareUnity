@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import SidebarMenu from "@/components/SidebarMenu";
+import CreatePost from "@/components/CreatePost";
 import { ChannelContentType } from "@/lib/channel-data";
 import { supabase } from "@/lib/supabase";
 
@@ -155,10 +156,10 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
             subtleText: "text-white/80",
           }
         : {
-            page: "bg-[#0a0b10] text-[#eef2ff]",
-            shell: "border-[#242941]",
-            panel: "border-[#242941] bg-[#121522]",
-            subtleText: "text-[#8e97b8]",
+            page: "text-text",
+            shell: "border-accent/20",
+            panel: "glass-card border-accent/20",
+            subtleText: "text-muted",
           };
 
   return (
@@ -194,24 +195,9 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
           </section>
 
           <>
-              <section className={`mb-4 rounded-[18px] border p-3.5 ${theme.panel}`}>
-                <div className="mb-2.5 flex items-center gap-2.5">
-                  <div className="h-8.5 w-8.5 rounded-full bg-linear-to-br from-[#8d76ff] to-[#2dd4bf]" />
-                  <div className={`flex-1 rounded-xl border border-[#242941] bg-[#171a2a] px-3 py-2.75 text-[13px] ${theme.subtleText}`}>
-                    Share a post with all users in the community...
-                  </div>
-                </div>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex flex-wrap gap-2">
-                    {["📝 Text", "📷 Image", "📊 Poll"].map((tool) => (
-                      <div key={tool} className="rounded-full border border-[#2a3150] bg-[#1e2338] px-2.5 py-1.75 text-[11px] text-[#c9cff0]">
-                        {tool}
-                      </div>
-                    ))}
-                  </div>
-                  <button className="rounded-[10px] bg-[#7c5cff] px-3 py-2.25 text-xs font-semibold text-white">Post to all users</button>
-                </div>
-              </section>
+              <div className="mb-4">
+                <CreatePost />
+              </div>
 
               <section className="grid max-h-135 grid-cols-1 gap-3 overflow-y-auto pr-1">
                 {posts.map((post) => {

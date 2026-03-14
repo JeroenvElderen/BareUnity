@@ -23,7 +23,7 @@ const profileItems = [
   { label: "Settings", href: "/profile?tab=settings" },
 ];
 
-export default function SidebarMenu({ channels: channelsProp }: { channels?: Channel[] }) {
+export default function SidebarMenu({ channels: channelsProp, onCreatePost }: { channels?: Channel[]; onCreatePost?: () => void }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const channels = useMemo(() => channelsProp ?? getChannels(), [channelsProp]);
@@ -65,6 +65,10 @@ export default function SidebarMenu({ channels: channelsProp }: { channels?: Cha
                 onToggleSettings={() => setSettingsOpen((open) => !open)}
                 onToggleProfile={() => setProfileOpen((open) => !open)}
                 onNavigate={() => setMobileOpen(false)}
+                onCreatePost={() => {
+                  onCreatePost?.();
+                  setMobileOpen(false);
+                }}
               />
             </div>
           </div>
@@ -82,6 +86,7 @@ export default function SidebarMenu({ channels: channelsProp }: { channels?: Cha
           onToggleChannels={() => setChannelsOpen((open) => !open)}
           onToggleSettings={() => setSettingsOpen((open) => !open)}
           onToggleProfile={() => setProfileOpen((open) => !open)}
+          onCreatePost={onCreatePost}
         />
       </aside>
     </>
@@ -99,6 +104,7 @@ function SidebarBody({
   onToggleSettings,
   onToggleProfile,
   onNavigate,
+  onCreatePost,
 }: {
   pathname: string;
   searchParams: { get: (key: string) => string | null };
@@ -110,6 +116,7 @@ function SidebarBody({
   onToggleSettings: () => void;
   onToggleProfile: () => void;
   onNavigate?: () => void;
+  onCreatePost?: () => void;
 }) {
   return (
     <>
@@ -118,7 +125,15 @@ function SidebarBody({
       </div>
 
       <nav className="grid gap-2 text-sm" aria-label="Sidebar menu">
-       <MenuLink href="/" label="🏠 Home Feed" pathname={pathname} searchParams={searchParams} onNavigate={onNavigate} />
+       <button
+          type="button"
+          onClick={onCreatePost}
+          className="mb-2 w-full rounded-xl border border-[rgba(124,92,255,0.5)] bg-[rgba(124,92,255,0.16)] px-3 py-2.75 text-left text-sm font-semibold text-[#eef2ff] transition hover:bg-[rgba(124,92,255,0.24)]"
+        >
+          + Create Post
+        </button>
+
+        <MenuLink href="/" label="🏠 Home Feed" pathname={pathname} searchParams={searchParams} onNavigate={onNavigate} />
 
         <Dropdown
           label="⚙️ Settings"
