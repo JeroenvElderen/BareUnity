@@ -403,10 +403,10 @@ export default function NaturistMapChannel() {
         </div>
       ) : (
         <div className="grid gap-3 xl:grid-cols-[1fr_280px]">
-          <div ref={mapContainerRef} className="h-[420px] w-full overflow-hidden rounded-2xl border border-accent/20" />
+          <div ref={mapContainerRef} className="h-105 w-full overflow-hidden rounded-2xl border border-accent/20" />
           <aside className="rounded-2xl border border-accent/20 bg-bg/30 p-3">
             <h3 className="text-sm font-semibold text-text">Visible locations</h3>
-            <div className="mt-2 max-h-[365px] space-y-2 overflow-y-auto pr-1">
+            <div className="mt-2 max-h-91.25 space-y-2 overflow-y-auto pr-1">
               {visibleSpots.map((spot) => (
                 <button
                   key={spot.id}
@@ -424,7 +424,7 @@ export default function NaturistMapChannel() {
               {visibleSpots.length === 0 ? <p className="text-xs text-muted">No spots match this filter yet.</p> : null}
             </div>
           </aside>
-          
+
           <button
             type="button"
             className="premium-button mt-3 text-sm"
@@ -437,7 +437,7 @@ export default function NaturistMapChannel() {
           </button>
 
           {isAddingSpot ? (
-            <div className="glass-card mt-3 max-h-[390px] w-full max-w-[420px] overflow-y-auto p-3 text-sm">
+            <div className="glass-card mt-3 max-h-97.5 w-full max-w-105 overflow-y-auto p-3 text-sm">
               <form className="space-y-3" onSubmit={searchPlaces}>
                 <p className="text-xs text-muted">Search beaches, resorts, buildings, or remote places, then select a result.</p>
                 <div className="flex gap-2">

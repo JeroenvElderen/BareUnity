@@ -334,12 +334,12 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_0%_0%,rgba(124,92,255,0.2),transparent_35%),radial-gradient(circle_at_100%_10%,rgba(45,212,191,0.12),transparent_25%),#0a0b10] text-[#eef2ff]">
       <main className="min-h-screen p-3 sm:p-6">
-        <div className="mx-auto grid min-h-[calc(100vh-24px)] w-full max-w-none grid-cols-1 overflow-hidden rounded-[26px] border border-[#242941] bg-gradient-to-b from-white/[0.02] to-white/[0] shadow-[0_20px_80px_rgba(0,0,0,0.45)] sm:min-h-[calc(100vh-48px)] lg:grid-cols-[250px_1fr_320px]">
+        <div className="mx-auto grid min-h-[calc(100vh-24px)] w-full max-w-none grid-cols-1 overflow-hidden rounded-[26px] border border-[#242941] bg-linear-to-b from-white/2 to-white/0 shadow-[0_20px_80px_rgba(0,0,0,0.45)] sm:min-h-[calc(100vh-48px)] lg:grid-cols-[250px_1fr_320px]">
           <div className="border-b border-[#242941] p-3 lg:border-b-0 lg:border-r lg:p-4">
             <SidebarMenu />
           </div>
 
-          <section className="order-1 overflow-hidden p-[14px] sm:p-[22px] lg:order-none">
+          <section className="order-1 overflow-hidden p-3.5 sm:p-5.5 lg:order-0">
             <div className="mb-3 rounded-xl border border-[#242941] bg-[#121522] p-3">
               <p className="text-sm font-semibold">Profile sections</p>
               <div className="mt-3 flex flex-wrap gap-2">
@@ -359,12 +359,12 @@ export default function ProfilePage() {
             <section className="mb-4 overflow-hidden rounded-[18px] border border-[#242941] bg-[#121522]">
               {bannerImageUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={bannerImageUrl} alt="Profile banner" className="h-[130px] w-full object-cover opacity-70 sm:h-[150px]" />
+                <img src={bannerImageUrl} alt="Profile banner" className="h-32.5 w-full object-cover opacity-70 sm:h-37.5" />
               ) : (
-                <div className="h-[130px] w-full bg-[linear-gradient(135deg,rgba(124,92,255,0.5),rgba(45,212,191,0.25))] sm:h-[150px]" />
+                <div className="h-32.5 w-full bg-[linear-gradient(135deg,rgba(124,92,255,0.5),rgba(45,212,191,0.25))] sm:h-37.5" />
               )}
               <div className="-mt-7 flex items-end gap-3 p-3 sm:-mt-8 sm:p-4">
-                <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border-2 border-[#1a1f33] bg-gradient-to-br from-[#8d76ff] to-[#2dd4bf] text-lg font-semibold text-white sm:h-16 sm:w-16">
+                <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border-2 border-[#1a1f33] bg-linear-to-br from-[#8d76ff] to-[#2dd4bf] text-lg font-semibold text-white sm:h-16 sm:w-16">
                   {profileImageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={profileImageUrl} alt="Profile" className="h-full w-full object-cover" />
@@ -380,17 +380,17 @@ export default function ProfilePage() {
               </div>
             </section>
 
-            {activeTab === "Overview" && <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{statCards.map((stat) => <article key={stat.label} className="rounded-[18px] border border-[#242941] bg-[#121522] p-[14px]"><p className="text-2xl font-semibold">{stat.value}</p><p className="mt-1 text-sm text-[#8e97b8]">{stat.label}</p></article>)}</section>}
+            {activeTab === "Overview" && <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{statCards.map((stat) => <article key={stat.label} className="rounded-[18px] border border-[#242941] bg-[#121522] p-3.5"><p className="text-2xl font-semibold">{stat.value}</p><p className="mt-1 text-sm text-[#8e97b8]">{stat.label}</p></article>)}</section>}
 
             {activeTab === "Posts" && (
-              <section className="grid max-h-[620px] grid-cols-1 gap-3 overflow-y-auto pr-1">
-                {profilePosts.length === 0 ? <article className="rounded-[18px] border border-[#242941] bg-[#121522] p-[14px] text-sm text-[#8e97b8]">No posts yet.</article> : profilePosts.map((post) => (
-                  <article key={post.id} className="rounded-[18px] border border-[#242941] bg-[#121522] p-[14px]">
-                    <div className="mb-[10px] flex items-start justify-between"><div><strong className="block text-sm">{post.title ?? "Untitled post"}</strong><span className="text-xs text-[#8e97b8]">{formatRelativeTime(post.created_at)}</span></div></div>
-                    <p className="mb-[10px] text-[13px] text-[#dce2ff]">{post.content ?? "No post content yet."}</p>
+              <section className="grid max-h-155 grid-cols-1 gap-3 overflow-y-auto pr-1">
+                {profilePosts.length === 0 ? <article className="rounded-[18px] border border-[#242941] bg-[#121522] p-3.5 text-sm text-[#8e97b8]">No posts yet.</article> : profilePosts.map((post) => (
+                  <article key={post.id} className="rounded-[18px] border border-[#242941] bg-[#121522] p-3.5">
+                    <div className="mb-2.5 flex items-start justify-between"><div><strong className="block text-sm">{post.title ?? "Untitled post"}</strong><span className="text-xs text-[#8e97b8]">{formatRelativeTime(post.created_at)}</span></div></div>
+                    <p className="mb-2.5 text-[13px] text-[#dce2ff]">{post.content ?? "No post content yet."}</p>
                     {post.media_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={post.media_url} alt={post.title ?? "Post media"} className="h-[130px] w-full rounded-[14px] border border-[#2b3150] object-cover" />
+                      <img src={post.media_url} alt={post.title ?? "Post media"} className="h-32.5 w-full rounded-[14px] border border-[#2b3150] object-cover" />
                     ) : null}
                   </article>
                 ))}
@@ -440,9 +440,9 @@ export default function ProfilePage() {
             )}
           </section>
 
-          <aside className="order-2 border-t border-[#242941] bg-[rgba(9,11,19,0.66)] p-[18px_14px] sm:p-[22px_18px] lg:order-none lg:border-l lg:border-t-0">
-            <div className="mb-[18px] rounded-[14px] border border-[#242941] bg-[#121522] px-3 pb-3 pt-[18px] text-center">
-              <div className="mx-auto mb-[10px] flex h-[66px] w-[66px] items-center justify-center overflow-hidden rounded-full border-2 border-[rgba(124,92,255,0.45)] bg-gradient-to-br from-[#7c5cff] to-[#2dd4bf]">
+          <aside className="order-2 border-t border-[#242941] bg-[rgba(9,11,19,0.66)] p-[18px_14px] sm:p-[22px_18px] lg:order-0 lg:border-l lg:border-t-0">
+            <div className="mb-4.5 rounded-[14px] border border-[#242941] bg-[#121522] px-3 pb-3 pt-4.5 text-center">
+              <div className="mx-auto mb-2.5 flex h-16.5 w-16.5 items-center justify-center overflow-hidden rounded-full border-2 border-[rgba(124,92,255,0.45)] bg-linear-to-br from-[#7c5cff] to-[#2dd4bf]">
                 {profileImageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={profileImageUrl} alt="Profile" className="h-full w-full object-cover" />
@@ -452,10 +452,10 @@ export default function ProfilePage() {
               </div>
               <strong>{username}</strong>
               <div className="mt-0.5 text-xs text-[#8e97b8]">@{user?.email?.split("@")[0] ?? "naturist"}</div>
-              <div className="mt-[14px] grid grid-cols-3 gap-2">
-                <div className="rounded-[10px] border border-[#2b3150] bg-[#171c2d] px-[6px] py-2"><strong className="block text-[13px]">{followersCount.toLocaleString()}</strong><span className="text-[10px] text-[#8e97b8]">Followers</span></div>
-                <div className="rounded-[10px] border border-[#2b3150] bg-[#171c2d] px-[6px] py-2"><strong className="block text-[13px]">{followingCount.toLocaleString()}</strong><span className="text-[10px] text-[#8e97b8]">Following</span></div>
-                <div className="rounded-[10px] border border-[#2b3150] bg-[#171c2d] px-[6px] py-2"><strong className="block text-[13px]">{userPostsCount.toLocaleString()}</strong><span className="text-[10px] text-[#8e97b8]">Posts</span></div>
+              <div className="mt-3.5 grid grid-cols-3 gap-2">
+                <div className="rounded-[10px] border border-[#2b3150] bg-[#171c2d] px-1.5 py-2"><strong className="block text-[13px]">{followersCount.toLocaleString()}</strong><span className="text-[10px] text-[#8e97b8]">Followers</span></div>
+                <div className="rounded-[10px] border border-[#2b3150] bg-[#171c2d] px-1.5 py-2"><strong className="block text-[13px]">{followingCount.toLocaleString()}</strong><span className="text-[10px] text-[#8e97b8]">Following</span></div>
+                <div className="rounded-[10px] border border-[#2b3150] bg-[#171c2d] px-1.5 py-2"><strong className="block text-[13px]">{userPostsCount.toLocaleString()}</strong><span className="text-[10px] text-[#8e97b8]">Posts</span></div>
               </div>
             </div>
 

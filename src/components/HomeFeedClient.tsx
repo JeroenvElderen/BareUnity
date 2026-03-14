@@ -81,17 +81,17 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_0%_0%,rgba(124,92,255,0.2),transparent_35%),radial-gradient(circle_at_100%_10%,rgba(45,212,191,0.12),transparent_25%),#0a0b10] p-3 text-[#eef2ff] sm:p-6">
-      <div className="mx-auto grid min-h-[calc(100vh-1.5rem)] w-full max-w-none grid-cols-1 overflow-hidden rounded-[26px] border border-[#242941] bg-gradient-to-b from-white/[0.02] to-white/[0] shadow-[0_20px_80px_rgba(0,0,0,0.45)] sm:min-h-[calc(100vh-3rem)] lg:grid-cols-[250px_1fr_340px]">
+      <div className="mx-auto grid min-h-[calc(100vh-1.5rem)] w-full max-w-none grid-cols-1 overflow-hidden rounded-[26px] border border-[#242941] bg-linear-to-b from-white/2 to-white/0 shadow-[0_20px_80px_rgba(0,0,0,0.45)] sm:min-h-[calc(100vh-3rem)] lg:grid-cols-[250px_1fr_340px]">
         <div className="border-b border-[#242941] p-3 lg:border-b-0 lg:border-r lg:p-4">
           <SidebarMenu channels={channels} />
         </div>
 
-        <section className="overflow-hidden p-[14px] sm:p-[22px]">
+        <section className="overflow-hidden p-3.5 sm:p-5.5">
           <div className="mb-4 grid grid-cols-1 items-center gap-3 xl:grid-cols-[1fr_auto]">
-            <div className="rounded-[14px] border border-[#242941] bg-[#121522] px-[14px] py-[13px] text-sm text-[#8e97b8]">🔎 Search channels, creators, and tags...</div>
-            <div className="flex flex-wrap gap-[10px]">
+            <div className="rounded-[14px] border border-[#242941] bg-[#121522] px-3.5 py-3.25 text-sm text-[#8e97b8]">🔎 Search channels, creators, and tags...</div>
+            <div className="flex flex-wrap gap-2.5">
               {["For You", "Following", channels[0] ? `#${channels[0].name}` : "Trending"].map((chip) => (
-                <div key={chip} className="rounded-[10px] border border-[#242941] bg-[#121522] px-[11px] py-[10px] text-xs text-[#8e97b8]">
+                <div key={chip} className="rounded-[10px] border border-[#242941] bg-[#121522] px-2.75 py-2.5 text-xs text-[#8e97b8]">
                   {chip}
                 </div>
               ))}
@@ -99,26 +99,26 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
           </div>
 
           <>
-              <section className="mb-4 rounded-[18px] border border-[#242941] bg-[#121522] p-[14px]">
-                <div className="mb-[10px] flex items-center gap-[10px]">
-                  <div className="h-[34px] w-[34px] rounded-full bg-gradient-to-br from-[#8d76ff] to-[#2dd4bf]" />
-                  <div className="flex-1 rounded-xl border border-[#242941] bg-[#171a2a] px-3 py-[11px] text-[13px] text-[#8e97b8]">
+              <section className="mb-4 rounded-[18px] border border-[#242941] bg-[#121522] p-3.5">
+                <div className="mb-2.5 flex items-center gap-2.5">
+                  <div className="h-8.5 w-8.5 rounded-full bg-linear-to-br from-[#8d76ff] to-[#2dd4bf]" />
+                  <div className="flex-1 rounded-xl border border-[#242941] bg-[#171a2a] px-3 py-2.75 text-[13px] text-[#8e97b8]">
                     Share a post with all users in the community...
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex flex-wrap gap-2">
                     {["📝 Text", "📷 Image", "📊 Poll"].map((tool) => (
-                      <div key={tool} className="rounded-full border border-[#2a3150] bg-[#1e2338] px-[10px] py-[7px] text-[11px] text-[#c9cff0]">
+                      <div key={tool} className="rounded-full border border-[#2a3150] bg-[#1e2338] px-2.5 py-1.75 text-[11px] text-[#c9cff0]">
                         {tool}
                       </div>
                     ))}
                   </div>
-                  <button className="rounded-[10px] bg-[#7c5cff] px-3 py-[9px] text-xs font-semibold text-white">Post to all users</button>
+                  <button className="rounded-[10px] bg-[#7c5cff] px-3 py-2.25 text-xs font-semibold text-white">Post to all users</button>
                 </div>
               </section>
 
-              <section className="grid max-h-[540px] grid-cols-1 gap-3 overflow-y-auto pr-1">
+              <section className="grid max-h-135 grid-cols-1 gap-3 overflow-y-auto pr-1">
                 {posts.map((post) => {
                   const author = post.author_id ? authorMap.get(post.author_id) : null;
                   const authorName = author?.display_name ?? author?.username ?? "Community member";
@@ -126,10 +126,10 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
                   const isTopPost = post._count.comments === topPostCommentCount && topPostCommentCount > 0;
 
                   return (
-                    <article key={post.id} className="rounded-[18px] border border-[#242941] bg-[#121522] p-[14px]">
-                      <div className="mb-[10px] flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-[10px]">
-                          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-[#8d76ff] to-[#2dd4bf] text-xs font-semibold text-white">
+                    <article key={post.id} className="rounded-[18px] border border-[#242941] bg-[#121522] p-3.5">
+                      <div className="mb-2.5 flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-linear-to-br from-[#8d76ff] to-[#2dd4bf] text-xs font-semibold text-white">
                             {initialsFromName(authorName)}
                           </div>
                           <div>
@@ -139,18 +139,19 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
                             </span>
                           </div>
                         </div>
-                        <div className="h-fit rounded-full border border-[rgba(45,212,191,0.4)] bg-[rgba(45,212,191,0.08)] px-2 py-[5px] text-[11px] text-[#2dd4bf]">
+                        <div className="h-fit rounded-full border border-[rgba(45,212,191,0.4)] bg-[rgba(45,212,191,0.08)] px-2 py-1.25 text-[11px] text-[#2dd4bf]">
                           {isTopPost ? "High engagement" : "Recent"}
                         </div>
                       </div>
 
-                      <p className="mb-[10px] text-[13px] leading-[1.5] text-[#dce2ff]">{post.content ?? post.title ?? "No post content yet."}</p>
+                      <p className="mb-2.5 text-[13px] leading-normal text-[#dce2ff]">{post.content ?? post.title ?? "No post content yet."}</p>
 
                       {post.media_url ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={post.media_url} alt={post.title ?? "Post media"} className="mb-[10px] h-[130px] w-full rounded-[14px] border border-[#2b3150] object-cover" />
+                        <img src={post.media_url} alt={post.title ?? "Post media"} className="mb-2.5 h-32.5 w-full rounded-[14px] border border-[#2b3150] object-cover" />
+
                       ) : (
-                        <div className="mb-[10px] h-[130px] rounded-[14px] border border-[#2b3150] bg-[linear-gradient(125deg,rgba(124,92,255,0.4),rgba(45,212,191,0.2)),repeating-linear-gradient(45deg,rgba(255,255,255,0.05)_0_6px,transparent_6px_12px)]" />
+                        <div className="mb-2.5 h-32.5 rounded-[14px] border border-[#2b3150] bg-[linear-gradient(125deg,rgba(124,92,255,0.4),rgba(45,212,191,0.2)),repeating-linear-gradient(45deg,rgba(255,255,255,0.05)_0_6px,transparent_6px_12px)]" />
                       )}
 
                       <div className="flex flex-wrap gap-4 text-xs text-[#8e97b8]">
@@ -163,7 +164,7 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
                 })}
 
                 {posts.length === 0 ? (
-                  <article className="rounded-[18px] border border-[#242941] bg-[#121522] p-[14px] text-sm text-[#8e97b8]">
+                  <article className="rounded-[18px] border border-[#242941] bg-[#121522] p-3.5 text-sm text-[#8e97b8]">
                     No posts yet. Create the first update from your community.
                   </article>
                 ) : null}
@@ -172,20 +173,20 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
         </section>
 
         <aside className="border-t border-[#242941] bg-[rgba(9,11,19,0.66)] p-[22px_18px] lg:border-l lg:border-t-0">
-          <div className="mb-[18px] rounded-[14px] border border-[#242941] bg-[#121522] px-3 pb-3 pt-[18px] text-center">
-            <div className="mx-auto mb-[10px] h-[66px] w-[66px] rounded-full border-2 border-[rgba(124,92,255,0.45)] bg-gradient-to-br from-[#7c5cff] to-[#2dd4bf]" />
+          <div className="mb-4.5 rounded-[14px] border border-[#242941] bg-[#121522] px-3 pb-3 pt-4.5 text-center">
+            <div className="mx-auto mb-2.5 h-16.5 w-16.5 rounded-full border-2 border-[rgba(124,92,255,0.45)] bg-linear-to-br from-[#7c5cff] to-[#2dd4bf]" />
             <strong>{profile?.display_name ?? profile?.username ?? "Welcome"}</strong>
             <div className="mt-0.5 text-xs text-[#8e97b8]">@{profile?.username ?? "creator"} · Product Designer</div>
-            <div className="mt-[14px] grid grid-cols-3 gap-2">
-              <div className="rounded-[10px] border border-[#2b3150] bg-[#171c2d] px-[6px] py-2">
+            <div className="mt-3.5 grid grid-cols-3 gap-2">
+              <div className="rounded-[10px] border border-[#2b3150] bg-[#171c2d] px-1.5 py-2">
                 <strong className="block text-[13px]">{numberFormatter.format(profile ? posts.length * 140 : 0)}</strong>
                 <span className="text-[10px] text-[#8e97b8]">Followers</span>
               </div>
-              <div className="rounded-[10px] border border-[#2b3150] bg-[#171c2d] px-[6px] py-2">
+              <div className="rounded-[10px] border border-[#2b3150] bg-[#171c2d] px-1.5 py-2">
                 <strong className="block text-[13px]">{authorProfiles.length}</strong>
                 <span className="text-[10px] text-[#8e97b8]">Following</span>
               </div>
-              <div className="rounded-[10px] border border-[#2b3150] bg-[#171c2d] px-[6px] py-2">
+              <div className="rounded-[10px] border border-[#2b3150] bg-[#171c2d] px-1.5 py-2">
                 <strong className="block text-[13px]">{posts.length}</strong>
                 <span className="text-[10px] text-[#8e97b8]">Posts</span>
               </div>
@@ -196,7 +197,7 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
           </div>
 
           <div className="mb-3 text-[13px] tracking-[0.2px] text-[#8e97b8]">Goals this week</div>
-          <div className="mb-[18px] rounded-[14px] border border-[#242941] bg-[#121522] p-3 text-xs">
+          <div className="mb-4.5 rounded-[14px] border border-[#242941] bg-[#121522] p-3 text-xs">
             <div className="flex items-center justify-between border-b border-dashed border-[#2a3151] py-2">
               <span>Ship feed prototype</span>
               <span className="rounded-full border border-[#384271] px-2 py-1 text-[10px] text-[#cfd6fa]">In review</span>
@@ -214,8 +215,8 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
           <div className="mb-3 text-[13px] tracking-[0.2px] text-[#8e97b8]">Recent activity</div>
           <div className="rounded-[14px] border border-[#242941] bg-[#121522] p-3">
             {activityProfiles.map((entry, index) => (
-              <div key={entry.id} className={`grid grid-cols-[auto_1fr] gap-[10px] ${index < activityProfiles.length - 1 ? "mb-[10px]" : ""}`}>
-                <div className="mt-[6px] h-2 w-2 rounded-full bg-[#2dd4bf] shadow-[0_0_0_4px_rgba(45,212,191,0.14)]" />
+              <div key={entry.id} className={`grid grid-cols-[auto_1fr] gap-2.5 ${index < activityProfiles.length - 1 ? "mb-2.5" : ""}`}>
+                <div className="mt-1.5 h-2 w-2 rounded-full bg-[#2dd4bf] shadow-[0_0_0_4px_rgba(45,212,191,0.14)]" />
                 <div>
                   <p className="m-0 text-xs leading-[1.35] text-[#dbe3ff]">{entry.display_name ?? entry.username} joined and started exploring channels.</p>
                   <span className="text-[11px] text-[#8e97b8]">{index + 1}h ago</span>

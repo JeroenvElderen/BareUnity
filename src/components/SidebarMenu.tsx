@@ -41,9 +41,9 @@ export default function SidebarMenu({ channels: channelsProp }: { channels?: Cha
           aria-label="Open sidebar menu"
         >
           <span className="flex flex-col gap-1">
-            <span className="h-[2px] w-5 rounded-full bg-[#dce2ff]" />
-            <span className="h-[2px] w-5 rounded-full bg-[#dce2ff]" />
-            <span className="h-[2px] w-5 rounded-full bg-[#dce2ff]" />
+            <span className="h-0.5 w-5 rounded-full bg-[#dce2ff]" />
+            <span className="h-0.5 w-5 rounded-full bg-[#dce2ff]" />
+            <span className="h-0.5 w-5 rounded-full bg-[#dce2ff]" />
           </span>
         </button>
       </div>
@@ -51,7 +51,7 @@ export default function SidebarMenu({ channels: channelsProp }: { channels?: Cha
       {mobileOpen ? (
         <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true">
           <button type="button" className="absolute inset-0 bg-[#06070d]/70 backdrop-blur-sm" aria-label="Close sidebar" onClick={() => setMobileOpen(false)} />
-          <div className="relative h-full w-[84vw] max-w-[340px] p-3">
+          <div className="relative h-full w-[84vw] max-w-85 p-3">
             <div className="h-full overflow-y-auto rounded-3xl border border-[#242941] bg-[linear-gradient(180deg,#0f1222_0%,#070b15_100%)] p-4">
               <SidebarBody
                 pathname={pathname}
@@ -69,7 +69,7 @@ export default function SidebarMenu({ channels: channelsProp }: { channels?: Cha
         </div>
       ) : null}
 
-      <aside className="hidden h-full rounded-3xl border border-[#242941] bg-[linear-gradient(180deg,#0f1222_0%,#070b15_100%)] px-4 py-[22px] lg:block">
+      <aside className="hidden h-full rounded-3xl border border-[#242941] bg-[linear-gradient(180deg,#0f1222_0%,#070b15_100%)] px-4 py-5.5 lg:block">
         <SidebarBody
           pathname={pathname}
           channels={channels}
@@ -108,7 +108,7 @@ function SidebarBody({
 }) {
   return (
     <>
-      <div className="mb-[26px] text-[38px] font-bold leading-none tracking-[0.2px]">
+      <div className="mb-6 text-[38px] font-bold leading-none tracking-[0.2px]">
         Bare<span className="text-[#7c5cff]">Unity</span>
       </div>
 
@@ -171,7 +171,7 @@ function Dropdown({
       <button
         type="button"
         onClick={onToggle}
-        className={`flex w-full items-center justify-between rounded-xl border px-3 py-[11px] text-left transition ${
+        className={`flex w-full items-center justify-between rounded-xl border px-3 py-2.75 text-left transition ${
           isActive
             ? "border-[rgba(124,92,255,0.55)] bg-[rgba(124,92,255,0.2)] text-[#eef2ff]"
             : "border-transparent text-[#8e97b8] hover:border-[#2b3150]"
@@ -206,7 +206,7 @@ function MenuLink({
     <Link
       href={href}
       onClick={onNavigate}
-      className={`rounded-xl border px-3 ${compact ? "py-2 text-xs" : "py-[11px]"} transition ${
+      className={`rounded-xl border px-3 ${compact ? "py-2 text-xs" : "py-2.75"} transition ${
         isActive
           ? "border-[rgba(124,92,255,0.4)] bg-[rgba(124,92,255,0.16)] text-[#eef2ff]"
           : "border-transparent text-[#8e97b8] hover:border-[#2b3150] hover:text-[#dbe3ff]"

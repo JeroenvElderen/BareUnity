@@ -272,7 +272,7 @@ export default function DiscussionChannel({ channelId }: { channelId: string }) 
         </div>
       </div>
 
-      <div className="max-h-[420px] space-y-5 overflow-y-auto pr-1">
+      <div className="max-h-105 space-y-5 overflow-y-auto pr-1">
         {isLoadingMessages ? (
           <p className="text-sm text-muted">Loading discussion…</p>
         ) : displayMessages.length === 0 ? (
@@ -290,7 +290,7 @@ export default function DiscussionChannel({ channelId }: { channelId: string }) 
                     <div
                       className={`rounded-[1.2rem] px-4 py-3 text-sm leading-relaxed shadow-sm ${
                         isRight
-                          ? "bg-gradient-to-r from-indigo-500 to-violet-500 text-white"
+                          ? "bg-linear-to-r from-indigo-500 to-violet-500 text-white"
                           : "border border-accent/15 bg-white/70 text-slate-600"
                       }`}
                     >
@@ -320,7 +320,7 @@ export default function DiscussionChannel({ channelId }: { channelId: string }) 
         <button
           type="submit"
           disabled={!canSend}
-          className="rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-xl bg-linear-to-r from-indigo-500 to-violet-500 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
         >
           Send
         </button>

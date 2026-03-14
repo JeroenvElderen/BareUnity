@@ -99,7 +99,7 @@ export default function AuthButton() {
         </button>
 
         {open && (
-          <div role="menu" className="profile-menu-card absolute right-0 top-12 z-50 w-[220px]">
+          <div role="menu" className="profile-menu-card absolute right-0 top-12 z-50 w-55">
             <div className="profile-menu-user">
               <p className="truncate text-sm font-semibold text-text">{username}</p>
               <p className="truncate text-xs text-text/65">{user.email}</p>
@@ -187,7 +187,7 @@ export default function AuthButton() {
       </Link>
       <Link
         href="/signup"
-        className="rounded-xl border border-sand/30 bg-gradient-to-r from-pine to-pine-2 px-4 py-2 text-sm font-semibold text-sand transition hover:brightness-110"
+        className="rounded-xl border border-sand/30 bg-linear-to-r from-pine to-pine-2 px-4 py-2 text-sm font-semibold text-sand transition hover:brightness-110"
       >
         Sign up
       </Link>
