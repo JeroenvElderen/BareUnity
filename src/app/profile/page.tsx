@@ -8,6 +8,9 @@ import { supabase } from "@/lib/supabase";
 
 type TabKey = "Overview" | "Posts" | "Comments" | "Gallery" | "Upvoted" | "Settings";
 type FeedStyle = "balanced" | "magazine";
+type ThemePack = "minimal" | "nature" | "high-contrast";
+type DashboardWidgetKey = "profile_card" | "goals" | "recent_activity";
+type DashboardWidgets = Record<DashboardWidgetKey, boolean>;
 
 const tabs: TabKey[] = ["Overview", "Posts", "Comments", "Gallery", "Upvoted", "Settings"];
 
@@ -40,6 +43,14 @@ type ProfileSettingsRow = {
   friends: Friend[] | null;
   friend_requests: FriendRequest[] | null;
   introduction?: string | null;
+  home_theme_pack?: ThemePack | null;
+  dashboard_widgets?: DashboardWidgets | null;
+};
+
+const defaultDashboardWidgets: DashboardWidgets = {
+  profile_card: true,
+  goals: true,
+  recent_activity: true,
 };
 
 const defaultSettings = {
@@ -56,6 +67,8 @@ const defaultSettings = {
     { id: "r2", username: "campmila", mutualFriends: 1 },
   ],
   introduction: "",
+  homeThemePack: "nature" as ThemePack,
+  dashboardWidgets: defaultDashboardWidgets,
 };
 
 function formatRelativeTime(dateValue: string) {
@@ -83,6 +96,8 @@ export default function ProfilePage() {
   const [friends, setFriends] = useState<Friend[]>(defaultSettings.friends);
   const [friendRequests, setFriendRequests] = useState<FriendRequest[]>(defaultSettings.friendRequests);
   const [introduction, setIntroduction] = useState(defaultSettings.introduction);
+  const [homeThemePack, setHomeThemePack] = useState<ThemePack>(defaultSettings.homeThemePack);
+  const [dashboardWidgets, setDashboardWidgets] = useState<DashboardWidgets>(defaultSettings.dashboardWidgets);
   const [profileImageUrl, setProfileImageUrl] = useState("");
   const [bannerImageUrl, setBannerImageUrl] = useState("");
   const [profilePosts, setProfilePosts] = useState<ProfilePost[]>([]);
@@ -139,11 +154,11 @@ export default function ProfilePage() {
 
       let query = await supabase
         .from("profile_settings")
-        .select("profile_primary, profile_secondary, avatar_url, banner_url, show_email, show_activity, allow_friend_requests, feed_style, friends, friend_requests, introduction")
+        .select("profile_primary, profile_secondary, avatar_url, banner_url, show_email, show_activity, allow_friend_requests, feed_style, friends, friend_requests, introduction, home_theme_pack, dashboard_widgets")
         .eq("user_id", user.id)
         .maybeSingle<ProfileSettingsRow>();
 
-      if (query.error?.message?.includes("introduction")) {
+      if (query.error?.message?.includes("introduction") || query.error?.message?.includes("home_theme_pack") || query.error?.message?.includes("dashboard_widgets")) {
         query = await supabase
           .from("profile_settings")
           .select("profile_primary, profile_secondary, avatar_url, banner_url, show_email, show_activity, allow_friend_requests, feed_style, friends, friend_requests")
@@ -173,11 +188,13 @@ export default function ProfilePage() {
             friends: defaultSettings.friends,
             friend_requests: defaultSettings.friendRequests,
             introduction: defaultSettings.introduction,
+            home_theme_pack: defaultSettings.homeThemePack,
+            dashboard_widgets: defaultSettings.dashboardWidgets,
           },
           { onConflict: "user_id" },
         );
 
-        if (createError && !createError.message.includes("introduction")) console.error(createError);
+        if (createError && !createError.message.includes("introduction") && !createError.message.includes("home_theme_pack") && !createError.message.includes("dashboard_widgets")) console.error(createError);
         setLoadedSettingsUserId(user.id);
         return;
       }
@@ -195,6 +212,8 @@ export default function ProfilePage() {
       setFriends(data.friends ?? defaultSettings.friends);
       setFriendRequests(data.friend_requests ?? defaultSettings.friendRequests);
       setIntroduction(data.introduction ?? defaultSettings.introduction);
+      setHomeThemePack(data.home_theme_pack ?? defaultSettings.homeThemePack);
+      setDashboardWidgets({ ...defaultSettings.dashboardWidgets, ...(data.dashboard_widgets ?? {}) });
       setLoadedSettingsUserId(user.id);
     }
 
@@ -218,20 +237,23 @@ export default function ProfilePage() {
         friends,
         friend_requests: friendRequests,
         introduction,
+        home_theme_pack: homeThemePack,
+        dashboard_widgets: dashboardWidgets,
       };
 
       let { error } = await supabase.from("profile_settings").upsert(payload, { onConflict: "user_id" });
 
-      if (error?.message?.includes("introduction")) {
-        const withoutIntroduction = Object.fromEntries(Object.entries(payload).filter(([key]) => key !== "introduction"));
-        error = (await supabase.from("profile_settings").upsert(withoutIntroduction, { onConflict: "user_id" })).error;
+      if (error?.message?.includes("introduction") || error?.message?.includes("home_theme_pack") || error?.message?.includes("dashboard_widgets")) {
+        const unsupportedColumns = ["introduction", "home_theme_pack", "dashboard_widgets"];
+        const withoutUnsupported = Object.fromEntries(Object.entries(payload).filter(([key]) => !unsupportedColumns.includes(key)));
+        error = (await supabase.from("profile_settings").upsert(withoutUnsupported, { onConflict: "user_id" })).error;
       }
 
       if (error) console.error(error);
     }, 350);
 
     return () => window.clearTimeout(timeout);
-  }, [user?.id, loadedSettingsUserId, profilePrimary, profileSecondary, profileImageUrl, bannerImageUrl, feedStyle, privacy, friends, friendRequests, introduction]);
+  }, [user?.id, loadedSettingsUserId, profilePrimary, profileSecondary, profileImageUrl, bannerImageUrl, feedStyle, privacy, friends, friendRequests, introduction, homeThemePack, dashboardWidgets]);
 
   useEffect(() => {
     async function loadProfileData() {
@@ -275,6 +297,10 @@ export default function ProfilePage() {
     setPrivacy((current) => ({ ...current, [key]: value }));
   }
 
+  function updateDashboardWidget(widget: DashboardWidgetKey, checked: boolean) {
+    setDashboardWidgets((current) => ({ ...current, [widget]: checked }));
+  }
+  
   async function handleImageUpload(file: File | null, target: "avatar" | "banner") {
     if (!file || !user?.id) return;
 
@@ -435,6 +461,23 @@ export default function ProfilePage() {
                     <label className="flex items-center justify-between">Allow requests<input type="checkbox" checked={privacy.allowFriendRequests} onChange={(event) => updatePrivacy("allowFriendRequests", event.target.checked)} /></label>
                   </div>
                   <p className="mt-3 text-xs text-[#8e97b8]">Friends: {friends.length} · Pending requests: {friendRequests.length}</p>
+                </article>
+
+                <article className="rounded-2xl border border-[#242941] bg-[#121522] p-4 text-sm">
+                  <h3 className="font-semibold text-[#2dd4bf]">Home dashboard</h3>
+                  <p className="mt-2 text-xs text-[#8e97b8]">Choose a theme pack and pick which widgets are visible on the home dashboard.</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {(["minimal", "nature", "high-contrast"] as ThemePack[]).map((pack) => (
+                      <button key={pack} type="button" onClick={() => setHomeThemePack(pack)} className={`rounded-full px-3 py-1 text-xs capitalize ${homeThemePack === pack ? "bg-accent text-[#08232c]" : "border border-accent/30"}`}>
+                        {pack}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="mt-4 space-y-2">
+                    <label className="flex items-center justify-between">Profile card<input type="checkbox" checked={dashboardWidgets.profile_card} onChange={(event) => updateDashboardWidget("profile_card", event.target.checked)} /></label>
+                    <label className="flex items-center justify-between">Goals this week<input type="checkbox" checked={dashboardWidgets.goals} onChange={(event) => updateDashboardWidget("goals", event.target.checked)} /></label>
+                    <label className="flex items-center justify-between">Recent activity<input type="checkbox" checked={dashboardWidgets.recent_activity} onChange={(event) => updateDashboardWidget("recent_activity", event.target.checked)} /></label>
+                  </div>
                 </article>
               </section>
             )}

@@ -298,8 +298,6 @@
 
 ## 13) Personalization and UX Enhancements
 
-- Customizable home dashboard widgets
-- Theme packs (minimal, nature, high-contrast)
 - Font size and reading modes
 - Adaptive density controls
 - Keyboard-first navigation mode

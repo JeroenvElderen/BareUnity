@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import SidebarMenu from "@/components/SidebarMenu";
 import { ChannelContentType } from "@/lib/channel-data";
+import { supabase } from "@/lib/supabase";
 
 type FeedPost = {
   id: string;
@@ -44,6 +45,16 @@ type HomeFeedClientProps = {
   authorProfiles: BasicProfile[];
 };
 
+type ThemePack = "minimal" | "nature" | "high-contrast";
+type DashboardWidgetKey = "profile_card" | "goals" | "recent_activity";
+type DashboardWidgets = Record<DashboardWidgetKey, boolean>;
+
+const defaultWidgets: DashboardWidgets = {
+  profile_card: true,
+  goals: true,
+  recent_activity: true,
+};
+
 const numberFormatter = new Intl.NumberFormat("en", { notation: "compact" });
 
 function formatRelativeTime(dateValue: string | Date | null) {
@@ -78,31 +89,95 @@ function initialsFromName(name: string) {
 export default function HomeFeedClient({ posts, channels, profile, activityProfiles, authorProfiles }: HomeFeedClientProps) {
   const authorMap = useMemo(() => new Map(authorProfiles.map((entry) => [entry.id, entry])), [authorProfiles]);
   const topPostCommentCount = posts.reduce((max, post) => Math.max(max, post._count.comments), 0);
+  const [themePack, setThemePack] = useState<ThemePack>("nature");
+  const [widgets, setWidgets] = useState<DashboardWidgets>(defaultWidgets);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadDashboardSettings() {
+      const { data: authData } = await supabase.auth.getSession();
+      const userId = authData.session?.user?.id;
+
+      if (!userId || !mounted) return;
+
+      const { data } = await supabase
+        .from("profile_settings")
+        .select("home_theme_pack, dashboard_widgets")
+        .eq("user_id", userId)
+        .maybeSingle<{ home_theme_pack: ThemePack | null; dashboard_widgets: DashboardWidgets | null }>();
+
+      if (!mounted || !data) return;
+
+      if (data.home_theme_pack) setThemePack(data.home_theme_pack);
+      if (data.dashboard_widgets) setWidgets({ ...defaultWidgets, ...data.dashboard_widgets });
+    }
+
+    void loadDashboardSettings();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const theme =
+    themePack === "minimal"
+      ? {
+          page: "bg-[#090a0e] text-[#e8ebf8]",
+          shell: "border-[#23252f]",
+          panel: "border-[#23252f] bg-[#12141b]",
+          subtleText: "text-[#9ea4bc]",
+        }
+      : themePack === "high-contrast"
+        ? {
+            page: "bg-black text-white",
+            shell: "border-white/40",
+            panel: "border-white/35 bg-[#0a0a0a]",
+            subtleText: "text-white/80",
+          }
+        : {
+            page: "bg-[#0a0b10] text-[#eef2ff]",
+            shell: "border-[#242941]",
+            panel: "border-[#242941] bg-[#121522]",
+            subtleText: "text-[#8e97b8]",
+          };
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_0%_0%,rgba(124,92,255,0.2),transparent_35%),radial-gradient(circle_at_100%_10%,rgba(45,212,191,0.12),transparent_25%),#0a0b10] p-3 text-[#eef2ff] sm:p-6">
-      <div className="mx-auto grid min-h-[calc(100vh-1.5rem)] w-full max-w-none grid-cols-1 overflow-hidden rounded-[26px] border border-[#242941] bg-linear-to-b from-white/2 to-white/0 shadow-[0_20px_80px_rgba(0,0,0,0.45)] sm:min-h-[calc(100vh-3rem)] lg:grid-cols-[250px_1fr_340px]">
-        <div className="border-b border-[#242941] p-3 lg:border-b-0 lg:border-r lg:p-4">
+    <main className={`min-h-screen p-3 sm:p-6 ${theme.page}`}>
+      <div className={`mx-auto grid min-h-[calc(100vh-1.5rem)] w-full max-w-none grid-cols-1 overflow-hidden rounded-[26px] border bg-linear-to-b from-white/2 to-white/0 shadow-[0_20px_80px_rgba(0,0,0,0.45)] sm:min-h-[calc(100vh-3rem)] lg:grid-cols-[250px_1fr_340px] ${theme.shell}`}>
+        <div className={`border-b p-3 lg:border-b-0 lg:border-r lg:p-4 ${theme.shell}`}>
           <SidebarMenu channels={channels} />
         </div>
 
         <section className="overflow-hidden p-3.5 sm:p-5.5">
           <div className="mb-4 grid grid-cols-1 items-center gap-3 xl:grid-cols-[1fr_auto]">
-            <div className="rounded-[14px] border border-[#242941] bg-[#121522] px-3.5 py-3.25 text-sm text-[#8e97b8]">🔎 Search channels, creators, and tags...</div>
+            <div className={`rounded-[14px] border px-3.5 py-3.25 text-sm ${theme.panel} ${theme.subtleText}`}>🔎 Search channels, creators, and tags...</div>
             <div className="flex flex-wrap gap-2.5">
               {["For You", "Following", channels[0] ? `#${channels[0].name}` : "Trending"].map((chip) => (
-                <div key={chip} className="rounded-[10px] border border-[#242941] bg-[#121522] px-2.75 py-2.5 text-xs text-[#8e97b8]">
+                <div key={chip} className={`rounded-[10px] border px-2.75 py-2.5 text-xs ${theme.panel} ${theme.subtleText}`}>
                   {chip}
                 </div>
               ))}
             </div>
           </div>
 
+          <section className={`mb-4 rounded-[14px] border p-3 text-xs ${theme.panel}`}>
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <strong>Customize home dashboard</strong>
+              <span className={theme.subtleText}>Change in profile settings</span>
+            </div>
+            <div className={`flex flex-wrap gap-x-4 gap-y-2 ${theme.subtleText}`}>
+              <label className="flex items-center gap-2"><input type="checkbox" checked={widgets.profile_card} readOnly /> Profile card</label>
+              <label className="flex items-center gap-2"><input type="checkbox" checked={widgets.goals} readOnly /> Weekly goals</label>
+              <label className="flex items-center gap-2"><input type="checkbox" checked={widgets.recent_activity} readOnly /> Recent activity</label>
+              <span>Theme: {themePack}</span>
+            </div>
+          </section>
+
           <>
-              <section className="mb-4 rounded-[18px] border border-[#242941] bg-[#121522] p-3.5">
+              <section className={`mb-4 rounded-[18px] border p-3.5 ${theme.panel}`}>
                 <div className="mb-2.5 flex items-center gap-2.5">
                   <div className="h-8.5 w-8.5 rounded-full bg-linear-to-br from-[#8d76ff] to-[#2dd4bf]" />
-                  <div className="flex-1 rounded-xl border border-[#242941] bg-[#171a2a] px-3 py-2.75 text-[13px] text-[#8e97b8]">
+                  <div className={`flex-1 rounded-xl border border-[#242941] bg-[#171a2a] px-3 py-2.75 text-[13px] ${theme.subtleText}`}>
                     Share a post with all users in the community...
                   </div>
                 </div>
@@ -126,7 +201,7 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
                   const isTopPost = post._count.comments === topPostCommentCount && topPostCommentCount > 0;
 
                   return (
-                    <article key={post.id} className="rounded-[18px] border border-[#242941] bg-[#121522] p-3.5">
+                    <article key={post.id} className={`rounded-[18px] border p-3.5 ${theme.panel}`}>
                       <div className="mb-2.5 flex items-start justify-between gap-3">
                         <div className="flex items-center gap-2.5">
                           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-linear-to-br from-[#8d76ff] to-[#2dd4bf] text-xs font-semibold text-white">
@@ -134,7 +209,7 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
                           </div>
                           <div>
                             <strong className="block text-sm">{authorName}</strong>
-                            <span className="text-xs text-[#8e97b8]">
+                            <span className={`text-xs ${theme.subtleText}`}>
                               @{authorHandle} · {formatRelativeTime(post.created_at)} · #{post.channels?.name?.toLowerCase().replace(/\s+/g, "-") ?? "general"}
                             </span>
                           </div>
@@ -154,7 +229,7 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
                         <div className="mb-2.5 h-32.5 rounded-[14px] border border-[#2b3150] bg-[linear-gradient(125deg,rgba(124,92,255,0.4),rgba(45,212,191,0.2)),repeating-linear-gradient(45deg,rgba(255,255,255,0.05)_0_6px,transparent_6px_12px)]" />
                       )}
 
-                      <div className="flex flex-wrap gap-4 text-xs text-[#8e97b8]">
+                      <div className={`flex flex-wrap gap-4 text-xs ${theme.subtleText}`}>
                         <span>💬 {post._count.comments} comments</span>
                         <span>📣 {post.channels?.name ?? "General"}</span>
                         <span>📌 Save</span>
@@ -164,7 +239,7 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
                 })}
 
                 {posts.length === 0 ? (
-                  <article className="rounded-[18px] border border-[#242941] bg-[#121522] p-3.5 text-sm text-[#8e97b8]">
+                  <article className={`rounded-[18px] border p-3.5 text-sm ${theme.panel} ${theme.subtleText}`}>
                     No posts yet. Create the first update from your community.
                   </article>
                 ) : null}
@@ -172,32 +247,34 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
             </>
         </section>
 
-        <aside className="border-t border-[#242941] bg-[rgba(9,11,19,0.66)] p-[22px_18px] lg:border-l lg:border-t-0">
-          <div className="mb-4.5 rounded-[14px] border border-[#242941] bg-[#121522] px-3 pb-3 pt-4.5 text-center">
+        <aside className={`border-t bg-[rgba(9,11,19,0.66)] p-[22px_18px] lg:border-l lg:border-t-0 ${theme.shell}`}>
+          {widgets.profile_card ? (
+          <div className={`mb-4.5 rounded-[14px] border px-3 pb-3 pt-4.5 text-center ${theme.panel}`}>
             <div className="mx-auto mb-2.5 h-16.5 w-16.5 rounded-full border-2 border-[rgba(124,92,255,0.45)] bg-linear-to-br from-[#7c5cff] to-[#2dd4bf]" />
             <strong>{profile?.display_name ?? profile?.username ?? "Welcome"}</strong>
-            <div className="mt-0.5 text-xs text-[#8e97b8]">@{profile?.username ?? "creator"} · Product Designer</div>
+            <div className={`mt-0.5 text-xs ${theme.subtleText}`}>@{profile?.username ?? "creator"} · Product Designer</div>
             <div className="mt-3.5 grid grid-cols-3 gap-2">
               <div className="rounded-[10px] border border-[#2b3150] bg-[#171c2d] px-1.5 py-2">
                 <strong className="block text-[13px]">{numberFormatter.format(profile ? posts.length * 140 : 0)}</strong>
-                <span className="text-[10px] text-[#8e97b8]">Followers</span>
+                <span className={`text-[10px] ${theme.subtleText}`}>Followers</span>
               </div>
               <div className="rounded-[10px] border border-[#2b3150] bg-[#171c2d] px-1.5 py-2">
                 <strong className="block text-[13px]">{authorProfiles.length}</strong>
-                <span className="text-[10px] text-[#8e97b8]">Following</span>
+                <span className={`text-[10px] ${theme.subtleText}`}>Following</span>
               </div>
               <div className="rounded-[10px] border border-[#2b3150] bg-[#171c2d] px-1.5 py-2">
                 <strong className="block text-[13px]">{posts.length}</strong>
-                <span className="text-[10px] text-[#8e97b8]">Posts</span>
+                <span className={`text-[10px] ${theme.subtleText}`}>Posts</span>
               </div>
             </div>
             <Link href="/profile" className="mt-3 inline-flex rounded-full border border-[#384271] px-3 py-2 text-xs font-semibold text-[#dbe3ff] hover:bg-[#1d2238]">
               View full profile
             </Link>
           </div>
+          ) : null}
 
-          <div className="mb-3 text-[13px] tracking-[0.2px] text-[#8e97b8]">Goals this week</div>
-          <div className="mb-4.5 rounded-[14px] border border-[#242941] bg-[#121522] p-3 text-xs">
+          {widgets.goals ? <><div className={`mb-3 text-[13px] tracking-[0.2px] ${theme.subtleText}`}>Goals this week</div>
+          <div className={`mb-4.5 rounded-[14px] border p-3 text-xs ${theme.panel}`}>
             <div className="flex items-center justify-between border-b border-dashed border-[#2a3151] py-2">
               <span>Ship feed prototype</span>
               <span className="rounded-full border border-[#384271] px-2 py-1 text-[10px] text-[#cfd6fa]">In review</span>
@@ -210,20 +287,20 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
               <span>Reply to comments</span>
               <span className="rounded-full border border-[#384271] px-2 py-1 text-[10px] text-[#cfd6fa]">{posts.reduce((sum, post) => sum + post._count.comments, 0)} pending</span>
             </div>
-          </div>
+          </div></> : null}
 
-          <div className="mb-3 text-[13px] tracking-[0.2px] text-[#8e97b8]">Recent activity</div>
-          <div className="rounded-[14px] border border-[#242941] bg-[#121522] p-3">
+          {widgets.recent_activity ? <><div className={`mb-3 text-[13px] tracking-[0.2px] ${theme.subtleText}`}>Recent activity</div>
+          <div className={`rounded-[14px] border p-3 ${theme.panel}`}>
             {activityProfiles.map((entry, index) => (
               <div key={entry.id} className={`grid grid-cols-[auto_1fr] gap-2.5 ${index < activityProfiles.length - 1 ? "mb-2.5" : ""}`}>
                 <div className="mt-1.5 h-2 w-2 rounded-full bg-[#2dd4bf] shadow-[0_0_0_4px_rgba(45,212,191,0.14)]" />
                 <div>
                   <p className="m-0 text-xs leading-[1.35] text-[#dbe3ff]">{entry.display_name ?? entry.username} joined and started exploring channels.</p>
-                  <span className="text-[11px] text-[#8e97b8]">{index + 1}h ago</span>
+                  <span className={`text-[11px] ${theme.subtleText}`}>{index + 1}h ago</span>
                 </div>
               </div>
             ))}
-          </div>
+          </div></> : null}
         </aside>
       </div>
     </main>
