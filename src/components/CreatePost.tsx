@@ -75,7 +75,7 @@ function optimizeImage(file: File) {
 }
 
 export default function CreatePost({ onPublished, onCancel }: CreatePostProps) {
-  const [activeTab, setActiveTab] = useState<ComposerTab>("images");
+  const [activeTab, setActiveTab] = useState<ComposerTab>("text");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [flair, setFlair] = useState("");
@@ -202,17 +202,20 @@ export default function CreatePost({ onPublished, onCancel }: CreatePostProps) {
   }
 
   return (
-    <section className="rounded-[24px] border border-[#2a3445] bg-[linear-gradient(180deg,#060d17_0%,#040a12_100%)] p-4 text-[#dce8f6] sm:p-6">
-      <div className="mb-5 flex flex-wrap gap-5 border-b border-[#1f2a38] pb-2 text-[19px] font-semibold">
+    <section className="glass-card-strong rounded-3xl p-4 text-text sm:p-6">
+      <div className="mb-5 flex flex-wrap gap-2 border-b border-accent/20 pb-3 text-sm font-semibold sm:text-base">
         {tabs.map((tab) => (
           <button
             key={tab.key}
             type="button"
             onClick={() => setActiveTab(tab.key)}
-            className={`relative pb-2 transition ${activeTab === tab.key ? "text-white" : "text-[#a8b8ca] hover:text-[#dce8f6]"}`}
+            className={`rounded-full border px-3 py-1.5 transition ${
+              activeTab === tab.key
+                ? "border-accent/60 bg-accent/15 text-accent"
+                : "border-accent/20 bg-white/5 text-muted hover:border-accent/35 hover:text-text"
+            }`}
           >
             {tab.label}
-            {activeTab === tab.key ? <span className="absolute inset-x-0 -bottom-[9px] h-1 rounded-full bg-[#5f86ff]" /> : null}
           </button>
         ))}
       </div>
@@ -221,11 +224,11 @@ export default function CreatePost({ onPublished, onCancel }: CreatePostProps) {
         <button
           type="button"
           onClick={() => setNsfw((current) => !current)}
-          className={`rounded-full border px-3 py-1.5 text-sm font-semibold ${nsfw ? "border-fuchsia-500/50 bg-fuchsia-500/15 text-fuchsia-400" : "border-[#334154] bg-[#121b27] text-[#aab8c8]"}`}
+          className={`rounded-full border px-3 py-1.5 text-sm font-semibold ${nsfw ? "border-rose-400/60 bg-rose-400/15 text-rose-100" : "border-accent/25 bg-white/5 text-muted"}`}
         >
           18 NSFW
         </button>
-        <label className="inline-flex cursor-pointer items-center justify-center rounded-full border border-[#334154] bg-[#192432] px-3 py-1.5 text-xs text-[#aab8c8] hover:text-[#dce8f6]">
+        <label className="inline-flex cursor-pointer items-center justify-center rounded-full border border-accent/20 bg-white/5 px-3 py-1.5 text-xs text-muted hover:text-text">
           ✎ Tag
           <input className="hidden" value={flair} onChange={(event) => setFlair(event.target.value)} placeholder="Add flair" />
         </label>
@@ -233,7 +236,7 @@ export default function CreatePost({ onPublished, onCancel }: CreatePostProps) {
           value={flair}
           onChange={(event) => setFlair(event.target.value)}
           placeholder="Add flair*"
-          className="rounded-full border border-[#2c394b] bg-[#0b1420] px-3 py-1.5 text-sm text-[#dce8f6] outline-none placeholder:text-[#7f92a8]"
+          className="glass-input rounded-full px-3 py-1.5 text-sm text-text outline-none placeholder:text-muted focus:border-accent/50"
         />
       </div>
 
@@ -242,30 +245,30 @@ export default function CreatePost({ onPublished, onCancel }: CreatePostProps) {
           value={title}
           onChange={(event) => setTitle(event.target.value.slice(0, 300))}
           placeholder="Title*"
-          className="w-full rounded-[18px] border border-[#2e3a4d] bg-[#07111d] px-4 py-3 text-[40px] leading-tight text-[#dce8f6] outline-none placeholder:text-[#7f92a8] sm:text-[32px]"
+          className="glass-input w-full rounded-2xl px-4 py-3 text-2xl leading-tight text-text outline-none placeholder:text-muted focus:border-accent/50 sm:text-3xl"
         />
       </div>
-      <div className="mb-4 text-right text-sm text-[#91a5bc]">{titleCount}/300</div>
+      <div className="mb-4 text-right text-xs text-muted">{titleCount}/300</div>
 
       {activeTab === "link" ? (
         <input
           value={linkUrl}
           onChange={(event) => setLinkUrl(event.target.value)}
           placeholder="Paste link URL"
-          className="mb-4 w-full rounded-[16px] border border-[#2e3a4d] bg-[#07111d] px-4 py-3 text-sm text-[#dce8f6] outline-none placeholder:text-[#7f92a8]"
+          className="glass-input mb-4 w-full rounded-2xl px-4 py-3 text-sm text-text outline-none placeholder:text-muted focus:border-accent/50"
         />
       ) : null}
 
       {activeTab === "poll" ? (
         <div className="mb-4 grid gap-2">
-          <input value={pollQuestion} onChange={(event) => setPollQuestion(event.target.value)} placeholder="Poll question" className="w-full rounded-[16px] border border-[#2e3a4d] bg-[#07111d] px-4 py-3 text-sm text-[#dce8f6] outline-none placeholder:text-[#7f92a8]" />
-          <input value={pollOptionA} onChange={(event) => setPollOptionA(event.target.value)} placeholder="Option 1" className="w-full rounded-[16px] border border-[#2e3a4d] bg-[#07111d] px-4 py-3 text-sm text-[#dce8f6] outline-none placeholder:text-[#7f92a8]" />
-          <input value={pollOptionB} onChange={(event) => setPollOptionB(event.target.value)} placeholder="Option 2" className="w-full rounded-[16px] border border-[#2e3a4d] bg-[#07111d] px-4 py-3 text-sm text-[#dce8f6] outline-none placeholder:text-[#7f92a8]" />
+          <input value={pollQuestion} onChange={(event) => setPollQuestion(event.target.value)} placeholder="Poll question" className="glass-input w-full rounded-2xl px-4 py-3 text-sm text-text outline-none placeholder:text-muted focus:border-accent/50" />
+          <input value={pollOptionA} onChange={(event) => setPollOptionA(event.target.value)} placeholder="Option 1" className="glass-input w-full rounded-2xl px-4 py-3 text-sm text-text outline-none placeholder:text-muted focus:border-accent/50" />
+          <input value={pollOptionB} onChange={(event) => setPollOptionB(event.target.value)} placeholder="Option 2" className="glass-input w-full rounded-2xl px-4 py-3 text-sm text-text outline-none placeholder:text-muted focus:border-accent/50" />
         </div>
       ) : null}
 
       <div
-        className="mb-4 rounded-[20px] border border-dashed border-[#334154] bg-[#07111d] p-4"
+        className="mb-4 rounded-3xl border border-dashed border-accent/30 bg-bg/40 p-4"
         onDragOver={(event) => event.preventDefault()}
         onDrop={(event) => {
           event.preventDefault();
@@ -273,22 +276,22 @@ export default function CreatePost({ onPublished, onCancel }: CreatePostProps) {
         }}
       >
         <div className="mb-3 flex items-center justify-between gap-2">
-          <p className="text-sm text-[#a8b8ca]">Drag and drop or upload media</p>
-          <label className="cursor-pointer rounded-full border border-[#334154] bg-[#1a2634] px-3 py-1.5 text-xs text-[#dce8f6]">
+          <p className="text-sm text-muted">Drag and drop or upload media</p>
+          <label className="cursor-pointer rounded-full border border-accent/30 bg-accent/10 px-3 py-1.5 text-xs text-text">
             Upload
             <input type="file" accept="image/*,video/*" multiple className="hidden" onChange={(event) => onFilesAdded(event.target.files)} />
           </label>
         </div>
 
         {activeMedia ? (
-          <div className="relative overflow-hidden rounded-[18px] border border-[#334154] bg-[#0a131f]">
+          <div className="relative overflow-hidden rounded-2xl border border-accent/20 bg-bg/60">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={activeMedia.previewUrl} alt={activeMedia.file.name} className="mx-auto h-72 w-full object-contain sm:h-100" />
             <button type="button" onClick={() => moveMedia("prev")} className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-black/55 px-3 py-2 text-white">‹</button>
             <button type="button" onClick={() => moveMedia("next")} className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-black/55 px-3 py-2 text-white">›</button>
           </div>
         ) : (
-          <div className="flex h-48 items-center justify-center rounded-[18px] border border-[#2e3a4d] text-[#90a5ba]">No media selected yet</div>
+          <div className="flex h-48 items-center justify-center rounded-2xl border border-accent/20 text-muted">No media selected yet</div>
         )}
 
         {mediaStudio.length > 0 ? (
@@ -298,14 +301,14 @@ export default function CreatePost({ onPublished, onCancel }: CreatePostProps) {
                 key={media.id}
                 type="button"
                 onClick={() => setActiveMediaIndex(index)}
-                className={`rounded-lg border ${index === activeMediaIndex ? "border-[#5f86ff]" : "border-[#324153]"}`}
+                className={`rounded-lg border ${index === activeMediaIndex ? "border-accent/70" : "border-accent/25"}`}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={media.previewUrl} alt={media.file.name} className="h-12 w-12 rounded-lg object-cover" />
               </button>
             ))}
             {activeMedia ? (
-              <button type="button" onClick={() => removeMedia(activeMedia.id)} className="rounded-lg border border-rose-400/60 bg-rose-500/10 px-2 text-xs text-rose-200">
+              <button type="button" onClick={() => removeMedia(activeMedia.id)} className="rounded-lg border border-rose-400/60 bg-rose-500/10 px-2 py-1 text-xs text-rose-100">
                 Remove current
               </button>
             ) : null}
@@ -317,23 +320,23 @@ export default function CreatePost({ onPublished, onCancel }: CreatePostProps) {
         value={body}
         onChange={(event) => setBody(event.target.value)}
         placeholder="Body text (optional)"
-        className="mb-5 min-h-52 w-full rounded-[18px] border border-[#2e3a4d] bg-[#07111d] px-4 py-3 text-[30px] leading-snug text-[#dce8f6] outline-none placeholder:text-[#7f92a8] sm:text-[24px]"
+        className="glass-input mb-5 min-h-44 w-full rounded-2xl px-4 py-3 text-base leading-relaxed text-text outline-none placeholder:text-muted focus:border-accent/50"
       />
 
       <div className="flex flex-wrap items-center justify-end gap-2">
         {onCancel ? (
-          <button type="button" onClick={onCancel} className="rounded-full border border-[#2f3a4c] bg-[#121c29] px-5 py-2.5 text-sm font-semibold text-[#9fb1c5]">
+          <button type="button" onClick={onCancel} className="rounded-full border border-accent/25 bg-white/5 px-5 py-2.5 text-sm font-semibold text-muted">
             Cancel
           </button>
         ) : null}
-        <button type="button" className="rounded-full border border-[#2f3a4c] bg-[#121c29] px-5 py-2.5 text-sm font-semibold text-[#9fb1c5]" disabled>
+        <button type="button" className="rounded-full border border-accent/20 bg-white/5 px-5 py-2.5 text-sm font-semibold text-muted" disabled>
           Save Draft
         </button>
         <button
           type="button"
           onClick={handleSubmit}
           disabled={submitDisabled}
-          className="rounded-full bg-[#1d2633] px-6 py-2.5 text-sm font-semibold text-[#eaf2ff] disabled:cursor-not-allowed disabled:opacity-40"
+          className="premium-button rounded-full px-6 py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-40"
         >
           {loading ? "Posting..." : "Post"}
         </button>

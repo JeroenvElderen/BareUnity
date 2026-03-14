@@ -89,7 +89,7 @@ export default function PostCard({ post, view, emphasize = false }: { post: Post
           alt="Post image"
           width={800}
           height={500}
-          className={`w-full rounded-2xl border border-accent/20 object-cover ${isBalanced ? "h-44" : emphasize ? "max-h-[620px]" : "max-h-[520px]"}`}
+          className={`w-full rounded-2xl border border-accent/20 object-cover ${isBalanced ? "h-44" : emphasize ? "max-h-155" : "max-h-130"}`}
         />
       )}
 
