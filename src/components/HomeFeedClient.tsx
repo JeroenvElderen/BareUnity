@@ -35,6 +35,8 @@ type BasicProfile = {
 type UserProfile = {
   username: string;
   display_name: string | null;
+  avatar_url?: string | null;
+  banner_url?: string | null;
 };
 
 type HomeFeedClientProps = {
@@ -89,6 +91,7 @@ function initialsFromName(name: string) {
 export default function HomeFeedClient({ posts, channels, profile, activityProfiles, authorProfiles }: HomeFeedClientProps) {
   const authorMap = useMemo(() => new Map(authorProfiles.map((entry) => [entry.id, entry])), [authorProfiles]);
   const topPostCommentCount = posts.reduce((max, post) => Math.max(max, post._count.comments), 0);
+  const [viewerProfile, setViewerProfile] = useState<UserProfile | null>(profile);
   const [themePack, setThemePack] = useState<ThemePack>("nature");
   const [widgets, setWidgets] = useState<DashboardWidgets>(defaultWidgets);
 
@@ -103,11 +106,28 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
 
       const { data } = await supabase
         .from("profile_settings")
-        .select("home_theme_pack, dashboard_widgets")
+        .select("home_theme_pack, dashboard_widgets, avatar_url, banner_url")
         .eq("user_id", userId)
-        .maybeSingle<{ home_theme_pack: ThemePack | null; dashboard_widgets: DashboardWidgets | null }>();
+        .maybeSingle<{ home_theme_pack: ThemePack | null; dashboard_widgets: DashboardWidgets | null; avatar_url: string | null; banner_url: string | null }>();
 
-      if (!mounted || !data) return;
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("username, display_name, avatar_url")
+        .eq("id", userId)
+        .maybeSingle<{ username: string; display_name: string | null; avatar_url: string | null }>();
+
+      if (!mounted) return;
+
+      if (profileData) {
+        setViewerProfile({
+          username: profileData.username,
+          display_name: profileData.display_name,
+          avatar_url: data?.avatar_url ?? profileData.avatar_url,
+          banner_url: data?.banner_url ?? null,
+        });
+      }
+
+      if (!data) return;
 
       if (data.home_theme_pack) setThemePack(data.home_theme_pack);
       if (data.dashboard_widgets) setWidgets({ ...defaultWidgets, ...data.dashboard_widgets });
@@ -250,12 +270,23 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
         <aside className={`border-t bg-[rgba(9,11,19,0.66)] p-[22px_18px] lg:border-l lg:border-t-0 ${theme.shell}`}>
           {widgets.profile_card ? (
           <div className={`mb-4.5 rounded-[14px] border px-3 pb-3 pt-4.5 text-center ${theme.panel}`}>
-            <div className="mx-auto mb-2.5 h-16.5 w-16.5 rounded-full border-2 border-[rgba(124,92,255,0.45)] bg-linear-to-br from-[#7c5cff] to-[#2dd4bf]" />
-            <strong>{profile?.display_name ?? profile?.username ?? "Welcome"}</strong>
-            <div className={`mt-0.5 text-xs ${theme.subtleText}`}>@{profile?.username ?? "creator"} · Product Designer</div>
+            {viewerProfile?.banner_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={viewerProfile.banner_url} alt="Profile banner" className="-mx-3 -mt-4.5 mb-3 h-14 w-[calc(100%+24px)] rounded-t-[12px] object-cover opacity-80" />
+            ) : null}
+            <div className="mx-auto mb-2.5 flex h-16.5 w-16.5 items-center justify-center overflow-hidden rounded-full border-2 border-[rgba(124,92,255,0.45)] bg-linear-to-br from-[#7c5cff] to-[#2dd4bf]">
+              {viewerProfile?.avatar_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={viewerProfile.avatar_url} alt="Profile" className="h-full w-full object-cover" />
+              ) : (
+                <span className="text-lg font-semibold text-white">{initialsFromName(viewerProfile?.display_name ?? viewerProfile?.username ?? "Welcome")}</span>
+              )}
+            </div>
+            <strong>{viewerProfile?.display_name ?? viewerProfile?.username ?? "Welcome"}</strong>
+            <div className={`mt-0.5 text-xs ${theme.subtleText}`}>@{viewerProfile?.username ?? "creator"} · Product Designer</div>
             <div className="mt-3.5 grid grid-cols-3 gap-2">
               <div className="rounded-[10px] border border-[#2b3150] bg-[#171c2d] px-1.5 py-2">
-                <strong className="block text-[13px]">{numberFormatter.format(profile ? posts.length * 140 : 0)}</strong>
+                <strong className="block text-[13px]">{numberFormatter.format(viewerProfile ? posts.length * 140 : 0)}</strong>
                 <span className={`text-[10px] ${theme.subtleText}`}>Followers</span>
               </div>
               <div className="rounded-[10px] border border-[#2b3150] bg-[#171c2d] px-1.5 py-2">

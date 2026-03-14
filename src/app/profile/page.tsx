@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import SidebarMenu from "@/components/SidebarMenu";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
@@ -11,8 +11,6 @@ type FeedStyle = "balanced" | "magazine";
 type ThemePack = "minimal" | "nature" | "high-contrast";
 type DashboardWidgetKey = "profile_card" | "goals" | "recent_activity";
 type DashboardWidgets = Record<DashboardWidgetKey, boolean>;
-
-const tabs: TabKey[] = ["Overview", "Posts", "Comments", "Gallery", "Upvoted", "Settings"];
 
 const tabMap: Record<string, TabKey> = {
   overview: "Overview",
@@ -86,9 +84,7 @@ function formatRelativeTime(dateValue: string) {
 export default function ProfilePage() {
   const [user, setUser] = useState<User | null>(null);
   const searchParams = useSearchParams();
-  const router = useRouter();
-  const initialTab = tabMap[(searchParams.get("tab") ?? "").toLowerCase()] ?? "Overview";
-  const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
+  const activeTab = tabMap[(searchParams.get("tab") ?? "").toLowerCase()] ?? "Overview";
   const [profilePrimary, setProfilePrimary] = useState(defaultSettings.profilePrimary);
   const [profileSecondary, setProfileSecondary] = useState(defaultSettings.profileSecondary);
   const [feedStyle, setFeedStyle] = useState<FeedStyle>(defaultSettings.feedStyle);
@@ -288,10 +284,6 @@ export default function ProfilePage() {
     void loadProfileData();
   }, [user?.id]);
 
-  function selectTab(tab: TabKey) {
-    setActiveTab(tab);
-    router.replace(`/profile?tab=${tab.toLowerCase()}`);
-  }
 
   function updatePrivacy<K extends keyof PrivacySettings>(key: K, value: PrivacySettings[K]) {
     setPrivacy((current) => ({ ...current, [key]: value }));
@@ -368,18 +360,7 @@ export default function ProfilePage() {
           <section className="order-1 overflow-hidden p-3.5 sm:p-5.5 lg:order-0">
             <div className="mb-3 rounded-xl border border-[#242941] bg-[#121522] p-3">
               <p className="text-sm font-semibold">Profile sections</p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {tabs.map((tab) => (
-                  <button
-                    key={tab}
-                    type="button"
-                    onClick={() => selectTab(tab)}
-                    className={`rounded-full border px-3 py-1.5 text-xs transition ${activeTab === tab ? "border-[rgba(124,92,255,0.55)] bg-[rgba(124,92,255,0.2)] text-[#eef2ff]" : "border-[#2b3150] text-[#8e97b8] hover:text-[#dbe3ff]"}`}
-                  >
-                    {tab}
-                  </button>
-                ))}
-              </div>
+              <p className="mt-1 text-xs text-[#8e97b8]">Use the sidebar to navigate between overview, posts, comments, gallery, and settings.</p>
             </div>
 
             <section className="mb-4 overflow-hidden rounded-[18px] border border-[#242941] bg-[#121522]">

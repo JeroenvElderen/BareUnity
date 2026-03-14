@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Channel, getChannels } from "@/lib/channel-data";
 
@@ -25,6 +25,7 @@ const profileItems = [
 
 export default function SidebarMenu({ channels: channelsProp }: { channels?: Channel[] }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const channels = useMemo(() => channelsProp ?? getChannels(), [channelsProp]);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [channelsOpen, setChannelsOpen] = useState(pathname.startsWith("/channels"));
@@ -55,6 +56,7 @@ export default function SidebarMenu({ channels: channelsProp }: { channels?: Cha
             <div className="h-full overflow-y-auto rounded-3xl border border-[#242941] bg-[linear-gradient(180deg,#0f1222_0%,#070b15_100%)] p-4">
               <SidebarBody
                 pathname={pathname}
+                searchParams={searchParams}
                 channels={channels}
                 channelsOpen={channelsOpen}
                 settingsOpen={settingsOpen}
@@ -72,6 +74,7 @@ export default function SidebarMenu({ channels: channelsProp }: { channels?: Cha
       <aside className="hidden h-full rounded-3xl border border-[#242941] bg-[linear-gradient(180deg,#0f1222_0%,#070b15_100%)] px-4 py-5.5 lg:block">
         <SidebarBody
           pathname={pathname}
+          searchParams={searchParams}
           channels={channels}
           channelsOpen={channelsOpen}
           settingsOpen={settingsOpen}
@@ -87,6 +90,7 @@ export default function SidebarMenu({ channels: channelsProp }: { channels?: Cha
 
 function SidebarBody({
   pathname,
+  searchParams,
   channels,
   channelsOpen,
   settingsOpen,
@@ -97,6 +101,7 @@ function SidebarBody({
   onNavigate,
 }: {
   pathname: string;
+  searchParams: { get: (key: string) => string | null };
   channels: Channel[];
   channelsOpen: boolean;
   settingsOpen: boolean;
@@ -113,7 +118,7 @@ function SidebarBody({
       </div>
 
       <nav className="grid gap-2 text-sm" aria-label="Sidebar menu">
-       <MenuLink href="/" label="🏠 Home Feed" pathname={pathname} onNavigate={onNavigate} />
+       <MenuLink href="/" label="🏠 Home Feed" pathname={pathname} searchParams={searchParams} onNavigate={onNavigate} />
 
         <Dropdown
           label="⚙️ Settings"
@@ -122,7 +127,7 @@ function SidebarBody({
           onToggle={onToggleSettings}
         >
           {settingsItems.map((item) => (
-            <MenuLink key={item.href} href={item.href} label={item.label} pathname={pathname} compact onNavigate={onNavigate} />
+            <MenuLink key={item.href} href={item.href} label={item.label} pathname={pathname} searchParams={searchParams} compact onNavigate={onNavigate} />
           ))}
         </Dropdown>
 
@@ -133,7 +138,7 @@ function SidebarBody({
           onToggle={onToggleProfile}
         >
           {profileItems.map((item) => (
-            <MenuLink key={item.href} href={item.href} label={item.label} pathname={pathname} compact onNavigate={onNavigate} />
+            <MenuLink key={item.href} href={item.href} label={item.label} pathname={pathname} searchParams={searchParams} compact onNavigate={onNavigate} />
           ))}
         </Dropdown>
 
@@ -143,9 +148,8 @@ function SidebarBody({
           isOpen={channelsOpen}
           onToggle={onToggleChannels}
         >
-          <MenuLink href="/channels" label="All channels" pathname={pathname} compact onNavigate={onNavigate} />
           {channels.map((channel) => (
-            <MenuLink key={channel.id} href={`/channels/${channel.id}`} label={channel.name} pathname={pathname} compact onNavigate={onNavigate} />
+            <MenuLink key={channel.id} href={`/channels/${channel.id}`} label={channel.name} pathname={pathname} searchParams={searchParams} compact onNavigate={onNavigate} />
           ))}
         </Dropdown>
       </nav>
@@ -173,7 +177,7 @@ function Dropdown({
         onClick={onToggle}
         className={`flex w-full items-center justify-between rounded-xl border px-3 py-2.75 text-left transition ${
           isActive
-            ? "border-[rgba(124,92,255,0.55)] bg-[rgba(124,92,255,0.2)] text-[#eef2ff]"
+            ? "border-[#4f5c8b] text-[#dbe3ff]"
             : "border-transparent text-[#8e97b8] hover:border-[#2b3150]"
         }`}
       >
@@ -190,17 +194,23 @@ function MenuLink({
   href,
   label,
   pathname,
+  searchParams,
   compact = false,
   onNavigate,
 }: {
   href: string;
   label: string;
   pathname: string;
+  searchParams: { get: (key: string) => string | null };
   compact?: boolean;
   onNavigate?: () => void;
 }) {
-  const cleanHref = href.split("?")[0];
-  const isActive = cleanHref === "/" ? pathname === "/" : pathname === cleanHref || pathname.startsWith(`${cleanHref}/`);
+  const [cleanHref, queryString] = href.split("?");
+  const hrefParams = new URLSearchParams(queryString ?? "");
+  const hrefTab = hrefParams.get("tab");
+  const currentTab = searchParams.get("tab");
+  const pathnameMatches = cleanHref === "/" ? pathname === "/" : pathname === cleanHref || pathname.startsWith(`${cleanHref}/`);
+  const isActive = pathnameMatches && (!hrefTab || currentTab === hrefTab);
 
   return (
     <Link
