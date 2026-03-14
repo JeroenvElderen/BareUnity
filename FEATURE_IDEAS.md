@@ -25,8 +25,6 @@
 
 ## 2) Social Graph and Relationship Mechanics
 
-- One-way follow + mutual friend model toggle
-- Friend requests and approval workflow
 - Social circles / custom lists
 - Favorite creators list
 - Close friends feed lane
@@ -76,10 +74,8 @@
 
 ## 4) Content Creation and Publishing
 
-- Block-based editor (text, media, embeds, code, polls)
 - Co-author editing with comments
 - Post templates by goal (question, story, guide, update)
-- AI writing assistance (summarize, improve clarity, tone)
 - AI tagging recommendations
 - Content quality checklist before publish
 - Multi-language post publishing
@@ -104,8 +100,6 @@
 
 ## 5) Media, Uploads, and Rich Assets
 
-- Drag-and-drop media studio
-- Automatic image optimization pipeline
 - Video transcoding presets
 - Caption generation for videos
 - Audio waveform editor and clipping

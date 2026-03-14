@@ -31,6 +31,7 @@ type PrivacySettings = { showEmail: boolean; showActivity: boolean; allowFriendR
 type VerificationStatus = "none" | "requested" | "verified";
 type FollowCategory = "close_friends" | "collaborators" | "inspiration";
 type ImpactStats = { helpfulReplies: number; acceptedAnswers: number };
+type SocialGraphMode = "follow" | "mutual_friend";
 
 type ProfileSettingsRow = {
   profile_primary: string;
@@ -50,6 +51,8 @@ type ProfileSettingsRow = {
   notable_contributor_note?: string | null;
   follow_categories?: FollowCategory[] | null;
   impact_stats?: ImpactStats | null;
+  social_graph_mode?: SocialGraphMode | null;
+  blocked_usernames?: string[] | null;
 };
 
 const defaultDashboardWidgets: DashboardWidgets = {
@@ -78,7 +81,13 @@ const defaultSettings = {
   notableContributorNote: "",
   followCategories: ["collaborators"] as FollowCategory[],
   impactStats: { helpfulReplies: 8, acceptedAnswers: 3 } as ImpactStats,
+  socialGraphMode: "follow" as SocialGraphMode,
+  blockedUsernames: [] as string[],
 };
+
+function uid() {
+  return crypto.randomUUID();
+}
 
 function formatRelativeTime(dateValue: string) {
   const date = new Date(dateValue);
@@ -109,6 +118,9 @@ export default function ProfilePage() {
   const [notableContributorNote, setNotableContributorNote] = useState(defaultSettings.notableContributorNote);
   const [followCategories, setFollowCategories] = useState<FollowCategory[]>(defaultSettings.followCategories);
   const [impactStats, setImpactStats] = useState<ImpactStats>(defaultSettings.impactStats);
+  const [socialGraphMode, setSocialGraphMode] = useState<SocialGraphMode>(defaultSettings.socialGraphMode);
+  const [blockedUsernames, setBlockedUsernames] = useState<string[]>(defaultSettings.blockedUsernames);
+  const [blockInput, setBlockInput] = useState("");
   const [profileImageUrl, setProfileImageUrl] = useState("");
   const [bannerImageUrl, setBannerImageUrl] = useState("");
   const [profilePosts, setProfilePosts] = useState<ProfilePost[]>([]);
@@ -170,14 +182,14 @@ export default function ProfilePage() {
 
       let query = await supabase
         .from("profile_settings")
-        .select("profile_primary, profile_secondary, avatar_url, banner_url, show_email, show_activity, allow_friend_requests, feed_style, friends, friend_requests, introduction, home_theme_pack, dashboard_widgets, verification_status, notable_contributor_note, follow_categories, impact_stats")
+        .select("profile_primary, profile_secondary, avatar_url, banner_url, show_email, show_activity, allow_friend_requests, feed_style, friends, friend_requests, introduction, home_theme_pack, dashboard_widgets, verification_status, notable_contributor_note, follow_categories, impact_stats, social_graph_mode, blocked_usernames")
         .eq("user_id", user.id)
         .maybeSingle<ProfileSettingsRow>();
 
       if (query.error?.message?.includes("introduction") || query.error?.message?.includes("home_theme_pack") || query.error?.message?.includes("dashboard_widgets") || query.error?.message?.includes("verification_status") || query.error?.message?.includes("notable_contributor_note") || query.error?.message?.includes("follow_categories") || query.error?.message?.includes("impact_stats")) {
         query = await supabase
           .from("profile_settings")
-          .select("profile_primary, profile_secondary, avatar_url, banner_url, show_email, show_activity, allow_friend_requests, feed_style, friends, friend_requests")
+          .select("profile_primary, profile_secondary, avatar_url, banner_url, show_email, show_activity, allow_friend_requests, feed_style, friends, friend_requests, social_graph_mode, blocked_usernames")
           .eq("user_id", user.id)
           .maybeSingle<ProfileSettingsRow>();
       }
@@ -210,6 +222,8 @@ export default function ProfilePage() {
             notable_contributor_note: defaultSettings.notableContributorNote,
             follow_categories: defaultSettings.followCategories,
             impact_stats: defaultSettings.impactStats,
+            social_graph_mode: defaultSettings.socialGraphMode,
+            blocked_usernames: defaultSettings.blockedUsernames,
           },
           { onConflict: "user_id" },
         );
@@ -238,6 +252,8 @@ export default function ProfilePage() {
       setNotableContributorNote(data.notable_contributor_note ?? defaultSettings.notableContributorNote);
       setFollowCategories(data.follow_categories ?? defaultSettings.followCategories);
       setImpactStats({ ...defaultSettings.impactStats, ...(data.impact_stats ?? {}) });
+      setSocialGraphMode(data.social_graph_mode ?? defaultSettings.socialGraphMode);
+      setBlockedUsernames(data.blocked_usernames ?? defaultSettings.blockedUsernames);
       setLoadedSettingsUserId(user.id);
     }
 
@@ -267,12 +283,14 @@ export default function ProfilePage() {
         notable_contributor_note: notableContributorNote,
         follow_categories: followCategories,
         impact_stats: impactStats,
+        social_graph_mode: socialGraphMode,
+        blocked_usernames: blockedUsernames,
       };
 
       let { error } = await supabase.from("profile_settings").upsert(payload, { onConflict: "user_id" });
 
       if (error?.message?.includes("introduction") || error?.message?.includes("home_theme_pack") || error?.message?.includes("dashboard_widgets") || error?.message?.includes("verification_status") || error?.message?.includes("notable_contributor_note") || error?.message?.includes("follow_categories") || error?.message?.includes("impact_stats")) {
-        const unsupportedColumns = ["introduction", "home_theme_pack", "dashboard_widgets", "verification_status", "notable_contributor_note", "follow_categories", "impact_stats"];
+        const unsupportedColumns = ["introduction", "home_theme_pack", "dashboard_widgets", "verification_status", "notable_contributor_note", "follow_categories", "impact_stats", "social_graph_mode", "blocked_usernames"];
         const withoutUnsupported = Object.fromEntries(Object.entries(payload).filter(([key]) => !unsupportedColumns.includes(key)));
         error = (await supabase.from("profile_settings").upsert(withoutUnsupported, { onConflict: "user_id" })).error;
       }
@@ -281,7 +299,7 @@ export default function ProfilePage() {
     }, 350);
 
     return () => window.clearTimeout(timeout);
-  }, [user?.id, loadedSettingsUserId, profilePrimary, profileSecondary, profileImageUrl, bannerImageUrl, feedStyle, privacy, friends, friendRequests, introduction, homeThemePack, dashboardWidgets, verificationStatus, notableContributorNote, followCategories, impactStats]);
+  }, [user?.id, loadedSettingsUserId, profilePrimary, profileSecondary, profileImageUrl, bannerImageUrl, feedStyle, privacy, friends, friendRequests, introduction, homeThemePack, dashboardWidgets, verificationStatus, notableContributorNote, followCategories, impactStats, socialGraphMode, blockedUsernames]);
 
   useEffect(() => {
     async function loadProfileData() {
@@ -375,6 +393,34 @@ export default function ProfilePage() {
 
   function toggleFollowCategory(category: FollowCategory) {
     setFollowCategories((current) => current.includes(category) ? current.filter((value) => value !== category) : [...current, category]);
+  }
+
+  function approveFriendRequest(requestId: string) {
+    const request = friendRequests.find((entry) => entry.id === requestId);
+    if (!request) return;
+
+    setFriendRequests((current) => current.filter((entry) => entry.id !== requestId));
+    setFriends((current) => [{ id: uid(), username: request.username, status: "online" }, ...current]);
+  }
+
+  function declineFriendRequest(requestId: string) {
+    setFriendRequests((current) => current.filter((entry) => entry.id !== requestId));
+  }
+
+  function addBlockedUser() {
+    const normalized = blockInput.trim().replace(/^@/, "").toLowerCase();
+    if (!normalized) return;
+    if (blockedUsernames.includes(normalized)) {
+      setBlockInput("");
+      return;
+    }
+
+    setBlockedUsernames((current) => [...current, normalized]);
+    setBlockInput("");
+  }
+
+  function removeBlockedUser(usernameToRemove: string) {
+    setBlockedUsernames((current) => current.filter((entry) => entry !== usernameToRemove));
   }
 
   const statCards = [
@@ -472,6 +518,11 @@ export default function ProfilePage() {
                     <button type="button" onClick={() => setFeedStyle("balanced")} className={`rounded-full px-3 py-1 text-xs ${feedStyle === "balanced" ? "bg-accent text-[#08232c]" : "border border-accent/30"}`}>Balanced</button>
                     <button type="button" onClick={() => setFeedStyle("magazine")} className={`rounded-full px-3 py-1 text-xs ${feedStyle === "magazine" ? "bg-accent text-[#08232c]" : "border border-accent/30"}`}>Magazine</button>
                   </div>
+                  <p className="mt-3 text-xs text-[#8e97b8]">Relationship model</p>
+                  <div className="mt-2 flex gap-2">
+                    <button type="button" onClick={() => setSocialGraphMode("follow")} className={`rounded-full px-3 py-1 text-xs ${socialGraphMode === "follow" ? "bg-accent text-[#08232c]" : "border border-accent/30"}`}>One-way follow</button>
+                    <button type="button" onClick={() => setSocialGraphMode("mutual_friend")} className={`rounded-full px-3 py-1 text-xs ${socialGraphMode === "mutual_friend" ? "bg-accent text-[#08232c]" : "border border-accent/30"}`}>Mutual friend</button>
+                  </div>
                   <div className="mt-3 space-y-2">
                     <label className="flex items-center justify-between">Show email<input type="checkbox" checked={privacy.showEmail} onChange={(event) => updatePrivacy("showEmail", event.target.checked)} /></label>
                     <label className="flex items-center justify-between">Show activity<input type="checkbox" checked={privacy.showActivity} onChange={(event) => updatePrivacy("showActivity", event.target.checked)} /></label>
@@ -480,6 +531,43 @@ export default function ProfilePage() {
                   <p className="mt-3 text-xs text-[#8e97b8]">Friends: {friends.length} · Pending requests: {friendRequests.length}</p>
                 </article>
 
+                <article className="rounded-2xl border border-[#242941] bg-[#121522] p-4 text-sm">
+                  <h3 className="font-semibold text-[#2dd4bf]">Friend requests</h3>
+                  <p className="mt-2 text-xs text-[#8e97b8]">Approve or decline incoming requests.</p>
+                  <div className="mt-3 space-y-2">
+                    {friendRequests.length === 0 ? <p className="text-xs text-[#8e97b8]">No pending requests.</p> : friendRequests.map((request) => (
+                      <div key={request.id} className="rounded-xl border border-[#2b3150] bg-[#0d1020] p-2.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <div>
+                            <p className="text-sm text-[#dce2ff]">@{request.username}</p>
+                            <p className="text-[11px] text-[#8e97b8]">{request.mutualFriends} mutual friends</p>
+                          </div>
+                          <div className="flex gap-1.5">
+                            <button type="button" onClick={() => approveFriendRequest(request.id)} className="rounded-full bg-accent px-2.5 py-1 text-[11px] text-[#08232c]">Approve</button>
+                            <button type="button" onClick={() => declineFriendRequest(request.id)} className="rounded-full border border-[#46507d] px-2.5 py-1 text-[11px]">Decline</button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+
+                <article className="rounded-2xl border border-[#242941] bg-[#121522] p-4 text-sm">
+                  <h3 className="font-semibold text-[#2dd4bf]">Blocked accounts</h3>
+                  <p className="mt-2 text-xs text-[#8e97b8]">Blocked users cannot interact with you.</p>
+                  <div className="mt-3 flex gap-2">
+                    <input value={blockInput} onChange={(event) => setBlockInput(event.target.value)} placeholder="username" className="w-full rounded-xl border border-[#2b3150] bg-[#0d1020] px-3 py-2" />
+                    <button type="button" onClick={addBlockedUser} className="rounded-xl bg-accent px-3 py-2 text-xs text-[#08232c]">Block</button>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {blockedUsernames.length === 0 ? <span className="text-xs text-[#8e97b8]">No blocked users.</span> : blockedUsernames.map((entry) => (
+                      <button key={entry} type="button" onClick={() => removeBlockedUser(entry)} className="rounded-full border border-[#46507d] px-3 py-1 text-xs">
+                        @{entry} ×
+                      </button>
+                    ))}
+                  </div>
+                </article>
+                
                 <article className="rounded-2xl border border-[#242941] bg-[#121522] p-4 text-sm">
                   <h3 className="font-semibold text-[#2dd4bf]">Verification + reputation</h3>
                   <p className="mt-2 text-xs text-[#8e97b8]">Optional flow for notable contributors with public impact signals.</p>
