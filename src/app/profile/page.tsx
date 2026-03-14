@@ -275,17 +275,52 @@ export default function ProfilePage() {
     setPrivacy((current) => ({ ...current, [key]: value }));
   }
 
-  function handleImageUpload(file: File | null, target: "avatar" | "banner") {
-    if (!file) return;
+  async function handleImageUpload(file: File | null, target: "avatar" | "banner") {
+    if (!file || !user?.id) return;
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const imageData = typeof reader.result === "string" ? reader.result : "";
-      if (!imageData) return;
-      if (target === "avatar") setProfileImageUrl(imageData);
-      if (target === "banner") setBannerImageUrl(imageData);
+    const extension = file.name.split(".").pop() || "jpg";
+    const filePath = `${target}s/${user.id}/${crypto.randomUUID()}.${extension}`;
+    const { error: uploadError } = await supabase.storage.from("media").upload(filePath, file, { upsert: true });
+
+    if (uploadError) {
+      console.error(uploadError);
+      return;
+    }
+
+    const { data: publicImageData } = supabase.storage.from("media").getPublicUrl(filePath);
+    const imageUrl = publicImageData.publicUrl;
+
+    if (target === "avatar") setProfileImageUrl(imageUrl);
+    if (target === "banner") setBannerImageUrl(imageUrl);
+
+    if (target === "avatar") {
+      const { error: profileError } = await supabase.from("profiles").upsert(
+        {
+          id: user.id,
+          username,
+          avatar_url: imageUrl,
+        },
+        { onConflict: "id" },
+      );
+
+      if (profileError) console.error(profileError);
+    }
+
+    const nextMetadata = {
+      ...(user.user_metadata ?? {}),
+      [`${target}_url`]: imageUrl,
     };
-    reader.readAsDataURL(file);
+    
+    const { data: updatedUserData, error: metadataError } = await supabase.auth.updateUser({
+      data: nextMetadata,
+    });
+
+    if (metadataError) {
+      console.error(metadataError);
+      return;
+    }
+
+    if (updatedUserData.user) setUser(updatedUserData.user);
   }
 
   const statCards = [
