@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Channel, getChannels } from "@/lib/channel-data";
+import { supabase } from "@/lib/supabase";
 
 const settingsItems = [
   { label: "Account", href: "/settings?tab=account" },
@@ -118,6 +119,11 @@ function SidebarBody({
   onNavigate?: () => void;
   onCreatePost?: () => void;
 }) {
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    onNavigate?.();
+  }
+  
   return (
     <>
       <div className="mb-6 text-[38px] font-bold leading-none tracking-[0.2px]">
@@ -167,6 +173,14 @@ function SidebarBody({
             <MenuLink key={channel.id} href={`/channels/${channel.id}`} label={channel.name} pathname={pathname} searchParams={searchParams} compact onNavigate={onNavigate} />
           ))}
         </Dropdown>
+
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="mt-2 w-full rounded-xl border border-[#5b2f48] bg-[#2b1721] px-3 py-2.75 text-left text-sm font-semibold text-[#ffd7e5] transition hover:border-[#7a3f5e] hover:bg-[#3a1c2b]"
+        >
+          ↪︎ Log out
+        </button>
       </nav>
     </>
   );
