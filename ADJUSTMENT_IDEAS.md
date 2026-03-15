@@ -1,449 +1,435 @@
-# BareUnity – Massive Adjustments & Improvements Backlog
+# BareUnity – Massive Feature List (Naturist/Nudist Community)
 
-> This file focuses on adjustments to improve what already exists: UX refinements, architectural cleanup, reliability hardening, and process improvements.
-
-## 1) Product Strategy Adjustments
-
-- Define primary north-star metric and align all roadmap items to it
-- Replace broad feature buckets with measurable problem statements
-- Introduce quarterly objective scoring for every initiative
-- Add “sunset criteria” for low-impact features
-- Adopt opportunity-solution tree for discovery
-- Formalize persona set with anti-persona exclusions
-- Prioritize retention levers over top-of-funnel vanity growth
-- Add explicit success/failure hypotheses per release
-- Enforce MVP scope gates for large epics
-- Run monthly strategy retro on roadmap decisions
-- Move from output-based to outcome-based planning
-- Maintain a “not now” backlog to reduce scope churn
-- Define platform principles (safety, clarity, speed, trust)
-- Add impact vs effort scoring to backlog triage
-- Establish product decision log for institutional memory
-
-## 2) Onboarding and First-Time Experience
-
-- Reduce signup steps to minimum viable fields
-- Add progressive profiling after initial activation
-- Introduce first-session checklist with 3 actions max
-- Pre-fill discovery feed with high-signal starter content
-- Improve empty-state messaging with clear actions
-- Add skip options to avoid onboarding fatigue
-- Track onboarding drop-off at each step
-- Add inline help for confusing forms
-- Auto-detect and propose relevant channels at signup
-- Delay non-essential permission prompts
-- Add short explainer cards for core concepts
-- Include “quick tour” and “skip tour” parity
-- Improve mobile keyboard handling in forms
-- Add account creation debounce/loading states
-
-## 3) Information Architecture and Navigation
-
-- Consolidate overlapping navigation routes
-- Standardize naming for channels, groups, and communities
-- Reduce top-level nav items; move advanced options to settings
-- Introduce breadcrumb trails on deep pages
-- Add global command palette for navigation
-- Improve hierarchy contrast with clearer headings
-- Normalize iconography usage across menus
-- Add “recently visited” navigation section
-- Improve sidebar collapse and remembered state
-- Rework channel switcher for faster movement
-- Keep primary action placement consistent per page
-- Add route-level metadata for page purpose clarity
-- Remove duplicate actions in multiple menus
-- Improve back-navigation behavior on mobile
-- Add in-context links to related actions
-
-## 4) UX and Interaction Adjustments
-
-- Standardize spacing scale across all components
-- Normalize typography rhythm and heading sizes
-- Improve contrast ratios for accessible readability
-- Add visible focus states for keyboard users
-- Replace ambiguous buttons with explicit labels
-- Reduce modal overuse; prefer inline editing where possible
-- Introduce optimistic UI with reliable rollback states
-- Add consistent loading skeletons
-- Add toast design standards (tone, duration, action)
-- Improve error message specificity and recoverability
-- Add confirmation dialogs only for destructive actions
-- Tighten hover/active state consistency
-- Limit animation durations to reduce distraction
-- Add reduced-motion support across components
-- Improve touch target sizes on mobile
-- Align form validation timing (on blur vs on submit)
-- Add auto-save indicators for long-form input
-- Avoid layout shifts by reserving media dimensions
-- Add subtle state badges (draft, scheduled, failed)
-- Improve discoverability of hidden shortcuts
-
-## 5) Accessibility Adjustments
-
-- Conduct full WCAG 2.2 AA audit
-- Ensure semantic heading structure per page
-- Add aria-label coverage for all icon-only controls
-- Improve screen-reader announcements for dynamic updates
-- Add skip-to-content links on all layouts
-- Ensure form fields map to labels and error hints
-- Improve keyboard trap handling in modals
-- Add accessible name/description for dialogs
-- Validate color-only cues with text alternatives
-- Ensure chart visualizations have table fallbacks
-- Add captions/transcripts defaults for media
-- Improve accessible drag-and-drop alternatives
-- Validate focus return after modal close
-- Add high-contrast theme mode
-- Test with NVDA/VoiceOver on key journeys
-
-## 6) Content and Posting Flow Adjustments
-
-- Simplify create-post flow into fewer steps
-- Add inline draft recovery after crash/reload
-- Improve media upload progress feedback
-- Add pre-publish checklist for policy compliance
-- Surface audience visibility clearly before publish
-- Improve scheduling UI with timezone clarity
-- Add duplicate post detection warnings
-- Better markdown preview performance
-- Inline link unfurl error handling improvements
-- Add clearer content warning UX patterns
-- Improve edit history transparency
-- Add post status pipeline (draft/published/archived)
-- Reduce friction for quick updates (micro-post mode)
-- Add one-click “continue writing later”
-- Improve post actions grouping to reduce clutter
-
-## 7) Community and Channel Adjustments
-
-- Clarify ownership transfer steps for channels
-- Improve moderator role permission granularity
-- Add channel health and moderation quick stats
-- Add onboarding checklist for new channel owners
-- Standardize channel rule display and acceptance
-- Improve join request triage workflow
-- Add canned moderator response templates
-- Improve member management bulk actions
-- Add “inactive member” re-engagement tools
-- Add channel archive and restore safeguards
-- Improve discoverability of related channels
-- Add default channel templates for common use-cases
-- Clarify private/public channel behavior in UI copy
-- Improve channel settings searchability
-- Add moderation handoff notes section
-
-## 8) Notification and Attention Management
-
-- Reduce notification default volume for new users
-- Group low-priority alerts into digest bundles
-- Add priority reason text to each notification
-- Improve notification preference granularity
-- Add snooze options for noisy threads
-- Prevent duplicate push/email for same event
-- Improve unread count consistency across devices
-- Add “mark all in this topic as read” control
-- Introduce adaptive notification throttling
-- Improve mention notifications with snippet context
-- Add weekly notification impact summary
-- Offer calm mode preset for low-interruption workflows
-- Improve notification center performance on large histories
-- Add analytics for ignored vs acted notifications
-- Auto-suppress stale event reminders
-
-## 9) Search and Discovery Adjustments
-
-- Improve search ranking relevance tuning
-- Add typo tolerance and synonym expansion
-- Better filtering and facet UX
-- Add saved search with update alerts
-- Improve empty search results with alternatives
-- Add “why this result” explanation
-- Improve indexing freshness for new posts
-- Add search scope selector (people/posts/channels)
-- Improve hashtag normalization
-- Add query suggestions from trending topics
-- Improve duplicate content handling in results
-- Add NSFW-safe search defaults
-- Improve mobile filter discoverability
-- Add keyboard shortcuts in search UI
-- Add search analytics dashboard for tuning
-
-## 10) Safety, Moderation, and Trust Adjustments
-
-- Simplify report flow into fewer decision points
-- Add clearer report category definitions
-- Improve moderator queue prioritization heuristics
-- Add SLA targets for critical reports
-- Improve sanctions consistency with policy matrix
-- Add appeal workflow status visibility
-- Improve evidence attachment UX
-- Add automated spam pattern detection rules
-- Introduce rate limits for high-risk actions
-- Add anti-raid emergency controls
-- Improve ban evasion detection heuristics
-- Add proactive safety nudges before posting risky content
-- Improve sensitive content blur settings
-- Add transparency dashboard for moderation outcomes
-- Conduct regular policy calibration reviews
-
-## 11) Performance and Frontend Engineering Adjustments
-
-- Introduce performance budgets for critical pages
-- Audit client bundle and split heavy modules
-- Defer non-critical scripts and hydration work
-- Add route-level loading boundaries
-- Improve cache strategy for feed and channel pages
-- Add image optimization and responsive srcset checks
-- Implement prefetch strategy tuned by intent
-- Reduce repeated API calls via deduplication
-- Tighten memoization on expensive renders
-- Add virtualization for long lists
-- Improve web vitals monitoring (LCP, INP, CLS)
-- Fix layout shifts caused by dynamic content injection
-- Add graceful degradation for realtime failures
-- Improve retry backoff strategy for flaky requests
-- Enforce typed API contracts end-to-end
-
-## 12) Backend and API Adjustments
-
-- Standardize error envelope format across endpoints
-- Add idempotency keys for sensitive mutations
-- Improve input validation coverage at boundaries
-- Add API versioning strategy for future compatibility
-- Normalize pagination model across resources
-- Introduce cursor-based pagination where relevant
-- Improve query cost limits for expensive endpoints
-- Add request tracing IDs to all responses
-- Tighten RBAC checks in each procedure
-- Improve audit logs for admin actions
-- Add background job retry policies and dead-letter queues
-- Improve cache invalidation consistency rules
-- Add domain events for key state changes
-- Strengthen webhook signature verification
-- Improve API docs with runnable examples
-
-## 13) Database and Data Model Adjustments
-
-- Review schema naming consistency and singular/plural conventions
-- Add missing foreign key constraints where safe
-- Enforce unique indexes for identity-critical fields
-- Optimize frequently used query indexes
-- Archive stale data to reduce hot-table bloat
-- Add soft-delete strategy consistency
-- Improve migration rollback safety
-- Add data retention and purge policies
-- Introduce partial indexes for selective queries
-- Improve timestamp timezone handling consistency
-- Add materialized views for heavy analytics queries
-- Normalize denormalized hotspots causing drift
-- Add backfill scripts with checkpointing
-- Tighten transactional boundaries in multi-write flows
-- Add schema lints to CI
-
-## 14) Security and Compliance Adjustments
-
-- Enforce stricter session expiration policies
-- Add rotating secrets management workflow
-- Harden CSP and security headers
-- Add CSRF verification audits
-- Improve dependency vulnerability scanning cadence
-- Add secret scanning pre-commit/CI checks
-- Strengthen password reset token security
-- Add suspicious activity detection heuristics
-- Improve PII field inventory and classification
-- Add data minimization review for forms
-- Introduce consent logging for policy-sensitive actions
-- Improve account deletion hard-delete guarantees
-- Add regional data residency mapping where needed
-- Conduct quarterly security tabletop exercises
-- Add formal threat-model docs for critical features
-
-## 15) Testing and QA Adjustments
-
-- Raise unit test coverage on core business logic
-- Add integration tests for critical API flows
-- Create end-to-end smoke tests for top journeys
-- Introduce visual regression tests for key screens
-- Add contract tests between frontend and API
-- Improve test data factories and fixtures
-- Add deterministic seed data for local environments
-- Run flaky test detection and quarantine process
-- Introduce test impact analysis in CI
-- Add load testing for peak interaction paths
-- Add chaos tests for degraded dependency behavior
-- Improve accessibility checks in CI pipeline
-- Add snapshot pruning policy to avoid stale approvals
-- Add performance regression checks in PRs
-- Improve bug reproduction template quality
-
-## 16) DevEx and Tooling Adjustments
-
-- Standardize linting and formatting autofix workflow
-- Add stricter TypeScript rules where practical
-- Improve local setup script for one-command bootstrap
-- Add preflight checks for env configuration
-- Improve commit conventions and PR templates
-- Add changelog automation from merged PR labels
-- Improve monorepo boundary rules (if applicable)
-- Add script aliases for common workflows
-- Improve generated type artifacts update flow
-- Add architectural decision record (ADR) template
-- Improve local mock server tooling for APIs
-- Add code ownership mapping for faster reviews
-- Introduce feature flag lifecycle management docs
-- Improve CI caching to cut pipeline time
-- Add release checklist automation
-
-## 17) Observability and Incident Response Adjustments
-
-- Add unified structured logging format
-- Improve log correlation with request IDs
-- Define SLOs for critical user journeys
-- Add alert fatigue reduction by deduplicating incidents
-- Improve dashboard defaults by role (eng, product, support)
-- Add synthetic checks for login/post/comment flows
-- Improve tracing coverage in asynchronous jobs
-- Add release health dashboard for first 24h
-- Formalize incident severity definitions
-- Add postmortem template with action tracking
-- Improve runbook discoverability and ownership
-- Add error budget policy enforcement
-- Introduce canary rollout visibility metrics
-- Improve uptime communication status page process
-- Add recurring game-days for failure preparedness
-
-## 18) Data Analytics and Experimentation Adjustments
-
-- Create canonical metrics layer definitions
-- Eliminate metric name duplication across dashboards
-- Add experiment registry with ownership and outcomes
-- Improve sample ratio mismatch detection
-- Add guardrail metrics to all experiments
-- Improve experiment exposure logging quality
-- Add cohort retention dashboards by acquisition source
-- Improve attribution model transparency
-- Add self-serve analysis templates for PMs
-- Introduce data quality checks for critical events
-- Improve anomaly detection with seasonality awareness
-- Add segment definitions with version control
-- Improve funnel breakdown by device/platform
-- Add learning reviews after experiment completion
-- Archive stale dashboards and owners
-
-## 19) Content Operations and Governance Adjustments
-
-- Establish editorial style guide and voice rules
-- Add content taxonomy governance board
-- Improve duplicate article merge workflow
-- Add stale content review cadence
-- Improve legal review handoff process
-- Add sensitive topic escalation checklist
-- Standardize moderation macros tone and structure
-- Improve translation review quality control
-- Add creator education resources for policy compliance
-- Improve incident communication templates
-- Add internal glossary for product terminology
-- Build reusable announcement templates
-- Improve launch comms alignment between teams
-- Add audience segmentation for announcements
-- Track policy update acknowledgement rates
-
-## 20) Growth and Lifecycle Adjustments
-
-- Improve activation metric definition and instrumentation
-- Add lifecycle messaging playbooks per segment
-- Reduce churn by triggering win-back flows earlier
-- Improve referral flow friction points
-- Add in-product milestone celebrations
-- Improve trial-to-retained conversion measurement
-- Introduce reactivation campaigns by inactivity type
-- Improve invite flow clarity and pre-filled context
-- Add social proof placements where trust matters
-- Tune paywall/monetization prompts to avoid fatigue
-- Improve creator onboarding for sustainable output
-- Add “aha moment” tracking on first week behavior
-- Improve campaign attribution in product analytics
-- Add controlled holdout groups for growth experiments
-- Improve quality weighting in growth loops
-
-## 21) Documentation and Process Adjustments
-
-- Consolidate docs with clear ownership per section
-- Add architecture map for new engineers
-- Improve README with current setup caveats
-- Add API changelog with migration notes
-- Standardize inline code comments policy
-- Add onboarding docs for non-engineering roles
-- Improve troubleshooting guide by common errors
-- Add decision rationale sections to major docs
-- Improve release note templates with impact summaries
-- Add glossary for domain language consistency
-- Create handbook for moderation operations
-- Document environment variable purposes and sensitivity
-- Add “known limitations” section per subsystem
-- Improve deprecation policy and communication plan
-- Add quarterly doc quality audits
-
-## 22) Organizational and Workflow Adjustments
-
-- Clarify ownership boundaries across teams
-- Add DRI per major initiative and subsystem
-- Improve cross-functional planning rituals
-- Add explicit design-review checkpoints
-- Improve feedback loops from support to product
-- Add prioritization rubric shared across teams
-- Introduce WIP limits to reduce context switching
-- Improve sprint goal quality and focus
-- Add risk review for high-dependency projects
-- Improve dependency mapping before commitments
-- Add async update templates for distributed teams
-- Improve retro action-item follow-through tracking
-- Add knowledge-sharing sessions after major launches
-- Improve handoff quality between engineering and operations
-- Document escalation paths for urgent blockers
-
-## 23) Incremental Refactor Candidate Areas
-
-- Split large UI components into composable units
-- Extract repeated API logic into service layer helpers
-- Centralize date/time formatting utilities
-- Consolidate duplicate validation schemas
-- Replace magic strings with typed enums/constants
-- Refactor deeply nested conditional rendering blocks
-- Standardize API client wrappers for retries/errors
-- Improve store/state management boundaries
-- Isolate side effects from UI components
-- Reduce coupling between channel-specific and generic views
-- Improve naming consistency for domain entities
-- Add stricter type guards around untrusted payloads
-- Separate permission logic from presentation logic
-- Refactor long files above agreed size threshold
-- Create migration plan for legacy patterns
-
-## 24) “Quick Wins” Adjustment Candidates
-
-- Fix obvious copy inconsistencies and typo drift
-- Add missing loading and error states on key pages
-- Improve button label clarity in top flows
-- Remove dead links and outdated placeholders
-- Tighten spacing in overcrowded cards
-- Add disabled-state explanations for restricted actions
-- Improve form defaults for common cases
-- Add simple keyboard shortcut hints
-- Improve mobile tap feedback responsiveness
-- Add retry action for transient failures
-- Improve empty-state CTA relevance
-- Standardize date display format across pages
-- Add confirmation after critical account actions
-- Improve first-post guidance text
-- Add “report issue” quick access in footer
+> A long, implementation-ready feature bank you can pick from for roadmap planning.
 
 ---
 
-## Suggested Triage Labels
+## 1) Member Onboarding & First-Week Experience
 
-- **Impact:** high / medium / low
-- **Effort:** small / medium / large
-- **Risk:** low / medium / high
-- **Type:** UX / perf / safety / refactor / infra / growth / docs
-- **Horizon:** quick-win / quarter / long-term
+- Guided onboarding with role selection (newcomer, organizer, traveler, mentor, club admin)
+- First-week checklist with progress bar
+- "What naturism is / is not" interactive intro
+- Values and conduct agreement gate
+- Consent basics micro-lesson before posting
+- Beginner confidence path (read-only mode to active participation)
+- Intro wizard for profile setup in <2 minutes
+- Choose comfort level for visibility (private / community / public)
+- Local community suggestions during onboarding
+- Welcome post generator template
+- New member FAQ carousel
+- Optional anonymity mode for first 30 days
+- Icebreaker questions for first comment/post
+- Onboarding streak rewards (first profile, first RSVP, first helpful reply)
+- Beginner-only channel auto-enrollment
+- Guided first event RSVP tutorial
+- "Meet a mentor" prompt after account creation
+- Onboarding branch for families vs solo members
+- Onboarding branch for local vs travel-focused users
+- Completion certificate/badge for safety orientation
+
+## 2) Profiles, Identity, and Privacy Controls
+
+- Multi-layer profile visibility (everyone / members / trusted only)
+- Hide exact location, show only region/city radius
+- Optional pseudonym display with private verified identity
+- Profile fields for interests (beaches, hiking, sauna, art, wellness)
+- Pronouns and preferred forms of address
+- Personal boundaries section (what interactions are welcome)
+- Optional profile photo alternatives (avatar, blurred, illustration)
+- Face blur on profile and album media
+- Auto-remove EXIF metadata on uploads
+- Download restrictions toggle per album/post
+- Screenshot reminder overlays in sensitive media threads
+- Privacy presets (strict, balanced, open)
+- "Incognito browsing" mode for reading without appearing online
+- Quick panic button: hide profile and lock messages instantly
+- Blocklist with notes and category tags
+- Granular DM permissions (no one / trusted / verified / everyone)
+- Guest mode for browsing educational content only
+- Expiring profile attributes (temporary status or travel plan)
+- Separate private contact card for hosts/mods only
+- Trusted circles for sharing private albums/posts
+
+## 3) Consent-First Media System
+
+- Consent checklist required before image/video post publish
+- Tag who appears in media and consent status
+- Group photo consent confirmation workflow
+- Upload labels: personal, educational, event recap, private archive
+- One-click watermark options (username/date/community)
+- AI-assisted nudity-context moderation for policy alignment
+- Flag potential non-consensual content before publish
+- Per-post resharing permissions
+- Album expiry dates (auto-archive after event)
+- Blur-until-trusted controls for sensitive albums
+- Redaction tools (blur tattoos, faces, backgrounds)
+- "Report consent concern" directly on media item
+- Consent receipt log for event photographers
+- Photographer role badge + policy acknowledgment
+- Event media release templates
+- Media visibility by trust tier
+- Safe crop suggestions to avoid accidental exposure context issues
+- Auto-captioning for accessibility
+- Accessibility alt-text prompts with quality scoring
+- Content warning tags (body image, medical, legal)
+
+## 4) Community Feed, Discovery, and Ranking
+
+- Feed modes (local, following, beginner-friendly, events, educational)
+- Ranking explanation chip (why this post appears)
+- Filter by region, language, and event type
+- "Less like this" tuning controls
+- Hide polarizing topics toggle
+- Surface under-engaged quality posts
+- Weekly discovery bundle of trusted creators
+- Follow suggestions by shared interests and behavior quality
+- Local weather-aware feed highlights for outdoor activities
+- Community collections curated by moderators
+- Topic hubs (consent, etiquette, travel, law, wellness)
+- Saved searches with alerts
+- Nearby events lane with privacy-safe location display
+- Discovery mode for first-time attendees only
+- Low-noise mode (fewer posts, higher quality)
+- Deep-dive mode (long reads and guides)
+- New member spotlight lane
+- Verified host spotlight lane
+- "Ask a mentor" promoted Q&A posts
+- Seasonal campaigns (summer beach prep, winter spa socials)
+
+## 5) Channels, Groups, and Sub-Communities
+
+- Public/private/secret channels
+- Region-based channels with local moderators
+- Interest-based channels (hiking, yoga, art, family, travel)
+- Newcomer channels with stricter moderation defaults
+- Women-led channels
+- LGBTQ+ channels
+- Couples/family-friendly discussion spaces
+- Accessibility-focused support channel
+- Channel templates for events, clubs, education, support
+- Required intro thread in selected channels
+- Channel-specific rules acknowledgment
+- Local law discussion channels per country/state
+- Multi-admin channel governance tools
+- Rotating featured channel program
+- Shared channel calendar widget
+- Channel wiki with pinned guides
+- Expert AMA channels
+- Moderator office-hours thread
+- Channel reputation levels
+- Community challenge channels (monthly etiquette goals)
+
+## 6) Events, Meetups, and Host Tools
+
+- Event creation wizard with templates (beach day, potluck, resort weekend)
+- Recurring event setup (weekly sauna, monthly meetup)
+- Host profile with verification and ratings
+- Event privacy controls (public listing vs invite-only)
+- RSVP visibility controls (hidden attendee list option)
+- Waitlist and capacity management
+- Optional approval-required RSVP
+- Attendee screening questions
+- Event code of conduct acceptance at RSVP
+- Venue accessibility checklist
+- Weather alerts + backup plan broadcast
+- Shared packing checklist per event
+- Host run-of-show timeline builder
+- Co-host permissions and role assignment
+- Emergency contact and safety desk workflow
+- Anonymous post-event safety feedback
+- Incident reporting linked to event ID
+- Event media permissions center
+- Family-friendly event badge
+- Newcomer-safe event badge
+- Women-only / LGBTQ+ event filters (where legally appropriate)
+- Carpool coordination with privacy-safe pickup zones
+- Check-in QR with alias display
+- Post-event recap templates
+- Event trust score (based on completed, rated, moderated history)
+
+## 7) Messaging, DMs, and Realtime Safety
+
+- Message requests inbox for non-connections
+- First-contact safety prompt before sending DM
+- Auto-filter explicit/solicitation language in first messages
+- DM trust tiers with graduated unlocks
+- Silent block and shadow ignore options
+- Temporary DM freeze mode
+- Message expiration options
+- Voice note support with transcription
+- In-chat safety report shortcut
+- Share-only-safe-links enforcement for new accounts
+- Unknown sender quarantine folder
+- Quick reply templates for boundaries
+- Group DMs with moderation controls
+- Event attendee temporary group chat
+- Presence controls (appear offline, limited availability)
+- Quiet hours and focus mode
+- Optional "chaperone mode" (add trusted friend to first meetup chat)
+- End-to-end encryption readiness planning
+- Device session list and remote logout
+- One-tap "restrict sender" action from notifications
+
+## 8) Safety, Trust, Moderation, and Enforcement
+
+- Tiered verification (email, phone, optional ID, optional club reference)
+- Trusted member badge criteria
+- Host trust badge criteria
+- Moderator badge and role transparency
+- Fast-lane reporting for consent violations
+- Dedicated harassment/stalking report flow
+- Evidence upload bundle (screenshots, links, timestamps)
+- Automated risk scoring for reports
+- SLA timers for moderation response
+- Moderator escalation matrix (warn, restrict, suspend, ban)
+- Temporary cooling-off restrictions
+- Repeat offender linkage detection
+- Ban evasion detection signals
+- Appeals system with status tracker
+- Policy center with examples
+- Quarterly moderation transparency reports
+- Community safety advisory board
+- Moderator training modules (consent, trauma-awareness, de-escalation)
+- Internal moderator audit log
+- Per-channel moderation analytics
+- Safety announcements broadcast channel
+
+## 9) Education, Resources, and Knowledge Base
+
+- Naturist etiquette fundamentals course
+- Consent in photography course
+- Newcomer social confidence course
+- Local law explainer library by region
+- Myth-busting article series
+- "First event survival guide" playbook
+- Family participation guidance hub
+- Body positivity resource center
+- Mental wellness and confidence resources
+- Venue behavior expectations by context
+- Travel guides for naturist destinations
+- Printable host signage templates
+- Community translation of key docs
+- Glossary with simple definitions
+- Q&A repository with best answers
+- Trusted external resources directory
+- Club starter kit for local organizers
+- Volunteer onboarding toolkit
+- Community podcast/video lessons
+- Certification badges for completed education tracks
+
+## 10) Inclusivity, Accessibility, and Wellbeing
+
+- Language localization for core UI
+- In-app translation for posts/comments
+- Accessibility preference profile (font size, contrast, motion)
+- Screen reader-optimized post templates
+- Caption-first video standards
+- Sensitivity controls for triggering topics
+- Inclusive onboarding copy by demographic needs
+- Women and non-binary safety controls
+- LGBTQ+ inclusive space labels
+- Mobility accessibility indicators for venues/events
+- Family-safe browsing mode
+- Age-appropriate community pathways
+- Anonymous support circles
+- Anti-body-shaming detection and enforcement
+- Confidence challenge programs
+- Wellness check-in prompts
+- Burnout prevention nudges for organizers/mods
+- Time-zone aware event and meeting planning
+- Low-bandwidth mode
+- Offline-readable safety documents
+
+## 11) Gamification, Reputation, and Recognition
+
+- Helpful member badges
+- Mentor contribution levels
+- Event host reliability score
+- Safety champion recognition
+- Community karma with anti-gaming safeguards
+- Monthly appreciation posts
+- Positive contribution streaks
+- First-time helper achievements
+- Local ambassador program
+- Verified educator profile type
+- Top answer leaderboard (quality-weighted)
+- Peer endorsements with moderation review
+- Community service points (volunteering/organizing)
+- Newcomer support badges
+- Conflict-resolution recognition badges
+- Seasonal participation campaigns
+- Reputation decay model for inactive/negative behavior
+- Trust ladder unlocking advanced permissions
+- Channel-level contribution stats
+- Annual community awards
+
+## 12) Creator and Content Tools
+
+- Post templates (question, advice, recap, guide, policy)
+- Rich text with callouts and checklists
+- Draft autosave and version history
+- Co-author posts for organizer teams
+- Scheduled publishing
+- Cross-post to selected channels
+- Polls and ranked-choice voting
+- Q&A mode with accepted answers
+- Live AMA sessions with moderation queue
+- Long-form article mode with table of contents
+- Resource attachment blocks (PDF, maps, checklists)
+- Citations/source links helper
+- Auto-tag suggestions for discoverability
+- Post performance insights dashboard
+- Audience targeting (newcomers, local members, verified only)
+- Edit lock after defined time windows
+- Thread summarization tool for long discussions
+- Highlight top comments feature
+- Collaborative curation boards
+- Weekly digest generator from top content
+
+## 13) Operations, Admin, and Organization Management
+
+- Club/organization pages with leadership roles
+- Membership management (active, pending, suspended)
+- Dues/subscription tracking (if monetized)
+- Organizer CRM-lite tools
+- Event financial tracker (expenses/donations)
+- Volunteer shift planner
+- Staff/mod scheduling
+- Bulk announcements
+- Incident management dashboard
+- Contact directory with role-based visibility
+- Legal document storage for clubs
+- Venue partnership database
+- Sponsor management module
+- Task board for organizing teams
+- Audit trails for sensitive admin actions
+- Multi-org account switching
+- Regional analytics dashboard
+- Compliance checklist per country/region
+- Moderator workload balancing tool
+- Data export for governance reviews
+
+## 14) Analytics and Insights
+
+- Member growth dashboard
+- Retention by onboarding cohort
+- Safety incident trend dashboard
+- Event conversion funnel
+- RSVP-to-attendance tracking
+- Channel health score (engagement + civility)
+- Report resolution time tracking
+- Content quality scorecards
+- Newcomer confidence indicators (survey-based)
+- Trust network insights
+- Local community density maps (privacy-safe)
+- Moderator effectiveness metrics
+- Top educational resource impact reports
+- Sentiment trend monitoring (privacy-conscious)
+- Churn risk detection and re-engagement prompts
+- Abuse pattern detection insights
+- Feature adoption dashboards
+- A/B test framework for onboarding/safety features
+- Seasonal activity forecasting
+- Quarterly strategy review exports
+
+## 15) Integrations and Ecosystem
+
+- Calendar sync (Google/Apple/Outlook)
+- Map integrations for venue pins
+- Weather API for event planning
+- Identity verification provider integration
+- Translation provider integration
+- Secure cloud media processing pipeline
+- Email and push notification providers
+- SMS safety alerts for event hosts
+- Community forum import tools
+- Club website widgets (events and trust badges)
+- Membership card QR integration
+- External learning platform sync
+- Payment processor support (for events/dues)
+- Helpdesk integration for moderation tickets
+- Analytics warehouse connectors
+- CRM integration for larger organizations
+- SSO for federated club networks
+- API keys for trusted partner apps
+- Webhooks for event/report updates
+- Open API documentation portal
+
+## 16) Mobile App-Specific Opportunities
+
+- One-handed quick safety actions
+- Offline event tickets and check-ins
+- Location-aware event suggestions with privacy guardrails
+- Safe route suggestions to venues
+- Mobile camera consent flow overlays
+- Instant blur editor in mobile upload flow
+- Emergency "share my status" to trusted contact
+- Push settings by notification type
+- Watch companion for event reminders
+- Home screen widgets for upcoming events
+- Battery/data saver mode
+- Quick RSVP from lock screen notification
+- In-app QR scanner for event check-in
+- Voice accessibility commands
+- Mobile-first report filing wizard
+
+## 17) Monetization (Optional / Later)
+
+- Premium memberships with advanced privacy controls
+- Verified host subscription tier
+- Paid educational courses/certifications
+- Event ticketing fees
+- Donation support for community projects
+- Club fundraising campaigns
+- Sponsor marketplace listings
+- Affiliate travel partnerships (ethical/relevant)
+- Paid promotion slots for verified events
+- Digital downloads (guides/templates)
+- Patron badges for supporters
+- Merch storefront integration
+- Paid mentorship sessions (with safeguards)
+- Revenue share tools for organizers
+- Annual conference package management
+
+## 18) Advanced / Future Bets
+
+- AI co-pilot for moderation triage (human final decision)
+- AI assistant for event planning and policy reminders
+- Fraud ring detection models
+- Anonymous aggregate safety heatmaps
+- Reputation graph resistant to brigading
+- Smart legal assistant by region (with disclaimers)
+- Voice/video community rooms with moderated queues
+- VR social spaces for remote naturist discussions (non-explicit)
+- Federated identity between trusted naturist communities
+- Cross-community trust passport (opt-in)
+- Intelligent conflict mediation assistant
+- Automated policy linting before post publish
+- Predictive newcomer churn prevention
+- Adaptive onboarding based on behavior signals
+- Privacy-preserving analytics via differential privacy
+
+---
+
+## Suggested Build Order (if you want a practical start)
+
+### Phase 1: Foundation (Trust + Basics)
+- Onboarding + conduct + consent education
+- Privacy controls + consent-aware media upload
+- Reporting/moderation essentials
+- Events MVP (create, RSVP, privacy-safe listings)
+- Basic channels for local and newcomer communities
+
+### Phase 2: Growth (Community + Retention)
+- Mentor program + reputation system
+- Better discovery feed + topic hubs
+- Host trust tools + richer event workflows
+- Knowledge base and structured education tracks
+- Localization + accessibility improvements
+
+### Phase 3: Scale (Operations + Intelligence)
+- Organization admin suite and analytics dashboards
+- Advanced trust/safety automation and abuse detection
+- Integrations (calendar, verification, payments)
+- Mobile power features
+- Optional monetization and partner ecosystem
