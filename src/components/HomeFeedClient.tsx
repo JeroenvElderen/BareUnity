@@ -160,6 +160,7 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
   const [selectedPost, setSelectedPost] = useState<FeedPost | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [votesByPost, setVotesByPost] = useState<Record<string, PostVote>>({});
+  const [upvotesByPost, setUpvotesByPost] = useState<Record<string, number>>({});
   const [commentsByPost, setCommentsByPost] = useState<Record<string, ThreadComment[]>>({});
   const [commentsLoadingByPost, setCommentsLoadingByPost] = useState<Record<string, boolean>>({});
   const [newCommentByPost, setNewCommentByPost] = useState<Record<string, string>>({});
@@ -265,6 +266,30 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
     return roots.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
   }
 
+  const loadUpvoteCounts = useCallback(async () => {
+    if (posts.length === 0) return;
+    const postIds = posts.map((post) => post.id);
+    const { data, error } = await supabase.from("post_votes").select("post_id").eq("vote", 1).in("post_id", postIds);
+
+    if (error) {
+      if (error.message.includes("relation") || error.message.includes("does not exist")) {
+        setInteractionError("Run the Supabase migration for post votes/comments first.");
+      }
+      return;
+    }
+
+    const upvoteCountMap: Record<string, number> = {};
+    postIds.forEach((id) => {
+      upvoteCountMap[id] = 0;
+    });
+
+    (data ?? []).forEach((row) => {
+      upvoteCountMap[row.post_id] = (upvoteCountMap[row.post_id] ?? 0) + 1;
+    });
+
+    setUpvotesByPost(upvoteCountMap);
+  }, [posts]);
+
   const loadVotes = useCallback(async (userId: string) => {
     if (posts.length === 0) return;
     const postIds = posts.map((post) => post.id);
@@ -316,6 +341,10 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
     const previousVote = votesByPost[postId] ?? 0;
     const resolvedVote = previousVote === nextVote ? 0 : nextVote;
     setVotesByPost((current) => ({ ...current, [postId]: resolvedVote }));
+    setUpvotesByPost((current) => ({
+      ...current,
+      [postId]: Math.max(0, (current[postId] ?? 0) - (previousVote === 1 ? 1 : 0) + (resolvedVote === 1 ? 1 : 0)),
+    }));
 
     if (resolvedVote === 0) {
       const { error } = await supabase.from("post_votes").delete().eq("post_id", postId).eq("user_id", currentUserId);
@@ -369,6 +398,12 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
 
 
   useEffect(() => {
+    queueMicrotask(() => {
+      void loadUpvoteCounts();
+    });
+  }, [loadUpvoteCounts]);
+
+  useEffect(() => {
     if (!currentUserId) return;
     queueMicrotask(() => {
       void loadVotes(currentUserId);
@@ -403,23 +438,13 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
                   const parsedPost = parseComposerContent(post.content, post.title);
                   const flair = parsedPost.metadata?.flair?.trim();
                   const postVote = votesByPost[post.id] ?? 0;
+                  const upvoteCount = upvotesByPost[post.id] ?? 0;
                   const loadedComments = commentsByPost[post.id];
                   const totalCommentCount = loadedComments ? Math.max(post._count.comments, countThreadComments(loadedComments)) : post._count.comments;
 
                   return (
-                    <article
-                      key={post.id}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => openPost(post)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault();
-                          openPost(post);
-                        }
-                      }}
-                      className={`cursor-pointer rounded-[18px] border p-4 transition hover:border-[#5365a5] ${theme.panel}`}
-                    >
+                    <article key={post.id} className={`rounded-[18px] border p-4 transition hover:border-[#5365a5] ${theme.panel}`}>
+
                       <div className="mb-2.5 flex items-start justify-between gap-3">
                         <div className="flex items-center gap-2.5">
                           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-linear-to-br from-[#8d76ff] to-[#2dd4bf] text-xs font-semibold text-white">
@@ -455,8 +480,7 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
                       <div className={`flex flex-wrap items-center gap-4 text-xs ${theme.subtleText}`}>
                         <button
                           type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
+                          onClick={() => {
                             openPost(post);
                           }}
                           className="rounded-full border border-[#384271] px-2.5 py-1 hover:bg-[#1d2238]"
@@ -466,18 +490,16 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
+                            onClick={() => {
                               setPostVote(post.id, 1);
                             }}
                             className={`rounded-full border px-2.5 py-1 ${postVote === 1 ? "border-[#2dd4bf] bg-[#2dd4bf]/15 text-[#8bf1de]" : "border-[#384271]"}`}
                           >
-                            {postVote === 1 ? "♥" : "♡"} Upvote
+                            {postVote === 1 ? "♥" : "♡"} Upvote · {upvoteCount}
                           </button>
                           <button
                             type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
+                            onClick={() => {
                               setPostVote(post.id, -1);
                             }}
                             className={`rounded-full border px-2.5 py-1 ${postVote === -1 ? "border-[#f472b6] bg-[#f472b6]/12 text-[#f8a8d0]" : "border-[#384271]"}`}
@@ -485,6 +507,23 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
                             {postVote === -1 ? "♥" : "♡"} Downvote
                           </button>
                         </div>
+                      </div>
+
+                      <div className="mt-3 flex items-center gap-2">
+                        <input
+                          value={newCommentByPost[post.id] ?? ""}
+                          onChange={(event) => setNewCommentByPost((current) => ({ ...current, [post.id]: event.target.value }))}
+                          onFocus={() => {
+                            if (!commentsByPost[post.id]) {
+                              void loadPostComments(post.id);
+                            }
+                          }}
+                          placeholder="Write a comment from your feed"
+                          className="w-full rounded-lg border border-[#384271] bg-[#0f162b] px-3 py-2 text-xs text-[#dbe3ff] outline-none"
+                        />
+                        <button type="button" onClick={() => addComment(post.id)} className="rounded-lg border border-[#384271] px-3 py-2 text-xs text-[#dbe3ff] hover:bg-[#1d2238]">
+                          Comment
+                        </button>
                       </div>
                     </article>
                   );
@@ -516,6 +555,7 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
                     const parsedPost = parseComposerContent(selectedPost.content, selectedPost.title);
                     const flair = parsedPost.metadata?.flair?.trim();
                     const postVote = votesByPost[selectedPost.id] ?? 0;
+                    const upvoteCount = upvotesByPost[selectedPost.id] ?? 0;
                     const threadComments = commentsByPost[selectedPost.id] ?? [];
                     const totalCommentCount = threadComments.length > 0 ? countThreadComments(threadComments) : selectedPost._count.comments;
 
@@ -565,7 +605,7 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
                                 onClick={() => setPostVote(selectedPost.id, 1)}
                                 className={`rounded-full border px-2.5 py-1 ${postVote === 1 ? "border-[#2dd4bf] bg-[#2dd4bf]/15 text-[#8bf1de]" : "border-[#384271] text-[#dbe3ff]"}`}
                               >
-                                {postVote === 1 ? "♥" : "♡"} Upvote
+                                {postVote === 1 ? "♥" : "♡"} Upvote · {upvoteCount}
                               </button>
                               <button
                                 type="button"
