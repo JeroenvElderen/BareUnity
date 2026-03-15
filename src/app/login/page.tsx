@@ -81,6 +81,7 @@ export default function LoginPage() {
               <p className="text-sm text-amber-300">Authentication is not configured in this environment.</p>
             ) : null}
             <button
+              suppressHydrationWarning
               type="submit"
               disabled={loading || !email || !password || !isSupabaseConfigured}
               className="premium-button w-full disabled:cursor-not-allowed disabled:opacity-60"

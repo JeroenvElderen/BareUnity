@@ -75,6 +75,19 @@ type ThreadComment = {
   replies: ThreadReply[];
 };
 
+type CommentProfile = {
+  username: string | null;
+  display_name: string | null;
+};
+
+type RawCommentRow = {
+  id: string;
+  parent_id: string | null;
+  content: string;
+  created_at: string | null;
+  profiles: CommentProfile | CommentProfile[] | null;
+};
+
 const defaultWidgets: DashboardWidgets = {
   profile_card: true,
   goals: true,
@@ -234,15 +247,24 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
             subtleText: "text-muted",
           };
 
-  function buildCommentThread(rows: Array<{ id: string; parent_id: string | null; content: string; created_at: string | null; profiles: { username: string | null; display_name: string | null } | null }>) {
+  function readProfile(profileValue: RawCommentRow["profiles"]): CommentProfile | null {
+    if (Array.isArray(profileValue)) {
+      return profileValue[0] ?? null;
+    }
+
+    return profileValue;
+  }
+
+  function buildCommentThread(rows: RawCommentRow[]) {
     const map = new Map<string, ThreadComment>();
     const roots: ThreadComment[] = [];
 
     rows.forEach((row) => {
       if (row.parent_id) return;
+      const profile = readProfile(row.profiles);
       const entry: ThreadComment = {
         id: row.id,
-        author: row.profiles?.display_name ?? row.profiles?.username ?? "Community member",
+        author: profile?.display_name ?? profile?.username ?? "Community member",
         body: row.content,
         createdAt: row.created_at ?? new Date().toISOString(),
         replies: [],
@@ -255,9 +277,10 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
       if (!row.parent_id) return;
       const parent = map.get(row.parent_id);
       if (!parent) return;
+      const profile = readProfile(row.profiles);
       parent.replies.push({
         id: row.id,
-        author: row.profiles?.display_name ?? row.profiles?.username ?? "Community member",
+        author: profile?.display_name ?? profile?.username ?? "Community member",
         body: row.content,
         createdAt: row.created_at ?? new Date().toISOString(),
       });
@@ -327,7 +350,7 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
       return;
     }
 
-    const thread = buildCommentThread((data ?? []) as Array<{ id: string; parent_id: string | null; content: string; created_at: string | null; profiles: { username: string | null; display_name: string | null } | null }>);
+    const thread = buildCommentThread((data ?? []) as RawCommentRow[]);
     setCommentsByPost((current) => ({ ...current, [postId]: thread }));
     setCommentsLoadingByPost((current) => ({ ...current, [postId]: false }));
   }
