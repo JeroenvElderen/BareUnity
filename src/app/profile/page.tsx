@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import SidebarMenu from "@/components/SidebarMenu";
 import type { User } from "@supabase/supabase-js";
+import { PROFILE_INTERESTS, USER_ROLES, isPlatformAdmin, type ProfileInterest, type UserRole } from "@/lib/onboarding";
+import { sanitizeImageUpload } from "@/lib/image";
 import { supabase } from "@/lib/supabase";
 
 type TabKey = "Overview" | "Posts" | "Comments" | "Gallery" | "Upvoted" | "Settings";
@@ -67,6 +69,9 @@ type ProfileSettingsRow = {
   featured_post_ids?: string[] | null;
   identity_badges?: IdentityBadge[] | null;
   timeline_highlights?: string[] | null;
+  user_role?: UserRole | null;
+  interests?: ProfileInterest[] | null;
+  onboarding_completed?: boolean | null;
 };
 
 const defaultDashboardWidgets: DashboardWidgets = {
@@ -122,6 +127,9 @@ const defaultSettings = {
   featuredPostIds: [] as string[],
   identityBadges: [] as IdentityBadge[],
   timelineHighlights: [] as string[],
+  userRole: "newcomer" as UserRole,
+  interests: [] as ProfileInterest[],
+  onboardingCompleted: false,
 };
 
 function normalizeVanitySlug(value: string) {
@@ -177,6 +185,9 @@ export default function ProfilePage() {
   const [featuredPostIds, setFeaturedPostIds] = useState<string[]>(defaultSettings.featuredPostIds);
   const [identityBadges, setIdentityBadges] = useState<IdentityBadge[]>(defaultSettings.identityBadges);
   const [timelineHighlights, setTimelineHighlights] = useState<string[]>(defaultSettings.timelineHighlights);
+  const [userRole, setUserRole] = useState<UserRole>(defaultSettings.userRole);
+  const [interests, setInterests] = useState<ProfileInterest[]>(defaultSettings.interests);
+  const [onboardingCompleted, setOnboardingCompleted] = useState(defaultSettings.onboardingCompleted);
   const [blockInput, setBlockInput] = useState("");
   const [profileImageUrl, setProfileImageUrl] = useState("");
   const [bannerImageUrl, setBannerImageUrl] = useState("");
@@ -197,6 +208,8 @@ export default function ProfilePage() {
     if (!user) return "Guest";
     return user.user_metadata?.username || user.email?.split("@")[0] || "Naturist";
   }, [user]);
+
+  const isAdmin = isPlatformAdmin(user?.email);
 
   const engagement = useMemo(() => {
     if (totalPostsCount <= 0) return "0%";
@@ -239,11 +252,11 @@ export default function ProfilePage() {
 
       let query = await supabase
         .from("profile_settings")
-        .select("profile_primary, profile_secondary, avatar_url, banner_url, show_email, show_activity, allow_friend_requests, feed_style, friends, friend_requests, introduction, home_theme_pack, dashboard_widgets, verification_status, notable_contributor_note, follow_categories, impact_stats, social_graph_mode, blocked_usernames, custom_profile_url, vanity_slug, pronouns, communication_preferences, profile_sections, section_visibility, featured_post_ids, identity_badges, timeline_highlights")
+        .select("profile_primary, profile_secondary, avatar_url, banner_url, show_email, show_activity, allow_friend_requests, feed_style, friends, friend_requests, introduction, home_theme_pack, dashboard_widgets, verification_status, notable_contributor_note, follow_categories, impact_stats, social_graph_mode, blocked_usernames, custom_profile_url, vanity_slug, pronouns, communication_preferences, profile_sections, section_visibility, featured_post_ids, identity_badges, timeline_highlights, user_role, interests, onboarding_completed")
         .eq("user_id", user.id)
         .maybeSingle<ProfileSettingsRow>();
 
-      if (query.error?.message?.includes("introduction") || query.error?.message?.includes("home_theme_pack") || query.error?.message?.includes("dashboard_widgets") || query.error?.message?.includes("verification_status") || query.error?.message?.includes("notable_contributor_note") || query.error?.message?.includes("follow_categories") || query.error?.message?.includes("impact_stats") || query.error?.message?.includes("custom_profile_url") || query.error?.message?.includes("vanity_slug") || query.error?.message?.includes("pronouns") || query.error?.message?.includes("communication_preferences") || query.error?.message?.includes("profile_sections") || query.error?.message?.includes("section_visibility") || query.error?.message?.includes("featured_post_ids") || query.error?.message?.includes("identity_badges") || query.error?.message?.includes("timeline_highlights")) {
+      if (query.error?.message?.includes("introduction") || query.error?.message?.includes("home_theme_pack") || query.error?.message?.includes("dashboard_widgets") || query.error?.message?.includes("verification_status") || query.error?.message?.includes("notable_contributor_note") || query.error?.message?.includes("follow_categories") || query.error?.message?.includes("impact_stats") || query.error?.message?.includes("custom_profile_url") || query.error?.message?.includes("vanity_slug") || query.error?.message?.includes("pronouns") || query.error?.message?.includes("communication_preferences") || query.error?.message?.includes("profile_sections") || query.error?.message?.includes("section_visibility") || query.error?.message?.includes("featured_post_ids") || query.error?.message?.includes("identity_badges") || query.error?.message?.includes("timeline_highlights") || query.error?.message?.includes("user_role") || query.error?.message?.includes("interests") || query.error?.message?.includes("onboarding_completed")) {
         query = await supabase
           .from("profile_settings")
           .select("profile_primary, profile_secondary, avatar_url, banner_url, show_email, show_activity, allow_friend_requests, feed_style, friends, friend_requests, social_graph_mode, blocked_usernames")
@@ -290,11 +303,14 @@ export default function ProfilePage() {
             featured_post_ids: defaultSettings.featuredPostIds,
             identity_badges: defaultSettings.identityBadges,
             timeline_highlights: defaultSettings.timelineHighlights,
+            user_role: defaultSettings.userRole,
+            interests: defaultSettings.interests,
+            onboarding_completed: defaultSettings.onboardingCompleted,
           },
           { onConflict: "user_id" },
         );
 
-        if (createError && !createError.message.includes("introduction") && !createError.message.includes("home_theme_pack") && !createError.message.includes("dashboard_widgets") && !createError.message.includes("verification_status") && !createError.message.includes("notable_contributor_note") && !createError.message.includes("follow_categories") && !createError.message.includes("impact_stats") && !createError.message.includes("custom_profile_url") && !createError.message.includes("vanity_slug") && !createError.message.includes("pronouns") && !createError.message.includes("communication_preferences") && !createError.message.includes("profile_sections") && !createError.message.includes("section_visibility") && !createError.message.includes("featured_post_ids") && !createError.message.includes("identity_badges") && !createError.message.includes("timeline_highlights")) console.error(createError);
+        if (createError && !createError.message.includes("introduction") && !createError.message.includes("home_theme_pack") && !createError.message.includes("dashboard_widgets") && !createError.message.includes("verification_status") && !createError.message.includes("notable_contributor_note") && !createError.message.includes("follow_categories") && !createError.message.includes("impact_stats") && !createError.message.includes("custom_profile_url") && !createError.message.includes("vanity_slug") && !createError.message.includes("pronouns") && !createError.message.includes("communication_preferences") && !createError.message.includes("profile_sections") && !createError.message.includes("section_visibility") && !createError.message.includes("featured_post_ids") && !createError.message.includes("identity_badges") && !createError.message.includes("timeline_highlights") && !createError.message.includes("user_role") && !createError.message.includes("interests") && !createError.message.includes("onboarding_completed")) console.error(createError);
         setLoadedSettingsUserId(user.id);
         return;
       }
@@ -329,6 +345,9 @@ export default function ProfilePage() {
       setFeaturedPostIds(data.featured_post_ids ?? defaultSettings.featuredPostIds);
       setIdentityBadges(data.identity_badges ?? defaultSettings.identityBadges);
       setTimelineHighlights(data.timeline_highlights ?? defaultSettings.timelineHighlights);
+      setUserRole(data.user_role ?? defaultSettings.userRole);
+      setInterests(data.interests ?? defaultSettings.interests);
+      setOnboardingCompleted(data.onboarding_completed ?? true);
       setLoadedSettingsUserId(user.id);
     }
 
@@ -369,12 +388,15 @@ export default function ProfilePage() {
         featured_post_ids: featuredPostIds,
         identity_badges: identityBadges,
         timeline_highlights: timelineHighlights,
+        user_role: userRole,
+        interests: interests,
+        onboarding_completed: onboardingCompleted,
       };
 
       let { error } = await supabase.from("profile_settings").upsert(payload, { onConflict: "user_id" });
 
-      if (error?.message?.includes("introduction") || error?.message?.includes("home_theme_pack") || error?.message?.includes("dashboard_widgets") || error?.message?.includes("verification_status") || error?.message?.includes("notable_contributor_note") || error?.message?.includes("follow_categories") || error?.message?.includes("impact_stats") || error?.message?.includes("custom_profile_url") || error?.message?.includes("vanity_slug") || error?.message?.includes("pronouns") || error?.message?.includes("communication_preferences") || error?.message?.includes("profile_sections") || error?.message?.includes("section_visibility") || error?.message?.includes("featured_post_ids") || error?.message?.includes("identity_badges") || error?.message?.includes("timeline_highlights")) {
-        const unsupportedColumns = ["introduction", "home_theme_pack", "dashboard_widgets", "verification_status", "notable_contributor_note", "follow_categories", "impact_stats", "social_graph_mode", "blocked_usernames", "custom_profile_url", "vanity_slug", "pronouns", "communication_preferences", "profile_sections", "section_visibility", "featured_post_ids", "identity_badges", "timeline_highlights"];
+      if (error?.message?.includes("introduction") || error?.message?.includes("home_theme_pack") || error?.message?.includes("dashboard_widgets") || error?.message?.includes("verification_status") || error?.message?.includes("notable_contributor_note") || error?.message?.includes("follow_categories") || error?.message?.includes("impact_stats") || error?.message?.includes("custom_profile_url") || error?.message?.includes("vanity_slug") || error?.message?.includes("pronouns") || error?.message?.includes("communication_preferences") || error?.message?.includes("profile_sections") || error?.message?.includes("section_visibility") || error?.message?.includes("featured_post_ids") || error?.message?.includes("identity_badges") || error?.message?.includes("timeline_highlights") || error?.message?.includes("user_role") || error?.message?.includes("interests") || error?.message?.includes("onboarding_completed")) {
+        const unsupportedColumns = ["introduction", "home_theme_pack", "dashboard_widgets", "verification_status", "notable_contributor_note", "follow_categories", "impact_stats", "social_graph_mode", "blocked_usernames", "custom_profile_url", "vanity_slug", "pronouns", "communication_preferences", "profile_sections", "section_visibility", "featured_post_ids", "identity_badges", "timeline_highlights", "user_role", "interests", "onboarding_completed"];
         const withoutUnsupported = Object.fromEntries(Object.entries(payload).filter(([key]) => !unsupportedColumns.includes(key)));
         error = (await supabase.from("profile_settings").upsert(withoutUnsupported, { onConflict: "user_id" })).error;
       }
@@ -383,7 +405,7 @@ export default function ProfilePage() {
     }, 350);
 
     return () => window.clearTimeout(timeout);
-  }, [user?.id, loadedSettingsUserId, profilePrimary, profileSecondary, profileImageUrl, bannerImageUrl, feedStyle, privacy, friends, friendRequests, introduction, homeThemePack, dashboardWidgets, verificationStatus, notableContributorNote, followCategories, impactStats, socialGraphMode, blockedUsernames, customProfileUrl, vanitySlug, pronouns, communicationPreferences, profileSections, sectionVisibility, featuredPostIds, identityBadges, timelineHighlights]);
+  }, [user?.id, loadedSettingsUserId, profilePrimary, profileSecondary, profileImageUrl, bannerImageUrl, feedStyle, privacy, friends, friendRequests, introduction, homeThemePack, dashboardWidgets, verificationStatus, notableContributorNote, followCategories, impactStats, socialGraphMode, blockedUsernames, customProfileUrl, vanitySlug, pronouns, communicationPreferences, profileSections, sectionVisibility, featuredPostIds, identityBadges, timelineHighlights, userRole, interests, onboardingCompleted]);
 
   useEffect(() => {
     async function loadProfileData() {
@@ -430,9 +452,9 @@ export default function ProfilePage() {
   async function handleImageUpload(file: File | null, target: "avatar" | "banner") {
     if (!file || !user?.id) return;
 
-    const extension = file.name.split(".").pop() || "jpg";
-    const filePath = `${target}s/${user.id}/${crypto.randomUUID()}.${extension}`;
-    const { error: uploadError } = await supabase.storage.from("media").upload(filePath, file, { upsert: true });
+    const sanitizedFile = await sanitizeImageUpload(file, target === "avatar" ? 800 : 1920);
+    const filePath = `${target}s/${user.id}/${crypto.randomUUID()}-${sanitizedFile.name}`;
+    const { error: uploadError } = await supabase.storage.from("media").upload(filePath, sanitizedFile, { upsert: true });
 
     if (uploadError) {
       console.error(uploadError);
@@ -477,6 +499,15 @@ export default function ProfilePage() {
 
   function toggleFollowCategory(category: FollowCategory) {
     setFollowCategories((current) => current.includes(category) ? current.filter((value) => value !== category) : [...current, category]);
+  }
+
+  function toggleInterest(interest: ProfileInterest) {
+    setInterests((current) => current.includes(interest) ? current.filter((value) => value !== interest) : [...current, interest]);
+  }
+
+  function updateRole(nextRole: UserRole) {
+    if (!isAdmin && nextRole !== "newcomer") return;
+    setUserRole(nextRole);
   }
 
   function approveFriendRequest(requestId: string) {
@@ -696,6 +727,41 @@ export default function ProfilePage() {
                   </div>
                 </article>
 
+                <article className="rounded-2xl border border-[#242941] bg-[#121522] p-4 text-sm">
+                  <h3 className="font-semibold text-[#2dd4bf]">Onboarding role + interests</h3>
+                  <p className="mt-2 text-xs text-[#8e97b8]">Role defaults to newcomer. Only the admin account can assign elevated roles.</p>
+                  <p className="mt-2 text-[11px] text-[#8e97b8]">Onboarding completed: {onboardingCompleted ? "Yes" : "No"}</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {USER_ROLES.map((roleOption) => {
+                      const disabled = !isAdmin && roleOption !== "newcomer";
+                      return (
+                        <button
+                          key={roleOption}
+                          type="button"
+                          disabled={disabled}
+                          onClick={() => updateRole(roleOption)}
+                          className={`rounded-full px-3 py-1 text-xs capitalize ${userRole === roleOption ? "bg-accent text-[#08232c]" : "border border-accent/30"} ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
+                        >
+                          {roleOption.replace("_", " ")}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-3 text-xs text-[#8e97b8]">Interests</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {PROFILE_INTERESTS.map((interest) => (
+                      <button
+                        key={interest}
+                        type="button"
+                        onClick={() => toggleInterest(interest)}
+                        className={`rounded-full px-3 py-1 text-xs capitalize ${interests.includes(interest) ? "bg-accent text-[#08232c]" : "border border-accent/30"}`}
+                      >
+                        {interest}
+                      </button>
+                    ))}
+                  </div>
+                </article>
+                
                 <article className="rounded-2xl border border-[#242941] bg-[#121522] p-4 text-sm">
                   <h3 className="font-semibold text-[#2dd4bf]">Profile completeness</h3>
                   <p className="mt-2 text-xs text-[#8e97b8]">Completion score updates as you configure your profile.</p>

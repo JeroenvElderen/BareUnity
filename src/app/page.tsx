@@ -1,7 +1,6 @@
 import HomeFeedClient from "@/components/HomeFeedClient";
 import { ChannelContentType, getChannels } from "@/lib/channel-data";
 import { db } from "@/server/db";
-import { Prisma } from "@prisma/client";
 
 type FeedPost = {
   id: string;
@@ -44,9 +43,9 @@ function normalizeContentType(raw: string | null): ChannelContentType {
 }
 
 function isPreparedStatementError(error: unknown) {
-  if (!(error instanceof Prisma.PrismaClientUnknownRequestError)) return false;
-
-  return error.message.includes('code: "26000"') || error.message.includes("prepared statement") || error.message.includes("does not exist");
+  if (!error || typeof error !== "object" || !("message" in error)) return false;
+  const message = String(error.message ?? "");
+  return message.includes('code: "26000"') || message.includes("prepared statement") || message.includes("does not exist");
 }
 
 async function withPrismaRetry<T>(operation: () => Promise<T>): Promise<T> {
@@ -118,17 +117,18 @@ export default async function Home() {
       ),
     ]);
 
-    posts = postsResult.status === "fulfilled" ? postsResult.value : [];
+   posts = postsResult.status === "fulfilled" ? (postsResult.value as FeedPost[]) : [];
     channels =
       channelsResult.status === "fulfilled"
-        ? channelsResult.value.map((channel) => ({
+        ? (channelsResult.value as Array<{ id: string; name: string; icon_url: string | null; content_type: string | null }>).map((channel) => ({
             id: channel.id,
             name: channel.name,
             iconUrl: channel.icon_url,
             contentType: normalizeContentType(channel.content_type),
           }))
         : getChannels();
-    profile = profileResult.status === "fulfilled" ? profileResult.value : null;
+    profile = profileResult.status === "fulfilled" ? (profileResult.value as UserProfile | null) : null;
+    activityProfiles = activityProfilesResult.status === "fulfilled" ? (activityProfilesResult.value as BasicProfile[]) : [];
     activityProfiles = activityProfilesResult.status === "fulfilled" ? activityProfilesResult.value : [];
 
     const authorIds = Array.from(new Set(posts.map((post) => post.author_id).filter(Boolean))) as string[];

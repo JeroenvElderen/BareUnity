@@ -1,4 +1,5 @@
 import type { User } from "@supabase/supabase-js";
+import { DEFAULT_ROLE, PROFILE_INTERESTS, type ProfileInterest, type UserRole } from "@/lib/onboarding";
 import { supabase } from "@/lib/supabase";
 import { normalizeUsername } from "@/lib/username";
 
@@ -20,8 +21,15 @@ async function getAvailableUsername(baseUsername: string) {
   return `${baseUsername.slice(0, 18)}-${Math.floor(1000 + Math.random() * 9000)}`;
 }
 
-export async function ensureProfileExists(user: User) {
+type EnsureProfileOptions = {
+  role?: UserRole;
+  interests?: ProfileInterest[];
+};
+
+export async function ensureProfileExists(user: User, options: EnsureProfileOptions = {}) {
   const username = await getAvailableUsername(getProfileUsername(user));
+  const role = options.role ?? DEFAULT_ROLE;
+  const interests = (options.interests ?? []).filter((entry): entry is ProfileInterest => PROFILE_INTERESTS.includes(entry));
 
   const { error } = await supabase.from("profiles").upsert(
     {
@@ -34,5 +42,19 @@ export async function ensureProfileExists(user: User) {
 
   if (error) {
     console.error("Failed to create profile record", error);
+  }
+
+  const { error: profileSettingsError } = await supabase.from("profile_settings").upsert(
+    {
+      user_id: user.id,
+      user_role: role,
+      interests,
+      onboarding_completed: true,
+    },
+    { onConflict: "user_id" },
+  );
+
+  if (profileSettingsError && !profileSettingsError.message.includes("user_role")) {
+    console.error("Failed to create profile settings record", profileSettingsError);
   }
 }

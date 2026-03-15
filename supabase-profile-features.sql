@@ -55,6 +55,10 @@ alter table public.profile_settings alter column friends set default '[]'::jsonb
 alter table public.profile_settings alter column friend_requests set default '[]'::jsonb;
 alter table public.profile_settings alter column introduction set default '';
 
+alter table public.profile_settings add column if not exists user_role text default 'newcomer';
+alter table public.profile_settings add column if not exists interests text[] default array[]::text[];
+alter table public.profile_settings add column if not exists onboarding_completed boolean default false;
+
 -- 2) Follow graph (used for Followers/Following)
 create table if not exists public.friendships (
   id uuid primary key default gen_random_uuid(),

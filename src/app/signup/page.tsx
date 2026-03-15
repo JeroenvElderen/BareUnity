@@ -4,10 +4,9 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ensureProfileExists } from "@/lib/profile";
+import { DEFAULT_ROLE, PROFILE_INTERESTS, USER_ROLES, type ProfileInterest, type UserRole } from "@/lib/onboarding";
 import { supabase } from "@/lib/supabase";
 import { getUsernameValidationMessage, normalizeUsername } from "@/lib/username";
-
-type Intent = "reader" | "poster" | "organizer" | "creator";
 
 type AvailabilityResponse = {
   username: string;
@@ -16,19 +15,21 @@ type AvailabilityResponse = {
   suggestions?: string[];
 };
 
-const onboardingIntents: Array<{ id: Intent; title: string; description: string }> = [
-  { id: "reader", title: "Reader", description: "Discover channels and follow conversations." },
-  { id: "poster", title: "Poster", description: "Share updates, moments, and discussions." },
-  { id: "organizer", title: "Organizer", description: "Coordinate events and guide communities." },
-  { id: "creator", title: "Creator", description: "Build original series and long-form content." },
-];
+const roleDescriptions: Record<UserRole, string> = {
+  newcomer: "Default starter role with newcomer-safe channel settings.",
+  organizer: "Can help coordinate official gatherings and schedules.",
+  traveler: "Great for people who post travel updates and naturist spots.",
+  mentor: "Community guides focused on support and respectful orientation.",
+  club_admin: "Operational role for club and moderation administration.",
+};
 
 export default function SignupPage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [intent, setIntent] = useState<Intent>("reader");
+  const [role] = useState<UserRole>(DEFAULT_ROLE);
+  const [interests, setInterests] = useState<ProfileInterest[]>([]);
   const [username, setUsername] = useState("");
   const [availability, setAvailability] = useState<AvailabilityResponse | null>(null);
   const [checkingUsername, setCheckingUsername] = useState(false);
@@ -77,6 +78,10 @@ export default function SignupPage() {
     };
   }, [normalizedUsername, usernameValidationMessage]);
 
+  function toggleInterest(interest: ProfileInterest) {
+    setInterests((current) => current.includes(interest) ? current.filter((entry) => entry !== interest) : [...current, interest]);
+  }
+
   async function handleSignup() {
     if (usernameValidationMessage) {
       alert(usernameValidationMessage);
@@ -96,7 +101,9 @@ export default function SignupPage() {
       options: {
         data: {
           username: normalizedUsername,
-          intent,
+          role,
+          interests,
+          onboarding_completed: true,
         },
       },
     });
@@ -108,8 +115,9 @@ export default function SignupPage() {
     }
 
     if (data.user) {
-      await ensureProfileExists(data.user);
+      await ensureProfileExists(data.user, { role, interests });
     }
+
     alert("Account created! Check your email to confirm.");
     router.push("/login");
   }
@@ -118,12 +126,12 @@ export default function SignupPage() {
     <main className="mx-auto flex min-h-screen w-full max-w-6xl items-center px-4 py-10 text-text">
       <section className="grid w-full gap-6 md:grid-cols-[1fr_460px]">
         <div className="glass-card-strong overflow-hidden p-8">
-          <p className="text-xs uppercase tracking-[0.28em] text-accent/80">Onboarding</p>
+          <p className="text-xs uppercase tracking-[0.28em] text-accent/80">Guided onboarding</p>
           <h1 className="mt-4 text-3xl font-semibold">Set up your account in a few guided steps.</h1>
-          <p className="mt-4 max-w-lg text-sm text-muted">Choose how you want to use BareUnity first. We&apos;ll tailor your start experience around your intent so the feed and prompts feel relevant from day one.</p>
+          <p className="mt-4 max-w-lg text-sm text-muted">This platform is channel-first for naturists and nudists. Role starts as newcomer and elevated roles can only be assigned by platform admin.</p>
 
           <div className="mt-8 space-y-3 text-sm">
-            {["Account", "Intent", "Username"].map((label, index) => {
+            {["Account", "Role", "Interests + Username"].map((label, index) => {
               const isActive = step === index + 1;
               const isComplete = step > index + 1;
               return (
@@ -148,7 +156,7 @@ export default function SignupPage() {
               <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Minimum 6 characters" className="glass-input w-full rounded-xl px-3 py-3 text-text placeholder:text-muted outline-none ring-0 focus:border-accent/45" />
 
               <button className="premium-button w-full" onClick={() => setStep(2)} disabled={!email || password.length < 6}>
-                Continue to intent
+                Continue to role
               </button>
 
               <p className="text-sm text-muted">Already have an account? <Link href="/login" className="font-semibold text-accent underline">Log in</Link></p>
@@ -157,34 +165,48 @@ export default function SignupPage() {
 
           {step === 2 && (
             <div className="space-y-4">
-              <h2 className="text-xl font-semibold">What brings you here?</h2>
-              <p className="text-sm text-muted">Pick your primary intent. You can change this later in settings.</p>
+              <h2 className="text-xl font-semibold">Role selection</h2>
+              <p className="text-sm text-muted">Newcomer is the standard role. Other roles are visible, but can only be assigned by the platform admin.</p>
 
               <div className="grid grid-cols-1 gap-2">
-                {onboardingIntents.map((entry) => (
-                  <button
-                    key={entry.id}
-                    type="button"
-                    onClick={() => setIntent(entry.id)}
-                    className={`rounded-xl border px-4 py-3 text-left transition ${intent === entry.id ? "border-accent/60 bg-accent/18" : "border-accent/25 bg-bg/35 hover:border-accent/45"}`}
-                  >
-                    <p className="font-medium">{entry.title}</p>
-                    <p className="text-sm text-muted">{entry.description}</p>
-                  </button>
-                ))}
+                {USER_ROLES.map((entry) => {
+                  const isDefault = entry === DEFAULT_ROLE;
+                  return (
+                    <div
+                      key={entry}
+                      className={`rounded-xl border px-4 py-3 text-left ${isDefault ? "border-accent/60 bg-accent/18" : "border-accent/20 bg-bg/20 opacity-70"}`}
+                    >
+                      <p className="font-medium capitalize">{entry.replace("_", " ")}{!isDefault ? " (admin only)" : ""}</p>
+                      <p className="text-sm text-muted">{roleDescriptions[entry]}</p>
+                    </div>
+                  );
+                })}
               </div>
 
               <div className="flex gap-2">
                 <button className="soft-button flex-1" onClick={() => setStep(1)}>Back</button>
-                <button className="premium-button flex-1" onClick={() => setStep(3)}>Continue to username</button>
+                <button className="premium-button flex-1" onClick={() => setStep(3)}>Continue</button>
               </div>
             </div>
           )}
 
           {step === 3 && (
             <div className="space-y-4">
-              <h2 className="text-xl font-semibold">Choose your username</h2>
-              <p className="text-sm text-muted">This will be shown publicly. Based on your intent: <span className="font-medium text-text">{intent}</span>.</p>
+              <h2 className="text-xl font-semibold">Choose interests and username</h2>
+
+              <div>
+                <p className="mb-2 text-sm text-muted">Interests</p>
+                <div className="flex flex-wrap gap-2">
+                  {PROFILE_INTERESTS.map((interest) => {
+                    const active = interests.includes(interest);
+                    return (
+                      <button key={interest} type="button" onClick={() => toggleInterest(interest)} className={`rounded-full px-3 py-1 text-xs capitalize ${active ? "bg-accent text-[#08232c]" : "border border-accent/30"}`}>
+                        {interest}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
 
               <div>
                 <input
@@ -194,7 +216,7 @@ export default function SignupPage() {
                   placeholder="nature-walker"
                   className="glass-input w-full rounded-xl px-3 py-3 text-text placeholder:text-muted outline-none ring-0 focus:border-accent/45"
                 />
-                <p className="mt-1 text-xs text-muted">Preview: @{normalizedUsername || "your-name"}</p>
+                <p className="mt-1 text-xs text-muted">Preview: @{normalizedUsername || "your-name"} · role: newcomer</p>
               </div>
 
               {usernameValidationMessage && <p className="text-xs text-amber-300">{usernameValidationMessage}</p>}

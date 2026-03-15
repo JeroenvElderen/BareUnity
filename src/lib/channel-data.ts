@@ -15,6 +15,8 @@ export const CHANNELS: Channel[] = [
   { id: "mindful-living", name: "Mindful Living", iconUrl: null, contentType: "mindful" },
   { id: "naturist-map", name: "Naturist Map", iconUrl: null, contentType: "map" },
   { id: "discussion", name: "Discussion", iconUrl: null, contentType: "discussion" },
+  { id: "newcomer-introductions", name: "Newcomer Introductions", iconUrl: null, contentType: "discussion" },
+  { id: "newcomer-questions", name: "Newcomer Questions", iconUrl: null, contentType: "discussion" },
 ];
 
 export function getChannels() {

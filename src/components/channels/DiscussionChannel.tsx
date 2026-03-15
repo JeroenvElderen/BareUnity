@@ -82,12 +82,13 @@ function getMessageCacheKey(targetChannelId: string) {
   return `bareunity:discussion:${targetChannelId}:messages`;
 }
 
-export default function DiscussionChannel({ channelId }: { channelId: string }) {
+export default function DiscussionChannel({ channelId, newcomerModeration = false }: { channelId: string; newcomerModeration?: boolean }) {
   const [messages, setMessages] = useState<DiscussionMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState("");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserAvatarUrl, setCurrentUserAvatarUrl] = useState<string | null>(null);
+  const [currentUserRole, setCurrentUserRole] = useState<string>("newcomer");
   const [status, setStatus] = useState<string | null>(null);
   const currentUserIdRef = useRef<string | null>(null);
   const cachedMessages = useMemo(
@@ -98,16 +99,23 @@ export default function DiscussionChannel({ channelId }: { channelId: string }) 
   useEffect(() => {
     let isMounted = true;
 
-    supabase.auth.getUser().then(({ data }) => {
+    supabase.auth.getUser().then(async ({ data }) => {
       if (!isMounted) return;
-      setCurrentUserId(data.user?.id ?? null);
-      setCurrentUserAvatarUrl((data.user?.user_metadata?.avatar_url as string | undefined) ?? null);
-      currentUserIdRef.current = data.user?.id ?? null;
+      const authUser = data.user ?? null;
+      setCurrentUserId(authUser?.id ?? null);
+      setCurrentUserAvatarUrl((authUser?.user_metadata?.avatar_url as string | undefined) ?? null);
+      currentUserIdRef.current = authUser?.id ?? null;
+
+      if (authUser?.id) {
+        const { data: settingsData } = await supabase.from("profile_settings").select("user_role").eq("user_id", authUser.id).maybeSingle<{ user_role: string | null }>();
+        if (isMounted) setCurrentUserRole(settingsData?.user_role ?? "newcomer");
+      }
     });
 
     const { data: authSub } = supabase.auth.onAuthStateChange((_event, session) => {
       setCurrentUserId(session?.user?.id ?? null);
       setCurrentUserAvatarUrl((session?.user?.user_metadata?.avatar_url as string | undefined) ?? null);
+      setCurrentUserRole((session?.user?.user_metadata?.role as string | undefined) ?? "newcomer");
       currentUserIdRef.current = session?.user?.id ?? null;
     });
 
@@ -207,6 +215,7 @@ export default function DiscussionChannel({ channelId }: { channelId: string }) 
   }, [displayMessages]);
   const threadFocusStart = useMemo(() => (displayMessages.length > 6 ? Math.max(1, displayMessages.length - 5) : -1), [displayMessages.length]);
 
+  const strictModerationEnabled = newcomerModeration && currentUserRole === "newcomer";
   const canSend = useMemo(() => draft.trim().length > 0, [draft]);
 
   async function handleSend(event: FormEvent<HTMLFormElement>) {
@@ -214,6 +223,17 @@ export default function DiscussionChannel({ channelId }: { channelId: string }) 
     const trimmed = draft.trim();
     if (!trimmed) return;
 
+    if (strictModerationEnabled) {
+      if (trimmed.length > 280) {
+        setStatus("Newcomer channels allow up to 280 characters per message.");
+        return;
+      }
+      if (/https?:\/\//i.test(trimmed) || /www\./i.test(trimmed)) {
+        setStatus("Links are disabled in newcomer channels by default.");
+        return;
+      }
+    }
+    
     const optimisticId = `tmp-${Date.now()}`;
     const optimisticMessage: DiscussionMessage = {
       id: optimisticId,

@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
     select: { username: true },
   });
 
-  const takenSet = new Set(taken.map((entry) => entry.username));
+  const takenSet = new Set(taken.map((entry: { username: string }) => entry.username));
 
   return NextResponse.json({
     username,

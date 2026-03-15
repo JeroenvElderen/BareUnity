@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { sanitizeImageUpload } from "@/lib/image";
 import { supabase } from "@/lib/supabase";
 
 type StudioMedia = {
@@ -18,52 +19,6 @@ const COMMUNITY_TAGS = ["beach day", "forest walk", "wellness", "body positivity
 
 function uid(prefix: string) {
   return `${prefix}_${crypto.randomUUID()}`;
-}
-
-function optimizeImage(file: File) {
-  return new Promise<File>((resolve) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const image = new Image();
-      image.onload = () => {
-        const maxWidth = 1920;
-        const scale = Math.min(1, maxWidth / image.width);
-        const width = Math.round(image.width * scale);
-        const height = Math.round(image.height * scale);
-        const canvas = document.createElement("canvas");
-        canvas.width = width;
-        canvas.height = height;
-        const context = canvas.getContext("2d");
-
-        if (!context) {
-          resolve(file);
-          return;
-        }
-
-        context.drawImage(image, 0, 0, width, height);
-        canvas.toBlob(
-          (blob) => {
-            if (!blob) {
-              resolve(file);
-              return;
-            }
-
-            const optimized = new File([blob], file.name.replace(/\.[^.]+$/, ".webp"), {
-              type: "image/webp",
-              lastModified: Date.now(),
-            });
-            resolve(optimized);
-          },
-          "image/webp",
-          0.84,
-        );
-      };
-
-      image.src = String(reader.result ?? "");
-    };
-
-    reader.readAsDataURL(file);
-  });
 }
 
 export default function CreatePost({ onPublished, onCancel }: CreatePostProps) {
@@ -141,7 +96,7 @@ export default function CreatePost({ onPublished, onCancel }: CreatePostProps) {
     const uploadedUrls: string[] = [];
 
     for (const media of mediaStudio) {
-      const optimized = await optimizeImage(media.file);
+      const optimized = await sanitizeImageUpload(media.file);
       const filePath = `posts/${crypto.randomUUID()}-${optimized.name}`;
       const { error } = await supabase.storage.from("media").upload(filePath, optimized);
 
