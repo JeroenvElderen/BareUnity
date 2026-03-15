@@ -441,7 +441,7 @@ export default function NaturistMapChannel() {
           </aside>
 
           {isAddingSpot ? (
-            <div className="absolute right-3 top-3 z-10 max-h-[calc(100%-1.5rem)] w-full max-w-105 overflow-y-auto rounded-2xl border border-[#4a7763] bg-gradient-to-br from-[#1b3127]/95 to-[#13241d]/95 p-3 text-sm shadow-xl backdrop-blur-md">
+            <div className="absolute right-3 top-3 z-10 max-h-[calc(100%-1.5rem)] w-full max-w-105 overflow-y-auto rounded-2xl border border-[#4a7763] bg-linear-to-br from-[#1b3127]/95 to-[#13241d]/95 p-3 text-sm shadow-xl backdrop-blur-md">
               <form className="space-y-3" onSubmit={searchPlaces}>
                 <p className="text-xs text-[#b5cfbf]">Search beaches, resorts, buildings, or remote places, then select a result.</p>
                 <div className="flex gap-2">

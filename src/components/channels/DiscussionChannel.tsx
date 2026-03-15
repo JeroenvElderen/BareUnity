@@ -196,7 +196,16 @@ export default function DiscussionChannel({ channelId }: { channelId: string }) 
 
   const displayMessages = messages.length > 0 ? messages : cachedMessages;
   const isLoadingMessages = loading && displayMessages.length === 0;
-  const memberCount = useMemo(() => new Set(displayMessages.map((message) => message.author)).size, [displayMessages]);
+  const participantPreview = useMemo(() => {
+    const byAuthor = new Map<string, { author: string; avatarUrl: string | null }>();
+    displayMessages.forEach((message) => {
+      if (!byAuthor.has(message.author)) {
+        byAuthor.set(message.author, { author: message.author, avatarUrl: message.avatarUrl });
+      }
+    });
+    return Array.from(byAuthor.values()).slice(0, 6);
+  }, [displayMessages]);
+  const threadFocusStart = useMemo(() => (displayMessages.length > 6 ? Math.max(1, displayMessages.length - 5) : -1), [displayMessages.length]);
 
   const canSend = useMemo(() => draft.trim().length > 0, [draft]);
 
@@ -260,73 +269,119 @@ export default function DiscussionChannel({ channelId }: { channelId: string }) 
   }
 
   return (
-    <section className="rounded-3xl border border-accent/20 bg-card/35 p-4 md:p-6">
-    <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-accent/15 pb-4">
-        <div>
-          <h2 className="text-base font-semibold text-text">Discussion</h2>
-          <p className="text-xs text-muted">Channel {channelId.slice(0, 8)} · Real-time community chat</p>
-        </div>
-        <div className="flex items-center gap-2 text-xs text-muted">
-          <span className="rounded-full border border-accent/25 bg-bg/40 px-2.5 py-1">{displayMessages.length} messages</span>
-          <span className="rounded-full border border-accent/25 bg-bg/40 px-2.5 py-1">{memberCount} members</span>
-        </div>
+    <section className="overflow-hidden rounded-3xl border border-white/15 bg-linear-to-br from-[#0f1a32] via-[#121f39] to-[#1b2942]">
+      <div className="flex items-center justify-between border-b border-white/10 px-6 py-5">
+        <h2 className="text-[1.05rem] font-semibold text-white/90">Combined Mockup — Bubble Chat + Thread Highlight</h2>
+        <span className="rounded-full border border-white/20 px-4 py-1.5 text-xs text-white/80">messages area concept</span>
       </div>
 
-      <div className="max-h-105 space-y-5 overflow-y-auto pr-1">
-        {isLoadingMessages ? (
-          <p className="text-sm text-muted">Loading discussion…</p>
-        ) : displayMessages.length === 0 ? (
-          <p className="text-sm text-muted">No messages yet. Start the conversation.</p>
-        ) : (
-          displayMessages.map((message) => {
-            const isRight = message.isCurrentUser;
+      <div className="grid min-h-[640px] grid-cols-[250px_minmax(0,1fr)_300px]">
+        <aside className="border-r border-white/10 p-3">
+          <div className="space-y-3">
+            {Array.from({ length: 8 }).map((_, index) => (
+              <div key={`left-nav-${index}`} className="h-12 rounded-xl border border-white/12 bg-white/[0.03]" />
+            ))}
+          </div>
+        </aside>
 
-            return (
-              <article key={message.id} className={`flex ${isRight ? "justify-end" : "justify-start"}`}>
-                <div className={`flex max-w-[88%] items-end gap-2 md:max-w-[68%] ${isRight ? "flex-row-reverse" : "flex-row"}`}>
-                  <MessageAvatar author={message.author} avatarUrl={message.avatarUrl} />
+        <div className="flex flex-col border-r border-white/10">
+          <div className="relative flex-1 overflow-y-auto px-4 py-5">
+            {isLoadingMessages ? (
+              <p className="text-sm text-white/60">Loading discussion…</p>
+            ) : displayMessages.length === 0 ? (
+              <p className="text-sm text-white/60">No messages yet. Start the conversation.</p>
+            ) : (
+              displayMessages.map((message, index) => {
+                const isRight = message.isCurrentUser;
+                const isFocusedThreadMessage = !isRight && threadFocusStart >= 0 && index >= threadFocusStart;
+                const pillWidth = Math.min(96, Math.max(28, Math.round(message.text.length * 0.9)));
 
-                  <div className={`flex flex-col ${isRight ? "items-end" : "items-start"}`}>
-                    <div
-                      className={`rounded-[1.2rem] px-4 py-3 text-sm leading-relaxed shadow-sm ${
-                        isRight
-                          ? "bg-linear-to-r from-indigo-500 to-violet-500 text-white"
-                          : "border border-accent/15 bg-white/70 text-slate-600"
-                      }`}
-                    >
-                      <p className="whitespace-pre-line">{message.text}</p>
+                return (
+                  <article key={message.id} className={`relative mb-3 flex ${isRight ? "justify-end" : "justify-start"}`}>
+                    {isFocusedThreadMessage ? <span className="absolute left-8 top-3 h-[72px] w-0.5 rounded-full bg-indigo-400/70" /> : null}
+
+                    <div className={`relative z-10 flex items-center gap-3 ${isRight ? "flex-row-reverse" : "flex-row"}`}>
+                      <MessageAvatar author={message.author} avatarUrl={message.avatarUrl} />
+                      <div
+                        className={`h-12 rounded-2xl border ${
+                          isRight
+                            ? "border-indigo-400/40 bg-indigo-500/35"
+                            : "border-white/15 bg-white/[0.05]"
+                        }`}
+                        style={{ width: `${pillWidth}px` }}
+                        title={message.text}
+                      />
                     </div>
+                  </article>
+                );
+              })
+            )}
+          </div>
 
-                    <div className="mt-1.5 flex items-center gap-1.5 text-[0.7rem] text-muted">
-                      <span>•••</span>
-                      <span>{message.sentAt}</span>
-                    </div>
+          <form onSubmit={handleSend} className="flex items-center gap-3 border-t border-white/10 px-4 py-4">
+            <input
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              maxLength={1000}
+              className="h-11 flex-1 rounded-xl border border-white/15 bg-white/[0.05] px-4 text-sm text-white outline-none placeholder:text-white/50 focus:border-indigo-400/60"
+              placeholder="Type your message"
+            />
+            <button
+              type="submit"
+              disabled={!canSend}
+              className="h-11 rounded-xl bg-indigo-500 px-5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Send
+            </button>
+          </form>
+        </div>
+
+        <aside className="space-y-3 p-4">
+          <div>
+            <h3 className="mb-2 text-sm text-white/85">Active Thread</h3>
+            <div className="rounded-xl border border-white/12 bg-white/[0.04] p-3">
+              <div className="mb-2 flex gap-2">
+                <span className="rounded-full bg-indigo-500/35 px-2.5 py-1 text-[11px] text-indigo-100">Thread</span>
+                <span className="rounded-full bg-indigo-500/35 px-2.5 py-1 text-[11px] text-indigo-100">Design</span>
+              </div>
+              <div className="mb-2 h-2 w-full rounded-full bg-white/30" />
+              <div className="h-2 w-4/5 rounded-full bg-white/30" />
+            </div>
+          </div>
+
+          <div>
+            <h3 className="mb-2 text-sm text-white/85">Participants</h3>
+            <div className="rounded-xl border border-white/12 bg-white/[0.04] p-3">
+              {(participantPreview.length ? participantPreview : [{ author: "", avatarUrl: null }, { author: "", avatarUrl: null }, { author: "", avatarUrl: null }])
+                .slice(0, 3)
+                .map((participant, idx) => (
+                  <div key={`${participant.author || "placeholder"}-${idx}`} className="mb-2 flex items-center gap-2 last:mb-0">
+                    {participant.author ? <MessageAvatar author={participant.author} avatarUrl={participant.avatarUrl} /> : <span className="h-8 w-8 rounded-full bg-white/20" />}
+                    <div className="h-2 w-32 rounded-full bg-white/30" />
                   </div>
-                </div>
-              </article>
-            );
-          })
-        )}
+                ))}
+            </div>
+          </div>
+
+          <div>
+            <h3 className="mb-2 text-sm text-white/85">Pinned</h3>
+            <div className="rounded-xl border border-white/12 bg-white/[0.04] p-3">
+              <div className="mb-2 h-2 w-11/12 rounded-full bg-white/30" />
+              <div className="h-2 w-3/4 rounded-full bg-white/30" />
+            </div>
+          </div>
+
+          <div>
+            <h3 className="mb-2 text-sm text-white/85">Attachments</h3>
+            <div className="rounded-xl border border-white/12 bg-white/[0.04] p-3">
+              <div className="mb-2 h-2 w-4/5 rounded-full bg-white/30" />
+              <div className="h-2 w-2/3 rounded-full bg-white/30" />
+            </div>
+          </div>
+        </aside>
       </div>
 
-      <form onSubmit={handleSend} className="mt-6 flex gap-2 border-t border-accent/15 pt-4">
-        <input
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          maxLength={1000}
-          className="flex-1 rounded-xl border border-accent/30 bg-bg/80 px-3 py-2 text-sm text-text outline-none focus:border-accent"
-          placeholder="Type your message"
-        />
-        <button
-          type="submit"
-          disabled={!canSend}
-          className="rounded-xl bg-linear-to-r from-indigo-500 to-violet-500 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          Send
-        </button>
-      </form>
-
-      {status ? <p className="mt-3 text-xs text-amber-200">{status}</p> : null}
+      {status ? <p className="px-4 pb-3 text-xs text-amber-200">{status}</p> : null}
     </section>
   );
 }
