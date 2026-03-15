@@ -52,6 +52,12 @@ type ThemePack = "minimal" | "nature" | "high-contrast";
 type DashboardWidgetKey = "profile_card" | "goals" | "recent_activity";
 type DashboardWidgets = Record<DashboardWidgetKey, boolean>;
 
+type ComposerMeta = {
+  flair?: string;
+  nsfw?: boolean;
+  mediaCount?: number;
+};
+
 const defaultWidgets: DashboardWidgets = {
   profile_card: true,
   goals: true,
@@ -87,6 +93,39 @@ function initialsFromName(name: string) {
     .join("")
     .slice(0, 2)
     .toUpperCase();
+}
+
+function parseComposerContent(content: string | null, fallbackTitle: string | null) {
+  if (!content) {
+    return {
+      body: fallbackTitle ?? "No post content yet.",
+      metadata: null as ComposerMeta | null,
+    };
+  }
+
+  const marker = "---composer-meta---";
+  if (!content.includes(marker)) {
+    return {
+      body: content,
+      metadata: null as ComposerMeta | null,
+    };
+  }
+
+  const [bodyPart, metaPart] = content.split(marker);
+  const trimmedBody = bodyPart.trim();
+
+  try {
+    const metadata = JSON.parse(metaPart.trim()) as ComposerMeta;
+    return {
+      body: trimmedBody || fallbackTitle || "No post content yet.",
+      metadata,
+    };
+  } catch {
+    return {
+      body: trimmedBody || fallbackTitle || "No post content yet.",
+      metadata: null as ComposerMeta | null,
+    };
+  }
 }
 
 export default function HomeFeedClient({ posts, channels, profile, activityProfiles, authorProfiles }: HomeFeedClientProps) {
@@ -202,31 +241,38 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
                   const authorName = author?.display_name ?? author?.username ?? "Community member";
                   const authorHandle = author?.username ?? "bareunity";
                   const isTopPost = post._count.comments === topPostCommentCount && topPostCommentCount > 0;
+                  const parsedPost = parseComposerContent(post.content, post.title);
+                  const flair = parsedPost.metadata?.flair?.trim();
 
                   return (
-                    <article key={post.id} className={`rounded-[18px] border p-3.5 ${theme.panel}`}>
+                    <article key={post.id} className={`rounded-[18px] border p-4 ${theme.panel}`}>
                       <div className="mb-2.5 flex items-start justify-between gap-3">
                         <div className="flex items-center gap-2.5">
                           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-linear-to-br from-[#8d76ff] to-[#2dd4bf] text-xs font-semibold text-white">
                             {initialsFromName(authorName)}
                           </div>
                           <div>
-                            <strong className="block text-sm">{authorName}</strong>
+                            <strong className="block text-base">{authorName}</strong>
                             <span className={`text-xs ${theme.subtleText}`}>
                               @{authorHandle} · {formatRelativeTime(post.created_at)} · #{post.channels?.name?.toLowerCase().replace(/\s+/g, "-") ?? "general"}
                             </span>
                           </div>
                         </div>
-                        <div className="h-fit rounded-full border border-[rgba(45,212,191,0.4)] bg-[rgba(45,212,191,0.08)] px-2 py-1.25 text-[11px] text-[#2dd4bf]">
+                        <div className="h-fit rounded-full border border-[rgba(45,212,191,0.4)] bg-[rgba(45,212,191,0.08)] px-2 py-1.25 text-[11px] font-medium text-[#2dd4bf]">
                           {isTopPost ? "High engagement" : "Recent"}
                         </div>
                       </div>
 
-                      <p className="mb-2.5 text-[13px] leading-normal text-[#dce2ff]">{post.content ?? post.title ?? "No post content yet."}</p>
+                      {post.title ? <h3 className="mb-1 text-[15px] font-semibold text-[#f4f7ff]">{post.title}</h3> : null}
+                      <p className="mb-3 whitespace-pre-line text-[14px] leading-relaxed text-[#dce2ff]">{parsedPost.body}</p>
+
+                      {flair ? <div className="mb-3 inline-flex rounded-full border border-[#6f6bff]/35 bg-[#6f6bff]/12 px-2.5 py-1 text-[11px] font-medium text-[#d7d3ff]">#{flair}</div> : null}
 
                       {post.media_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={post.media_url} alt={post.title ?? "Post media"} className="mb-2.5 h-32.5 w-full rounded-[14px] border border-[#2b3150] object-cover" />
+                        <div className="mb-3 overflow-hidden rounded-[14px] border border-[#2b3150] bg-[#0a1020] p-1.5">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={post.media_url} alt={post.title ?? "Post media"} className="max-h-[30rem] w-full rounded-[10px] object-contain" />
+                        </div>
 
                       ) : (
                         <div className="mb-2.5 h-32.5 rounded-[14px] border border-[#2b3150] bg-[linear-gradient(125deg,rgba(124,92,255,0.4),rgba(45,212,191,0.2)),repeating-linear-gradient(45deg,rgba(255,255,255,0.05)_0_6px,transparent_6px_12px)]" />
