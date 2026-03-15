@@ -233,7 +233,7 @@ export default function DiscussionChannel({ channelId, newcomerModeration = fals
         return;
       }
     }
-    
+
     const optimisticId = `tmp-${Date.now()}`;
     const optimisticMessage: DiscussionMessage = {
       id: optimisticId,
@@ -295,11 +295,11 @@ export default function DiscussionChannel({ channelId, newcomerModeration = fals
         <span className="rounded-full border border-white/20 px-4 py-1.5 text-xs text-white/80">messages area concept</span>
       </div>
 
-      <div className="grid min-h-[640px] grid-cols-[250px_minmax(0,1fr)_300px]">
+      <div className="grid min-h-160 grid-cols-[250px_minmax(0,1fr)_300px]">
         <aside className="border-r border-white/10 p-3">
           <div className="space-y-3">
             {Array.from({ length: 8 }).map((_, index) => (
-              <div key={`left-nav-${index}`} className="h-12 rounded-xl border border-white/12 bg-white/[0.03]" />
+              <div key={`left-nav-${index}`} className="h-12 rounded-xl border border-white/12 bg-white/3" />
             ))}
           </div>
         </aside>
@@ -318,7 +318,7 @@ export default function DiscussionChannel({ channelId, newcomerModeration = fals
 
                 return (
                   <article key={message.id} className={`relative mb-3 flex ${isRight ? "justify-end" : "justify-start"}`}>
-                    {isFocusedThreadMessage ? <span className="absolute left-8 top-3 h-[72px] w-0.5 rounded-full bg-indigo-400/70" /> : null}
+                    {isFocusedThreadMessage ? <span className="absolute left-8 top-3 h-18 w-0.5 rounded-full bg-indigo-400/70" /> : null}
 
                     <div className={`relative z-10 flex items-center gap-3 ${isRight ? "flex-row-reverse" : "flex-row"}`}>
                       <MessageAvatar author={message.author} avatarUrl={message.avatarUrl} />
@@ -326,7 +326,7 @@ export default function DiscussionChannel({ channelId, newcomerModeration = fals
                         className={`h-12 rounded-2xl border ${
                           isRight
                             ? "border-indigo-400/40 bg-indigo-500/35"
-                            : "border-white/15 bg-white/[0.05]"
+                            : "border-white/15 bg-white/5"
                         }`}
                         style={{ width: `${pillWidth}px` }}
                         title={message.text}
@@ -343,7 +343,7 @@ export default function DiscussionChannel({ channelId, newcomerModeration = fals
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
               maxLength={1000}
-              className="h-11 flex-1 rounded-xl border border-white/15 bg-white/[0.05] px-4 text-sm text-white outline-none placeholder:text-white/50 focus:border-indigo-400/60"
+              className="h-11 flex-1 rounded-xl border border-white/15 bg-white/5 px-4 text-sm text-white outline-none placeholder:text-white/50 focus:border-indigo-400/60"
               placeholder="Type your message"
             />
             <button
@@ -359,7 +359,7 @@ export default function DiscussionChannel({ channelId, newcomerModeration = fals
         <aside className="space-y-3 p-4">
           <div>
             <h3 className="mb-2 text-sm text-white/85">Active Thread</h3>
-            <div className="rounded-xl border border-white/12 bg-white/[0.04] p-3">
+            <div className="rounded-xl border border-white/12 bg-white/4 p-3">
               <div className="mb-2 flex gap-2">
                 <span className="rounded-full bg-indigo-500/35 px-2.5 py-1 text-[11px] text-indigo-100">Thread</span>
                 <span className="rounded-full bg-indigo-500/35 px-2.5 py-1 text-[11px] text-indigo-100">Design</span>
@@ -371,7 +371,7 @@ export default function DiscussionChannel({ channelId, newcomerModeration = fals
 
           <div>
             <h3 className="mb-2 text-sm text-white/85">Participants</h3>
-            <div className="rounded-xl border border-white/12 bg-white/[0.04] p-3">
+            <div className="rounded-xl border border-white/12 bg-white/4 p-3">
               {(participantPreview.length ? participantPreview : [{ author: "", avatarUrl: null }, { author: "", avatarUrl: null }, { author: "", avatarUrl: null }])
                 .slice(0, 3)
                 .map((participant, idx) => (
@@ -385,7 +385,7 @@ export default function DiscussionChannel({ channelId, newcomerModeration = fals
 
           <div>
             <h3 className="mb-2 text-sm text-white/85">Pinned</h3>
-            <div className="rounded-xl border border-white/12 bg-white/[0.04] p-3">
+            <div className="rounded-xl border border-white/12 bg-white/4 p-3">
               <div className="mb-2 h-2 w-11/12 rounded-full bg-white/30" />
               <div className="h-2 w-3/4 rounded-full bg-white/30" />
             </div>
@@ -393,7 +393,7 @@ export default function DiscussionChannel({ channelId, newcomerModeration = fals
 
           <div>
             <h3 className="mb-2 text-sm text-white/85">Attachments</h3>
-            <div className="rounded-xl border border-white/12 bg-white/[0.04] p-3">
+            <div className="rounded-xl border border-white/12 bg-white/4 p-3">
               <div className="mb-2 h-2 w-4/5 rounded-full bg-white/30" />
               <div className="h-2 w-2/3 rounded-full bg-white/30" />
             </div>
