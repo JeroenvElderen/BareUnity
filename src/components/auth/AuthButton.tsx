@@ -6,6 +6,7 @@ import type { User } from "@supabase/supabase-js";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { ensureProfileExists } from "@/lib/profile";
+import { logoutUser } from "@/lib/logout";
 
 function MenuIcon({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
@@ -71,8 +72,9 @@ export default function AuthButton() {
   }, [open]);
 
   async function logout() {
-    await supabase.auth.signOut();
+    await logoutUser();
     setOpen(false);
+    window.location.assign("/login");
   }
 
   if (user) {

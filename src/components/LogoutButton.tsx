@@ -1,6 +1,6 @@
 "use client"
 
-import { supabase } from "@/lib/supabase"
+import { logoutUser } from "@/lib/logout"
 import { useRouter } from "next/navigation"
 
 export default function LogoutButton(){
@@ -8,7 +8,8 @@ export default function LogoutButton(){
   const router = useRouter()
 
   async function logout(){
-    await supabase.auth.signOut()
+    await logoutUser()
+    router.push("/login")
     router.refresh()
   }
 

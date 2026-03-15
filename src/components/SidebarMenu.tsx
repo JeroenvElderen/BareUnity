@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Channel, getChannels } from "@/lib/channel-data";
-import { supabase } from "@/lib/supabase";
+import { logoutUser } from "@/lib/logout";
 
 const settingsItems = [
   { label: "Account", href: "/settings?tab=account" },
@@ -120,8 +120,9 @@ function SidebarBody({
   onCreatePost?: () => void;
 }) {
   async function handleLogout() {
-    await supabase.auth.signOut();
+    await logoutUser();
     onNavigate?.();
+    window.location.assign("/login");
   }
   
   return (
