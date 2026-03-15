@@ -37,6 +37,16 @@ alter table public.profile_settings add column if not exists introduction text d
 alter table public.profile_settings add column if not exists created_at timestamptz not null default now();
 alter table public.profile_settings add column if not exists updated_at timestamptz not null default now();
 
+alter table public.profile_settings add column if not exists custom_profile_url text;
+alter table public.profile_settings add column if not exists vanity_slug text;
+alter table public.profile_settings add column if not exists pronouns text;
+alter table public.profile_settings add column if not exists communication_preferences jsonb default '["Direct messages"]'::jsonb;
+alter table public.profile_settings add column if not exists profile_sections jsonb default '{"about": true, "links": true, "milestones": true, "skills": true}'::jsonb;
+alter table public.profile_settings add column if not exists section_visibility jsonb default '{"about": "public", "links": "public", "milestones": "followers_only", "skills": "public", "portfolio": "public", "timeline": "followers_only"}'::jsonb;
+alter table public.profile_settings add column if not exists featured_post_ids jsonb default '[]'::jsonb;
+alter table public.profile_settings add column if not exists identity_badges jsonb default '[]'::jsonb;
+alter table public.profile_settings add column if not exists timeline_highlights jsonb default '[]'::jsonb;
+
 alter table public.profile_settings alter column show_email set default false;
 alter table public.profile_settings alter column show_activity set default true;
 alter table public.profile_settings alter column allow_friend_requests set default true;

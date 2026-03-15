@@ -6,7 +6,7 @@ datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
-  schemas   = ["public", "auth"]
+  schemas   = ["auth", "public"]
 }
 
 model badges {
@@ -160,23 +160,32 @@ model profiles {
 }
 
 model profile_settings {
-  user_id               String   @id @db.Uuid
-  profile_primary       String   @default("#1fd8b5")
-  profile_secondary     String   @default("#112b44")
-  show_email            Boolean  @default(false)
-  show_activity         Boolean  @default(true)
-  allow_friend_requests Boolean  @default(true)
-  feed_style            String   @default("balanced")
-  created_at            DateTime @default(now()) @db.Timestamptz(6)
-  updated_at            DateTime @default(now()) @db.Timestamptz(6)
-  friends               Json?    @default("[]")
-  friend_requests       Json?    @default("[]")
-  introduction          String?  @default("")
-  avatar_url            String?
-  banner_url            String?
-  home_theme_pack       String?  @default("nature")
-  dashboard_widgets     Json?    @default("{\"goals\": true, \"profile_card\": true, \"recent_activity\": true}")
-  users                 users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user_id                   String   @id @db.Uuid
+  profile_primary           String   @default("#1fd8b5")
+  profile_secondary         String   @default("#112b44")
+  show_email                Boolean  @default(false)
+  show_activity             Boolean  @default(true)
+  allow_friend_requests     Boolean  @default(true)
+  feed_style                String   @default("balanced")
+  created_at                DateTime @default(now()) @db.Timestamptz(6)
+  updated_at                DateTime @default(now()) @db.Timestamptz(6)
+  friends                   Json?    @default("[]")
+  friend_requests           Json?    @default("[]")
+  introduction              String?  @default("")
+  avatar_url                String?
+  banner_url                String?
+  home_theme_pack           String?  @default("nature")
+  dashboard_widgets         Json?    @default("{\"goals\": true, \"profile_card\": true, \"recent_activity\": true}")
+  custom_profile_url        String?
+  vanity_slug               String?
+  pronouns                  String?
+  communication_preferences Json?    @default("[\"Direct messages\"]")
+  profile_sections          Json?    @default("{\"about\": true, \"links\": true, \"skills\": true, \"milestones\": true}")
+  section_visibility        Json?    @default("{\"about\": \"public\", \"links\": \"public\", \"skills\": \"public\", \"timeline\": \"followers_only\", \"portfolio\": \"public\", \"milestones\": \"followers_only\"}")
+  featured_post_ids         Json?    @default("[]")
+  identity_badges           Json?    @default("[]")
+  timeline_highlights       Json?    @default("[]")
+  users                     users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@schema("public")
 }

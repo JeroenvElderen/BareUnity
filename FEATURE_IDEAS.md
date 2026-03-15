@@ -4,13 +4,6 @@
 
 ## 1) Identity, Accounts, and Profiles
 
-- Customizable profile sections (about, links, milestones, skills)
-- Pronouns and communication preferences fields
-- Profile completion score with guided actions
-- Creator portfolio section with featured posts
-- Profile sections that can be public, followers-only, or private
-- Identity badges (founder, moderator, top contributor, local ambassador)
-- Profile timeline with life-cycle highlights
 - Localized profile metadata by language
 - Account switcher for multi-persona usage (personal + project)
 - Session and device history dashboard
@@ -18,7 +11,6 @@
 - Self-serve account archive download
 - Profile SEO preview controls for public profiles
 - Personal “now” status with expiry timer
-- Custom profile URL and vanity link handling
 - Intro video support on profile
 - Cover media carousel
 - Interest graph with confidence scoring

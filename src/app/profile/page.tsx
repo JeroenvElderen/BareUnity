@@ -32,6 +32,11 @@ type VerificationStatus = "none" | "requested" | "verified";
 type FollowCategory = "close_friends" | "collaborators" | "inspiration";
 type ImpactStats = { helpfulReplies: number; acceptedAnswers: number };
 type SocialGraphMode = "follow" | "mutual_friend";
+type SectionVisibility = "public" | "followers_only" | "private";
+type ProfileSectionKey = "about" | "links" | "milestones" | "skills" | "portfolio" | "timeline";
+type ProfileSectionVisibility = Record<ProfileSectionKey, SectionVisibility>;
+type ProfileSections = Record<"about" | "links" | "milestones" | "skills", boolean>;
+type IdentityBadge = "founder" | "moderator" | "top_contributor" | "local_ambassador";
 
 type ProfileSettingsRow = {
   profile_primary: string;
@@ -53,12 +58,37 @@ type ProfileSettingsRow = {
   impact_stats?: ImpactStats | null;
   social_graph_mode?: SocialGraphMode | null;
   blocked_usernames?: string[] | null;
+  custom_profile_url?: string | null;
+  vanity_slug?: string | null;
+  pronouns?: string | null;
+  communication_preferences?: string[] | null;
+  profile_sections?: ProfileSections | null;
+  section_visibility?: ProfileSectionVisibility | null;
+  featured_post_ids?: string[] | null;
+  identity_badges?: IdentityBadge[] | null;
+  timeline_highlights?: string[] | null;
 };
 
 const defaultDashboardWidgets: DashboardWidgets = {
   profile_card: true,
   goals: true,
   recent_activity: true,
+};
+
+const defaultSections: ProfileSections = {
+  about: true,
+  links: true,
+  milestones: true,
+  skills: true,
+};
+
+const defaultSectionVisibility: ProfileSectionVisibility = {
+  about: "public",
+  links: "public",
+  milestones: "followers_only",
+  skills: "public",
+  portfolio: "public",
+  timeline: "followers_only",
 };
 
 const defaultSettings = {
@@ -83,7 +113,25 @@ const defaultSettings = {
   impactStats: { helpfulReplies: 8, acceptedAnswers: 3 } as ImpactStats,
   socialGraphMode: "follow" as SocialGraphMode,
   blockedUsernames: [] as string[],
+  customProfileUrl: "",
+  vanitySlug: "",
+  pronouns: "",
+  communicationPreferences: ["Direct messages"],
+  profileSections: defaultSections,
+  sectionVisibility: defaultSectionVisibility,
+  featuredPostIds: [] as string[],
+  identityBadges: [] as IdentityBadge[],
+  timelineHighlights: [] as string[],
 };
+
+function normalizeVanitySlug(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9-_]+/g, "-")
+    .replace(/-{2,}/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 30);
+}
 
 function uid() {
   return crypto.randomUUID();
@@ -120,6 +168,15 @@ export default function ProfilePage() {
   const [impactStats, setImpactStats] = useState<ImpactStats>(defaultSettings.impactStats);
   const [socialGraphMode, setSocialGraphMode] = useState<SocialGraphMode>(defaultSettings.socialGraphMode);
   const [blockedUsernames, setBlockedUsernames] = useState<string[]>(defaultSettings.blockedUsernames);
+  const [customProfileUrl, setCustomProfileUrl] = useState(defaultSettings.customProfileUrl);
+  const [vanitySlug, setVanitySlug] = useState(defaultSettings.vanitySlug);
+  const [pronouns, setPronouns] = useState(defaultSettings.pronouns);
+  const [communicationPreferences, setCommunicationPreferences] = useState<string[]>(defaultSettings.communicationPreferences);
+  const [profileSections, setProfileSections] = useState<ProfileSections>(defaultSettings.profileSections);
+  const [sectionVisibility, setSectionVisibility] = useState<ProfileSectionVisibility>(defaultSettings.sectionVisibility);
+  const [featuredPostIds, setFeaturedPostIds] = useState<string[]>(defaultSettings.featuredPostIds);
+  const [identityBadges, setIdentityBadges] = useState<IdentityBadge[]>(defaultSettings.identityBadges);
+  const [timelineHighlights, setTimelineHighlights] = useState<string[]>(defaultSettings.timelineHighlights);
   const [blockInput, setBlockInput] = useState("");
   const [profileImageUrl, setProfileImageUrl] = useState("");
   const [bannerImageUrl, setBannerImageUrl] = useState("");
@@ -182,11 +239,11 @@ export default function ProfilePage() {
 
       let query = await supabase
         .from("profile_settings")
-        .select("profile_primary, profile_secondary, avatar_url, banner_url, show_email, show_activity, allow_friend_requests, feed_style, friends, friend_requests, introduction, home_theme_pack, dashboard_widgets, verification_status, notable_contributor_note, follow_categories, impact_stats, social_graph_mode, blocked_usernames")
+        .select("profile_primary, profile_secondary, avatar_url, banner_url, show_email, show_activity, allow_friend_requests, feed_style, friends, friend_requests, introduction, home_theme_pack, dashboard_widgets, verification_status, notable_contributor_note, follow_categories, impact_stats, social_graph_mode, blocked_usernames, custom_profile_url, vanity_slug, pronouns, communication_preferences, profile_sections, section_visibility, featured_post_ids, identity_badges, timeline_highlights")
         .eq("user_id", user.id)
         .maybeSingle<ProfileSettingsRow>();
 
-      if (query.error?.message?.includes("introduction") || query.error?.message?.includes("home_theme_pack") || query.error?.message?.includes("dashboard_widgets") || query.error?.message?.includes("verification_status") || query.error?.message?.includes("notable_contributor_note") || query.error?.message?.includes("follow_categories") || query.error?.message?.includes("impact_stats")) {
+      if (query.error?.message?.includes("introduction") || query.error?.message?.includes("home_theme_pack") || query.error?.message?.includes("dashboard_widgets") || query.error?.message?.includes("verification_status") || query.error?.message?.includes("notable_contributor_note") || query.error?.message?.includes("follow_categories") || query.error?.message?.includes("impact_stats") || query.error?.message?.includes("custom_profile_url") || query.error?.message?.includes("vanity_slug") || query.error?.message?.includes("pronouns") || query.error?.message?.includes("communication_preferences") || query.error?.message?.includes("profile_sections") || query.error?.message?.includes("section_visibility") || query.error?.message?.includes("featured_post_ids") || query.error?.message?.includes("identity_badges") || query.error?.message?.includes("timeline_highlights")) {
         query = await supabase
           .from("profile_settings")
           .select("profile_primary, profile_secondary, avatar_url, banner_url, show_email, show_activity, allow_friend_requests, feed_style, friends, friend_requests, social_graph_mode, blocked_usernames")
@@ -224,11 +281,20 @@ export default function ProfilePage() {
             impact_stats: defaultSettings.impactStats,
             social_graph_mode: defaultSettings.socialGraphMode,
             blocked_usernames: defaultSettings.blockedUsernames,
+            custom_profile_url: defaultSettings.customProfileUrl,
+            vanity_slug: defaultSettings.vanitySlug,
+            pronouns: defaultSettings.pronouns,
+            communication_preferences: defaultSettings.communicationPreferences,
+            profile_sections: defaultSettings.profileSections,
+            section_visibility: defaultSettings.sectionVisibility,
+            featured_post_ids: defaultSettings.featuredPostIds,
+            identity_badges: defaultSettings.identityBadges,
+            timeline_highlights: defaultSettings.timelineHighlights,
           },
           { onConflict: "user_id" },
         );
 
-        if (createError && !createError.message.includes("introduction") && !createError.message.includes("home_theme_pack") && !createError.message.includes("dashboard_widgets") && !createError.message.includes("verification_status") && !createError.message.includes("notable_contributor_note") && !createError.message.includes("follow_categories") && !createError.message.includes("impact_stats")) console.error(createError);
+        if (createError && !createError.message.includes("introduction") && !createError.message.includes("home_theme_pack") && !createError.message.includes("dashboard_widgets") && !createError.message.includes("verification_status") && !createError.message.includes("notable_contributor_note") && !createError.message.includes("follow_categories") && !createError.message.includes("impact_stats") && !createError.message.includes("custom_profile_url") && !createError.message.includes("vanity_slug") && !createError.message.includes("pronouns") && !createError.message.includes("communication_preferences") && !createError.message.includes("profile_sections") && !createError.message.includes("section_visibility") && !createError.message.includes("featured_post_ids") && !createError.message.includes("identity_badges") && !createError.message.includes("timeline_highlights")) console.error(createError);
         setLoadedSettingsUserId(user.id);
         return;
       }
@@ -254,6 +320,15 @@ export default function ProfilePage() {
       setImpactStats({ ...defaultSettings.impactStats, ...(data.impact_stats ?? {}) });
       setSocialGraphMode(data.social_graph_mode ?? defaultSettings.socialGraphMode);
       setBlockedUsernames(data.blocked_usernames ?? defaultSettings.blockedUsernames);
+      setCustomProfileUrl(data.custom_profile_url ?? defaultSettings.customProfileUrl);
+      setVanitySlug(data.vanity_slug ?? defaultSettings.vanitySlug);
+      setPronouns(data.pronouns ?? defaultSettings.pronouns);
+      setCommunicationPreferences(data.communication_preferences ?? defaultSettings.communicationPreferences);
+      setProfileSections({ ...defaultSettings.profileSections, ...(data.profile_sections ?? {}) });
+      setSectionVisibility({ ...defaultSettings.sectionVisibility, ...(data.section_visibility ?? {}) });
+      setFeaturedPostIds(data.featured_post_ids ?? defaultSettings.featuredPostIds);
+      setIdentityBadges(data.identity_badges ?? defaultSettings.identityBadges);
+      setTimelineHighlights(data.timeline_highlights ?? defaultSettings.timelineHighlights);
       setLoadedSettingsUserId(user.id);
     }
 
@@ -285,12 +360,21 @@ export default function ProfilePage() {
         impact_stats: impactStats,
         social_graph_mode: socialGraphMode,
         blocked_usernames: blockedUsernames,
+        custom_profile_url: customProfileUrl || null,
+        vanity_slug: vanitySlug || null,
+        pronouns: pronouns || null,
+        communication_preferences: communicationPreferences,
+        profile_sections: profileSections,
+        section_visibility: sectionVisibility,
+        featured_post_ids: featuredPostIds,
+        identity_badges: identityBadges,
+        timeline_highlights: timelineHighlights,
       };
 
       let { error } = await supabase.from("profile_settings").upsert(payload, { onConflict: "user_id" });
 
-      if (error?.message?.includes("introduction") || error?.message?.includes("home_theme_pack") || error?.message?.includes("dashboard_widgets") || error?.message?.includes("verification_status") || error?.message?.includes("notable_contributor_note") || error?.message?.includes("follow_categories") || error?.message?.includes("impact_stats")) {
-        const unsupportedColumns = ["introduction", "home_theme_pack", "dashboard_widgets", "verification_status", "notable_contributor_note", "follow_categories", "impact_stats", "social_graph_mode", "blocked_usernames"];
+      if (error?.message?.includes("introduction") || error?.message?.includes("home_theme_pack") || error?.message?.includes("dashboard_widgets") || error?.message?.includes("verification_status") || error?.message?.includes("notable_contributor_note") || error?.message?.includes("follow_categories") || error?.message?.includes("impact_stats") || error?.message?.includes("custom_profile_url") || error?.message?.includes("vanity_slug") || error?.message?.includes("pronouns") || error?.message?.includes("communication_preferences") || error?.message?.includes("profile_sections") || error?.message?.includes("section_visibility") || error?.message?.includes("featured_post_ids") || error?.message?.includes("identity_badges") || error?.message?.includes("timeline_highlights")) {
+        const unsupportedColumns = ["introduction", "home_theme_pack", "dashboard_widgets", "verification_status", "notable_contributor_note", "follow_categories", "impact_stats", "social_graph_mode", "blocked_usernames", "custom_profile_url", "vanity_slug", "pronouns", "communication_preferences", "profile_sections", "section_visibility", "featured_post_ids", "identity_badges", "timeline_highlights"];
         const withoutUnsupported = Object.fromEntries(Object.entries(payload).filter(([key]) => !unsupportedColumns.includes(key)));
         error = (await supabase.from("profile_settings").upsert(withoutUnsupported, { onConflict: "user_id" })).error;
       }
@@ -299,7 +383,7 @@ export default function ProfilePage() {
     }, 350);
 
     return () => window.clearTimeout(timeout);
-  }, [user?.id, loadedSettingsUserId, profilePrimary, profileSecondary, profileImageUrl, bannerImageUrl, feedStyle, privacy, friends, friendRequests, introduction, homeThemePack, dashboardWidgets, verificationStatus, notableContributorNote, followCategories, impactStats, socialGraphMode, blockedUsernames]);
+  }, [user?.id, loadedSettingsUserId, profilePrimary, profileSecondary, profileImageUrl, bannerImageUrl, feedStyle, privacy, friends, friendRequests, introduction, homeThemePack, dashboardWidgets, verificationStatus, notableContributorNote, followCategories, impactStats, socialGraphMode, blockedUsernames, customProfileUrl, vanitySlug, pronouns, communicationPreferences, profileSections, sectionVisibility, featuredPostIds, identityBadges, timelineHighlights]);
 
   useEffect(() => {
     async function loadProfileData() {
@@ -423,6 +507,63 @@ export default function ProfilePage() {
     setBlockedUsernames((current) => current.filter((entry) => entry !== usernameToRemove));
   }
 
+  function toggleCommunicationPreference(preference: string) {
+    setCommunicationPreferences((current) => current.includes(preference) ? current.filter((value) => value !== preference) : [...current, preference]);
+  }
+
+  function toggleProfileSection(section: keyof ProfileSections) {
+    setProfileSections((current) => ({ ...current, [section]: !current[section] }));
+  }
+
+  function setSectionAccess(section: ProfileSectionKey, visibility: SectionVisibility) {
+    setSectionVisibility((current) => ({ ...current, [section]: visibility }));
+  }
+
+  function toggleIdentityBadge(badge: IdentityBadge) {
+    setIdentityBadges((current) => current.includes(badge) ? current.filter((value) => value !== badge) : [...current, badge]);
+  }
+
+  function toggleFeaturedPost(postId: string) {
+    setFeaturedPostIds((current) => current.includes(postId) ? current.filter((value) => value !== postId) : [...current, postId]);
+  }
+
+  function updateTimelineHighlight(index: number, value: string) {
+    setTimelineHighlights((current) => current.map((entry, entryIndex) => (entryIndex === index ? value.slice(0, 90) : entry)));
+  }
+
+  function addTimelineHighlight() {
+    setTimelineHighlights((current) => [...current, ""]);
+  }
+
+  function removeTimelineHighlight(index: number) {
+    setTimelineHighlights((current) => current.filter((_, entryIndex) => entryIndex !== index));
+  }
+
+
+  const completionChecks = [
+    introduction.trim().length > 0,
+    pronouns.trim().length > 0,
+    customProfileUrl.trim().length > 0 || vanitySlug.trim().length > 0,
+    communicationPreferences.length > 0,
+    identityBadges.length > 0,
+    timelineHighlights.some((entry) => entry.trim().length > 0),
+    profileSections.about || profileSections.links || profileSections.milestones || profileSections.skills,
+  ];
+
+  const profileCompletionScore = Math.round((completionChecks.filter(Boolean).length / completionChecks.length) * 100);
+
+  const guidedActions = [
+    !introduction.trim() ? "Add an about summary" : null,
+    !pronouns.trim() ? "Set pronouns" : null,
+    !customProfileUrl.trim() && !vanitySlug.trim() ? "Choose a profile URL or vanity slug" : null,
+    communicationPreferences.length === 0 ? "Select communication preferences" : null,
+    identityBadges.length === 0 ? "Add at least one identity badge" : null,
+    !timelineHighlights.some((entry) => entry.trim()) ? "Add a timeline highlight" : null,
+  ].filter((entry): entry is string => Boolean(entry));
+
+  const featuredPosts = profilePosts.filter((post) => featuredPostIds.includes(post.id));
+  const effectiveProfileUrl = customProfileUrl.trim() || (vanitySlug.trim() ? `/u/${vanitySlug.trim()}` : `/profile/${username.toLowerCase()}`);
+
   const statCards = [
     { label: "Followers", value: followersCount.toLocaleString() },
     { label: "Following", value: followingCount.toLocaleString() },
@@ -465,11 +606,39 @@ export default function ProfilePage() {
                   <h1 className="truncate text-xl font-bold sm:text-2xl">{username}</h1>
                   <p className="text-xs text-[#8e97b8]">@{user?.email?.split("@")[0] ?? "naturist"}</p>
                   {introduction ? <p className="mt-1 text-sm text-[#dce2ff]">{introduction}</p> : null}
+                  {pronouns ? <p className="mt-1 text-xs text-[#8e97b8]">Pronouns: {pronouns}</p> : null}
+                  <p className="mt-1 text-xs text-[#8e97b8]">Profile URL: {effectiveProfileUrl}</p>
+                  {identityBadges.length > 0 ? <div className="mt-2 flex flex-wrap gap-1.5">{identityBadges.map((badge) => <span key={badge} className="rounded-full border border-[#46507d] px-2 py-0.5 text-[10px] uppercase tracking-wide">{badge.replaceAll("_", " ")}</span>)}</div> : null}
                 </div>
               </div>
             </section>
 
-            {activeTab === "Overview" && <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{statCards.map((stat) => <article key={stat.label} className="rounded-[18px] border border-[#242941] bg-[#121522] p-3.5"><p className="text-2xl font-semibold">{stat.value}</p><p className="mt-1 text-sm text-[#8e97b8]">{stat.label}</p></article>)}</section>}
+            {activeTab === "Overview" && (
+              <>
+                <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{statCards.map((stat) => <article key={stat.label} className="rounded-[18px] border border-[#242941] bg-[#121522] p-3.5"><p className="text-2xl font-semibold">{stat.value}</p><p className="mt-1 text-sm text-[#8e97b8]">{stat.label}</p></article>)}</section>
+                <section className="mt-4 grid gap-3 lg:grid-cols-2">
+                  <article className="rounded-2xl border border-[#242941] bg-[#121522] p-4 text-sm">
+                    <h3 className="font-semibold text-[#2dd4bf]">Creator portfolio</h3>
+                    <p className="mt-2 text-xs text-[#8e97b8]">Featured posts curated from your published content.</p>
+                    <div className="mt-3 space-y-2">
+                      {featuredPosts.length === 0 ? <p className="text-xs text-[#8e97b8]">No featured posts selected.</p> : featuredPosts.map((post) => (
+                        <div key={post.id} className="rounded-xl border border-[#2b3150] bg-[#0d1020] p-2.5">
+                          <p className="text-sm font-medium text-[#dce2ff]">{post.title ?? "Untitled post"}</p>
+                          <p className="text-[11px] text-[#8e97b8]">{formatRelativeTime(post.created_at)}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </article>
+                  <article className="rounded-2xl border border-[#242941] bg-[#121522] p-4 text-sm">
+                    <h3 className="font-semibold text-[#2dd4bf]">Profile timeline</h3>
+                    <p className="mt-2 text-xs text-[#8e97b8]">Life-cycle highlights visible based on your section access rules.</p>
+                    <ol className="mt-3 space-y-2 list-decimal list-inside">
+                      {timelineHighlights.filter((entry) => entry.trim()).length === 0 ? <li className="text-xs text-[#8e97b8]">No highlights yet.</li> : timelineHighlights.filter((entry) => entry.trim()).map((entry, index) => <li key={`${entry}-${index}`} className="text-xs text-[#dce2ff]">{entry}</li>)}
+                    </ol>
+                  </article>
+                </section>
+              </>
+            )}
 
             {activeTab === "Posts" && (
               <section className="grid max-h-155 grid-cols-1 gap-3 overflow-y-auto pr-1">
@@ -511,6 +680,98 @@ export default function ProfilePage() {
                   <textarea value={introduction} onChange={(event) => setIntroduction(event.target.value.slice(0, 220))} className="mt-3 h-24 w-full rounded-xl border border-[#2b3150] bg-[#0d1020] p-3" placeholder="Short introduction" />
                   <label className="mt-3 block">Profile image URL<input value={profileImageUrl} onChange={(event) => setProfileImageUrl(event.target.value)} className="mt-1 w-full rounded-xl border border-[#2b3150] bg-[#0d1020] px-3 py-2" /></label>
                   <label className="mt-3 block">Banner image URL<input value={bannerImageUrl} onChange={(event) => setBannerImageUrl(event.target.value)} className="mt-1 w-full rounded-xl border border-[#2b3150] bg-[#0d1020] px-3 py-2" /></label>
+                </article>
+                <article className="rounded-2xl border border-[#242941] bg-[#121522] p-4 text-sm">
+                  <h3 className="font-semibold text-[#2dd4bf]">Profile identity + URL</h3>
+                  <label className="mt-3 block">Custom profile URL<input value={customProfileUrl} onChange={(event) => setCustomProfileUrl(event.target.value.slice(0, 120))} className="mt-1 w-full rounded-xl border border-[#2b3150] bg-[#0d1020] px-3 py-2" placeholder="https://bareunity.app/your-profile" /></label>
+                  <label className="mt-3 block">Vanity slug<input value={vanitySlug} onChange={(event) => setVanitySlug(normalizeVanitySlug(event.target.value))} className="mt-1 w-full rounded-xl border border-[#2b3150] bg-[#0d1020] px-3 py-2" placeholder="your-name" /></label>
+                  <label className="mt-3 block">Pronouns<input value={pronouns} onChange={(event) => setPronouns(event.target.value.slice(0, 40))} className="mt-1 w-full rounded-xl border border-[#2b3150] bg-[#0d1020] px-3 py-2" placeholder="they/them" /></label>
+                  <p className="mt-3 text-xs text-[#8e97b8]">Communication preferences</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {["Direct messages", "Email", "Mentions only", "Async only"].map((preference) => (
+                      <button key={preference} type="button" onClick={() => toggleCommunicationPreference(preference)} className={`rounded-full px-3 py-1 text-xs ${communicationPreferences.includes(preference) ? "bg-accent text-[#08232c]" : "border border-accent/30"}`}>
+                        {preference}
+                      </button>
+                    ))}
+                  </div>
+                </article>
+
+                <article className="rounded-2xl border border-[#242941] bg-[#121522] p-4 text-sm">
+                  <h3 className="font-semibold text-[#2dd4bf]">Profile completeness</h3>
+                  <p className="mt-2 text-xs text-[#8e97b8]">Completion score updates as you configure your profile.</p>
+                  <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-[#0d1020]"><div className="h-full rounded-full bg-accent" style={{ width: `${profileCompletionScore}%` }} /></div>
+                  <p className="mt-2 text-xs text-[#dce2ff]">{profileCompletionScore}% complete</p>
+                  <ul className="mt-3 space-y-1 text-xs text-[#8e97b8]">
+                    {guidedActions.length === 0 ? <li>All guided actions complete.</li> : guidedActions.map((action) => <li key={action}>• {action}</li>)}
+                  </ul>
+                </article>
+
+                <article className="rounded-2xl border border-[#242941] bg-[#121522] p-4 text-sm">
+                  <h3 className="font-semibold text-[#2dd4bf]">Custom profile sections</h3>
+                  <p className="mt-2 text-xs text-[#8e97b8]">Toggle sections and choose visibility: public, followers-only, or private.</p>
+                  <div className="mt-3 space-y-3">
+                    {(["about", "links", "milestones", "skills"] as (keyof ProfileSections)[]).map((section) => (
+                      <div key={section} className="rounded-xl border border-[#2b3150] bg-[#0d1020] p-2.5">
+                        <div className="flex items-center justify-between">
+                          <label className="flex items-center gap-2 text-xs capitalize"><input type="checkbox" checked={profileSections[section]} onChange={() => toggleProfileSection(section)} />{section}</label>
+                          <span className="text-[11px] text-[#8e97b8]">{sectionVisibility[section]}</span>
+                        </div>
+                        <div className="mt-2 flex gap-1.5">
+                          {(["public", "followers_only", "private"] as SectionVisibility[]).map((visibility) => (
+                            <button key={visibility} type="button" onClick={() => setSectionAccess(section, visibility)} className={`rounded-full px-2 py-1 text-[11px] ${sectionVisibility[section] === visibility ? "bg-accent text-[#08232c]" : "border border-accent/30"}`}>
+                              {visibility.replace("_", " ")}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                    {(["portfolio", "timeline"] as const).map((section) => (
+                      <div key={section} className="rounded-xl border border-[#2b3150] bg-[#0d1020] p-2.5">
+                        <p className="text-xs capitalize">{section}</p>
+                        <div className="mt-2 flex gap-1.5">
+                          {(["public", "followers_only", "private"] as SectionVisibility[]).map((visibility) => (
+                            <button key={visibility} type="button" onClick={() => setSectionAccess(section, visibility)} className={`rounded-full px-2 py-1 text-[11px] ${sectionVisibility[section] === visibility ? "bg-accent text-[#08232c]" : "border border-accent/30"}`}>
+                              {visibility.replace("_", " ")}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+
+                <article className="rounded-2xl border border-[#242941] bg-[#121522] p-4 text-sm">
+                  <h3 className="font-semibold text-[#2dd4bf]">Identity badges + timeline</h3>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {(["founder", "moderator", "top_contributor", "local_ambassador"] as IdentityBadge[]).map((badge) => (
+                      <button key={badge} type="button" onClick={() => toggleIdentityBadge(badge)} className={`rounded-full px-3 py-1 text-xs capitalize ${identityBadges.includes(badge) ? "bg-accent text-[#08232c]" : "border border-accent/30"}`}>
+                        {badge.replaceAll("_", " ")}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-3 text-xs text-[#8e97b8]">Life-cycle highlights</p>
+                  <div className="mt-2 space-y-2">
+                    {timelineHighlights.map((highlight, index) => (
+                      <div key={`timeline-${index}`} className="flex gap-2">
+                        <input value={highlight} onChange={(event) => updateTimelineHighlight(index, event.target.value)} className="w-full rounded-xl border border-[#2b3150] bg-[#0d1020] px-3 py-1.5 text-xs" placeholder="Launched first community challenge" />
+                        <button type="button" onClick={() => removeTimelineHighlight(index)} className="rounded-xl border border-[#46507d] px-2 text-xs">×</button>
+                      </div>
+                    ))}
+                    <button type="button" onClick={addTimelineHighlight} className="rounded-xl border border-accent/30 px-3 py-1 text-xs">Add highlight</button>
+                  </div>
+                </article>
+
+                <article className="rounded-2xl border border-[#242941] bg-[#121522] p-4 text-sm">
+                  <h3 className="font-semibold text-[#2dd4bf]">Creator portfolio featured posts</h3>
+                  <p className="mt-2 text-xs text-[#8e97b8]">Pick posts to feature in your portfolio section.</p>
+                  <div className="mt-3 max-h-40 space-y-2 overflow-y-auto pr-1">
+                    {profilePosts.length === 0 ? <p className="text-xs text-[#8e97b8]">Publish posts to feature them.</p> : profilePosts.map((post) => (
+                      <label key={post.id} className="flex items-center justify-between gap-2 rounded-xl border border-[#2b3150] bg-[#0d1020] px-2.5 py-2 text-xs">
+                        <span className="truncate">{post.title ?? "Untitled post"}</span>
+                        <input type="checkbox" checked={featuredPostIds.includes(post.id)} onChange={() => toggleFeaturedPost(post.id)} />
+                      </label>
+                    ))}
+                  </div>
                 </article>
                 <article className="rounded-2xl border border-[#242941] bg-[#121522] p-4 text-sm">
                   <h3 className="font-semibold text-[#2dd4bf]">Experience + privacy</h3>
