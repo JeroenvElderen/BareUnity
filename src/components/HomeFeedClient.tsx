@@ -470,7 +470,7 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
                       {post.media_url ? (
                         <div className="mb-3 overflow-hidden rounded-[14px] border border-[#2b3150] bg-[#0a1020] p-1.5">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={post.media_url} alt={post.title ?? "Post media"} className="max-h-[42rem] w-full rounded-[10px] object-contain" />
+                          <img src={post.media_url} alt={post.title ?? "Post media"} className="max-h-168 w-full rounded-[10px] object-contain" />
                         </div>
 
                       ) : (

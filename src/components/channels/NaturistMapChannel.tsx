@@ -366,10 +366,10 @@ export default function NaturistMapChannel() {
   }
 
   return (
-    <section className="rounded-3xl border border-accent/20 bg-card/40 p-4 md:p-6">
+    <section className="flex min-h-[calc(100vh-10rem)] flex-col rounded-3xl border border-[#3a5e4e] bg-linear-to-b from-[#13211b] to-[#1b2f26] p-4 text-[#e7f3ec] shadow-[0_18px_60px_rgba(0,0,0,0.35)] md:p-6">
       <div className="mb-4 space-y-2">
-        <h2 className="text-base font-semibold text-text">Naturist Map</h2>
-        <p className="text-sm text-muted">
+        <h2 className="text-base font-semibold text-[#effaf4]">Naturist Map</h2>
+        <p className="text-sm text-[#b5cfbf]">
           Explore naturist-friendly beaches, discreet hideaways, and calm nature locations. Always verify local regulations and respect
           privacy at each site.
         </p>
@@ -380,7 +380,9 @@ export default function NaturistMapChannel() {
               type="button"
               onClick={() => setPrivacyFilter(option)}
               className={`rounded-full border px-3 py-1.5 transition ${
-                privacyFilter === option ? "border-accent/60 bg-accent/15 text-text" : "border-accent/20 text-muted hover:border-accent/40"
+                privacyFilter === option
+                  ? "border-[#6da887] bg-[#2b4a3b] text-[#ecf9f2]"
+                  : "border-[#3a5e4e] bg-[#1d3228] text-[#c8dfd2] hover:border-[#5f8f78]"
               }`}
             >
               {option} ({option === "All" ? spots.length : spots.filter((spot) => spot.privacy === option).length})
@@ -402,11 +404,13 @@ export default function NaturistMapChannel() {
           />
         </div>
       ) : (
-        <div className="grid gap-3 xl:grid-cols-[1fr_280px]">
-          <div ref={mapContainerRef} className="h-105 w-full overflow-hidden rounded-2xl border border-accent/20" />
-          <aside className="rounded-2xl border border-accent/20 bg-bg/30 p-3">
-            <h3 className="text-sm font-semibold text-text">Visible locations</h3>
-            <div className="mt-2 max-h-91.25 space-y-2 overflow-y-auto pr-1">
+        <div className="relative mt-1 flex-1 overflow-hidden rounded-2xl border border-[#3a5e4e] bg-[#15271f]/80">
+          <div ref={mapContainerRef} className="h-full min-h-160 w-full overflow-hidden" />
+
+          <aside className="absolute inset-y-3 left-3 z-10 flex h-auto max-h-[calc(100%-1.5rem)] w-full max-w-88 flex-col rounded-2xl border border-[#3a5e4e] bg-[#14231d]/75 p-3 backdrop-blur-md">
+            <h3 className="text-sm font-semibold text-[#effaf4]">Visible locations</h3>
+            <p className="mt-1 text-xs text-[#b5cfbf]">Select a spot to focus it on the map.</p>
+            <div className="mt-3 flex-1 space-y-2 overflow-y-auto pr-1">
               {visibleSpots.map((spot) => (
                 <button
                   key={spot.id}
@@ -415,39 +419,39 @@ export default function NaturistMapChannel() {
                     setSelectedCoords(spot.coordinates);
                     setSelectedLocationLabel(spot.name);
                   }}
-                  className="glass-input w-full rounded-xl px-3 py-2 text-left"
+                  className="w-full rounded-xl border border-[#3a5e4e] bg-[#102118]/75 px-3 py-2 text-left transition hover:border-[#6da887]"
                 >
-                  <p className="text-sm font-medium text-cyan-50">{spot.name}</p>
-                  <p className="line-clamp-2 text-xs text-muted">{spot.description}</p>
+                  <p className="text-sm font-medium text-[#ecf9f2]">{spot.name}</p>
+                  <p className="line-clamp-2 text-xs text-[#b5cfbf]">{spot.description}</p>
                 </button>
               ))}
-              {visibleSpots.length === 0 ? <p className="text-xs text-muted">No spots match this filter yet.</p> : null}
+              {visibleSpots.length === 0 ? <p className="text-xs text-[#b5cfbf]">No spots match this filter yet.</p> : null}
             </div>
-          </aside>
 
           <button
-            type="button"
-            className="premium-button mt-3 text-sm"
-            onClick={() => {
-              setIsAddingSpot((current) => !current);
-              setSaveError(null);
-            }}
-          >
-            {isAddingSpot ? "Close" : "Add location"}
-          </button>
+              type="button"
+              className="mt-3 w-full rounded-xl bg-[#5dac7d] px-3 py-2 text-sm font-semibold text-[#072316] transition hover:bg-[#7bc095]"
+              onClick={() => {
+                setIsAddingSpot((current) => !current);
+                setSaveError(null);
+              }}
+            >
+              {isAddingSpot ? "Close" : "Add location"}
+            </button>
+          </aside>
 
           {isAddingSpot ? (
-            <div className="glass-card mt-3 max-h-97.5 w-full max-w-105 overflow-y-auto p-3 text-sm">
+            <div className="absolute right-3 top-3 z-10 max-h-[calc(100%-1.5rem)] w-full max-w-105 overflow-y-auto rounded-2xl border border-[#4a7763] bg-gradient-to-br from-[#1b3127]/95 to-[#13241d]/95 p-3 text-sm shadow-xl backdrop-blur-md">
               <form className="space-y-3" onSubmit={searchPlaces}>
-                <p className="text-xs text-muted">Search beaches, resorts, buildings, or remote places, then select a result.</p>
+                <p className="text-xs text-[#b5cfbf]">Search beaches, resorts, buildings, or remote places, then select a result.</p>
                 <div className="flex gap-2">
                   <input
-                    className="glass-input min-w-0 flex-1 rounded-lg px-3 py-2"
+                    className="min-w-0 flex-1 rounded-lg border border-[#3a5e4e] bg-[#102118] px-3 py-2 text-[#e7f3ec]"
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}
                     placeholder="Search location"
                   />
-                  <button type="submit" className="soft-button text-xs" disabled={searchLoading}>
+                  <button type="submit" className="rounded-lg border border-[#3a5e4e] bg-[#1d3228] px-3 text-xs text-[#ecf9f2]" disabled={searchLoading}>
                     {searchLoading ? "Searching..." : "Search"}
                   </button>
                 </div>
@@ -459,11 +463,11 @@ export default function NaturistMapChannel() {
                     <li key={result.place_id}>
                       <button
                         type="button"
-                        className="glass-input w-full rounded-lg px-2 py-2 text-left"
+                        className="w-full rounded-lg border border-[#3a5e4e] bg-[#102118]/80 px-2 py-2 text-left"
                         onClick={() => selectSearchResult(result)}
                       >
-                        <p className="text-xs text-cyan-50">{result.display_name}</p>
-                        <p className="text-[11px] uppercase tracking-wide text-muted">{result.class} • {result.type}</p>
+                        <p className="text-xs text-[#ecf9f2]">{result.display_name}</p>
+                        <p className="text-[11px] uppercase tracking-wide text-[#b5cfbf]">{result.class} • {result.type}</p>
                       </button>
                     </li>
                   ))}
@@ -476,18 +480,18 @@ export default function NaturistMapChannel() {
                     Selected: {selectedLocationLabel}
                   </p>
                 ) : (
-                  <p className="text-xs text-muted">No location selected yet.</p>
+                  <p className="text-xs text-[#b5cfbf]">No location selected yet.</p>
                 )}
 
                 <input
-                  className="glass-input w-full rounded-lg px-3 py-2"
+                  className="w-full rounded-lg border border-[#3a5e4e] bg-[#102118] px-3 py-2 text-[#e7f3ec]"
                   value={newSpot.name}
                   onChange={(event) => setNewSpot((current) => ({ ...current, name: event.target.value }))}
                   placeholder="Spot name"
                   required
                 />
                 <textarea
-                  className="glass-input w-full rounded-lg px-3 py-2"
+                  className="w-full rounded-lg border border-[#3a5e4e] bg-[#102118] px-3 py-2 text-[#e7f3ec]"
                   rows={3}
                   value={newSpot.description}
                   onChange={(event) => setNewSpot((current) => ({ ...current, description: event.target.value }))}
@@ -495,7 +499,7 @@ export default function NaturistMapChannel() {
                   required
                 />
                 <select
-                  className="glass-input w-full rounded-lg px-3 py-2"
+                  className="w-full rounded-lg border border-[#3a5e4e] bg-[#102118] px-3 py-2 text-[#e7f3ec]"
                   value={newSpot.privacy}
                   onChange={(event) => setNewSpot((current) => ({ ...current, privacy: event.target.value as NaturistSpot["privacy"] }))}
                 >
@@ -505,7 +509,11 @@ export default function NaturistMapChannel() {
 
                 {saveError ? <p className="text-xs text-rose-200">{saveError}</p> : null}
 
-                <button type="submit" className="premium-button w-full text-sm" disabled={saving}>
+                <button
+                  type="submit"
+                  className="w-full rounded-xl bg-[#5dac7d] px-3 py-2 text-sm font-semibold text-[#072316] transition hover:bg-[#7bc095]"
+                  disabled={saving}
+                >
                   {saving ? "Saving..." : "Save to Supabase"}
                 </button>
               </form>
