@@ -511,6 +511,7 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
 
                       <div className="mt-3 flex items-center gap-2">
                         <input
+                          suppressHydrationWarning
                           value={newCommentByPost[post.id] ?? ""}
                           onChange={(event) => setNewCommentByPost((current) => ({ ...current, [post.id]: event.target.value }))}
                           onFocus={() => {
