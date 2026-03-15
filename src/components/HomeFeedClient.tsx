@@ -257,7 +257,7 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
                 onClick={() => setIsComposerOpen(false)}
                 className="absolute inset-0 bg-[#04060c]/75 backdrop-blur-sm"
               />
-              <div className="relative ml-auto h-full w-full max-w-240 overflow-y-auto border-l border-[#2a3445] bg-[#070e18] p-3 sm:p-5">
+              <div className="relative h-full w-full overflow-y-auto bg-[#070e18] p-3 sm:p-5">
                 <CreatePost onCancel={() => setIsComposerOpen(false)} onPublished={() => setIsComposerOpen(false)} />
               </div>
             </div>
