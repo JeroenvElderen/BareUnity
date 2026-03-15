@@ -135,6 +135,7 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
   const [themePack, setThemePack] = useState<ThemePack>("nature");
   const [widgets, setWidgets] = useState<DashboardWidgets>(defaultWidgets);
   const [isComposerOpen, setIsComposerOpen] = useState(false);
+  const [selectedPost, setSelectedPost] = useState<FeedPost | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -203,39 +204,19 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
           };
 
   return (
-    <main className={`min-h-screen p-3 sm:p-6 ${theme.page}`}>
-      <div className={`mx-auto grid min-h-[calc(100vh-1.5rem)] w-full max-w-none grid-cols-1 overflow-hidden rounded-[26px] border bg-linear-to-b from-white/2 to-white/0 shadow-[0_20px_80px_rgba(0,0,0,0.45)] sm:min-h-[calc(100vh-3rem)] lg:grid-cols-[250px_1fr_340px] ${theme.shell}`}>
+    <main className={`h-screen overflow-hidden p-3 sm:p-6 ${theme.page}`}>
+      <div className={`mx-auto grid h-full w-full max-w-none grid-cols-1 overflow-hidden rounded-[26px] border bg-linear-to-b from-white/2 to-white/0 shadow-[0_20px_80px_rgba(0,0,0,0.45)] lg:grid-cols-[250px_1fr_340px] ${theme.shell}`}>
         <div className={`border-b p-3 lg:border-b-0 lg:border-r lg:p-4 ${theme.shell}`}>
           <SidebarMenu channels={channels} onCreatePost={() => setIsComposerOpen(true)} />
         </div>
 
-        <section className="overflow-hidden p-3.5 sm:p-5.5">
+        <section className="flex min-h-0 flex-col overflow-hidden p-3.5 sm:p-5.5">
           <div className="mb-4 grid grid-cols-1 items-center gap-3 xl:grid-cols-[1fr_auto]">
             <div className={`rounded-[14px] border px-3.5 py-3.25 text-sm ${theme.panel} ${theme.subtleText}`}>🔎 Search channels, creators, and tags...</div>
-            <div className="flex flex-wrap gap-2.5">
-              {["For You", "Following", channels[0] ? `#${channels[0].name}` : "Trending"].map((chip) => (
-                <div key={chip} className={`rounded-[10px] border px-2.75 py-2.5 text-xs ${theme.panel} ${theme.subtleText}`}>
-                  {chip}
-                </div>
-              ))}
-            </div>
           </div>
 
-          <section className={`mb-4 rounded-[14px] border p-3 text-xs ${theme.panel}`}>
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <strong>Customize home dashboard</strong>
-              <span className={theme.subtleText}>Change in profile settings</span>
-            </div>
-            <div className={`flex flex-wrap gap-x-4 gap-y-2 ${theme.subtleText}`}>
-              <label className="flex items-center gap-2"><input type="checkbox" checked={widgets.profile_card} readOnly /> Profile card</label>
-              <label className="flex items-center gap-2"><input type="checkbox" checked={widgets.goals} readOnly /> Weekly goals</label>
-              <label className="flex items-center gap-2"><input type="checkbox" checked={widgets.recent_activity} readOnly /> Recent activity</label>
-              <span>Theme: {themePack}</span>
-            </div>
-          </section>
-
-          <>
-              <section className="grid max-h-135 grid-cols-1 gap-3 overflow-y-auto pr-1">
+          <section className="min-h-0 flex-1">
+              <section className="grid h-full grid-cols-1 gap-3 overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {posts.map((post) => {
                   const author = post.author_id ? authorMap.get(post.author_id) : null;
                   const authorName = author?.display_name ?? author?.username ?? "Community member";
@@ -245,7 +226,19 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
                   const flair = parsedPost.metadata?.flair?.trim();
 
                   return (
-                    <article key={post.id} className={`rounded-[18px] border p-4 ${theme.panel}`}>
+                    <article
+                      key={post.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setSelectedPost(post)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          setSelectedPost(post);
+                        }
+                      }}
+                      className={`cursor-pointer rounded-[18px] border p-4 transition hover:border-[#5365a5] ${theme.panel}`}
+                    >
                       <div className="mb-2.5 flex items-start justify-between gap-3">
                         <div className="flex items-center gap-2.5">
                           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-linear-to-br from-[#8d76ff] to-[#2dd4bf] text-xs font-semibold text-white">
@@ -264,14 +257,14 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
                       </div>
 
                       {post.title ? <h3 className="mb-1 text-[15px] font-semibold text-[#f4f7ff]">{post.title}</h3> : null}
-                      <p className="mb-3 whitespace-pre-line text-[14px] leading-relaxed text-[#dce2ff]">{parsedPost.body}</p>
+                      <p className="mb-3 line-clamp-3 whitespace-pre-line text-[14px] leading-relaxed text-[#dce2ff]">{parsedPost.body}</p>
 
                       {flair ? <div className="mb-3 inline-flex rounded-full border border-[#6f6bff]/35 bg-[#6f6bff]/12 px-2.5 py-1 text-[11px] font-medium text-[#d7d3ff]">#{flair}</div> : null}
 
                       {post.media_url ? (
                         <div className="mb-3 overflow-hidden rounded-[14px] border border-[#2b3150] bg-[#0a1020] p-1.5">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={post.media_url} alt={post.title ?? "Post media"} className="max-h-[30rem] w-full rounded-[10px] object-contain" />
+                          <img src={post.media_url} alt={post.title ?? "Post media"} className="max-h-[42rem] w-full rounded-[10px] object-contain" />
                         </div>
 
                       ) : (
@@ -293,7 +286,67 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
                   </article>
                 ) : null}
               </section>
-            </>
+            </section>
+
+          {selectedPost ? (
+            <div className="fixed inset-0 z-60" role="dialog" aria-modal="true" aria-label="Post detail">
+              <button
+                type="button"
+                aria-label="Close post detail"
+                onClick={() => setSelectedPost(null)}
+                className="absolute inset-0 bg-[#04060c]/75 backdrop-blur-sm"
+              />
+
+              <div className="relative mx-auto flex h-full w-full max-w-4xl items-center p-3 sm:p-6">
+                <article className={`max-h-full w-full overflow-y-auto rounded-[18px] border p-4 sm:p-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${theme.panel}`}>
+                  {(() => {
+                    const author = selectedPost.author_id ? authorMap.get(selectedPost.author_id) : null;
+                    const authorName = author?.display_name ?? author?.username ?? "Community member";
+                    const authorHandle = author?.username ?? "bareunity";
+                    const parsedPost = parseComposerContent(selectedPost.content, selectedPost.title);
+                    const flair = parsedPost.metadata?.flair?.trim();
+
+                    return (
+                      <>
+                        <div className="mb-2.5 flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-2.5">
+                            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-linear-to-br from-[#8d76ff] to-[#2dd4bf] text-xs font-semibold text-white">
+                              {initialsFromName(authorName)}
+                            </div>
+                            <div>
+                              <strong className="block text-base">{authorName}</strong>
+                              <span className={`text-xs ${theme.subtleText}`}>
+                                @{authorHandle} · {formatRelativeTime(selectedPost.created_at)} · #{selectedPost.channels?.name?.toLowerCase().replace(/\s+/g, "-") ?? "general"}
+                              </span>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedPost(null)}
+                            className="rounded-full border border-[#384271] px-2.5 py-1 text-[11px] text-[#dbe3ff] hover:bg-[#1d2238]"
+                          >
+                            Close
+                          </button>
+                        </div>
+
+                        {selectedPost.title ? <h3 className="mb-1 text-[15px] font-semibold text-[#f4f7ff]">{selectedPost.title}</h3> : null}
+                        <p className="mb-3 whitespace-pre-line text-[14px] leading-relaxed text-[#dce2ff]">{parsedPost.body}</p>
+
+                        {flair ? <div className="mb-3 inline-flex rounded-full border border-[#6f6bff]/35 bg-[#6f6bff]/12 px-2.5 py-1 text-[11px] font-medium text-[#d7d3ff]">#{flair}</div> : null}
+
+                        {selectedPost.media_url ? (
+                          <div className="mb-3 overflow-hidden rounded-[14px] border border-[#2b3150] bg-[#0a1020] p-1.5">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={selectedPost.media_url} alt={selectedPost.title ?? "Post media"} className="max-h-[70vh] w-full rounded-[10px] object-contain" />
+                          </div>
+                        ) : null}
+                      </>
+                    );
+                  })()}
+                </article>
+              </div>
+            </div>
+          ) : null}
 
           {isComposerOpen ? (
             <div className="fixed inset-0 z-60" role="dialog" aria-modal="true" aria-label="Create post flyout">
