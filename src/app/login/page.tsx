@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { type FormEvent, useState } from "react";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 
@@ -8,9 +9,10 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const searchParams = useSearchParams();
 
   function getSafeNextPath() {
-    const nextPath = new URLSearchParams(window.location.search).get("next") || "/";
+    const nextPath = searchParams.get("next") || "/";
     return nextPath.startsWith("/") ? nextPath : "/";
   }
 
