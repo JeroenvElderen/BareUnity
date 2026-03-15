@@ -90,6 +90,14 @@ export default function CreatePost({ onPublished, onCancel }: CreatePostProps) {
 
   const titleCount = title.length;
   const activeMedia = mediaStudio[activeMediaIndex] ?? null;
+  const previewTitle = title.trim() || "Your post title will appear here";
+  const previewSubtitle =
+    activeTab === "link"
+      ? linkUrl.trim() || "Add a link to enrich your post"
+      : activeTab === "poll"
+        ? pollQuestion.trim() || "Your poll question will appear here"
+        : "Write a short hook to attract readers";
+  const previewBody = body.trim() || "Start writing in the editor to see a live preview of your post content.";
 
   const submitDisabled = useMemo(() => {
     if (loading) return true;
@@ -203,6 +211,28 @@ export default function CreatePost({ onPublished, onCancel }: CreatePostProps) {
 
   return (
     <section className="glass-card-strong rounded-3xl p-4 text-text sm:p-6">
+      <header className="mb-4 flex items-center justify-between border-b border-accent/20 pb-4">
+        <div>
+          <p className="text-xs uppercase tracking-[0.18em] text-muted">Workspace / New Post</p>
+          <h2 className="mt-1 text-xl font-bold text-text sm:text-2xl">Creator Studio</h2>
+        </div>
+        <div className="flex items-center gap-2">
+          <button type="button" className="rounded-xl border border-accent/20 bg-white/5 px-4 py-2 text-sm text-muted" disabled>
+            Save
+          </button>
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={submitDisabled}
+            className="premium-button rounded-xl px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {loading ? "Publishing..." : "Publish"}
+          </button>
+        </div>
+      </header>
+
+      <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
+        <div>
       <div className="mb-5 flex flex-wrap gap-2 border-b border-accent/20 pb-3 text-sm font-semibold sm:text-base">
         {tabs.map((tab) => (
           <button
@@ -319,7 +349,7 @@ export default function CreatePost({ onPublished, onCancel }: CreatePostProps) {
       <textarea
         value={body}
         onChange={(event) => setBody(event.target.value)}
-        placeholder="Body text (optional)"
+        placeholder="Rich text editor with markdown shortcuts, slash commands, and embeds."
         className="glass-input mb-5 min-h-44 w-full rounded-2xl px-4 py-3 text-base leading-relaxed text-text outline-none placeholder:text-muted focus:border-accent/50"
       />
 
@@ -332,14 +362,34 @@ export default function CreatePost({ onPublished, onCancel }: CreatePostProps) {
         <button type="button" className="rounded-full border border-accent/20 bg-white/5 px-5 py-2.5 text-sm font-semibold text-muted" disabled>
           Save Draft
         </button>
-        <button
-          type="button"
-          onClick={handleSubmit}
-          disabled={submitDisabled}
-          className="premium-button rounded-full px-6 py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {loading ? "Posting..." : "Post"}
-        </button>
+        <span className="rounded-full border border-accent/20 bg-accent/10 px-4 py-2 text-xs font-semibold text-muted">Right sidebar shows live preview</span>
+      </div>
+
+        </div>
+
+        <aside className="rounded-2xl border border-accent/20 bg-bg/45 p-4">
+          <p className="mb-3 text-xs uppercase tracking-[0.16em] text-muted">Live preview</p>
+          <article className="overflow-hidden rounded-2xl border border-accent/20 bg-bg/60">
+            <div className="h-40 bg-gradient-to-br from-blue-600/80 to-violet-500/80">
+              {activeMedia ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={activeMedia.previewUrl} alt={activeMedia.file.name} className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full items-center justify-center text-xs text-slate-200">Upload an image to preview your cover</div>
+              )}
+            </div>
+            <div className="space-y-3 p-4">
+              <h3 className="text-xl font-extrabold leading-tight text-text">{previewTitle}</h3>
+              <p className="text-sm text-muted">{previewSubtitle}</p>
+              <div className="text-xs text-muted">By @you · {activeTab.toUpperCase()} post · Just now</div>
+              <p className="line-clamp-6 text-sm leading-relaxed text-slate-200/90">{previewBody}</p>
+              <div className="flex flex-wrap gap-2 pt-1">
+                <span className="rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-[11px] text-accent">#{flair.trim() || "tag"}</span>
+                {nsfw ? <span className="rounded-full border border-rose-400/50 bg-rose-500/10 px-2.5 py-1 text-[11px] text-rose-200">18+</span> : null}
+              </div>
+            </div>
+          </article>
+        </aside>
       </div>
     </section>
   );
