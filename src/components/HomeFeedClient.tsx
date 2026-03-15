@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import SidebarMenu from "@/components/SidebarMenu";
 import CreatePost from "@/components/CreatePost";
 import { ChannelContentType } from "@/lib/channel-data";
@@ -58,6 +58,23 @@ type ComposerMeta = {
   mediaCount?: number;
 };
 
+type PostVote = -1 | 0 | 1;
+
+type ThreadReply = {
+  id: string;
+  author: string;
+  body: string;
+  createdAt: string;
+};
+
+type ThreadComment = {
+  id: string;
+  author: string;
+  body: string;
+  createdAt: string;
+  replies: ThreadReply[];
+};
+
 const defaultWidgets: DashboardWidgets = {
   profile_card: true,
   goals: true,
@@ -93,6 +110,11 @@ function initialsFromName(name: string) {
     .join("")
     .slice(0, 2)
     .toUpperCase();
+}
+
+
+function countThreadComments(comments: ThreadComment[]) {
+  return comments.reduce((sum, comment) => sum + 1 + comment.replies.length, 0);
 }
 
 function parseComposerContent(content: string | null, fallbackTitle: string | null) {
@@ -136,6 +158,13 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
   const [widgets, setWidgets] = useState<DashboardWidgets>(defaultWidgets);
   const [isComposerOpen, setIsComposerOpen] = useState(false);
   const [selectedPost, setSelectedPost] = useState<FeedPost | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [votesByPost, setVotesByPost] = useState<Record<string, PostVote>>({});
+  const [commentsByPost, setCommentsByPost] = useState<Record<string, ThreadComment[]>>({});
+  const [commentsLoadingByPost, setCommentsLoadingByPost] = useState<Record<string, boolean>>({});
+  const [newCommentByPost, setNewCommentByPost] = useState<Record<string, string>>({});
+  const [replyDraftByComment, setReplyDraftByComment] = useState<Record<string, string>>({});
+  const [interactionError, setInteractionError] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -145,6 +174,7 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
       const userId = authData.session?.user?.id;
 
       if (!userId || !mounted) return;
+      setCurrentUserId(userId);
 
       const { data } = await supabase
         .from("profile_settings")
@@ -203,6 +233,154 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
             subtleText: "text-muted",
           };
 
+  function buildCommentThread(rows: Array<{ id: string; parent_id: string | null; content: string; created_at: string | null; profiles: { username: string | null; display_name: string | null } | null }>) {
+    const map = new Map<string, ThreadComment>();
+    const roots: ThreadComment[] = [];
+
+    rows.forEach((row) => {
+      if (row.parent_id) return;
+      const entry: ThreadComment = {
+        id: row.id,
+        author: row.profiles?.display_name ?? row.profiles?.username ?? "Community member",
+        body: row.content,
+        createdAt: row.created_at ?? new Date().toISOString(),
+        replies: [],
+      };
+      map.set(row.id, entry);
+      roots.push(entry);
+    });
+
+    rows.forEach((row) => {
+      if (!row.parent_id) return;
+      const parent = map.get(row.parent_id);
+      if (!parent) return;
+      parent.replies.push({
+        id: row.id,
+        author: row.profiles?.display_name ?? row.profiles?.username ?? "Community member",
+        body: row.content,
+        createdAt: row.created_at ?? new Date().toISOString(),
+      });
+    });
+
+    return roots.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+  }
+
+  const loadVotes = useCallback(async (userId: string) => {
+    if (posts.length === 0) return;
+    const postIds = posts.map((post) => post.id);
+    const { data, error } = await supabase.from("post_votes").select("post_id, vote").eq("user_id", userId).in("post_id", postIds);
+
+    if (error) {
+      if (error.message.includes("relation") || error.message.includes("does not exist")) {
+        setInteractionError("Run the Supabase migration for post votes/comments first.");
+      }
+      return;
+    }
+
+    const nextVotes: Record<string, PostVote> = {};
+    (data ?? []).forEach((row) => {
+      if (row.vote === 1 || row.vote === -1) nextVotes[row.post_id] = row.vote;
+    });
+    setVotesByPost(nextVotes);
+  }, [posts]);
+
+  async function loadPostComments(postId: string) {
+    setCommentsLoadingByPost((current) => ({ ...current, [postId]: true }));
+    const { data, error } = await supabase
+      .from("comments")
+      .select("id, parent_id, content, created_at, profiles(username, display_name)")
+      .eq("post_id", postId)
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      if (error.message.includes("relation") || error.message.includes("does not exist")) {
+        setInteractionError("The comments table is missing in this Supabase environment.");
+      } else {
+        setInteractionError(error.message);
+      }
+      setCommentsLoadingByPost((current) => ({ ...current, [postId]: false }));
+      return;
+    }
+
+    const thread = buildCommentThread((data ?? []) as Array<{ id: string; parent_id: string | null; content: string; created_at: string | null; profiles: { username: string | null; display_name: string | null } | null }>);
+    setCommentsByPost((current) => ({ ...current, [postId]: thread }));
+    setCommentsLoadingByPost((current) => ({ ...current, [postId]: false }));
+  }
+
+  async function setPostVote(postId: string, nextVote: PostVote) {
+    if (!currentUserId) {
+      setInteractionError("Sign in to vote.");
+      return;
+    }
+
+    const previousVote = votesByPost[postId] ?? 0;
+    const resolvedVote = previousVote === nextVote ? 0 : nextVote;
+    setVotesByPost((current) => ({ ...current, [postId]: resolvedVote }));
+
+    if (resolvedVote === 0) {
+      const { error } = await supabase.from("post_votes").delete().eq("post_id", postId).eq("user_id", currentUserId);
+      if (error) setInteractionError(error.message);
+      return;
+    }
+
+    const { error } = await supabase.from("post_votes").upsert({ post_id: postId, user_id: currentUserId, vote: resolvedVote }, { onConflict: "post_id,user_id" });
+    if (error) setInteractionError(error.message);
+  }
+
+  async function addComment(postId: string) {
+    if (!currentUserId) {
+      setInteractionError("Sign in to comment.");
+      return;
+    }
+
+    const draft = newCommentByPost[postId]?.trim();
+    if (!draft) return;
+
+    const { error } = await supabase.from("comments").insert({ post_id: postId, author_id: currentUserId, content: draft, parent_id: null });
+    if (error) {
+      setInteractionError(error.message);
+      return;
+    }
+
+    setNewCommentByPost((current) => ({ ...current, [postId]: "" }));
+    await loadPostComments(postId);
+  }
+
+  async function addReply(postId: string, commentId: string) {
+    if (!currentUserId) {
+      setInteractionError("Sign in to reply.");
+      return;
+    }
+
+    const replyKey = `${postId}:${commentId}`;
+    const draft = replyDraftByComment[replyKey]?.trim();
+    if (!draft) return;
+
+    const { error } = await supabase.from("comments").insert({ post_id: postId, author_id: currentUserId, parent_id: commentId, content: draft });
+    if (error) {
+      setInteractionError(error.message);
+      return;
+    }
+
+    setReplyDraftByComment((current) => ({ ...current, [replyKey]: "" }));
+    await loadPostComments(postId);
+  }
+
+
+
+  useEffect(() => {
+    if (!currentUserId) return;
+    queueMicrotask(() => {
+      void loadVotes(currentUserId);
+    });
+  }, [currentUserId, loadVotes]);
+
+  function openPost(post: FeedPost) {
+    setSelectedPost(post);
+    void loadPostComments(post.id);
+  }
+
+
   return (
     <main className={`h-screen overflow-hidden p-3 sm:p-6 ${theme.page}`}>
       <div className={`mx-auto grid h-full w-full max-w-none grid-cols-1 overflow-hidden rounded-[26px] border bg-linear-to-b from-white/2 to-white/0 shadow-[0_20px_80px_rgba(0,0,0,0.45)] lg:grid-cols-[250px_1fr_340px] ${theme.shell}`}>
@@ -224,17 +402,20 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
                   const isTopPost = post._count.comments === topPostCommentCount && topPostCommentCount > 0;
                   const parsedPost = parseComposerContent(post.content, post.title);
                   const flair = parsedPost.metadata?.flair?.trim();
+                  const postVote = votesByPost[post.id] ?? 0;
+                  const loadedComments = commentsByPost[post.id];
+                  const totalCommentCount = loadedComments ? Math.max(post._count.comments, countThreadComments(loadedComments)) : post._count.comments;
 
                   return (
                     <article
                       key={post.id}
                       role="button"
                       tabIndex={0}
-                      onClick={() => setSelectedPost(post)}
+                      onClick={() => openPost(post)}
                       onKeyDown={(event) => {
                         if (event.key === "Enter" || event.key === " ") {
                           event.preventDefault();
-                          setSelectedPost(post);
+                          openPost(post);
                         }
                       }}
                       className={`cursor-pointer rounded-[18px] border p-4 transition hover:border-[#5365a5] ${theme.panel}`}
@@ -271,10 +452,39 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
                         <div className="mb-2.5 h-32.5 rounded-[14px] border border-[#2b3150] bg-[linear-gradient(125deg,rgba(124,92,255,0.4),rgba(45,212,191,0.2)),repeating-linear-gradient(45deg,rgba(255,255,255,0.05)_0_6px,transparent_6px_12px)]" />
                       )}
 
-                      <div className={`flex flex-wrap gap-4 text-xs ${theme.subtleText}`}>
-                        <span>💬 {post._count.comments} comments</span>
-                        <span>📣 {post.channels?.name ?? "General"}</span>
-                        <span>📌 Save</span>
+                      <div className={`flex flex-wrap items-center gap-4 text-xs ${theme.subtleText}`}>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openPost(post);
+                          }}
+                          className="rounded-full border border-[#384271] px-2.5 py-1 hover:bg-[#1d2238]"
+                        >
+                          💬 {totalCommentCount} comments
+                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setPostVote(post.id, 1);
+                            }}
+                            className={`rounded-full border px-2.5 py-1 ${postVote === 1 ? "border-[#2dd4bf] bg-[#2dd4bf]/15 text-[#8bf1de]" : "border-[#384271]"}`}
+                          >
+                            {postVote === 1 ? "♥" : "♡"} Upvote
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setPostVote(post.id, -1);
+                            }}
+                            className={`rounded-full border px-2.5 py-1 ${postVote === -1 ? "border-[#f472b6] bg-[#f472b6]/12 text-[#f8a8d0]" : "border-[#384271]"}`}
+                          >
+                            {postVote === -1 ? "♥" : "♡"} Downvote
+                          </button>
+                        </div>
                       </div>
                     </article>
                   );
@@ -305,6 +515,9 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
                     const authorHandle = author?.username ?? "bareunity";
                     const parsedPost = parseComposerContent(selectedPost.content, selectedPost.title);
                     const flair = parsedPost.metadata?.flair?.trim();
+                    const postVote = votesByPost[selectedPost.id] ?? 0;
+                    const threadComments = commentsByPost[selectedPost.id] ?? [];
+                    const totalCommentCount = threadComments.length > 0 ? countThreadComments(threadComments) : selectedPost._count.comments;
 
                     return (
                       <>
@@ -340,6 +553,84 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
                             <img src={selectedPost.media_url} alt={selectedPost.title ?? "Post media"} className="max-h-[70vh] w-full rounded-[10px] object-contain" />
                           </div>
                         ) : null}
+
+                        <div className="mt-4 space-y-3 rounded-[14px] border border-[#2b3150] bg-[#0d1322] p-3">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <button type="button" className="rounded-full border border-[#384271] px-2.5 py-1 text-xs text-[#dbe3ff]">
+                              💬 {totalCommentCount} comments
+                            </button>
+                            <div className="flex items-center gap-2 text-xs">
+                              <button
+                                type="button"
+                                onClick={() => setPostVote(selectedPost.id, 1)}
+                                className={`rounded-full border px-2.5 py-1 ${postVote === 1 ? "border-[#2dd4bf] bg-[#2dd4bf]/15 text-[#8bf1de]" : "border-[#384271] text-[#dbe3ff]"}`}
+                              >
+                                {postVote === 1 ? "♥" : "♡"} Upvote
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setPostVote(selectedPost.id, -1)}
+                                className={`rounded-full border px-2.5 py-1 ${postVote === -1 ? "border-[#f472b6] bg-[#f472b6]/12 text-[#f8a8d0]" : "border-[#384271] text-[#dbe3ff]"}`}
+                              >
+                                {postVote === -1 ? "♥" : "♡"} Downvote
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="flex gap-2">
+                            <input
+                              value={newCommentByPost[selectedPost.id] ?? ""}
+                              onChange={(event) => setNewCommentByPost((current) => ({ ...current, [selectedPost.id]: event.target.value }))}
+                              placeholder="Add a comment"
+                              className="w-full rounded-lg border border-[#384271] bg-[#131b31] px-3 py-2 text-sm text-[#e4e9ff] outline-none focus:border-[#6f7fc7]"
+                            />
+                            <button type="button" onClick={() => addComment(selectedPost.id)} className="rounded-lg border border-[#384271] px-3 py-2 text-xs text-[#dbe3ff] hover:bg-[#1d2238]">
+                              Comment
+                            </button>
+                          </div>
+
+                          {interactionError ? <p className="text-xs text-rose-300">{interactionError}</p> : null}
+                          {commentsLoadingByPost[selectedPost.id] ? <p className="text-xs text-[#9ca9d4]">Loading comments...</p> : null}
+
+                          {threadComments.length > 0 ? (
+                            <div className="space-y-2">
+                              {threadComments.map((comment) => {
+                                const replyKey = `${selectedPost.id}:${comment.id}`;
+                                return (
+                                  <article key={comment.id} className="rounded-xl border border-[#2b3150] bg-[#131b31] p-2.5">
+                                    <p className="text-[10px] uppercase tracking-wide text-[#8ea2e5]">{comment.author}</p>
+                                    <p className="text-sm text-[#e4e9ff]">{comment.body}</p>
+
+                                    <div className="mt-2 flex gap-2">
+                                      <input
+                                        value={replyDraftByComment[replyKey] ?? ""}
+                                        onChange={(event) => setReplyDraftByComment((current) => ({ ...current, [replyKey]: event.target.value }))}
+                                        placeholder="Reply to this comment"
+                                        className="w-full rounded-lg border border-[#384271] bg-[#0f162b] px-2.5 py-1.5 text-xs text-[#dbe3ff] outline-none"
+                                      />
+                                      <button type="button" onClick={() => addReply(selectedPost.id, comment.id)} className="rounded-lg border border-[#384271] px-2.5 py-1.5 text-xs text-[#dbe3ff] hover:bg-[#1d2238]">
+                                        Reply
+                                      </button>
+                                    </div>
+
+                                    {comment.replies.length > 0 ? (
+                                      <div className="mt-2 space-y-1.5 border-l border-[#384271] pl-3">
+                                        {comment.replies.map((reply) => (
+                                          <div key={reply.id}>
+                                            <p className="text-[10px] uppercase tracking-wide text-[#8ea2e5]">{reply.author}</p>
+                                            <p className="text-xs text-[#dbe3ff]">{reply.body}</p>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : null}
+                                  </article>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-[#9ca9d4]">No local comments yet. Be the first to comment.</p>
+                          )}
+                        </div>
                       </>
                     );
                   })()}
