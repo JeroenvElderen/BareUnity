@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ensureProfileExists } from "@/lib/profile";
 import { DEFAULT_ROLE, PROFILE_INTERESTS, USER_ROLES, type ProfileInterest, type UserRole } from "@/lib/onboarding";
 import { supabase } from "@/lib/supabase";
@@ -25,6 +25,7 @@ const roleDescriptions: Record<UserRole, string> = {
 
 export default function SignupPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [step, setStep] = useState(1);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -78,6 +79,11 @@ export default function SignupPage() {
     };
   }, [normalizedUsername, usernameValidationMessage]);
 
+  function getSafeNextPath() {
+    const nextPath = searchParams.get("next") || "/";
+    return nextPath.startsWith("/") ? nextPath : "/";
+  }
+
   function toggleInterest(interest: ProfileInterest) {
     setInterests((current) => current.includes(interest) ? current.filter((entry) => entry !== interest) : [...current, interest]);
   }
@@ -119,7 +125,7 @@ export default function SignupPage() {
     }
 
     alert("Account created! Check your email to confirm.");
-    router.push("/login");
+    router.push(`/login?next=${encodeURIComponent(getSafeNextPath())}`);
   }
 
   return (
@@ -159,7 +165,7 @@ export default function SignupPage() {
                 Continue to role
               </button>
 
-              <p className="text-sm text-muted">Already have an account? <Link href="/login" className="font-semibold text-accent underline">Log in</Link></p>
+              <p className="text-sm text-muted">Already have an account? <Link href={`/login?next=${encodeURIComponent(getSafeNextPath())}`} className="font-semibold text-accent underline">Log in</Link></p>
             </div>
           )}
 

@@ -2,14 +2,17 @@
 
 import Link from "next/link";
 import { type FormEvent, useState } from "react";
-import { useRouter } from "next/navigation";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+
+  function getSafeNextPath() {
+    const nextPath = new URLSearchParams(window.location.search).get("next") || "/";
+    return nextPath.startsWith("/") ? nextPath : "/";
+  }
 
   async function handleLogin(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
@@ -28,9 +31,8 @@ export default function LoginPage() {
         return;
       }
 
-      const nextPath = new URLSearchParams(window.location.search).get("next") || "/";
-      router.replace(nextPath);
-      router.refresh();
+      const nextPath = getSafeNextPath();
+      window.location.assign(nextPath);
     } finally {
       setLoading(false);
     }
@@ -86,7 +88,7 @@ export default function LoginPage() {
           </form>
           
           <p className="mt-6 text-sm text-muted">
-            New here? <Link href="/signup" className="font-semibold text-accent underline">Create an account</Link>
+            New here? <Link href={`/signup?next=${encodeURIComponent(getSafeNextPath())}`} className="font-semibold text-accent underline">Create an account</Link>
           </p>
         </div>
       </section>
