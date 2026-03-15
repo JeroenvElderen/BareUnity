@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { type FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -11,17 +11,29 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function handleLogin() {
-    setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    
-    if (error) {
-      alert(error.message);
-      setLoading(false);
+  async function handleLogin(event?: FormEvent<HTMLFormElement>) {
+    event?.preventDefault();
+
+    if (!isSupabaseConfigured) {
+      alert("Supabase is not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env.local.");
       return;
     }
 
-    router.push("/");
+    try {
+      setLoading(true);
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+      if (error) {
+        alert(error.message);
+        return;
+      }
+
+      const nextPath = new URLSearchParams(window.location.search).get("next") || "/";
+      router.replace(nextPath);
+      router.refresh();
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -42,11 +54,36 @@ export default function LoginPage() {
           <h2 className="text-xl font-semibold">Log in</h2>
           <p className="mt-2 text-sm text-muted">Enter your account credentials.</p>
 
-          <div className="mt-5 space-y-3">
-            <input type="email" placeholder="you@example.com" className="glass-input w-full rounded-xl px-3 py-3 text-text outline-none placeholder:text-muted focus:border-accent/45" value={email} onChange={(e) => setEmail(e.target.value)} />
-            <input type="password" placeholder="••••••••" className="glass-input w-full rounded-xl px-3 py-3 text-text outline-none placeholder:text-muted focus:border-accent/45" value={password} onChange={(e) => setPassword(e.target.value)} />
-            <button onClick={handleLogin} disabled={loading || !email || !password} className="premium-button w-full disabled:cursor-not-allowed disabled:opacity-60">{loading ? "Logging in..." : "Log in"}</button>
-          </div>
+          <form className="mt-5 space-y-3" onSubmit={handleLogin}>
+            <input
+              suppressHydrationWarning
+              type="email"
+              placeholder="you@example.com"
+              autoComplete="email"
+              className="glass-input w-full rounded-xl px-3 py-3 text-text outline-none placeholder:text-muted focus:border-accent/45"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+            <input
+              suppressHydrationWarning
+              type="password"
+              placeholder="••••••••"
+              autoComplete="current-password"
+              className="glass-input w-full rounded-xl px-3 py-3 text-text outline-none placeholder:text-muted focus:border-accent/45"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            {!isSupabaseConfigured ? (
+              <p className="text-sm text-amber-300">Authentication is not configured in this environment.</p>
+            ) : null}
+            <button
+              type="submit"
+              disabled={loading || !email || !password || !isSupabaseConfigured}
+              className="premium-button w-full disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {loading ? "Logging in..." : "Log in"}
+            </button>
+          </form>
           
           <p className="mt-6 text-sm text-muted">
             New here? <Link href="/signup" className="font-semibold text-accent underline">Create an account</Link>
