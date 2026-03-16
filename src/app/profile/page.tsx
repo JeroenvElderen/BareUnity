@@ -101,21 +101,15 @@ const defaultSettings = {
   profileSecondary: "#112b44",
   feedStyle: "balanced" as FeedStyle,
   privacy: { showEmail: false, showActivity: true, allowFriendRequests: true } as PrivacySettings,
-  friends: [
-    { id: "f1", username: "suntrail_sam", status: "online" as FriendStatus },
-    { id: "f2", username: "openairlena", status: "away" as FriendStatus },
-  ],
-  friendRequests: [
-    { id: "r1", username: "naturealex", mutualFriends: 3 },
-    { id: "r2", username: "campmila", mutualFriends: 1 },
-  ],
+  friends: [] as Friend[],
+  friendRequests: [] as FriendRequest[],
   introduction: "",
   homeThemePack: "nature" as ThemePack,
   dashboardWidgets: defaultDashboardWidgets,
   verificationStatus: "none" as VerificationStatus,
   notableContributorNote: "",
   followCategories: ["collaborators"] as FollowCategory[],
-  impactStats: { helpfulReplies: 8, acceptedAnswers: 3 } as ImpactStats,
+  impactStats: { helpfulReplies: 0, acceptedAnswers: 0 } as ImpactStats,
   socialGraphMode: "follow" as SocialGraphMode,
   blockedUsernames: [] as string[],
   customProfileUrl: "",
@@ -201,13 +195,14 @@ export default function ProfilePage() {
   const [userPostsCount, setUserPostsCount] = useState(0);
   const [commentsTableMissing, setCommentsTableMissing] = useState(false);
   const [loadedSettingsUserId, setLoadedSettingsUserId] = useState<string | null>(null);
+  const [profileUsername, setProfileUsername] = useState<string | null>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
 
   const username = useMemo(() => {
     if (!user) return "Guest";
-    return user.user_metadata?.username || user.email?.split("@")[0] || "Naturist";
-  }, [user]);
+    return profileUsername || user.user_metadata?.username || user.email?.split("@")[0] || "Naturist";
+  }, [profileUsername, user]);
 
   const isAdmin = isPlatformAdmin(user?.email);
 
@@ -250,6 +245,9 @@ export default function ProfilePage() {
     async function loadSettings() {
       if (!user?.id) return;
 
+      const { data: profileData } = await supabase.from("profiles").select("username").eq("id", user.id).maybeSingle<{ username: string }>();
+      setProfileUsername(profileData?.username ?? null);
+      
       let query = await supabase
         .from("profile_settings")
         .select("profile_primary, profile_secondary, avatar_url, banner_url, show_email, show_activity, allow_friend_requests, feed_style, friends, friend_requests, introduction, home_theme_pack, dashboard_widgets, verification_status, notable_contributor_note, follow_categories, impact_stats, social_graph_mode, blocked_usernames, custom_profile_url, vanity_slug, pronouns, communication_preferences, profile_sections, section_visibility, featured_post_ids, identity_badges, timeline_highlights, user_role, interests, onboarding_completed")
@@ -761,7 +759,7 @@ export default function ProfilePage() {
                     ))}
                   </div>
                 </article>
-                
+
                 <article className="rounded-2xl border border-[#242941] bg-[#121522] p-4 text-sm">
                   <h3 className="font-semibold text-[#2dd4bf]">Profile completeness</h3>
                   <p className="mt-2 text-xs text-[#8e97b8]">Completion score updates as you configure your profile.</p>

@@ -1,9 +1,20 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import SidebarMenu from "@/components/SidebarMenu";
+import { supabase } from "@/lib/supabase";
 
 type SettingsTab = "Account" | "Profile" | "Privacy" | "Preferences" | "Notifications" | "Email";
+
+type AccountProfile = {
+  username: string | null;
+  display_name: string | null;
+};
+
+type AccountSettings = {
+  show_email: boolean | null;
+};
 
 const tabMap: Record<string, SettingsTab> = {
   account: "Account",
@@ -14,18 +25,75 @@ const tabMap: Record<string, SettingsTab> = {
   email: "Email",
 };
 
-const accountRows = [
-  { label: "Email address", value: "" },
-  { label: "Phone number", value: "" },
-  { label: "Password", value: "" },
-  { label: "Gender", value: "Man" },
-  { label: "Location customization", value: "Use approximate location (based on IP)" },
-];
-
 export default function SettingsPage() {
   const searchParams = useSearchParams();
   const activeTab = tabMap[(searchParams.get("tab") ?? "").toLowerCase()] ?? "Account";
-  
+  const [userEmail, setUserEmail] = useState<string>("");
+  const [profile, setProfile] = useState<AccountProfile | null>(null);
+  const [settings, setSettings] = useState<AccountSettings | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadAccountDetails() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!active || !user) {
+        if (active) {
+          setUserEmail("");
+          setProfile(null);
+          setSettings(null);
+        }
+        return;
+      }
+
+      setUserEmail(user.email ?? "");
+
+      const [profileResult, settingsResult] = await Promise.all([
+        supabase.from("profiles").select("username, display_name").eq("id", user.id).maybeSingle<AccountProfile>(),
+        supabase.from("profile_settings").select("show_email").eq("user_id", user.id).maybeSingle<AccountSettings>(),
+      ]);
+
+      if (!active) return;
+
+      if (!profileResult.error) setProfile(profileResult.data ?? null);
+      if (!settingsResult.error) setSettings(settingsResult.data ?? null);
+    }
+
+    void loadAccountDetails();
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!active) return;
+      setUserEmail(session?.user?.email ?? "");
+      if (!session?.user) {
+        setProfile(null);
+        setSettings(null);
+      }
+    });
+
+    return () => {
+      active = false;
+      sub.subscription.unsubscribe();
+    };
+  }, []);
+
+  const accountRows = useMemo(
+    () => [
+      { label: "Email address", value: userEmail || "Not set" },
+      { label: "Username", value: profile?.username || "Not set" },
+      { label: "Display name", value: profile?.display_name || "Not set" },
+      {
+        label: "Email visibility",
+        value:
+          settings?.show_email == null ? "Unknown" : settings.show_email ? "Visible on profile" : "Hidden on profile",
+      },
+      { label: "Password", value: "Managed via Supabase Auth" },
+    ],
+    [profile?.display_name, profile?.username, settings?.show_email, userEmail],
+  );
+
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_0%_0%,rgba(124,92,255,0.2),transparent_35%),radial-gradient(circle_at_100%_10%,rgba(45,212,191,0.12),transparent_25%),#0a0b10] p-3 text-[#eef2ff] sm:p-6">
       <div className="mx-auto grid min-h-[calc(100vh-1.5rem)] w-full max-w-none grid-cols-1 overflow-hidden rounded-[26px] border border-[#242941] bg-linear-to-b from-white/2 to-white/0 shadow-[0_20px_80px_rgba(0,0,0,0.45)] sm:min-h-[calc(100vh-3rem)] lg:grid-cols-[250px_1fr]">
@@ -45,10 +113,10 @@ export default function SettingsPage() {
                 <h2 className="mb-5 text-4xl font-semibold">General</h2>
                 <div className="space-y-2">
                   {accountRows.map((row) => (
-                    <button key={row.label} type="button" className="flex w-full items-center justify-between rounded-xl px-3 py-3 text-left transition hover:bg-sand/10">
+                    <div key={row.label} className="flex w-full items-center justify-between rounded-xl px-3 py-3 text-left transition hover:bg-sand/10">
                       <span className="text-lg">{row.label}</span>
-                      <span className="text-lg text-text/70">{row.value || "›"}</span>
-                    </button>
+                      <span className="text-lg text-text/70">{row.value}</span>
+                    </div>
                   ))}
                 </div>
               </div>
