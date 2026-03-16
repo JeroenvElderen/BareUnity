@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import SidebarMenu from "@/components/SidebarMenu";
 import { supabase } from "@/lib/supabase";
 import ThemeCustomizer from "@/components/ThemeCustomizer";
 
@@ -96,13 +95,7 @@ export default function SettingsPage() {
   );
 
   return (
-    <main className="min-h-screen p-3 text-text sm:p-6">
-      <div className="mx-auto grid min-h-[calc(100vh-1.5rem)] w-full max-w-none grid-cols-1 rounded-[26px] border border-border/50 bg-linear-to-b from-card/20 to-transparent shadow-[0_20px_80px_rgba(0,0,0,0.45)] sm:min-h-[calc(100vh-3rem)] lg:grid-cols-[250px_1fr] lg:overflow-hidden">
-        <div className="border-b border-border/50 p-3 lg:border-b-0 lg:border-r lg:p-4">
-          <SidebarMenu />
-        </div>
-
-        <section className="p-4 sm:p-6">
+    <section className="p-4 text-text sm:p-6">
           <h1 className="mb-4 text-3xl font-bold sm:text-4xl lg:text-5xl">Settings</h1>
           <div className="mb-6 rounded-xl border border-border/40 bg-card/30 px-4 py-3 text-sm text-muted">
             Use the sidebar settings dropdown to switch tabs.
@@ -129,7 +122,5 @@ export default function SettingsPage() {
             </div>
           )}
         </section>
-      </div>
-    </main>
   );
 }

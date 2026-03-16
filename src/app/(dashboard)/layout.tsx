@@ -1,8 +1,8 @@
+import type { ReactNode } from "react";
 import SidebarMenu from "@/components/SidebarMenu";
-import NaturistMapChannel from "@/components/channels/NaturistMapChannel";
 import { getChannels } from "@/lib/channel-data";
 
-export default function NaturistMapPage() {
+export default function DashboardLayout({ children }: { children: ReactNode }) {
   const channels = getChannels();
 
   return (
@@ -12,10 +12,7 @@ export default function NaturistMapPage() {
           <SidebarMenu channels={channels} />
         </div>
 
-        <section className="p-4 sm:p-6">
-          <h1 className="mb-4 text-2xl font-bold sm:text-3xl">Naturist Map</h1>
-          <NaturistMapChannel />
-        </section>
+        <div className="min-w-0">{children}</div>
       </div>
     </main>
   );

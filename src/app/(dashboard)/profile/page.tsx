@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import SidebarMenu from "@/components/SidebarMenu";
 import type { User } from "@supabase/supabase-js";
 import { PROFILE_INTERESTS, USER_ROLES, isPlatformAdmin, type ProfileInterest, type UserRole } from "@/lib/onboarding";
 import { sanitizeImageUpload } from "@/lib/image";
@@ -605,14 +604,9 @@ export default function ProfilePage() {
   ];
 
   return (
-    <div className="min-h-screen bg-bg text-text">
-      <main className="min-h-screen p-3 sm:p-6">
-        <div className="mx-auto grid min-h-[calc(100vh-24px)] w-full max-w-none grid-cols-1 rounded-[26px] border border-accent/20 bg-linear-to-b from-white/2 to-white/0 shadow-[0_20px_80px_rgba(0,0,0,0.45)] sm:min-h-[calc(100vh-48px)] lg:grid-cols-[250px_1fr_320px] lg:overflow-hidden">
-          <div className="border-b border-accent/20 p-3 lg:border-b-0 lg:border-r lg:p-4">
-            <SidebarMenu />
-          </div>
-
-          <section className="order-1 p-3.5 sm:p-5.5 lg:order-0 lg:overflow-hidden">
+    <section className="p-3 sm:p-6">
+      <div className="grid min-h-full w-full grid-cols-1 rounded-[26px] border border-accent/20 bg-linear-to-b from-white/2 to-white/0 shadow-[0_20px_80px_rgba(0,0,0,0.45)] lg:grid-cols-[1fr_320px] lg:overflow-hidden">
+        <section className="order-1 p-3.5 sm:p-5.5 lg:order-0 lg:overflow-hidden">
             
 
             <section className="mb-4 overflow-hidden rounded-[18px] border border-accent/20 bg-card/90">
@@ -1003,7 +997,6 @@ export default function ProfilePage() {
             </div>
           </aside>
         </div>
-      </main>
-    </div>
+    </section>
   );
 }
