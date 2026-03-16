@@ -5,8 +5,11 @@
   --bg-soft: 20 33 45;
   --card: 30 46 61;
   --card-2: 38 57 75;
+  --bg-deep: 10 18 26;
 
   --text: 226 236 242;
+  --text-strong: 242 255 250;
+  --text-inverse: 12 24 34;
   --muted: 150 170 186;
   --border: 72 102 124;
 
@@ -40,7 +43,7 @@ body {
       162deg,
       rgb(var(--bg)) 0%,
       rgb(var(--bg-soft)) 56%,
-      rgb(10 18 26) 100%
+      rgb(var(--bg-deep)) 100%
     );
 
   color: rgb(var(--text));
@@ -94,7 +97,7 @@ body::before {
         rgb(var(--brand-2) / 0.9)
       );
 
-    color: rgb(242 255 250);
+    color: rgb(var(--text-strong));
     font-size: 1rem;
 
     box-shadow: 0 8px 20px -10px rgba(0,0,0,0.65);
@@ -121,14 +124,14 @@ body::before {
   }
 
   .maplibregl-popup-content .naturist-popup {
-    color: rgb(20 33 45);
+    color: rgb(var(--text-inverse));
     display: grid;
     gap: 0.35rem;
     line-height: 1.35;
   }
 
   .maplibregl-popup-content .naturist-popup strong {
-    color: rgb(12 24 34);
+    color: rgb(var(--text-inverse));
   }
 
   .glass-card {
@@ -195,7 +198,7 @@ body::before {
 
     font-weight: 600;
 
-    color: rgb(15 38 44);
+    color: rgb(var(--text-inverse));
 
     transition: filter 160ms ease;
   }
@@ -231,14 +234,14 @@ body::before {
     border-radius: 10px;
     border: 1px solid rgb(var(--accent) / 0.2);
 
-    background-color: rgba(36,40,50,1);
+    background-color: rgb(var(--card) / 0.96);
 
     background-image:
       linear-gradient(
         139deg,
-        rgba(36,40,50,1) 0%,
-        rgba(36,40,50,1) 0%,
-        rgba(37,28,40,1) 100%
+        rgb(var(--card) / 0.98) 0%,
+        rgb(var(--card) / 0.98) 0%,
+        rgb(var(--card-2) / 0.94) 100%
       );
 
     padding: 10px 0;
@@ -253,12 +256,12 @@ body::before {
   .profile-menu-user {
     margin: 0 10px;
     border-radius: 8px;
-    background: rgb(255 255 255 / 0.06);
+    background: rgb(var(--text) / 0.06);
     padding: 8px 10px;
   }
 
   .profile-menu-separator {
-    border-top: 1.5px solid #42434a;
+    border-top: 1.5px solid rgb(var(--border) / 0.6);
   }
 
   .profile-menu-list {
@@ -276,7 +279,7 @@ body::before {
     align-items: center;
     gap: 10px;
 
-    color: #7e8590;
+    color: rgb(var(--muted));
 
     padding: 4px 7px;
     border-radius: 6px;
@@ -293,7 +296,7 @@ body::before {
     width: 19px;
     height: 19px;
 
-    color: #7e8590;
+    color: rgb(var(--muted));
 
     transition: all 0.3s ease-out;
 
@@ -307,18 +310,18 @@ body::before {
   }
 
   .profile-menu-element:hover {
-    background-color: #5353ff;
-    color: #ffffff;
+    background-color: rgb(var(--brand-2) / 0.9);
+    color: rgb(var(--text-strong));
 
     transform: translate(1px, -1px);
   }
 
   .profile-menu-element:hover .profile-menu-icon {
-    color: #ffffff;
+    color: rgb(var(--text-strong));
   }
 
   .profile-menu-delete:hover {
-    background-color: #8e2a2a;
+    background-color: rgb(148 47 47 / 0.92);
   }
 
   .profile-menu-element:active {
@@ -327,17 +330,17 @@ body::before {
 
   .profile-menu-team,
   .profile-menu-team .profile-menu-icon {
-    color: #bd89ff;
+    color: rgb(var(--accent));
   }
 
   .profile-menu-team:hover {
-    background-color: rgba(56,45,71,0.836);
-    color: #bd89ff;
+    background-color: rgb(var(--card-2) / 0.82);
+    color: rgb(var(--accent));
 
     transform: translate(1px, -1px);
   }
 
   .profile-menu-team:hover .profile-menu-icon {
-    color: #bd89ff;
+    color: rgb(var(--accent));
   }
 }
