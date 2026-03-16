@@ -47,20 +47,20 @@ export default function AuthModal({ open, onClose }: Props) {
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <button
         aria-label="Close modal backdrop"
-        className="absolute inset-0 bg-black/40"
+        className="absolute inset-0 bg-bg-deep/55"
         onClick={onClose}
       />
 
       <div className="relative w-[92vw] max-w-md rounded-xl border border-border bg-card shadow-soft p-4">
         <div className="flex items-center justify-between">
           <div className="font-semibold">{title}</div>
-          <button onClick={onClose} className="rounded-lg px-2 py-1 hover:bg-black/5">
+          <button onClick={onClose} className="rounded-lg px-2 py-1 hover:bg-accent/10">
             ✕
           </button>
         </div>
 
         {/* Tabs */}
-        <div className="mt-3 grid grid-cols-2 rounded-xl bg-black/5 p-1">
+        <div className="mt-3 grid grid-cols-2 rounded-xl bg-card/50 p-1">
           <button
             onClick={() => setMode("login")}
             className={`rounded-lg px-3 py-2 text-sm ${
@@ -107,7 +107,7 @@ export default function AuthModal({ open, onClose }: Props) {
           <button
             onClick={submit}
             disabled={busy || !email || !password}
-            className="w-full rounded-xl bg-pine px-3 py-2 text-sm text-white hover:bg-pine-2 disabled:opacity-50"
+            className="w-full rounded-xl bg-brand px-3 py-2 text-sm text-text-inverse hover:bg-brand-2 disabled:opacity-50"
           >
             {busy ? "Please wait…" : mode === "login" ? "Log in" : "Create account"}
           </button>

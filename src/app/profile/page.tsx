@@ -605,25 +605,25 @@ export default function ProfilePage() {
   ];
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_0%_0%,rgba(124,92,255,0.2),transparent_35%),radial-gradient(circle_at_100%_10%,rgba(45,212,191,0.12),transparent_25%),#0a0b10] text-[#eef2ff]">
+    <div className="min-h-screen bg-bg text-text">
       <main className="min-h-screen p-3 sm:p-6">
-        <div className="mx-auto grid min-h-[calc(100vh-24px)] w-full max-w-none grid-cols-1 overflow-hidden rounded-[26px] border border-[#242941] bg-linear-to-b from-white/2 to-white/0 shadow-[0_20px_80px_rgba(0,0,0,0.45)] sm:min-h-[calc(100vh-48px)] lg:grid-cols-[250px_1fr_320px]">
-          <div className="border-b border-[#242941] p-3 lg:border-b-0 lg:border-r lg:p-4">
+        <div className="mx-auto grid min-h-[calc(100vh-24px)] w-full max-w-none grid-cols-1 overflow-hidden rounded-[26px] border border-accent/20 bg-linear-to-b from-white/2 to-white/0 shadow-[0_20px_80px_rgba(0,0,0,0.45)] sm:min-h-[calc(100vh-48px)] lg:grid-cols-[250px_1fr_320px]">
+          <div className="border-b border-accent/20 p-3 lg:border-b-0 lg:border-r lg:p-4">
             <SidebarMenu />
           </div>
 
           <section className="order-1 overflow-hidden p-3.5 sm:p-5.5 lg:order-0">
             
 
-            <section className="mb-4 overflow-hidden rounded-[18px] border border-[#242941] bg-[#121522]">
+            <section className="mb-4 overflow-hidden rounded-[18px] border border-accent/20 bg-card/90">
               {bannerImageUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={bannerImageUrl} alt="Profile banner" className="h-32.5 w-full object-cover opacity-70 sm:h-37.5" />
               ) : (
-                <div className="h-32.5 w-full bg-[linear-gradient(135deg,rgba(124,92,255,0.5),rgba(45,212,191,0.25))] sm:h-37.5" />
+                <div className="h-32.5 w-full bg-[linear-gradient(135deg,rgb(var(--brand)/0.5),rgb(var(--accent)/0.26))] sm:h-37.5" />
               )}
               <div className="-mt-7 flex items-end gap-3 p-3 sm:-mt-8 sm:p-4">
-                <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border-2 border-[#1a1f33] bg-linear-to-br from-[#8d76ff] to-[#2dd4bf] text-lg font-semibold text-white sm:h-16 sm:w-16">
+                <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border-2 border-accent/35 bg-linear-to-br from-brand to-brand-2 text-lg font-semibold text-text sm:h-16 sm:w-16">
                   {profileImageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={profileImageUrl} alt="Profile" className="h-full w-full object-cover" />
@@ -633,36 +633,36 @@ export default function ProfilePage() {
                 </div>
                 <div className="min-w-0">
                   <h1 className="truncate text-xl font-bold sm:text-2xl">{username}</h1>
-                  <p className="text-xs text-[#8e97b8]">@{user?.email?.split("@")[0] ?? "naturist"}</p>
-                  {introduction ? <p className="mt-1 text-sm text-[#dce2ff]">{introduction}</p> : null}
-                  {pronouns ? <p className="mt-1 text-xs text-[#8e97b8]">Pronouns: {pronouns}</p> : null}
-                  <p className="mt-1 text-xs text-[#8e97b8]">Profile URL: {effectiveProfileUrl}</p>
-                  {identityBadges.length > 0 ? <div className="mt-2 flex flex-wrap gap-1.5">{identityBadges.map((badge) => <span key={badge} className="rounded-full border border-[#46507d] px-2 py-0.5 text-[10px] uppercase tracking-wide">{badge.replaceAll("_", " ")}</span>)}</div> : null}
+                  <p className="text-xs text-muted">@{user?.email?.split("@")[0] ?? "naturist"}</p>
+                  {introduction ? <p className="mt-1 text-sm text-text">{introduction}</p> : null}
+                  {pronouns ? <p className="mt-1 text-xs text-muted">Pronouns: {pronouns}</p> : null}
+                  <p className="mt-1 text-xs text-muted">Profile URL: {effectiveProfileUrl}</p>
+                  {identityBadges.length > 0 ? <div className="mt-2 flex flex-wrap gap-1.5">{identityBadges.map((badge) => <span key={badge} className="rounded-full border border-accent/35 px-2 py-0.5 text-[10px] uppercase tracking-wide">{badge.replaceAll("_", " ")}</span>)}</div> : null}
                 </div>
               </div>
             </section>
 
             {activeTab === "Overview" && (
               <>
-                <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{statCards.map((stat) => <article key={stat.label} className="rounded-[18px] border border-[#242941] bg-[#121522] p-3.5"><p className="text-2xl font-semibold">{stat.value}</p><p className="mt-1 text-sm text-[#8e97b8]">{stat.label}</p></article>)}</section>
+                <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{statCards.map((stat) => <article key={stat.label} className="rounded-[18px] border border-accent/20 bg-card/90 p-3.5"><p className="text-2xl font-semibold">{stat.value}</p><p className="mt-1 text-sm text-muted">{stat.label}</p></article>)}</section>
                 <section className="mt-4 grid gap-3 lg:grid-cols-2">
-                  <article className="rounded-2xl border border-[#242941] bg-[#121522] p-4 text-sm">
-                    <h3 className="font-semibold text-[#2dd4bf]">Creator portfolio</h3>
-                    <p className="mt-2 text-xs text-[#8e97b8]">Featured posts curated from your published content.</p>
+                  <article className="rounded-2xl border border-accent/20 bg-card/90 p-4 text-sm">
+                    <h3 className="font-semibold text-accent">Creator portfolio</h3>
+                    <p className="mt-2 text-xs text-muted">Featured posts curated from your published content.</p>
                     <div className="mt-3 space-y-2">
-                      {featuredPosts.length === 0 ? <p className="text-xs text-[#8e97b8]">No featured posts selected.</p> : featuredPosts.map((post) => (
-                        <div key={post.id} className="rounded-xl border border-[#2b3150] bg-[#0d1020] p-2.5">
-                          <p className="text-sm font-medium text-[#dce2ff]">{post.title ?? "Untitled post"}</p>
-                          <p className="text-[11px] text-[#8e97b8]">{formatRelativeTime(post.created_at)}</p>
+                      {featuredPosts.length === 0 ? <p className="text-xs text-muted">No featured posts selected.</p> : featuredPosts.map((post) => (
+                        <div key={post.id} className="rounded-xl border border-accent/20 bg-bg-deep/70 p-2.5">
+                          <p className="text-sm font-medium text-text">{post.title ?? "Untitled post"}</p>
+                          <p className="text-[11px] text-muted">{formatRelativeTime(post.created_at)}</p>
                         </div>
                       ))}
                     </div>
                   </article>
-                  <article className="rounded-2xl border border-[#242941] bg-[#121522] p-4 text-sm">
-                    <h3 className="font-semibold text-[#2dd4bf]">Profile timeline</h3>
-                    <p className="mt-2 text-xs text-[#8e97b8]">Life-cycle highlights visible based on your section access rules.</p>
+                  <article className="rounded-2xl border border-accent/20 bg-card/90 p-4 text-sm">
+                    <h3 className="font-semibold text-accent">Profile timeline</h3>
+                    <p className="mt-2 text-xs text-muted">Life-cycle highlights visible based on your section access rules.</p>
                     <ol className="mt-3 space-y-2 list-decimal list-inside">
-                      {timelineHighlights.filter((entry) => entry.trim()).length === 0 ? <li className="text-xs text-[#8e97b8]">No highlights yet.</li> : timelineHighlights.filter((entry) => entry.trim()).map((entry, index) => <li key={`${entry}-${index}`} className="text-xs text-[#dce2ff]">{entry}</li>)}
+                      {timelineHighlights.filter((entry) => entry.trim()).length === 0 ? <li className="text-xs text-muted">No highlights yet.</li> : timelineHighlights.filter((entry) => entry.trim()).map((entry, index) => <li key={`${entry}-${index}`} className="text-xs text-text">{entry}</li>)}
                     </ol>
                   </article>
                 </section>
@@ -671,25 +671,25 @@ export default function ProfilePage() {
 
             {activeTab === "Posts" && (
               <section className="grid max-h-155 grid-cols-1 gap-3 overflow-y-auto pr-1">
-                {profilePosts.length === 0 ? <article className="rounded-[18px] border border-[#242941] bg-[#121522] p-3.5 text-sm text-[#8e97b8]">No posts yet.</article> : profilePosts.map((post) => (
-                  <article key={post.id} className="rounded-[18px] border border-[#242941] bg-[#121522] p-3.5">
-                    <div className="mb-2.5 flex items-start justify-between"><div><strong className="block text-sm">{post.title ?? "Untitled post"}</strong><span className="text-xs text-[#8e97b8]">{formatRelativeTime(post.created_at)}</span></div></div>
-                    <p className="mb-2.5 text-[13px] text-[#dce2ff]">{post.content ?? "No post content yet."}</p>
+                {profilePosts.length === 0 ? <article className="rounded-[18px] border border-accent/20 bg-card/90 p-3.5 text-sm text-muted">No posts yet.</article> : profilePosts.map((post) => (
+                  <article key={post.id} className="rounded-[18px] border border-accent/20 bg-card/90 p-3.5">
+                    <div className="mb-2.5 flex items-start justify-between"><div><strong className="block text-sm">{post.title ?? "Untitled post"}</strong><span className="text-xs text-muted">{formatRelativeTime(post.created_at)}</span></div></div>
+                    <p className="mb-2.5 text-[13px] text-text">{post.content ?? "No post content yet."}</p>
                     {post.media_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={post.media_url} alt={post.title ?? "Post media"} className="h-32.5 w-full rounded-[14px] border border-[#2b3150] object-cover" />
+                      <img src={post.media_url} alt={post.title ?? "Post media"} className="h-32.5 w-full rounded-[14px] border border-accent/20 object-cover" />
                     ) : null}
                   </article>
                 ))}
               </section>
             )}
 
-            {activeTab === "Comments" && <section className="space-y-2 text-sm">{commentsTableMissing ? <p className="text-[#8e97b8]">Comments table not available in this environment.</p> : null}{!commentsTableMissing && profileComments.length === 0 ? <p className="text-[#8e97b8]">No comments yet.</p> : null}{profileComments.map((comment) => <article key={comment.id} className="rounded-xl border border-[#242941] bg-[#121522] p-3"><p className="text-xs text-[#8e97b8]">{formatRelativeTime(comment.created_at)}</p><p className="mt-1 text-[#dce2ff]">{comment.body ?? comment.content}</p></article>)}</section>}
+            {activeTab === "Comments" && <section className="space-y-2 text-sm">{commentsTableMissing ? <p className="text-muted">Comments table not available in this environment.</p> : null}{!commentsTableMissing && profileComments.length === 0 ? <p className="text-muted">No comments yet.</p> : null}{profileComments.map((comment) => <article key={comment.id} className="rounded-xl border border-accent/20 bg-card/90 p-3"><p className="text-xs text-muted">{formatRelativeTime(comment.created_at)}</p><p className="mt-1 text-text">{comment.body ?? comment.content}</p></article>)}</section>}
 
             {activeTab === "Gallery" && (
               <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {mediaPosts.length === 0 ? <p className="text-sm text-[#8e97b8]">No media posts yet.</p> : mediaPosts.map((post) => (
-                  <article key={post.id} className="overflow-hidden rounded-2xl border border-[#242941] bg-[#121522]">
+                {mediaPosts.length === 0 ? <p className="text-sm text-muted">No media posts yet.</p> : mediaPosts.map((post) => (
+                  <article key={post.id} className="overflow-hidden rounded-2xl border border-accent/20 bg-card/90">
                     {post.media_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={post.media_url} alt={post.title ?? "Gallery image"} className="h-44 w-full object-cover" />
@@ -700,35 +700,35 @@ export default function ProfilePage() {
               </section>
             )}
 
-            {activeTab === "Upvoted" && <p className="text-sm text-[#8e97b8]">Upvoted content will appear here once vote tracking is enabled.</p>}
+            {activeTab === "Upvoted" && <p className="text-sm text-muted">Upvoted content will appear here once vote tracking is enabled.</p>}
 
             {activeTab === "Settings" && (
               <section className="grid gap-4 lg:grid-cols-2">
-                <article className="rounded-2xl border border-[#242941] bg-[#121522] p-4 text-sm">
-                  <h3 className="font-semibold text-[#2dd4bf]">Profile basics</h3>
-                  <textarea value={introduction} onChange={(event) => setIntroduction(event.target.value.slice(0, 220))} className="mt-3 h-24 w-full rounded-xl border border-[#2b3150] bg-[#0d1020] p-3" placeholder="Short introduction" />
-                  <label className="mt-3 block">Profile image URL<input value={profileImageUrl} onChange={(event) => setProfileImageUrl(event.target.value)} className="mt-1 w-full rounded-xl border border-[#2b3150] bg-[#0d1020] px-3 py-2" /></label>
-                  <label className="mt-3 block">Banner image URL<input value={bannerImageUrl} onChange={(event) => setBannerImageUrl(event.target.value)} className="mt-1 w-full rounded-xl border border-[#2b3150] bg-[#0d1020] px-3 py-2" /></label>
+                <article className="rounded-2xl border border-accent/20 bg-card/90 p-4 text-sm">
+                  <h3 className="font-semibold text-accent">Profile basics</h3>
+                  <textarea value={introduction} onChange={(event) => setIntroduction(event.target.value.slice(0, 220))} className="mt-3 h-24 w-full rounded-xl border border-accent/20 bg-bg-deep/70 p-3" placeholder="Short introduction" />
+                  <label className="mt-3 block">Profile image URL<input value={profileImageUrl} onChange={(event) => setProfileImageUrl(event.target.value)} className="mt-1 w-full rounded-xl border border-accent/20 bg-bg-deep/70 px-3 py-2" /></label>
+                  <label className="mt-3 block">Banner image URL<input value={bannerImageUrl} onChange={(event) => setBannerImageUrl(event.target.value)} className="mt-1 w-full rounded-xl border border-accent/20 bg-bg-deep/70 px-3 py-2" /></label>
                 </article>
-                <article className="rounded-2xl border border-[#242941] bg-[#121522] p-4 text-sm">
-                  <h3 className="font-semibold text-[#2dd4bf]">Profile identity + URL</h3>
-                  <label className="mt-3 block">Custom profile URL<input value={customProfileUrl} onChange={(event) => setCustomProfileUrl(event.target.value.slice(0, 120))} className="mt-1 w-full rounded-xl border border-[#2b3150] bg-[#0d1020] px-3 py-2" placeholder="https://bareunity.app/your-profile" /></label>
-                  <label className="mt-3 block">Vanity slug<input value={vanitySlug} onChange={(event) => setVanitySlug(normalizeVanitySlug(event.target.value))} className="mt-1 w-full rounded-xl border border-[#2b3150] bg-[#0d1020] px-3 py-2" placeholder="your-name" /></label>
-                  <label className="mt-3 block">Pronouns<input value={pronouns} onChange={(event) => setPronouns(event.target.value.slice(0, 40))} className="mt-1 w-full rounded-xl border border-[#2b3150] bg-[#0d1020] px-3 py-2" placeholder="they/them" /></label>
-                  <p className="mt-3 text-xs text-[#8e97b8]">Communication preferences</p>
+                <article className="rounded-2xl border border-accent/20 bg-card/90 p-4 text-sm">
+                  <h3 className="font-semibold text-accent">Profile identity + URL</h3>
+                  <label className="mt-3 block">Custom profile URL<input value={customProfileUrl} onChange={(event) => setCustomProfileUrl(event.target.value.slice(0, 120))} className="mt-1 w-full rounded-xl border border-accent/20 bg-bg-deep/70 px-3 py-2" placeholder="https://bareunity.app/your-profile" /></label>
+                  <label className="mt-3 block">Vanity slug<input value={vanitySlug} onChange={(event) => setVanitySlug(normalizeVanitySlug(event.target.value))} className="mt-1 w-full rounded-xl border border-accent/20 bg-bg-deep/70 px-3 py-2" placeholder="your-name" /></label>
+                  <label className="mt-3 block">Pronouns<input value={pronouns} onChange={(event) => setPronouns(event.target.value.slice(0, 40))} className="mt-1 w-full rounded-xl border border-accent/20 bg-bg-deep/70 px-3 py-2" placeholder="they/them" /></label>
+                  <p className="mt-3 text-xs text-muted">Communication preferences</p>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {["Direct messages", "Email", "Mentions only", "Async only"].map((preference) => (
-                      <button key={preference} type="button" onClick={() => toggleCommunicationPreference(preference)} className={`rounded-full px-3 py-1 text-xs ${communicationPreferences.includes(preference) ? "bg-accent text-[#08232c]" : "border border-accent/30"}`}>
+                      <button key={preference} type="button" onClick={() => toggleCommunicationPreference(preference)} className={`rounded-full px-3 py-1 text-xs ${communicationPreferences.includes(preference) ? "bg-accent text-text-inverse" : "border border-accent/30"}`}>
                         {preference}
                       </button>
                     ))}
                   </div>
                 </article>
 
-                <article className="rounded-2xl border border-[#242941] bg-[#121522] p-4 text-sm">
-                  <h3 className="font-semibold text-[#2dd4bf]">Onboarding role + interests</h3>
-                  <p className="mt-2 text-xs text-[#8e97b8]">Role defaults to newcomer. Only the admin account can assign elevated roles.</p>
-                  <p className="mt-2 text-[11px] text-[#8e97b8]">Onboarding completed: {onboardingCompleted ? "Yes" : "No"}</p>
+                <article className="rounded-2xl border border-accent/20 bg-card/90 p-4 text-sm">
+                  <h3 className="font-semibold text-accent">Onboarding role + interests</h3>
+                  <p className="mt-2 text-xs text-muted">Role defaults to newcomer. Only the admin account can assign elevated roles.</p>
+                  <p className="mt-2 text-[11px] text-muted">Onboarding completed: {onboardingCompleted ? "Yes" : "No"}</p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {USER_ROLES.map((roleOption) => {
                       const disabled = !isAdmin && roleOption !== "newcomer";
@@ -738,21 +738,21 @@ export default function ProfilePage() {
                           type="button"
                           disabled={disabled}
                           onClick={() => updateRole(roleOption)}
-                          className={`rounded-full px-3 py-1 text-xs capitalize ${userRole === roleOption ? "bg-accent text-[#08232c]" : "border border-accent/30"} ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
+                          className={`rounded-full px-3 py-1 text-xs capitalize ${userRole === roleOption ? "bg-accent text-text-inverse" : "border border-accent/30"} ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
                         >
                           {roleOption.replace("_", " ")}
                         </button>
                       );
                     })}
                   </div>
-                  <p className="mt-3 text-xs text-[#8e97b8]">Interests</p>
+                  <p className="mt-3 text-xs text-muted">Interests</p>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {PROFILE_INTERESTS.map((interest) => (
                       <button
                         key={interest}
                         type="button"
                         onClick={() => toggleInterest(interest)}
-                        className={`rounded-full px-3 py-1 text-xs capitalize ${interests.includes(interest) ? "bg-accent text-[#08232c]" : "border border-accent/30"}`}
+                        className={`rounded-full px-3 py-1 text-xs capitalize ${interests.includes(interest) ? "bg-accent text-text-inverse" : "border border-accent/30"}`}
                       >
                         {interest}
                       </button>
@@ -760,29 +760,29 @@ export default function ProfilePage() {
                   </div>
                 </article>
 
-                <article className="rounded-2xl border border-[#242941] bg-[#121522] p-4 text-sm">
-                  <h3 className="font-semibold text-[#2dd4bf]">Profile completeness</h3>
-                  <p className="mt-2 text-xs text-[#8e97b8]">Completion score updates as you configure your profile.</p>
-                  <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-[#0d1020]"><div className="h-full rounded-full bg-accent" style={{ width: `${profileCompletionScore}%` }} /></div>
-                  <p className="mt-2 text-xs text-[#dce2ff]">{profileCompletionScore}% complete</p>
-                  <ul className="mt-3 space-y-1 text-xs text-[#8e97b8]">
+                <article className="rounded-2xl border border-accent/20 bg-card/90 p-4 text-sm">
+                  <h3 className="font-semibold text-accent">Profile completeness</h3>
+                  <p className="mt-2 text-xs text-muted">Completion score updates as you configure your profile.</p>
+                  <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-bg-deep/70"><div className="h-full rounded-full bg-accent" style={{ width: `${profileCompletionScore}%` }} /></div>
+                  <p className="mt-2 text-xs text-text">{profileCompletionScore}% complete</p>
+                  <ul className="mt-3 space-y-1 text-xs text-muted">
                     {guidedActions.length === 0 ? <li>All guided actions complete.</li> : guidedActions.map((action) => <li key={action}>• {action}</li>)}
                   </ul>
                 </article>
 
-                <article className="rounded-2xl border border-[#242941] bg-[#121522] p-4 text-sm">
-                  <h3 className="font-semibold text-[#2dd4bf]">Custom profile sections</h3>
-                  <p className="mt-2 text-xs text-[#8e97b8]">Toggle sections and choose visibility: public, followers-only, or private.</p>
+                <article className="rounded-2xl border border-accent/20 bg-card/90 p-4 text-sm">
+                  <h3 className="font-semibold text-accent">Custom profile sections</h3>
+                  <p className="mt-2 text-xs text-muted">Toggle sections and choose visibility: public, followers-only, or private.</p>
                   <div className="mt-3 space-y-3">
                     {(["about", "links", "milestones", "skills"] as (keyof ProfileSections)[]).map((section) => (
-                      <div key={section} className="rounded-xl border border-[#2b3150] bg-[#0d1020] p-2.5">
+                      <div key={section} className="rounded-xl border border-accent/20 bg-bg-deep/70 p-2.5">
                         <div className="flex items-center justify-between">
                           <label className="flex items-center gap-2 text-xs capitalize"><input type="checkbox" checked={profileSections[section]} onChange={() => toggleProfileSection(section)} />{section}</label>
-                          <span className="text-[11px] text-[#8e97b8]">{sectionVisibility[section]}</span>
+                          <span className="text-[11px] text-muted">{sectionVisibility[section]}</span>
                         </div>
                         <div className="mt-2 flex gap-1.5">
                           {(["public", "followers_only", "private"] as SectionVisibility[]).map((visibility) => (
-                            <button key={visibility} type="button" onClick={() => setSectionAccess(section, visibility)} className={`rounded-full px-2 py-1 text-[11px] ${sectionVisibility[section] === visibility ? "bg-accent text-[#08232c]" : "border border-accent/30"}`}>
+                            <button key={visibility} type="button" onClick={() => setSectionAccess(section, visibility)} className={`rounded-full px-2 py-1 text-[11px] ${sectionVisibility[section] === visibility ? "bg-accent text-text-inverse" : "border border-accent/30"}`}>
                               {visibility.replace("_", " ")}
                             </button>
                           ))}
@@ -790,11 +790,11 @@ export default function ProfilePage() {
                       </div>
                     ))}
                     {(["portfolio", "timeline"] as const).map((section) => (
-                      <div key={section} className="rounded-xl border border-[#2b3150] bg-[#0d1020] p-2.5">
+                      <div key={section} className="rounded-xl border border-accent/20 bg-bg-deep/70 p-2.5">
                         <p className="text-xs capitalize">{section}</p>
                         <div className="mt-2 flex gap-1.5">
                           {(["public", "followers_only", "private"] as SectionVisibility[]).map((visibility) => (
-                            <button key={visibility} type="button" onClick={() => setSectionAccess(section, visibility)} className={`rounded-full px-2 py-1 text-[11px] ${sectionVisibility[section] === visibility ? "bg-accent text-[#08232c]" : "border border-accent/30"}`}>
+                            <button key={visibility} type="button" onClick={() => setSectionAccess(section, visibility)} className={`rounded-full px-2 py-1 text-[11px] ${sectionVisibility[section] === visibility ? "bg-accent text-text-inverse" : "border border-accent/30"}`}>
                               {visibility.replace("_", " ")}
                             </button>
                           ))}
@@ -804,72 +804,72 @@ export default function ProfilePage() {
                   </div>
                 </article>
 
-                <article className="rounded-2xl border border-[#242941] bg-[#121522] p-4 text-sm">
-                  <h3 className="font-semibold text-[#2dd4bf]">Identity badges + timeline</h3>
+                <article className="rounded-2xl border border-accent/20 bg-card/90 p-4 text-sm">
+                  <h3 className="font-semibold text-accent">Identity badges + timeline</h3>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {(["founder", "moderator", "top_contributor", "local_ambassador"] as IdentityBadge[]).map((badge) => (
-                      <button key={badge} type="button" onClick={() => toggleIdentityBadge(badge)} className={`rounded-full px-3 py-1 text-xs capitalize ${identityBadges.includes(badge) ? "bg-accent text-[#08232c]" : "border border-accent/30"}`}>
+                      <button key={badge} type="button" onClick={() => toggleIdentityBadge(badge)} className={`rounded-full px-3 py-1 text-xs capitalize ${identityBadges.includes(badge) ? "bg-accent text-text-inverse" : "border border-accent/30"}`}>
                         {badge.replaceAll("_", " ")}
                       </button>
                     ))}
                   </div>
-                  <p className="mt-3 text-xs text-[#8e97b8]">Life-cycle highlights</p>
+                  <p className="mt-3 text-xs text-muted">Life-cycle highlights</p>
                   <div className="mt-2 space-y-2">
                     {timelineHighlights.map((highlight, index) => (
                       <div key={`timeline-${index}`} className="flex gap-2">
-                        <input value={highlight} onChange={(event) => updateTimelineHighlight(index, event.target.value)} className="w-full rounded-xl border border-[#2b3150] bg-[#0d1020] px-3 py-1.5 text-xs" placeholder="Launched first community challenge" />
-                        <button type="button" onClick={() => removeTimelineHighlight(index)} className="rounded-xl border border-[#46507d] px-2 text-xs">×</button>
+                        <input value={highlight} onChange={(event) => updateTimelineHighlight(index, event.target.value)} className="w-full rounded-xl border border-accent/20 bg-bg-deep/70 px-3 py-1.5 text-xs" placeholder="Launched first community challenge" />
+                        <button type="button" onClick={() => removeTimelineHighlight(index)} className="rounded-xl border border-accent/35 px-2 text-xs">×</button>
                       </div>
                     ))}
                     <button type="button" onClick={addTimelineHighlight} className="rounded-xl border border-accent/30 px-3 py-1 text-xs">Add highlight</button>
                   </div>
                 </article>
 
-                <article className="rounded-2xl border border-[#242941] bg-[#121522] p-4 text-sm">
-                  <h3 className="font-semibold text-[#2dd4bf]">Creator portfolio featured posts</h3>
-                  <p className="mt-2 text-xs text-[#8e97b8]">Pick posts to feature in your portfolio section.</p>
+                <article className="rounded-2xl border border-accent/20 bg-card/90 p-4 text-sm">
+                  <h3 className="font-semibold text-accent">Creator portfolio featured posts</h3>
+                  <p className="mt-2 text-xs text-muted">Pick posts to feature in your portfolio section.</p>
                   <div className="mt-3 max-h-40 space-y-2 overflow-y-auto pr-1">
-                    {profilePosts.length === 0 ? <p className="text-xs text-[#8e97b8]">Publish posts to feature them.</p> : profilePosts.map((post) => (
-                      <label key={post.id} className="flex items-center justify-between gap-2 rounded-xl border border-[#2b3150] bg-[#0d1020] px-2.5 py-2 text-xs">
+                    {profilePosts.length === 0 ? <p className="text-xs text-muted">Publish posts to feature them.</p> : profilePosts.map((post) => (
+                      <label key={post.id} className="flex items-center justify-between gap-2 rounded-xl border border-accent/20 bg-bg-deep/70 px-2.5 py-2 text-xs">
                         <span className="truncate">{post.title ?? "Untitled post"}</span>
                         <input type="checkbox" checked={featuredPostIds.includes(post.id)} onChange={() => toggleFeaturedPost(post.id)} />
                       </label>
                     ))}
                   </div>
                 </article>
-                <article className="rounded-2xl border border-[#242941] bg-[#121522] p-4 text-sm">
-                  <h3 className="font-semibold text-[#2dd4bf]">Experience + privacy</h3>
+                <article className="rounded-2xl border border-accent/20 bg-card/90 p-4 text-sm">
+                  <h3 className="font-semibold text-accent">Experience + privacy</h3>
                   <div className="mt-3 flex gap-2">
-                    <button type="button" onClick={() => setFeedStyle("balanced")} className={`rounded-full px-3 py-1 text-xs ${feedStyle === "balanced" ? "bg-accent text-[#08232c]" : "border border-accent/30"}`}>Balanced</button>
-                    <button type="button" onClick={() => setFeedStyle("magazine")} className={`rounded-full px-3 py-1 text-xs ${feedStyle === "magazine" ? "bg-accent text-[#08232c]" : "border border-accent/30"}`}>Magazine</button>
+                    <button type="button" onClick={() => setFeedStyle("balanced")} className={`rounded-full px-3 py-1 text-xs ${feedStyle === "balanced" ? "bg-accent text-text-inverse" : "border border-accent/30"}`}>Balanced</button>
+                    <button type="button" onClick={() => setFeedStyle("magazine")} className={`rounded-full px-3 py-1 text-xs ${feedStyle === "magazine" ? "bg-accent text-text-inverse" : "border border-accent/30"}`}>Magazine</button>
                   </div>
-                  <p className="mt-3 text-xs text-[#8e97b8]">Relationship model</p>
+                  <p className="mt-3 text-xs text-muted">Relationship model</p>
                   <div className="mt-2 flex gap-2">
-                    <button type="button" onClick={() => setSocialGraphMode("follow")} className={`rounded-full px-3 py-1 text-xs ${socialGraphMode === "follow" ? "bg-accent text-[#08232c]" : "border border-accent/30"}`}>One-way follow</button>
-                    <button type="button" onClick={() => setSocialGraphMode("mutual_friend")} className={`rounded-full px-3 py-1 text-xs ${socialGraphMode === "mutual_friend" ? "bg-accent text-[#08232c]" : "border border-accent/30"}`}>Mutual friend</button>
+                    <button type="button" onClick={() => setSocialGraphMode("follow")} className={`rounded-full px-3 py-1 text-xs ${socialGraphMode === "follow" ? "bg-accent text-text-inverse" : "border border-accent/30"}`}>One-way follow</button>
+                    <button type="button" onClick={() => setSocialGraphMode("mutual_friend")} className={`rounded-full px-3 py-1 text-xs ${socialGraphMode === "mutual_friend" ? "bg-accent text-text-inverse" : "border border-accent/30"}`}>Mutual friend</button>
                   </div>
                   <div className="mt-3 space-y-2">
                     <label className="flex items-center justify-between">Show email<input type="checkbox" checked={privacy.showEmail} onChange={(event) => updatePrivacy("showEmail", event.target.checked)} /></label>
                     <label className="flex items-center justify-between">Show activity<input type="checkbox" checked={privacy.showActivity} onChange={(event) => updatePrivacy("showActivity", event.target.checked)} /></label>
                     <label className="flex items-center justify-between">Allow requests<input type="checkbox" checked={privacy.allowFriendRequests} onChange={(event) => updatePrivacy("allowFriendRequests", event.target.checked)} /></label>
                   </div>
-                  <p className="mt-3 text-xs text-[#8e97b8]">Friends: {friends.length} · Pending requests: {friendRequests.length}</p>
+                  <p className="mt-3 text-xs text-muted">Friends: {friends.length} · Pending requests: {friendRequests.length}</p>
                 </article>
 
-                <article className="rounded-2xl border border-[#242941] bg-[#121522] p-4 text-sm">
-                  <h3 className="font-semibold text-[#2dd4bf]">Friend requests</h3>
-                  <p className="mt-2 text-xs text-[#8e97b8]">Approve or decline incoming requests.</p>
+                <article className="rounded-2xl border border-accent/20 bg-card/90 p-4 text-sm">
+                  <h3 className="font-semibold text-accent">Friend requests</h3>
+                  <p className="mt-2 text-xs text-muted">Approve or decline incoming requests.</p>
                   <div className="mt-3 space-y-2">
-                    {friendRequests.length === 0 ? <p className="text-xs text-[#8e97b8]">No pending requests.</p> : friendRequests.map((request) => (
-                      <div key={request.id} className="rounded-xl border border-[#2b3150] bg-[#0d1020] p-2.5">
+                    {friendRequests.length === 0 ? <p className="text-xs text-muted">No pending requests.</p> : friendRequests.map((request) => (
+                      <div key={request.id} className="rounded-xl border border-accent/20 bg-bg-deep/70 p-2.5">
                         <div className="flex items-center justify-between gap-2">
                           <div>
-                            <p className="text-sm text-[#dce2ff]">@{request.username}</p>
-                            <p className="text-[11px] text-[#8e97b8]">{request.mutualFriends} mutual friends</p>
+                            <p className="text-sm text-text">@{request.username}</p>
+                            <p className="text-[11px] text-muted">{request.mutualFriends} mutual friends</p>
                           </div>
                           <div className="flex gap-1.5">
-                            <button type="button" onClick={() => approveFriendRequest(request.id)} className="rounded-full bg-accent px-2.5 py-1 text-[11px] text-[#08232c]">Approve</button>
-                            <button type="button" onClick={() => declineFriendRequest(request.id)} className="rounded-full border border-[#46507d] px-2.5 py-1 text-[11px]">Decline</button>
+                            <button type="button" onClick={() => approveFriendRequest(request.id)} className="rounded-full bg-accent px-2.5 py-1 text-[11px] text-text-inverse">Approve</button>
+                            <button type="button" onClick={() => declineFriendRequest(request.id)} className="rounded-full border border-accent/35 px-2.5 py-1 text-[11px]">Decline</button>
                           </div>
                         </div>
                       </div>
@@ -877,64 +877,64 @@ export default function ProfilePage() {
                   </div>
                 </article>
 
-                <article className="rounded-2xl border border-[#242941] bg-[#121522] p-4 text-sm">
-                  <h3 className="font-semibold text-[#2dd4bf]">Blocked accounts</h3>
-                  <p className="mt-2 text-xs text-[#8e97b8]">Blocked users cannot interact with you.</p>
+                <article className="rounded-2xl border border-accent/20 bg-card/90 p-4 text-sm">
+                  <h3 className="font-semibold text-accent">Blocked accounts</h3>
+                  <p className="mt-2 text-xs text-muted">Blocked users cannot interact with you.</p>
                   <div className="mt-3 flex gap-2">
-                    <input value={blockInput} onChange={(event) => setBlockInput(event.target.value)} placeholder="username" className="w-full rounded-xl border border-[#2b3150] bg-[#0d1020] px-3 py-2" />
-                    <button type="button" onClick={addBlockedUser} className="rounded-xl bg-accent px-3 py-2 text-xs text-[#08232c]">Block</button>
+                    <input value={blockInput} onChange={(event) => setBlockInput(event.target.value)} placeholder="username" className="w-full rounded-xl border border-accent/20 bg-bg-deep/70 px-3 py-2" />
+                    <button type="button" onClick={addBlockedUser} className="rounded-xl bg-accent px-3 py-2 text-xs text-text-inverse">Block</button>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    {blockedUsernames.length === 0 ? <span className="text-xs text-[#8e97b8]">No blocked users.</span> : blockedUsernames.map((entry) => (
-                      <button key={entry} type="button" onClick={() => removeBlockedUser(entry)} className="rounded-full border border-[#46507d] px-3 py-1 text-xs">
+                    {blockedUsernames.length === 0 ? <span className="text-xs text-muted">No blocked users.</span> : blockedUsernames.map((entry) => (
+                      <button key={entry} type="button" onClick={() => removeBlockedUser(entry)} className="rounded-full border border-accent/35 px-3 py-1 text-xs">
                         @{entry} ×
                       </button>
                     ))}
                   </div>
                 </article>
                 
-                <article className="rounded-2xl border border-[#242941] bg-[#121522] p-4 text-sm">
-                  <h3 className="font-semibold text-[#2dd4bf]">Verification + reputation</h3>
-                  <p className="mt-2 text-xs text-[#8e97b8]">Optional flow for notable contributors with public impact signals.</p>
+                <article className="rounded-2xl border border-accent/20 bg-card/90 p-4 text-sm">
+                  <h3 className="font-semibold text-accent">Verification + reputation</h3>
+                  <p className="mt-2 text-xs text-muted">Optional flow for notable contributors with public impact signals.</p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {(["none", "requested", "verified"] as VerificationStatus[]).map((status) => (
-                      <button key={status} type="button" onClick={() => setVerificationStatus(status)} className={`rounded-full px-3 py-1 text-xs capitalize ${verificationStatus === status ? "bg-accent text-[#08232c]" : "border border-accent/30"}`}>
+                      <button key={status} type="button" onClick={() => setVerificationStatus(status)} className={`rounded-full px-3 py-1 text-xs capitalize ${verificationStatus === status ? "bg-accent text-text-inverse" : "border border-accent/30"}`}>
                         {status === "none" ? "Not verified" : status}
                       </button>
                     ))}
                   </div>
-                  <label className="mt-3 block text-xs text-[#8e97b8]">Notable contributor note
-                    <textarea value={notableContributorNote} onChange={(event) => setNotableContributorNote(event.target.value.slice(0, 220))} className="mt-1 h-20 w-full rounded-xl border border-[#2b3150] bg-[#0d1020] p-2 text-sm text-[#dce2ff]" placeholder="Highlight why verification should be reviewed" />
+                  <label className="mt-3 block text-xs text-muted">Notable contributor note
+                    <textarea value={notableContributorNote} onChange={(event) => setNotableContributorNote(event.target.value.slice(0, 220))} className="mt-1 h-20 w-full rounded-xl border border-accent/20 bg-bg-deep/70 p-2 text-sm text-text" placeholder="Highlight why verification should be reviewed" />
                   </label>
                   <div className="mt-3 grid grid-cols-2 gap-2">
-                    <label className="text-xs text-[#8e97b8]">Helpful replies
-                      <input type="number" min={0} value={impactStats.helpfulReplies} onChange={(event) => setImpactStats((current) => ({ ...current, helpfulReplies: Math.max(0, Number(event.target.value) || 0) }))} className="mt-1 w-full rounded-xl border border-[#2b3150] bg-[#0d1020] px-2 py-1.5 text-sm" />
+                    <label className="text-xs text-muted">Helpful replies
+                      <input type="number" min={0} value={impactStats.helpfulReplies} onChange={(event) => setImpactStats((current) => ({ ...current, helpfulReplies: Math.max(0, Number(event.target.value) || 0) }))} className="mt-1 w-full rounded-xl border border-accent/20 bg-bg-deep/70 px-2 py-1.5 text-sm" />
                     </label>
-                    <label className="text-xs text-[#8e97b8]">Accepted answers
-                      <input type="number" min={0} value={impactStats.acceptedAnswers} onChange={(event) => setImpactStats((current) => ({ ...current, acceptedAnswers: Math.max(0, Number(event.target.value) || 0) }))} className="mt-1 w-full rounded-xl border border-[#2b3150] bg-[#0d1020] px-2 py-1.5 text-sm" />
+                    <label className="text-xs text-muted">Accepted answers
+                      <input type="number" min={0} value={impactStats.acceptedAnswers} onChange={(event) => setImpactStats((current) => ({ ...current, acceptedAnswers: Math.max(0, Number(event.target.value) || 0) }))} className="mt-1 w-full rounded-xl border border-accent/20 bg-bg-deep/70 px-2 py-1.5 text-sm" />
                     </label>
                   </div>
-                  <p className="mt-3 text-xs text-[#8e97b8]">Reputation score: <span className="font-semibold text-[#dce2ff]">{reputationScore}</span> based on healthy participation.</p>
+                  <p className="mt-3 text-xs text-muted">Reputation score: <span className="font-semibold text-text">{reputationScore}</span> based on healthy participation.</p>
                 </article>
 
-                <article className="rounded-2xl border border-[#242941] bg-[#121522] p-4 text-sm">
-                  <h3 className="font-semibold text-[#2dd4bf]">Follow categories</h3>
-                  <p className="mt-2 text-xs text-[#8e97b8]">Organize people you follow into close friends, collaborators, and inspiration lists.</p>
+                <article className="rounded-2xl border border-accent/20 bg-card/90 p-4 text-sm">
+                  <h3 className="font-semibold text-accent">Follow categories</h3>
+                  <p className="mt-2 text-xs text-muted">Organize people you follow into close friends, collaborators, and inspiration lists.</p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {(["close_friends", "collaborators", "inspiration"] as FollowCategory[]).map((category) => (
-                      <button key={category} type="button" onClick={() => toggleFollowCategory(category)} className={`rounded-full px-3 py-1 text-xs capitalize ${followCategories.includes(category) ? "bg-accent text-[#08232c]" : "border border-accent/30"}`}>
+                      <button key={category} type="button" onClick={() => toggleFollowCategory(category)} className={`rounded-full px-3 py-1 text-xs capitalize ${followCategories.includes(category) ? "bg-accent text-text-inverse" : "border border-accent/30"}`}>
                         {category.replace("_", " ")}
                       </button>
                     ))}
                   </div>
                 </article>
 
-                <article className="rounded-2xl border border-[#242941] bg-[#121522] p-4 text-sm">
-                  <h3 className="font-semibold text-[#2dd4bf]">Home dashboard</h3>
-                  <p className="mt-2 text-xs text-[#8e97b8]">Choose a theme pack and pick which widgets are visible on the home dashboard.</p>
+                <article className="rounded-2xl border border-accent/20 bg-card/90 p-4 text-sm">
+                  <h3 className="font-semibold text-accent">Home dashboard</h3>
+                  <p className="mt-2 text-xs text-muted">Choose a theme pack and pick which widgets are visible on the home dashboard.</p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {(["minimal", "nature", "high-contrast"] as ThemePack[]).map((pack) => (
-                      <button key={pack} type="button" onClick={() => setHomeThemePack(pack)} className={`rounded-full px-3 py-1 text-xs capitalize ${homeThemePack === pack ? "bg-accent text-[#08232c]" : "border border-accent/30"}`}>
+                      <button key={pack} type="button" onClick={() => setHomeThemePack(pack)} className={`rounded-full px-3 py-1 text-xs capitalize ${homeThemePack === pack ? "bg-accent text-text-inverse" : "border border-accent/30"}`}>
                         {pack}
                       </button>
                     ))}
@@ -949,9 +949,9 @@ export default function ProfilePage() {
             )}
           </section>
 
-          <aside className="order-2 border-t border-[#242941] bg-[rgba(9,11,19,0.66)] p-[18px_14px] sm:p-[22px_18px] lg:order-0 lg:border-l lg:border-t-0">
-            <div className="mb-4.5 rounded-[14px] border border-[#242941] bg-[#121522] px-3 pb-3 pt-4.5 text-center">
-              <div className="mx-auto mb-2.5 flex h-16.5 w-16.5 items-center justify-center overflow-hidden rounded-full border-2 border-[rgba(124,92,255,0.45)] bg-linear-to-br from-[#7c5cff] to-[#2dd4bf]">
+          <aside className="order-2 border-t border-accent/20 bg-bg/66 p-[18px_14px] sm:p-[22px_18px] lg:order-0 lg:border-l lg:border-t-0">
+            <div className="mb-4.5 rounded-[14px] border border-accent/20 bg-card/90 px-3 pb-3 pt-4.5 text-center">
+              <div className="mx-auto mb-2.5 flex h-16.5 w-16.5 items-center justify-center overflow-hidden rounded-full border-2 border-accent/45 bg-linear-to-br from-brand to-brand-2">
                 {profileImageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={profileImageUrl} alt="Profile" className="h-full w-full object-cover" />
@@ -960,18 +960,18 @@ export default function ProfilePage() {
                 )}
               </div>
               <strong>{username}</strong>
-              <div className="mt-0.5 text-xs text-[#8e97b8]">@{user?.email?.split("@")[0] ?? "naturist"}</div>
-              <div className="mt-2 text-[11px] text-[#8e97b8]">Verification: <span className="capitalize text-[#dce2ff]">{verificationStatus === "none" ? "Not verified" : verificationStatus}</span></div>
-              <div className="mt-1 text-[11px] text-[#8e97b8]">Impact: {impactStats.helpfulReplies} helpful replies · {impactStats.acceptedAnswers} accepted answers</div>
+              <div className="mt-0.5 text-xs text-muted">@{user?.email?.split("@")[0] ?? "naturist"}</div>
+              <div className="mt-2 text-[11px] text-muted">Verification: <span className="capitalize text-text">{verificationStatus === "none" ? "Not verified" : verificationStatus}</span></div>
+              <div className="mt-1 text-[11px] text-muted">Impact: {impactStats.helpfulReplies} helpful replies · {impactStats.acceptedAnswers} accepted answers</div>
               <div className="mt-3.5 grid grid-cols-3 gap-2">
-                <div className="rounded-[10px] border border-[#2b3150] bg-[#171c2d] px-1.5 py-2"><strong className="block text-[13px]">{followersCount.toLocaleString()}</strong><span className="text-[10px] text-[#8e97b8]">Followers</span></div>
-                <div className="rounded-[10px] border border-[#2b3150] bg-[#171c2d] px-1.5 py-2"><strong className="block text-[13px]">{followingCount.toLocaleString()}</strong><span className="text-[10px] text-[#8e97b8]">Following</span></div>
-                <div className="rounded-[10px] border border-[#2b3150] bg-[#171c2d] px-1.5 py-2"><strong className="block text-[13px]">{userPostsCount.toLocaleString()}</strong><span className="text-[10px] text-[#8e97b8]">Posts</span></div>
+                <div className="rounded-[10px] border border-accent/20 bg-card-2/70 px-1.5 py-2"><strong className="block text-[13px]">{followersCount.toLocaleString()}</strong><span className="text-[10px] text-muted">Followers</span></div>
+                <div className="rounded-[10px] border border-accent/20 bg-card-2/70 px-1.5 py-2"><strong className="block text-[13px]">{followingCount.toLocaleString()}</strong><span className="text-[10px] text-muted">Following</span></div>
+                <div className="rounded-[10px] border border-accent/20 bg-card-2/70 px-1.5 py-2"><strong className="block text-[13px]">{userPostsCount.toLocaleString()}</strong><span className="text-[10px] text-muted">Posts</span></div>
               </div>
             </div>
 
-            <div className="mb-3 text-[13px] text-[#8e97b8]">Profile media</div>
-            <div className="space-y-3 rounded-[14px] border border-[#242941] bg-[#121522] p-3">
+            <div className="mb-3 text-[13px] text-muted">Profile media</div>
+            <div className="space-y-3 rounded-[14px] border border-accent/20 bg-card/90 p-3">
               <input
                 ref={avatarInputRef}
                 type="file"
@@ -989,14 +989,14 @@ export default function ProfilePage() {
               <button
                 type="button"
                 onClick={() => avatarInputRef.current?.click()}
-                className="w-full rounded-xl border border-[#2b3150] bg-[#171c2d] px-3 py-2 text-left text-xs font-semibold text-[#dce2ff] transition hover:border-[#4c5a8f]"
+                className="w-full rounded-xl border border-accent/20 bg-card-2/70 px-3 py-2 text-left text-xs font-semibold text-text transition hover:border-accent/65"
               >
                 Change avatar image
               </button>
               <button
                 type="button"
                 onClick={() => bannerInputRef.current?.click()}
-                className="w-full rounded-xl border border-[#2b3150] bg-[#171c2d] px-3 py-2 text-left text-xs font-semibold text-[#dce2ff] transition hover:border-[#4c5a8f]"
+                className="w-full rounded-xl border border-accent/20 bg-card-2/70 px-3 py-2 text-left text-xs font-semibold text-text transition hover:border-accent/65"
               >
                 Change banner image
               </button>

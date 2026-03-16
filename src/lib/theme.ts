@@ -34,6 +34,9 @@ export const DEFAULT_THEME: ThemeTokens = {
   accent: "#8abcb1",
 };
 
+export const DEFAULT_MAIN_COLOR = "#24384a";
+export const DEFAULT_ACCENT_COLOR = DEFAULT_THEME.accent;
+
 export function hexToRgb(hex: string): [number, number, number] {
   const value = hex.replace("#", "").trim();
 
@@ -78,17 +81,12 @@ function rgbToHex([r, g, b]: [number, number, number]) {
   return `#${[r, g, b].map((value) => clamp(value).toString(16).padStart(2, "0")).join("")}`;
 }
 
-// Backward compatibility: migrate old {baseColor, accentColor} shape.
-function migrateLegacyTheme(value: unknown): ThemeTokens | null {
-  if (!value || typeof value !== "object") return null;
+export function buildThemeFromMainAccent(mainColor: string, accentColor: string): ThemeTokens {
+  const safeMain = isHex(mainColor) ? mainColor : DEFAULT_MAIN_COLOR;
+  const safeAccent = isHex(accentColor) ? accentColor : DEFAULT_ACCENT_COLOR;
 
-  const maybe = value as { baseColor?: unknown; accentColor?: unknown };
-  if (typeof maybe.baseColor !== "string" || typeof maybe.accentColor !== "string") {
-    return null;
-  }
-
-  const base = hexToRgb(maybe.baseColor);
-  const accent = hexToRgb(maybe.accentColor);
+  const base = hexToRgb(safeMain);
+  const accent = hexToRgb(safeAccent);
 
   return {
     bg: rgbToHex(shift(base, -42)),
@@ -106,6 +104,19 @@ function migrateLegacyTheme(value: unknown): ThemeTokens | null {
     brand2: rgbToHex(mix(base, accent, 0.5)),
     accent: rgbToHex(accent),
   };
+}
+
+// Backward compatibility: migrate old {baseColor, accentColor} shape.
+function migrateLegacyTheme(value: unknown): ThemeTokens | null {
+  if (!value || typeof value !== "object") return null;
+
+  const maybe = value as { baseColor?: unknown; mainColor?: unknown; accentColor?: unknown };
+  const baseColor = typeof maybe.mainColor === "string" ? maybe.mainColor : maybe.baseColor;
+  if (typeof baseColor !== "string" || typeof maybe.accentColor !== "string") {
+    return null;
+  }
+
+  return buildThemeFromMainAccent(baseColor, maybe.accentColor);
 }
 
 function isHex(value: unknown): value is string {

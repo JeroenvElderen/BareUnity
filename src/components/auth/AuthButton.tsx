@@ -87,7 +87,7 @@ export default function AuthButton() {
         <button
           type="button"
           onClick={() => setOpen((prev) => !prev)}
-          className="inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-sand/35 bg-card text-sand shadow-[0_10px_24px_-18px_rgba(0,0,0,0.9)] transition hover:bg-card"
+          className="inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-accent/35 bg-card text-text shadow-[0_10px_24px_-18px_rgb(var(--bg-deep)/0.9)] transition hover:bg-card"
           aria-expanded={open}
           aria-haspopup="menu"
           aria-label="Toggle profile menu"
@@ -96,7 +96,7 @@ export default function AuthButton() {
             // eslint-disable-next-line @next/next/no-img-element
             <img src={avatarUrl} alt={`${username} avatar`} className="h-full w-full object-cover" />
           ) : (
-            <span className="inline-flex h-full w-full items-center justify-center bg-sand text-sm font-bold text-pine shadow-inner">{initials}</span>
+            <span className="inline-flex h-full w-full items-center justify-center bg-accent text-sm font-bold text-text-inverse shadow-inner">{initials}</span>
           )}
         </button>
 
@@ -184,12 +184,12 @@ export default function AuthButton() {
 
   return (
     <div className="flex items-center gap-2">
-      <Link href="/login" className="rounded-xl border border-sand/30 bg-sand/20 px-4 py-2 text-sm font-semibold text-sand transition hover:bg-sand/35">
+      <Link href="/login" className="rounded-xl border border-accent/30 bg-accent/20 px-4 py-2 text-sm font-semibold text-text transition hover:bg-accent/35">
         Log in
       </Link>
       <Link
         href="/signup"
-        className="rounded-xl border border-sand/30 bg-linear-to-r from-pine to-pine-2 px-4 py-2 text-sm font-semibold text-sand transition hover:brightness-110"
+        className="rounded-xl border border-accent/30 bg-linear-to-r from-brand to-brand-2 px-4 py-2 text-sm font-semibold text-text transition hover:brightness-110"
       >
         Sign up
       </Link>

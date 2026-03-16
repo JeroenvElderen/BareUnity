@@ -50,7 +50,7 @@ export default function PostCard({ post, view, emphasize = false }: { post: Post
         {profile?.avatar_url ? (
           <Image src={profile.avatar_url} alt="User avatar" width={44} height={44} className="rounded-full border border-accent/30" />
         ) : (
-          <div className="h-11 w-11 rounded-full border border-accent/30 bg-white/10" />
+          <div className="h-11 w-11 rounded-full border border-accent/30 bg-card/40" />
         )}
 
         <div onMouseEnter={() => setIsHoveringAuthor(true)} onMouseLeave={() => setIsHoveringAuthor(false)}>
@@ -63,15 +63,15 @@ export default function PostCard({ post, view, emphasize = false }: { post: Post
             <p className="text-sm font-semibold text-accent">{profile?.username ?? "Unknown"}</p>
             <p className="mt-1 text-xs text-muted">Quick profile preview</p>
             <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
-              <div className="rounded-xl border border-accent/15 bg-white/5 px-2 py-2">
+              <div className="rounded-xl border border-accent/15 bg-card/35 px-2 py-2">
                 <p className="text-base font-semibold text-text">{comments.length}</p>
                 <p className="text-muted">Replies</p>
               </div>
-              <div className="rounded-xl border border-accent/15 bg-white/5 px-2 py-2">
+              <div className="rounded-xl border border-accent/15 bg-card/35 px-2 py-2">
                 <p className="text-base font-semibold text-text">{Math.max(0, score)}</p>
                 <p className="text-muted">Score</p>
               </div>
-              <div className="rounded-xl border border-accent/15 bg-white/5 px-2 py-2">
+              <div className="rounded-xl border border-accent/15 bg-card/35 px-2 py-2">
                 <p className="text-base font-semibold text-text">{profile?.avatar_url ? "✓" : "–"}</p>
                 <p className="text-muted">Profile</p>
               </div>
@@ -99,7 +99,7 @@ export default function PostCard({ post, view, emphasize = false }: { post: Post
             <button
               type="button"
               onClick={() => applyVote(vote === 1 ? 0 : 1)}
-              className={`rounded-lg border px-3 py-1 text-sm font-semibold transition ${vote === 1 ? "border-accent/55 bg-accent/80 text-[#0f2f36]" : "border-accent/20 bg-white/5 text-text"}`}
+              className={`rounded-lg border px-3 py-1 text-sm font-semibold transition ${vote === 1 ? "border-accent/55 bg-accent/80 text-text-inverse" : "border-accent/20 bg-card/35 text-text"}`}
             >
               ▲ Upvote
             </button>
@@ -107,7 +107,7 @@ export default function PostCard({ post, view, emphasize = false }: { post: Post
             <button
               type="button"
               onClick={() => applyVote(vote === -1 ? 0 : -1)}
-              className={`rounded-lg border px-3 py-1 text-sm font-semibold transition ${vote === -1 ? "border-brand-2/50 bg-brand-2/75 text-[#0f2f36]" : "border-accent/20 bg-white/5 text-text"}`}
+              className={`rounded-lg border px-3 py-1 text-sm font-semibold transition ${vote === -1 ? "border-brand-2/50 bg-brand-2/75 text-text-inverse" : "border-accent/20 bg-card/35 text-text"}`}
             >
               ▼ Downvote
             </button>
@@ -121,7 +121,7 @@ export default function PostCard({ post, view, emphasize = false }: { post: Post
             value={commentText}
             onChange={(e) => setCommentText(e.target.value)}
             placeholder="Add a comment"
-            className="w-full rounded-lg border border-accent/20 bg-white/5 px-3 py-2 text-sm text-text outline-none placeholder:text-muted focus:border-accent/35"
+            className="w-full rounded-lg border border-accent/20 bg-card/35 px-3 py-2 text-sm text-text outline-none placeholder:text-muted focus:border-accent/35"
           />
           <button type="button" onClick={addComment} className="soft-button px-3 py-2 text-sm">
             Comment
@@ -131,7 +131,7 @@ export default function PostCard({ post, view, emphasize = false }: { post: Post
         {comments.length > 0 && (
           <div className="mt-3 space-y-2">
             {comments.map((comment) => (
-              <div key={comment.id} className="rounded-xl border border-accent/15 bg-white/5 px-3 py-2">
+              <div key={comment.id} className="rounded-xl border border-accent/15 bg-card/35 px-3 py-2">
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-accent/75">{comment.author}</p>
                 <p className="text-sm text-text/90">{comment.body}</p>
               </div>

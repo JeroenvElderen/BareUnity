@@ -39,13 +39,13 @@ function MessageAvatar({ author, avatarUrl }: { author: string; avatarUrl: strin
         alt={`${author} avatar`}
         width={40}
         height={40}
-        className="h-10 w-10 shrink-0 rounded-full border border-white/30 object-cover shadow-sm"
+        className="h-10 w-10 shrink-0 rounded-full border border-accent/35 object-cover shadow-sm"
       />
     );
   }
 
   return (
-    <span className="relative z-20 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/30 bg-bg text-[0.68rem] font-semibold text-text/90 shadow-sm">
+    <span className="relative z-20 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-accent/35 bg-bg text-[0.68rem] font-semibold text-text/90 shadow-sm">
       {getInitials(author)}
     </span>
   );
@@ -289,27 +289,27 @@ export default function DiscussionChannel({ channelId, newcomerModeration = fals
   }
 
   return (
-    <section className="overflow-hidden rounded-3xl border border-white/15 bg-linear-to-br from-[#0f1a32] via-[#121f39] to-[#1b2942]">
-      <div className="flex items-center justify-between border-b border-white/10 px-6 py-5">
-        <h2 className="text-[1.05rem] font-semibold text-white/90">Combined Mockup — Bubble Chat + Thread Highlight</h2>
-        <span className="rounded-full border border-white/20 px-4 py-1.5 text-xs text-white/80">messages area concept</span>
+    <section className="overflow-hidden rounded-3xl border border-accent/20 bg-linear-to-br from-bg-deep via-card to-card-2">
+      <div className="flex items-center justify-between border-b border-accent/20 px-6 py-5">
+        <h2 className="text-[1.05rem] font-semibold text-text">Combined Mockup — Bubble Chat + Thread Highlight</h2>
+        <span className="rounded-full border border-accent/25 px-4 py-1.5 text-xs text-text/85">messages area concept</span>
       </div>
 
       <div className="grid min-h-160 grid-cols-[250px_minmax(0,1fr)_300px]">
-        <aside className="border-r border-white/10 p-3">
+        <aside className="border-r border-accent/20 p-3">
           <div className="space-y-3">
             {Array.from({ length: 8 }).map((_, index) => (
-              <div key={`left-nav-${index}`} className="h-12 rounded-xl border border-white/12 bg-white/3" />
+              <div key={`left-nav-${index}`} className="h-12 rounded-xl border border-accent/20 bg-card/35" />
             ))}
           </div>
         </aside>
 
-        <div className="flex flex-col border-r border-white/10">
+        <div className="flex flex-col border-r border-accent/20">
           <div className="relative flex-1 overflow-y-auto px-4 py-5">
             {isLoadingMessages ? (
-              <p className="text-sm text-white/60">Loading discussion…</p>
+              <p className="text-sm text-muted">Loading discussion…</p>
             ) : displayMessages.length === 0 ? (
-              <p className="text-sm text-white/60">No messages yet. Start the conversation.</p>
+              <p className="text-sm text-muted">No messages yet. Start the conversation.</p>
             ) : (
               displayMessages.map((message, index) => {
                 const isRight = message.isCurrentUser;
@@ -318,15 +318,15 @@ export default function DiscussionChannel({ channelId, newcomerModeration = fals
 
                 return (
                   <article key={message.id} className={`relative mb-3 flex ${isRight ? "justify-end" : "justify-start"}`}>
-                    {isFocusedThreadMessage ? <span className="absolute left-8 top-3 h-18 w-0.5 rounded-full bg-indigo-400/70" /> : null}
+                    {isFocusedThreadMessage ? <span className="absolute left-8 top-3 h-18 w-0.5 rounded-full bg-accent/70" /> : null}
 
                     <div className={`relative z-10 flex items-center gap-3 ${isRight ? "flex-row-reverse" : "flex-row"}`}>
                       <MessageAvatar author={message.author} avatarUrl={message.avatarUrl} />
                       <div
                         className={`h-12 rounded-2xl border ${
                           isRight
-                            ? "border-indigo-400/40 bg-indigo-500/35"
-                            : "border-white/15 bg-white/5"
+                            ? "border-accent/55 bg-accent/25"
+                            : "border-accent/20 bg-card/40"
                         }`}
                         style={{ width: `${pillWidth}px` }}
                         title={message.text}
@@ -338,18 +338,18 @@ export default function DiscussionChannel({ channelId, newcomerModeration = fals
             )}
           </div>
 
-          <form onSubmit={handleSend} className="flex items-center gap-3 border-t border-white/10 px-4 py-4">
+          <form onSubmit={handleSend} className="flex items-center gap-3 border-t border-accent/20 px-4 py-4">
             <input
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
               maxLength={1000}
-              className="h-11 flex-1 rounded-xl border border-white/15 bg-white/5 px-4 text-sm text-white outline-none placeholder:text-white/50 focus:border-indigo-400/60"
+              className="h-11 flex-1 rounded-xl border border-accent/20 bg-card/40 px-4 text-sm text-text outline-none placeholder:text-text/50 focus:border-accent/60"
               placeholder="Type your message"
             />
             <button
               type="submit"
               disabled={!canSend}
-              className="h-11 rounded-xl bg-indigo-500 px-5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
+              className="h-11 rounded-xl bg-accent px-5 text-sm font-medium text-text disabled:cursor-not-allowed disabled:opacity-50"
             >
               Send
             </button>
@@ -358,50 +358,50 @@ export default function DiscussionChannel({ channelId, newcomerModeration = fals
 
         <aside className="space-y-3 p-4">
           <div>
-            <h3 className="mb-2 text-sm text-white/85">Active Thread</h3>
-            <div className="rounded-xl border border-white/12 bg-white/4 p-3">
+            <h3 className="mb-2 text-sm text-text/85">Active Thread</h3>
+            <div className="rounded-xl border border-accent/20 bg-card/30 p-3">
               <div className="mb-2 flex gap-2">
-                <span className="rounded-full bg-indigo-500/35 px-2.5 py-1 text-[11px] text-indigo-100">Thread</span>
-                <span className="rounded-full bg-indigo-500/35 px-2.5 py-1 text-[11px] text-indigo-100">Design</span>
+                <span className="rounded-full bg-accent/35 px-2.5 py-1 text-[11px] text-text-inverse">Thread</span>
+                <span className="rounded-full bg-accent/35 px-2.5 py-1 text-[11px] text-text-inverse">Design</span>
               </div>
-              <div className="mb-2 h-2 w-full rounded-full bg-white/30" />
-              <div className="h-2 w-4/5 rounded-full bg-white/30" />
+              <div className="mb-2 h-2 w-full rounded-full bg-card/350" />
+              <div className="h-2 w-4/5 rounded-full bg-card/350" />
             </div>
           </div>
 
           <div>
-            <h3 className="mb-2 text-sm text-white/85">Participants</h3>
-            <div className="rounded-xl border border-white/12 bg-white/4 p-3">
+            <h3 className="mb-2 text-sm text-text/85">Participants</h3>
+            <div className="rounded-xl border border-accent/20 bg-card/30 p-3">
               {(participantPreview.length ? participantPreview : [{ author: "", avatarUrl: null }, { author: "", avatarUrl: null }, { author: "", avatarUrl: null }])
                 .slice(0, 3)
                 .map((participant, idx) => (
                   <div key={`${participant.author || "placeholder"}-${idx}`} className="mb-2 flex items-center gap-2 last:mb-0">
-                    {participant.author ? <MessageAvatar author={participant.author} avatarUrl={participant.avatarUrl} /> : <span className="h-8 w-8 rounded-full bg-white/20" />}
-                    <div className="h-2 w-32 rounded-full bg-white/30" />
+                    {participant.author ? <MessageAvatar author={participant.author} avatarUrl={participant.avatarUrl} /> : <span className="h-8 w-8 rounded-full bg-card/45" />}
+                    <div className="h-2 w-32 rounded-full bg-card/350" />
                   </div>
                 ))}
             </div>
           </div>
 
           <div>
-            <h3 className="mb-2 text-sm text-white/85">Pinned</h3>
-            <div className="rounded-xl border border-white/12 bg-white/4 p-3">
-              <div className="mb-2 h-2 w-11/12 rounded-full bg-white/30" />
-              <div className="h-2 w-3/4 rounded-full bg-white/30" />
+            <h3 className="mb-2 text-sm text-text/85">Pinned</h3>
+            <div className="rounded-xl border border-accent/20 bg-card/30 p-3">
+              <div className="mb-2 h-2 w-11/12 rounded-full bg-card/350" />
+              <div className="h-2 w-3/4 rounded-full bg-card/350" />
             </div>
           </div>
 
           <div>
-            <h3 className="mb-2 text-sm text-white/85">Attachments</h3>
-            <div className="rounded-xl border border-white/12 bg-white/4 p-3">
-              <div className="mb-2 h-2 w-4/5 rounded-full bg-white/30" />
-              <div className="h-2 w-2/3 rounded-full bg-white/30" />
+            <h3 className="mb-2 text-sm text-text/85">Attachments</h3>
+            <div className="rounded-xl border border-accent/20 bg-card/30 p-3">
+              <div className="mb-2 h-2 w-4/5 rounded-full bg-card/350" />
+              <div className="h-2 w-2/3 rounded-full bg-card/350" />
             </div>
           </div>
         </aside>
       </div>
 
-      {status ? <p className="px-4 pb-3 text-xs text-amber-200">{status}</p> : null}
+      {status ? <p className="px-4 pb-3 text-xs text-accent/90">{status}</p> : null}
     </section>
   );
 }

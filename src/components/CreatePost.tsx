@@ -143,7 +143,7 @@ export default function CreatePost({ onPublished, onCancel }: CreatePostProps) {
 
   const livePreviewCard = (
     <article className="overflow-hidden rounded-2xl border border-accent/20 bg-bg/60">
-      <div className="h-40 bg-linear-to-br from-emerald-600/80 to-cyan-500/80">
+      <div className="h-40 bg-linear-to-br from-brand/85 to-brand-2/85">
         {activeMedia ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={activeMedia.previewUrl} alt={activeMedia.file.name} className="h-full w-full object-cover" />
@@ -160,7 +160,7 @@ export default function CreatePost({ onPublished, onCancel }: CreatePostProps) {
         <div className="flex flex-wrap gap-2">
           <span className="rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-[11px] text-accent">#{flair.trim() || "community"}</span>
           {selectedTags.map((tag) => (
-            <span key={tag} className="rounded-full border border-accent/20 bg-white/5 px-2.5 py-1 text-[11px] text-muted">#{tag}</span>
+            <span key={tag} className="rounded-full border border-accent/20 bg-card/35 px-2.5 py-1 text-[11px] text-muted">#{tag}</span>
           ))}
         </div>
       </div>
@@ -231,7 +231,7 @@ export default function CreatePost({ onPublished, onCancel }: CreatePostProps) {
                     type="button"
                     onClick={() => toggleTag(tag)}
                     className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                      active ? "border-accent/60 bg-accent/15 text-accent" : "border-accent/20 bg-white/5 text-muted hover:text-text"
+                      active ? "border-accent/60 bg-accent/15 text-accent" : "border-accent/20 bg-card/35 text-muted hover:text-text"
                     }`}
                   >
                     #{tag}
@@ -269,8 +269,8 @@ export default function CreatePost({ onPublished, onCancel }: CreatePostProps) {
 
             {mediaStudio.length > 0 ? (
               <div className="mt-2 flex items-center gap-2">
-                <button type="button" onClick={() => moveMedia("prev")} className="rounded-full border border-accent/20 bg-white/5 px-3 py-1 text-xs text-muted">Prev</button>
-                <button type="button" onClick={() => moveMedia("next")} className="rounded-full border border-accent/20 bg-white/5 px-3 py-1 text-xs text-muted">Next</button>
+                <button type="button" onClick={() => moveMedia("prev")} className="rounded-full border border-accent/20 bg-card/35 px-3 py-1 text-xs text-muted">Prev</button>
+                <button type="button" onClick={() => moveMedia("next")} className="rounded-full border border-accent/20 bg-card/35 px-3 py-1 text-xs text-muted">Next</button>
                 {activeMedia ? (
                   <button type="button" onClick={() => removeMedia(activeMedia.id)} className="rounded-full border border-rose-400/60 bg-rose-500/10 px-3 py-1 text-xs text-rose-100">
                     Remove current
@@ -293,7 +293,7 @@ export default function CreatePost({ onPublished, onCancel }: CreatePostProps) {
 
           <div className="flex flex-wrap items-center justify-end gap-2">
             {onCancel ? (
-              <button type="button" onClick={onCancel} className="rounded-full border border-accent/25 bg-white/5 px-5 py-2.5 text-sm font-semibold text-muted">
+              <button type="button" onClick={onCancel} className="rounded-full border border-accent/25 bg-card/35 px-5 py-2.5 text-sm font-semibold text-muted">
                 Cancel
               </button>
             ) : null}
