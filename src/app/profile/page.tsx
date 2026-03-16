@@ -718,7 +718,7 @@ export default function ProfilePage() {
                   <p className="mt-3 text-xs text-muted">Communication preferences</p>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {["Direct messages", "Email", "Mentions only", "Async only"].map((preference) => (
-                      <button key={preference} type="button" onClick={() => toggleCommunicationPreference(preference)} className={`rounded-full px-3 py-1 text-xs ${communicationPreferences.includes(preference) ? "bg-accent text-text-inverse" : "border border-accent/30"}`}>
+                      <button key={preference} type="button" onClick={() => toggleCommunicationPreference(preference)} className={`rounded-full px-3 py-1 text-xs ${communicationPreferences.includes(preference) ? "bg-accent text-[rgb(var(--accent-contrast))]" : "border border-accent/35 bg-accent/12 text-text hover:bg-accent/20"}`}>
                         {preference}
                       </button>
                     ))}
@@ -738,7 +738,7 @@ export default function ProfilePage() {
                           type="button"
                           disabled={disabled}
                           onClick={() => updateRole(roleOption)}
-                          className={`rounded-full px-3 py-1 text-xs capitalize ${userRole === roleOption ? "bg-accent text-text-inverse" : "border border-accent/30"} ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
+                          className={`rounded-full px-3 py-1 text-xs capitalize ${userRole === roleOption ? "bg-accent text-[rgb(var(--accent-contrast))]" : "border border-accent/35 bg-accent/12 text-text hover:bg-accent/20"} ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
                         >
                           {roleOption.replace("_", " ")}
                         </button>
@@ -752,7 +752,7 @@ export default function ProfilePage() {
                         key={interest}
                         type="button"
                         onClick={() => toggleInterest(interest)}
-                        className={`rounded-full px-3 py-1 text-xs capitalize ${interests.includes(interest) ? "bg-accent text-text-inverse" : "border border-accent/30"}`}
+                        className={`rounded-full px-3 py-1 text-xs capitalize ${interests.includes(interest) ? "bg-accent text-[rgb(var(--accent-contrast))]" : "border border-accent/35 bg-accent/12 text-text hover:bg-accent/20"}`}
                       >
                         {interest}
                       </button>
@@ -782,7 +782,7 @@ export default function ProfilePage() {
                         </div>
                         <div className="mt-2 flex gap-1.5">
                           {(["public", "followers_only", "private"] as SectionVisibility[]).map((visibility) => (
-                            <button key={visibility} type="button" onClick={() => setSectionAccess(section, visibility)} className={`rounded-full px-2 py-1 text-[11px] ${sectionVisibility[section] === visibility ? "bg-accent text-text-inverse" : "border border-accent/30"}`}>
+                            <button key={visibility} type="button" onClick={() => setSectionAccess(section, visibility)} className={`rounded-full px-2 py-1 text-[11px] ${sectionVisibility[section] === visibility ? "bg-accent text-[rgb(var(--accent-contrast))]" : "border border-accent/35 bg-accent/12 text-text hover:bg-accent/20"}`}>
                               {visibility.replace("_", " ")}
                             </button>
                           ))}
@@ -794,7 +794,7 @@ export default function ProfilePage() {
                         <p className="text-xs capitalize">{section}</p>
                         <div className="mt-2 flex gap-1.5">
                           {(["public", "followers_only", "private"] as SectionVisibility[]).map((visibility) => (
-                            <button key={visibility} type="button" onClick={() => setSectionAccess(section, visibility)} className={`rounded-full px-2 py-1 text-[11px] ${sectionVisibility[section] === visibility ? "bg-accent text-text-inverse" : "border border-accent/30"}`}>
+                            <button key={visibility} type="button" onClick={() => setSectionAccess(section, visibility)} className={`rounded-full px-2 py-1 text-[11px] ${sectionVisibility[section] === visibility ? "bg-accent text-[rgb(var(--accent-contrast))]" : "border border-accent/35 bg-accent/12 text-text hover:bg-accent/20"}`}>
                               {visibility.replace("_", " ")}
                             </button>
                           ))}
@@ -808,7 +808,7 @@ export default function ProfilePage() {
                   <h3 className="font-semibold text-accent">Identity badges + timeline</h3>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {(["founder", "moderator", "top_contributor", "local_ambassador"] as IdentityBadge[]).map((badge) => (
-                      <button key={badge} type="button" onClick={() => toggleIdentityBadge(badge)} className={`rounded-full px-3 py-1 text-xs capitalize ${identityBadges.includes(badge) ? "bg-accent text-text-inverse" : "border border-accent/30"}`}>
+                      <button key={badge} type="button" onClick={() => toggleIdentityBadge(badge)} className={`rounded-full px-3 py-1 text-xs capitalize ${identityBadges.includes(badge) ? "bg-accent text-[rgb(var(--accent-contrast))]" : "border border-accent/35 bg-accent/12 text-text hover:bg-accent/20"}`}>
                         {badge.replaceAll("_", " ")}
                       </button>
                     ))}
@@ -821,7 +821,7 @@ export default function ProfilePage() {
                         <button type="button" onClick={() => removeTimelineHighlight(index)} className="rounded-xl border border-accent/35 px-2 text-xs">×</button>
                       </div>
                     ))}
-                    <button type="button" onClick={addTimelineHighlight} className="rounded-xl border border-accent/30 px-3 py-1 text-xs">Add highlight</button>
+                    <button type="button" onClick={addTimelineHighlight} className="accent-fill-soft rounded-xl px-3 py-1 text-xs">Add highlight</button>
                   </div>
                 </article>
 
@@ -840,13 +840,13 @@ export default function ProfilePage() {
                 <article className="rounded-2xl border border-accent/20 bg-card/90 p-4 text-sm">
                   <h3 className="font-semibold text-accent">Experience + privacy</h3>
                   <div className="mt-3 flex gap-2">
-                    <button type="button" onClick={() => setFeedStyle("balanced")} className={`rounded-full px-3 py-1 text-xs ${feedStyle === "balanced" ? "bg-accent text-text-inverse" : "border border-accent/30"}`}>Balanced</button>
-                    <button type="button" onClick={() => setFeedStyle("magazine")} className={`rounded-full px-3 py-1 text-xs ${feedStyle === "magazine" ? "bg-accent text-text-inverse" : "border border-accent/30"}`}>Magazine</button>
+                    <button type="button" onClick={() => setFeedStyle("balanced")} className={`rounded-full px-3 py-1 text-xs ${feedStyle === "balanced" ? "bg-accent text-[rgb(var(--accent-contrast))]" : "border border-accent/35 bg-accent/12 text-text hover:bg-accent/20"}`}>Balanced</button>
+                    <button type="button" onClick={() => setFeedStyle("magazine")} className={`rounded-full px-3 py-1 text-xs ${feedStyle === "magazine" ? "bg-accent text-[rgb(var(--accent-contrast))]" : "border border-accent/35 bg-accent/12 text-text hover:bg-accent/20"}`}>Magazine</button>
                   </div>
                   <p className="mt-3 text-xs text-muted">Relationship model</p>
                   <div className="mt-2 flex gap-2">
-                    <button type="button" onClick={() => setSocialGraphMode("follow")} className={`rounded-full px-3 py-1 text-xs ${socialGraphMode === "follow" ? "bg-accent text-text-inverse" : "border border-accent/30"}`}>One-way follow</button>
-                    <button type="button" onClick={() => setSocialGraphMode("mutual_friend")} className={`rounded-full px-3 py-1 text-xs ${socialGraphMode === "mutual_friend" ? "bg-accent text-text-inverse" : "border border-accent/30"}`}>Mutual friend</button>
+                    <button type="button" onClick={() => setSocialGraphMode("follow")} className={`rounded-full px-3 py-1 text-xs ${socialGraphMode === "follow" ? "bg-accent text-[rgb(var(--accent-contrast))]" : "border border-accent/35 bg-accent/12 text-text hover:bg-accent/20"}`}>One-way follow</button>
+                    <button type="button" onClick={() => setSocialGraphMode("mutual_friend")} className={`rounded-full px-3 py-1 text-xs ${socialGraphMode === "mutual_friend" ? "bg-accent text-[rgb(var(--accent-contrast))]" : "border border-accent/35 bg-accent/12 text-text hover:bg-accent/20"}`}>Mutual friend</button>
                   </div>
                   <div className="mt-3 space-y-2">
                     <label className="flex items-center justify-between">Show email<input type="checkbox" checked={privacy.showEmail} onChange={(event) => updatePrivacy("showEmail", event.target.checked)} /></label>
@@ -868,7 +868,7 @@ export default function ProfilePage() {
                             <p className="text-[11px] text-muted">{request.mutualFriends} mutual friends</p>
                           </div>
                           <div className="flex gap-1.5">
-                            <button type="button" onClick={() => approveFriendRequest(request.id)} className="rounded-full bg-accent px-2.5 py-1 text-[11px] text-text-inverse">Approve</button>
+                            <button type="button" onClick={() => approveFriendRequest(request.id)} className="rounded-full bg-accent px-2.5 py-1 text-[11px] text-[rgb(var(--accent-contrast))]">Approve</button>
                             <button type="button" onClick={() => declineFriendRequest(request.id)} className="rounded-full border border-accent/35 px-2.5 py-1 text-[11px]">Decline</button>
                           </div>
                         </div>
@@ -882,7 +882,7 @@ export default function ProfilePage() {
                   <p className="mt-2 text-xs text-muted">Blocked users cannot interact with you.</p>
                   <div className="mt-3 flex gap-2">
                     <input value={blockInput} onChange={(event) => setBlockInput(event.target.value)} placeholder="username" className="w-full rounded-xl border border-accent/20 bg-bg-deep/70 px-3 py-2" />
-                    <button type="button" onClick={addBlockedUser} className="rounded-xl bg-accent px-3 py-2 text-xs text-text-inverse">Block</button>
+                    <button type="button" onClick={addBlockedUser} className="rounded-xl bg-accent px-3 py-2 text-xs text-[rgb(var(--accent-contrast))]">Block</button>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {blockedUsernames.length === 0 ? <span className="text-xs text-muted">No blocked users.</span> : blockedUsernames.map((entry) => (
@@ -898,7 +898,7 @@ export default function ProfilePage() {
                   <p className="mt-2 text-xs text-muted">Optional flow for notable contributors with public impact signals.</p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {(["none", "requested", "verified"] as VerificationStatus[]).map((status) => (
-                      <button key={status} type="button" onClick={() => setVerificationStatus(status)} className={`rounded-full px-3 py-1 text-xs capitalize ${verificationStatus === status ? "bg-accent text-text-inverse" : "border border-accent/30"}`}>
+                      <button key={status} type="button" onClick={() => setVerificationStatus(status)} className={`rounded-full px-3 py-1 text-xs capitalize ${verificationStatus === status ? "bg-accent text-[rgb(var(--accent-contrast))]" : "border border-accent/35 bg-accent/12 text-text hover:bg-accent/20"}`}>
                         {status === "none" ? "Not verified" : status}
                       </button>
                     ))}
@@ -922,7 +922,7 @@ export default function ProfilePage() {
                   <p className="mt-2 text-xs text-muted">Organize people you follow into close friends, collaborators, and inspiration lists.</p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {(["close_friends", "collaborators", "inspiration"] as FollowCategory[]).map((category) => (
-                      <button key={category} type="button" onClick={() => toggleFollowCategory(category)} className={`rounded-full px-3 py-1 text-xs capitalize ${followCategories.includes(category) ? "bg-accent text-text-inverse" : "border border-accent/30"}`}>
+                      <button key={category} type="button" onClick={() => toggleFollowCategory(category)} className={`rounded-full px-3 py-1 text-xs capitalize ${followCategories.includes(category) ? "bg-accent text-[rgb(var(--accent-contrast))]" : "border border-accent/35 bg-accent/12 text-text hover:bg-accent/20"}`}>
                         {category.replace("_", " ")}
                       </button>
                     ))}
@@ -934,7 +934,7 @@ export default function ProfilePage() {
                   <p className="mt-2 text-xs text-muted">Choose a theme pack and pick which widgets are visible on the home dashboard.</p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {(["minimal", "nature", "high-contrast"] as ThemePack[]).map((pack) => (
-                      <button key={pack} type="button" onClick={() => setHomeThemePack(pack)} className={`rounded-full px-3 py-1 text-xs capitalize ${homeThemePack === pack ? "bg-accent text-text-inverse" : "border border-accent/30"}`}>
+                      <button key={pack} type="button" onClick={() => setHomeThemePack(pack)} className={`rounded-full px-3 py-1 text-xs capitalize ${homeThemePack === pack ? "bg-accent text-[rgb(var(--accent-contrast))]" : "border border-accent/35 bg-accent/12 text-text hover:bg-accent/20"}`}>
                         {pack}
                       </button>
                     ))}
@@ -989,14 +989,14 @@ export default function ProfilePage() {
               <button
                 type="button"
                 onClick={() => avatarInputRef.current?.click()}
-                className="w-full rounded-xl border border-accent/20 bg-card-2/70 px-3 py-2 text-left text-xs font-semibold text-text transition hover:border-accent/65"
+                className="accent-fill w-full rounded-xl px-3 py-2 text-left text-xs font-semibold transition"
               >
                 Change avatar image
               </button>
               <button
                 type="button"
                 onClick={() => bannerInputRef.current?.click()}
-                className="w-full rounded-xl border border-accent/20 bg-card-2/70 px-3 py-2 text-left text-xs font-semibold text-text transition hover:border-accent/65"
+                className="accent-fill w-full rounded-xl px-3 py-2 text-left text-xs font-semibold transition"
               >
                 Change banner image
               </button>
