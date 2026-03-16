@@ -53,7 +53,7 @@ export default function SidebarMenu({ channels: channelsProp, onCreatePost }: { 
   const channels = useMemo(() => channelsProp ?? getChannels(), [channelsProp]);
   const currentTab = searchParams.get("tab");
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [channelsOpen, setChannelsOpen] = useState(pathname.startsWith("/channels"));
+  const [channelsOpen, setChannelsOpen] = useState(pathname.startsWith("/discussion") || pathname.startsWith("/naturist-map"));
   const [settingsOpen, setSettingsOpen] = useState(pathname.startsWith("/settings"));
   const [profileOpen, setProfileOpen] = useState(pathname.startsWith("/profile"));
 
@@ -210,14 +210,14 @@ function SidebarBody({
 
         <Dropdown
           label="📂 Channels"
-          isActive={pathname.startsWith("/channels")}
+          isActive={pathname.startsWith("/discussion") || pathname.startsWith("/naturist-map")}
           isOpen={channelsOpen}
           onToggle={onToggleChannels}
         >
           {channels.map((channel) => (
             <MenuLink
               key={channel.id}
-              href={`/channels/${channel.id}`}
+              href={channel.href}
               label={channel.name}
               pathname={pathname}
               currentTab={currentTab}

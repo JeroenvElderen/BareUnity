@@ -1,5 +1,5 @@
 import HomeFeedClient from "@/components/HomeFeedClient";
-import { ChannelContentType, getChannels } from "@/lib/channel-data";
+import { getChannels } from "@/lib/channel-data";
 import { db } from "@/server/db";
 
 type FeedPost = {
@@ -11,15 +11,7 @@ type FeedPost = {
   channel_id: string | null;
   media_url: string | null;
   post_type: string | null;
-  channels: { name: string } | null;
   _count: { comments: number };
-};
-
-type SidebarChannel = {
-  id: string;
-  name: string;
-  iconUrl: string | null;
-  contentType: ChannelContentType;
 };
 
 type BasicProfile = {
@@ -32,15 +24,6 @@ type UserProfile = {
   username: string;
   display_name: string | null;
 };
-
-function normalizeContentType(raw: string | null): ChannelContentType {
-  if (raw === "retreats") return "retreats";
-  if (raw === "mindful") return "mindful";
-  if (raw === "map" || raw === "naturist-map" || raw === "naturist_map") return "map";
-  if (raw === "discussion") return "discussion";
-  if (raw === "custom") return "custom";
-  return "general";
-}
 
 function isPreparedStatementError(error: unknown) {
   if (!error || typeof error !== "object" || !("message" in error)) return false;
@@ -61,41 +44,23 @@ async function withPrismaRetry<T>(operation: () => Promise<T>): Promise<T> {
 
 export default async function Home() {
   let posts: FeedPost[] = [];
-  let channels: SidebarChannel[] = [];
+  const channels = getChannels();
   let profile: UserProfile | null = null;
   let activityProfiles: BasicProfile[] = [];
   let authorProfiles: BasicProfile[] = [];
 
   try {
-    const [postsResult, channelsResult, profileResult, activityProfilesResult] = await Promise.allSettled([
+    const [postsResult, profileResult, activityProfilesResult] = await Promise.allSettled([
       withPrismaRetry(() =>
         db.posts.findMany({
           take: 8,
           orderBy: { created_at: "desc" },
           include: {
-            channels: {
-              select: {
-                name: true,
-              },
-            },
             _count: {
               select: {
                 comments: true,
               },
             },
-          },
-        }),
-      ),
-      withPrismaRetry(() =>
-        db.channels.findMany({
-          where: { is_enabled: true },
-          orderBy: [{ featured: "desc" }, { position: "asc" }, { created_at: "desc" }],
-          take: 5,
-          select: {
-            id: true,
-            name: true,
-            icon_url: true,
-            content_type: true,
           },
         }),
       ),
@@ -118,15 +83,6 @@ export default async function Home() {
     ]);
 
    posts = postsResult.status === "fulfilled" ? (postsResult.value as FeedPost[]) : [];
-    channels =
-      channelsResult.status === "fulfilled"
-        ? (channelsResult.value as Array<{ id: string; name: string; icon_url: string | null; content_type: string | null }>).map((channel) => ({
-            id: channel.id,
-            name: channel.name,
-            iconUrl: channel.icon_url,
-            contentType: normalizeContentType(channel.content_type),
-          }))
-        : getChannels();
     profile = profileResult.status === "fulfilled" ? (profileResult.value as UserProfile | null) : null;
     activityProfiles = activityProfilesResult.status === "fulfilled" ? (activityProfilesResult.value as BasicProfile[]) : [];
 

@@ -7,7 +7,8 @@ const menuItems = [
   { href: "/", label: "Home" },
   { href: "/profile", label: "Profile" },
   { href: "/settings", label: "Settings" },
-  { href: "/channels", label: "Channels" },
+  { href: "/discussion", label: "Discussion" },
+  { href: "/naturist-map", label: "Naturist Map" },
 ];
 
 export default function AppMenu() {

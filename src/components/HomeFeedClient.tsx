@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import SidebarMenu from "@/components/SidebarMenu";
 import CreatePost from "@/components/CreatePost";
-import { ChannelContentType } from "@/lib/channel-data";
+import { ChannelContentType, getChannelById } from "@/lib/channel-data";
 import { supabase } from "@/lib/supabase";
 
 type FeedPost = {
@@ -16,13 +16,13 @@ type FeedPost = {
   channel_id: string | null;
   media_url: string | null;
   post_type: string | null;
-  channels: { name: string } | null;
   _count: { comments: number };
 };
 
 type SidebarChannel = {
   id: string;
   name: string;
+  href: string;
   iconUrl: string | null;
   contentType: ChannelContentType;
 };
@@ -168,6 +168,15 @@ function parseComposerContent(content: string | null, fallbackTitle: string | nu
     };
   }
 }
+function getPostChannelTag(channelId: string | null) {
+  if (!channelId) return "community";
+
+  const channel = getChannelById(channelId);
+  if (!channel) return "community";
+
+  return channel.name.toLowerCase().replace(/\s+/g, "-");
+}
+
 
 export default function HomeFeedClient({ posts, channels, profile, activityProfiles, authorProfiles }: HomeFeedClientProps) {
   const authorMap = useMemo(() => new Map(authorProfiles.map((entry) => [entry.id, entry])), [authorProfiles]);
@@ -490,7 +499,7 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
                           <div>
                             <strong className="block text-base">{authorName}</strong>
                             <span className={`text-xs ${theme.subtleText}`}>
-                              @{authorHandle} · {formatRelativeTime(post.created_at)} · #{post.channels?.name?.toLowerCase().replace(/\s+/g, "-") ?? "general"}
+                              @{authorHandle} · {formatRelativeTime(post.created_at)} · #{getPostChannelTag(post.channel_id)}
                             </span>
                           </div>
                         </div>
@@ -607,7 +616,7 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
                             <div>
                               <strong className="block text-base">{authorName}</strong>
                               <span className={`text-xs ${theme.subtleText}`}>
-                                @{authorHandle} · {formatRelativeTime(selectedPost.created_at)} · #{selectedPost.channels?.name?.toLowerCase().replace(/\s+/g, "-") ?? "general"}
+                                @{authorHandle} · {formatRelativeTime(selectedPost.created_at)} · #{getPostChannelTag(selectedPost.channel_id)}
                               </span>
                             </div>
                           </div>

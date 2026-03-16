@@ -110,7 +110,8 @@ export default function AuthButton() {
             <ul className="profile-menu-list">
               {[
                 { href: "/", label: "Home feed" },
-                { href: "/channels", label: "Channels" },
+                { href: "/discussion", label: "Discussion" },
+                { href: "/naturist-map", label: "Naturist Map" },
                 { href: "/events", label: "Events" },
                 { href: "/map", label: "Map" },
                 { href: "/saved", label: "Saved" },
@@ -166,7 +167,7 @@ export default function AuthButton() {
 
             <ul className="profile-menu-list">
               <li>
-                <Link href="/channels" onClick={() => setOpen(false)} className="profile-menu-element profile-menu-team">
+                <Link href="/discussion" onClick={() => setOpen(false)} className="profile-menu-element profile-menu-team">
                   <MenuIcon className="profile-menu-icon">
                     <path d="M18 21a8 8 0 0 0-16 0" />
                     <circle cx="10" cy="8" r="5" />
