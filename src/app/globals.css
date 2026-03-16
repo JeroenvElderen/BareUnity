@@ -353,14 +353,15 @@ body::before {
 
 @layer components {
   .accent-fill {
-    border: 1px solid rgb(var(--accent) / 0.52);
-    background: rgb(var(--accent) / 0.24);
+    border: 1px solid rgb(var(--accent) / 0.86);
+    background: rgb(var(--accent) / 0.94);
     color: rgb(var(--accent-contrast));
+    box-shadow: 0 12px 28px -18px rgb(var(--accent) / 0.9);
   }
 
   .accent-fill:hover {
-    border-color: rgb(var(--accent) / 0.62);
-    background: rgb(var(--accent) / 0.34);
+    border-color: rgb(var(--accent));
+    background: rgb(var(--accent));
   }
 
   .accent-fill-soft {

@@ -259,8 +259,8 @@ const Dropdown = memo(function Dropdown({
         onClick={onToggle}
         className={`flex w-full items-center justify-between rounded-xl border px-3 py-2.75 text-left transition ${
           isActive
-            ? "border-accent/60 bg-accent/56 text-[rgb(var(--accent-contrast))] shadow-[0_12px_28px_-16px_rgb(var(--accent)/0.85)]"
-            : "border-transparent bg-accent/10 text-muted hover:border-accent/42 hover:bg-accent/22"
+            ? "border-accent/90 bg-accent/92 text-[rgb(var(--accent-contrast))] shadow-[0_12px_28px_-16px_rgb(var(--accent)/0.9)]"
+            : "border-accent/45 bg-accent/16 text-accent hover:border-accent/72 hover:bg-accent/26"
         }`}
       >
         <span>{label}</span>
@@ -301,8 +301,8 @@ const MenuLink = memo(function MenuLink({
       onClick={onNavigate}
       className={`rounded-xl border px-3 ${compact ? "py-2 text-xs" : "py-2.75"} transition ${
         isActive
-          ? "border-accent/60 bg-accent/56 text-[rgb(var(--accent-contrast))] shadow-[0_12px_28px_-16px_rgb(var(--accent)/0.85)]"
-          : "border-transparent bg-accent/10 text-muted hover:border-accent/42 hover:bg-accent/22 hover:text-text"
+          ? "border-accent/90 bg-accent/92 text-[rgb(var(--accent-contrast))] shadow-[0_12px_28px_-16px_rgb(var(--accent)/0.9)]"
+          : "border-accent/45 bg-accent/16 text-accent hover:border-accent/72 hover:bg-accent/26"
       }`}
     >
       {label}

@@ -24,8 +24,8 @@ export default function AppMenu() {
             href={item.href}
             className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
               isActive
-                ? "border-accent/70 bg-accent/52 text-[rgb(var(--accent-contrast))]"
-                : "border-accent/30 bg-accent/10 text-muted hover:border-accent/45 hover:bg-accent/20 hover:text-text"
+                ? "border-accent/90 bg-accent/92 text-[rgb(var(--accent-contrast))]"
+                : "border-accent/45 bg-accent/16 text-accent hover:border-accent/72 hover:bg-accent/26"
             }`}
           >
             {item.label}
