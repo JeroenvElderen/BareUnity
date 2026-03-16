@@ -156,6 +156,9 @@ export default function NaturistMapChannel() {
   });
   const [privacyFilter, setPrivacyFilter] = useState<"All" | NaturistSpot["privacy"]>("All");
 
+  const publicCount = useMemo(() => spots.filter((spot) => spot.privacy === "Public").length, [spots]);
+  const discreetCount = useMemo(() => spots.filter((spot) => spot.privacy === "Discreet").length, [spots]);
+
   useEffect(() => {
     let active = true;
 
@@ -366,14 +369,24 @@ export default function NaturistMapChannel() {
   }
 
   return (
-    <section className="flex min-h-[calc(100vh-10rem)] flex-col rounded-3xl border border-accent/35 bg-linear-to-b from-bg-deep to-card p-3 text-text shadow-[0_18px_60px_rgba(0,0,0,0.35)] sm:p-4 md:p-6">
-      <div className="mb-4 space-y-2">
-        <h2 className="text-base font-semibold text-text-strong">Naturist Map</h2>
-        <p className="text-sm text-muted">
-          Explore naturist-friendly beaches, discreet hideaways, and calm nature locations. Always verify local regulations and respect
-          privacy at each site.
-        </p>
-        <div className="flex flex-wrap gap-2 text-xs">
+    <section className="overflow-hidden rounded-3xl border border-accent/35 bg-linear-to-b from-bg-deep via-card to-bg-deep text-text shadow-[0_24px_80px_rgba(0,0,0,0.45)]">
+      <div className="border-b border-accent/20 bg-bg-deep/60 px-4 py-4 backdrop-blur-sm sm:px-5 sm:py-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-base font-semibold text-text-strong sm:text-lg">Naturist Map · Orbital Explorer</h2>
+            <p className="mt-1 text-xs text-muted sm:text-sm">
+              Cinematic globe-style discovery for desktop and one-thumb exploration on mobile. Theme tones follow each user’s selected
+              preference colors.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2 text-[11px] text-text/85 sm:text-xs">
+            <span className="rounded-full border border-accent/35 bg-card/75 px-3 py-1.5">Total spots: {spots.length}</span>
+            <span className="rounded-full border border-accent/35 bg-card/75 px-3 py-1.5">Public: {publicCount}</span>
+            <span className="rounded-full border border-accent/35 bg-card/75 px-3 py-1.5">Discreet: {discreetCount}</span>
+          </div>
+        </div>
+
+        <div className="mt-3 flex flex-wrap gap-2 text-xs">
           {(["All", "Public", "Discreet"] as const).map((option) => (
             <button
               key={option}
@@ -381,20 +394,20 @@ export default function NaturistMapChannel() {
               onClick={() => setPrivacyFilter(option)}
               className={`rounded-full border px-3 py-1.5 transition ${
                 privacyFilter === option
-                  ? "border-accent/55 bg-card-2/70 text-text"
-                  : "border-accent/35 bg-card/70 text-text/85 hover:border-accent/55"
+                  ? "border-accent/60 bg-accent/20 text-text-strong"
+                  : "border-accent/35 bg-card/65 text-text/85 hover:border-accent/60"
               }`}
             >
               {option} ({option === "All" ? spots.length : spots.filter((spot) => spot.privacy === option).length})
             </button>
           ))}
         </div>
+
+      {dataError ? <p className="mt-3 text-xs text-accent/90">{dataError}</p> : null}
       </div>
 
-      {dataError ? <p className="mb-3 text-xs text-accent/90">{dataError}</p> : null}
-
       {mapError ? (
-        <div className="space-y-3">
+        <div className="space-y-3 p-4 sm:p-5">
           <p className="text-xs text-accent/90">{mapError}</p>
           <iframe
             title="Naturist locations map fallback"
@@ -404,44 +417,63 @@ export default function NaturistMapChannel() {
           />
         </div>
       ) : (
-        <div className="relative mt-1 flex-1 overflow-hidden rounded-2xl border border-accent/35 bg-bg-deep/75">
-          <div ref={mapContainerRef} className="h-72 w-full overflow-hidden sm:h-full sm:min-h-160" />
-
-          <aside className="relative z-10 m-2 flex h-auto max-h-64 w-auto flex-col rounded-2xl border border-accent/35 bg-bg-deep/72 p-3 backdrop-blur-md lg:absolute lg:inset-y-3 lg:left-3 lg:m-0 lg:max-h-[calc(100%-1.5rem)] lg:w-full lg:max-w-88">
-            <h3 className="text-sm font-semibold text-text-strong">Visible locations</h3>
-            <p className="mt-1 text-xs text-muted">Select a spot to focus it on the map.</p>
-            <div className="mt-3 flex-1 space-y-2 overflow-y-auto pr-1">
-              {visibleSpots.map((spot) => (
-                <button
-                  key={spot.id}
-                  type="button"
-                  onClick={() => {
-                    setSelectedCoords(spot.coordinates);
-                    setSelectedLocationLabel(spot.name);
-                  }}
-                  className="w-full rounded-xl border border-accent/35 bg-bg-deep/70 px-3 py-2 text-left transition hover:border-accent/55"
-                >
-                  <p className="text-sm font-medium text-text">{spot.name}</p>
-                  <p className="line-clamp-2 text-xs text-muted">{spot.description}</p>
-                </button>
-              ))}
-              {visibleSpots.length === 0 ? <p className="text-xs text-muted">No spots match this filter yet.</p> : null}
+        <div className="grid gap-3 p-3 sm:gap-4 sm:p-4 lg:grid-cols-[minmax(0,2fr)_minmax(20rem,1fr)] lg:p-5">
+          <div className="overflow-hidden rounded-3xl border border-accent/35 bg-bg-deep/70">
+            <div className="relative">
+              <div className="pointer-events-none absolute inset-0 z-[1] bg-[radial-gradient(circle_at_20%_20%,rgba(var(--brand),0.28),transparent_38%),radial-gradient(circle_at_78%_64%,rgba(var(--accent),0.22),transparent_36%),radial-gradient(circle_at_48%_84%,rgba(var(--brand-2),0.24),transparent_34%)]" />
+              <div ref={mapContainerRef} className="relative z-0 h-[48vh] w-full overflow-hidden sm:h-[56vh] lg:h-[70vh]" />
             </div>
 
-          <button
-              type="button"
-              className="mt-3 w-full rounded-xl bg-accent/85 px-3 py-2 text-sm font-semibold text-text-inverse transition hover:bg-accent"
-              onClick={() => {
-                setIsAddingSpot((current) => !current);
-                setSaveError(null);
-              }}
-            >
-              {isAddingSpot ? "Close" : "Add location"}
-            </button>
+          <div className="grid gap-2 border-t border-accent/25 bg-bg-deep/70 p-3 text-xs text-muted sm:grid-cols-3 sm:text-sm">
+              <div className="rounded-xl border border-accent/25 bg-card/60 px-3 py-2">Live markers: {visibleSpots.length}</div>
+              <div className="rounded-xl border border-accent/25 bg-card/60 px-3 py-2">Map center: {mapCenter[1].toFixed(2)}, {mapCenter[0].toFixed(2)}</div>
+              <div className="rounded-xl border border-accent/25 bg-card/60 px-3 py-2">Mode: {selectedCoords ? "Focused" : "Explorer"}</div>
+            </div>
+          </div>
+
+          <aside className="flex min-h-0 flex-col gap-3">
+            <div className="flex min-h-0 flex-1 flex-col rounded-2xl border border-accent/35 bg-bg-deep/72 p-3 backdrop-blur-md sm:p-4">
+              <h3 className="text-sm font-semibold text-text-strong">Visible locations</h3>
+              <p className="mt-1 text-xs text-muted">Tap a spot to focus the globe.</p>
+
+              <div className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+                {visibleSpots.map((spot) => (
+                  <button
+                    key={spot.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedCoords(spot.coordinates);
+                      setSelectedLocationLabel(spot.name);
+                    }}
+                    className="w-full rounded-xl border border-accent/35 bg-card/60 px-3 py-2 text-left transition hover:border-accent/60"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm font-medium text-text">{spot.name}</p>
+                      <span className="rounded-full border border-accent/30 px-2 py-0.5 text-[10px] uppercase tracking-wide text-text/80">
+                        {spot.privacy}
+                      </span>
+                    </div>
+                    <p className="mt-1 line-clamp-2 text-xs text-muted">{spot.description}</p>
+                  </button>
+                ))}
+                {visibleSpots.length === 0 ? <p className="text-xs text-muted">No spots match this filter yet.</p> : null}
+              </div>
+
+              <button
+                type="button"
+                className="mt-3 w-full rounded-xl bg-accent/85 px-3 py-2 text-sm font-semibold text-text-inverse transition hover:bg-accent"
+                onClick={() => {
+                  setIsAddingSpot((current) => !current);
+                  setSaveError(null);
+                }}
+              >
+                {isAddingSpot ? "Close creator" : "Add location"}
+              </button>
+            </div>
           </aside>
 
           {isAddingSpot ? (
-            <div className="relative z-10 m-2 mt-0 max-h-96 w-auto overflow-y-auto rounded-2xl border border-accent/40 bg-linear-to-br from-bg-deep/95 to-card/95 p-3 text-sm shadow-xl backdrop-blur-md lg:absolute lg:right-3 lg:top-3 lg:m-0 lg:max-h-[calc(100%-1.5rem)] lg:w-full lg:max-w-105">
+            <div className="rounded-2xl border border-accent/40 bg-linear-to-br from-bg-deep/95 to-card/95 p-3 text-sm shadow-xl backdrop-blur-md lg:col-span-2 lg:p-4">
               <form className="space-y-3" onSubmit={searchPlaces}>
                 <p className="text-xs text-muted">Search beaches, resorts, buildings, or remote places, then select a result.</p>
                 <div className="flex flex-col gap-2 sm:flex-row">
@@ -458,12 +490,12 @@ export default function NaturistMapChannel() {
               </form>
 
               {searchResults.length > 0 ? (
-                <ul className="mt-3 space-y-2">
+                <ul className="mt-3 max-h-40 space-y-2 overflow-y-auto pr-1">
                   {searchResults.map((result) => (
                     <li key={result.place_id}>
                       <button
                         type="button"
-                        className="w-full rounded-lg border border-accent/35 bg-bg-deep/70/80 px-2 py-2 text-left"
+                        className="w-full rounded-lg border border-accent/35 bg-bg-deep/80 px-2 py-2 text-left"
                         onClick={() => selectSearchResult(result)}
                       >
                         <p className="text-xs text-text">{result.display_name}</p>
@@ -474,28 +506,22 @@ export default function NaturistMapChannel() {
                 </ul>
               ) : null}
 
-              <form className="mt-3 space-y-2" onSubmit={createSpot}>
-                {selectedLocationLabel ? (
-                  <p className="rounded-lg border border-accent/25 bg-accent/8 px-2 py-1 text-xs text-cyan-50">
-                    Selected: {selectedLocationLabel}
-                  </p>
-                ) : (
-                  <p className="text-xs text-muted">No location selected yet.</p>
-                )}
+              <form className="mt-3 grid gap-2 sm:grid-cols-2" onSubmit={createSpot}>
+                <div className="sm:col-span-2">
+                  {selectedLocationLabel ? (
+                    <p className="rounded-lg border border-accent/30 bg-accent/12 px-2 py-1 text-xs text-text">
+                      Selected: {selectedLocationLabel}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted">No location selected yet.</p>
+                  )}
+                </div>
 
                 <input
                   className="w-full rounded-lg border border-accent/35 bg-bg-deep/70 px-3 py-2 text-text"
                   value={newSpot.name}
                   onChange={(event) => setNewSpot((current) => ({ ...current, name: event.target.value }))}
                   placeholder="Spot name"
-                  required
-                />
-                <textarea
-                  className="w-full rounded-lg border border-accent/35 bg-bg-deep/70 px-3 py-2 text-text"
-                  rows={3}
-                  value={newSpot.description}
-                  onChange={(event) => setNewSpot((current) => ({ ...current, description: event.target.value }))}
-                  placeholder="Description"
                   required
                 />
                 <select
@@ -506,12 +532,20 @@ export default function NaturistMapChannel() {
                   <option value="Public">Public</option>
                   <option value="Discreet">Discreet</option>
                 </select>
+                <textarea
+                  className="w-full rounded-lg border border-accent/35 bg-bg-deep/70 px-3 py-2 text-text sm:col-span-2"
+                  rows={3}
+                  value={newSpot.description}
+                  onChange={(event) => setNewSpot((current) => ({ ...current, description: event.target.value }))}
+                  placeholder="Description"
+                  required
+                />
 
-                {saveError ? <p className="text-xs text-rose-200">{saveError}</p> : null}
+                {saveError ? <p className="text-xs text-rose-200 sm:col-span-2">{saveError}</p> : null}
 
                 <button
                   type="submit"
-                  className="w-full rounded-xl bg-accent/85 px-3 py-2 text-sm font-semibold text-text-inverse transition hover:bg-accent"
+                  className="w-full rounded-xl bg-accent/85 px-3 py-2 text-sm font-semibold text-text-inverse transition hover:bg-accent sm:col-span-2"
                   disabled={saving}
                 >
                   {saving ? "Saving..." : "Save to Supabase"}
