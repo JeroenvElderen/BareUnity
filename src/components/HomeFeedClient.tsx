@@ -94,6 +94,8 @@ const defaultWidgets: DashboardWidgets = {
   recent_activity: true,
 };
 
+const themePackStorageKey = "bareunity-home-theme-pack";
+
 const numberFormatter = new Intl.NumberFormat("en", { notation: "compact" });
 
 function formatRelativeTime(dateValue: string | Date | null) {
@@ -123,6 +125,10 @@ function initialsFromName(name: string) {
     .join("")
     .slice(0, 2)
     .toUpperCase();
+}
+
+function isThemePack(value: string | null | undefined): value is ThemePack {
+  return value === "minimal" || value === "nature" || value === "high-contrast";
 }
 
 
@@ -167,7 +173,12 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
   const authorMap = useMemo(() => new Map(authorProfiles.map((entry) => [entry.id, entry])), [authorProfiles]);
   const topPostCommentCount = posts.reduce((max, post) => Math.max(max, post._count.comments), 0);
   const [viewerProfile, setViewerProfile] = useState<UserProfile | null>(profile);
-  const [themePack, setThemePack] = useState<ThemePack>("nature");
+  const [themePack, setThemePack] = useState<ThemePack>(() => {
+    if (typeof window === "undefined") return "nature";
+
+    const cachedThemePack = window.localStorage.getItem(themePackStorageKey);
+    return isThemePack(cachedThemePack) ? cachedThemePack : "nature";
+  });
   const [widgets, setWidgets] = useState<DashboardWidgets>(defaultWidgets);
   const [isComposerOpen, setIsComposerOpen] = useState(false);
   const [selectedPost, setSelectedPost] = useState<FeedPost | null>(null);
@@ -215,7 +226,10 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
 
       if (!data) return;
 
-      if (data.home_theme_pack) setThemePack(data.home_theme_pack);
+      if (isThemePack(data.home_theme_pack)) {
+        setThemePack(data.home_theme_pack);
+        window.localStorage.setItem(themePackStorageKey, data.home_theme_pack);
+      }
       if (data.dashboard_widgets) setWidgets({ ...defaultWidgets, ...data.dashboard_widgets });
     }
 
