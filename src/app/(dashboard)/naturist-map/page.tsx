@@ -413,7 +413,7 @@ export default function NaturistMapPage() {
   }
 
   return (
-    <section className="mx-auto flex max-w-[1400px] max-h-[calc(100vh-6rem)] min-h-[34rem] flex-col overflow-hidden rounded-[2rem] border border-white/30 bg-linear-to-br from-[#071526] via-[#0a1e35] to-[#071224] text-text shadow-[0_24px_90px_rgba(1,8,18,0.7)]">
+    <section className="flex min-h-[34rem] min-w-0 flex-1 flex-col overflow-hidden rounded-b-[26px] rounded-tr-[26px] border border-white/30 bg-linear-to-br from-[#071526] via-[#0a1e35] to-[#071224] text-text shadow-[0_24px_90px_rgba(1,8,18,0.7)]">
       <div className="px-5 py-4 sm:px-6 sm:py-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -455,10 +455,10 @@ export default function NaturistMapPage() {
         </div>
       ) : (
         <div className="grid min-h-0 flex-1 gap-4 px-5 pb-5 sm:px-6 sm:pb-6 lg:grid-cols-[minmax(0,2.6fr)_minmax(21rem,1fr)]">
-          <div className="min-h-0 overflow-hidden rounded-3xl border border-white/15 bg-bg-deep/70">
-            <div className="relative">
+          <div className="flex min-h-0 overflow-hidden rounded-3xl border border-white/15 bg-bg-deep/70">
+            <div className="relative flex min-h-0 flex-1">
               <div className="pointer-events-none absolute inset-0 z-[1] bg-[radial-gradient(circle_at_20%_20%,rgba(var(--brand),0.28),transparent_38%),radial-gradient(circle_at_78%_64%,rgba(var(--accent),0.22),transparent_36%),radial-gradient(circle_at_48%_84%,rgba(var(--brand-2),0.24),transparent_34%)]" />
-              <div ref={mapContainerRef} className="relative z-0 h-[60vh] max-h-[70vh] min-h-[24rem] w-full overflow-hidden lg:h-[72vh]" />
+              <div ref={mapContainerRef} className="relative z-0 h-full min-h-0 w-full overflow-hidden" />
             </div>
           </div>
 

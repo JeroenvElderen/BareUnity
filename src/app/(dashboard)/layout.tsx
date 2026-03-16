@@ -12,7 +12,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           <SidebarMenu channels={channels} />
         </div>
 
-        <div className="min-w-0">{children}</div>
+        <div className="flex min-w-0 flex-col">{children}</div>
       </div>
     </main>
   );
