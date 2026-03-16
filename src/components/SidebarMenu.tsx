@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import { Channel, getChannels } from "@/lib/channel-data";
 import { logoutUser } from "@/lib/logout";
 
@@ -13,7 +13,7 @@ const settingsItems = [
   { label: "Preferences", href: "/settings?tab=preferences" },
   { label: "Notifications", href: "/settings?tab=notifications" },
   { label: "Email", href: "/settings?tab=email" },
-];
+] as const;
 
 const profileItems = [
   { label: "Overview", href: "/profile?tab=overview" },
@@ -22,12 +22,36 @@ const profileItems = [
   { label: "Gallery", href: "/profile?tab=gallery" },
   { label: "Upvoted", href: "/profile?tab=upvoted" },
   { label: "Settings", href: "/profile?tab=settings" },
-];
+] as const;
+
+type ParsedMenuItem = {
+  label: string;
+  href: string;
+  cleanHref: string;
+  hrefTab: string | null;
+};
+
+function parseMenuItems(items: readonly { label: string; href: string }[]) {
+  return items.map((item) => {
+    const [cleanHref, queryString] = item.href.split("?");
+    const hrefParams = new URLSearchParams(queryString ?? "");
+
+    return {
+      ...item,
+      cleanHref,
+      hrefTab: hrefParams.get("tab"),
+    } satisfies ParsedMenuItem;
+  });
+}
+
+const parsedSettingsItems = parseMenuItems(settingsItems);
+const parsedProfileItems = parseMenuItems(profileItems);
 
 export default function SidebarMenu({ channels: channelsProp, onCreatePost }: { channels?: Channel[]; onCreatePost?: () => void }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const channels = useMemo(() => channelsProp ?? getChannels(), [channelsProp]);
+  const currentTab = searchParams.get("tab");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [channelsOpen, setChannelsOpen] = useState(pathname.startsWith("/channels"));
   const [settingsOpen, setSettingsOpen] = useState(pathname.startsWith("/settings"));
@@ -57,7 +81,7 @@ export default function SidebarMenu({ channels: channelsProp, onCreatePost }: { 
             <div className="h-full overflow-y-auto rounded-3xl border border-accent/20 bg-[linear-gradient(180deg,rgb(var(--card)/0.95)_0%,rgb(var(--bg-deep)/0.96)_100%)] p-4">
               <SidebarBody
                 pathname={pathname}
-                searchParams={searchParams}
+                currentTab={currentTab}
                 channels={channels}
                 channelsOpen={channelsOpen}
                 settingsOpen={settingsOpen}
@@ -79,7 +103,7 @@ export default function SidebarMenu({ channels: channelsProp, onCreatePost }: { 
       <aside className="hidden h-full rounded-3xl border border-accent/20 bg-[linear-gradient(180deg,rgb(var(--card)/0.95)_0%,rgb(var(--bg-deep)/0.96)_100%)] px-4 py-5.5 lg:block">
         <SidebarBody
           pathname={pathname}
-          searchParams={searchParams}
+          currentTab={currentTab}
           channels={channels}
           channelsOpen={channelsOpen}
           settingsOpen={settingsOpen}
@@ -96,7 +120,7 @@ export default function SidebarMenu({ channels: channelsProp, onCreatePost }: { 
 
 function SidebarBody({
   pathname,
-  searchParams,
+  currentTab,
   channels,
   channelsOpen,
   settingsOpen,
@@ -108,7 +132,7 @@ function SidebarBody({
   onCreatePost,
 }: {
   pathname: string;
-  searchParams: { get: (key: string) => string | null };
+  currentTab: string | null;
   channels: Channel[];
   channelsOpen: boolean;
   settingsOpen: boolean;
@@ -140,7 +164,7 @@ function SidebarBody({
           + Create Post
         </button>
 
-        <MenuLink href="/" label="🏠 Home Feed" pathname={pathname} searchParams={searchParams} onNavigate={onNavigate} />
+        <MenuLink href="/" label="🏠 Home Feed" pathname={pathname} currentTab={currentTab} onNavigate={onNavigate} />
 
         <Dropdown
           label="⚙️ Settings"
@@ -148,8 +172,18 @@ function SidebarBody({
           isOpen={settingsOpen}
           onToggle={onToggleSettings}
         >
-          {settingsItems.map((item) => (
-            <MenuLink key={item.href} href={item.href} label={item.label} pathname={pathname} searchParams={searchParams} compact onNavigate={onNavigate} />
+          {parsedSettingsItems.map((item) => (
+            <MenuLink
+              key={item.href}
+              href={item.href}
+              label={item.label}
+              pathname={pathname}
+              currentTab={currentTab}
+              cleanHref={item.cleanHref}
+              hrefTab={item.hrefTab}
+              compact
+              onNavigate={onNavigate}
+            />
           ))}
         </Dropdown>
 
@@ -159,8 +193,18 @@ function SidebarBody({
           isOpen={profileOpen}
           onToggle={onToggleProfile}
         >
-          {profileItems.map((item) => (
-            <MenuLink key={item.href} href={item.href} label={item.label} pathname={pathname} searchParams={searchParams} compact onNavigate={onNavigate} />
+          {parsedProfileItems.map((item) => (
+            <MenuLink
+              key={item.href}
+              href={item.href}
+              label={item.label}
+              pathname={pathname}
+              currentTab={currentTab}
+              cleanHref={item.cleanHref}
+              hrefTab={item.hrefTab}
+              compact
+              onNavigate={onNavigate}
+            />
           ))}
         </Dropdown>
 
@@ -171,7 +215,15 @@ function SidebarBody({
           onToggle={onToggleChannels}
         >
           {channels.map((channel) => (
-            <MenuLink key={channel.id} href={`/channels/${channel.id}`} label={channel.name} pathname={pathname} searchParams={searchParams} compact onNavigate={onNavigate} />
+            <MenuLink
+              key={channel.id}
+              href={`/channels/${channel.id}`}
+              label={channel.name}
+              pathname={pathname}
+              currentTab={currentTab}
+              compact
+              onNavigate={onNavigate}
+            />
           ))}
         </Dropdown>
 
@@ -187,7 +239,7 @@ function SidebarBody({
   );
 }
 
-function Dropdown({
+const Dropdown = memo(function Dropdown({
   label,
   isOpen,
   isActive,
@@ -218,28 +270,29 @@ function Dropdown({
       {isOpen ? <div className="ml-3 mt-1 grid gap-1 border-l border-accent/20 pl-3">{children}</div> : null}
     </div>
   );
-}
+});
 
-function MenuLink({
+const MenuLink = memo(function MenuLink({
   href,
   label,
   pathname,
-  searchParams,
+  currentTab,
+  cleanHref,
+  hrefTab,
   compact = false,
   onNavigate,
 }: {
   href: string;
   label: string;
   pathname: string;
-  searchParams: { get: (key: string) => string | null };
+  currentTab: string | null;
+  cleanHref?: string;
+  hrefTab?: string | null;
   compact?: boolean;
   onNavigate?: () => void;
 }) {
-  const [cleanHref, queryString] = href.split("?");
-  const hrefParams = new URLSearchParams(queryString ?? "");
-  const hrefTab = hrefParams.get("tab");
-  const currentTab = searchParams.get("tab");
-  const pathnameMatches = cleanHref === "/" ? pathname === "/" : pathname === cleanHref || pathname.startsWith(`${cleanHref}/`);
+  const resolvedCleanHref = cleanHref ?? href;
+  const pathnameMatches = resolvedCleanHref === "/" ? pathname === "/" : pathname === resolvedCleanHref || pathname.startsWith(`${resolvedCleanHref}/`);
   const isActive = pathnameMatches && (!hrefTab || currentTab === hrefTab);
 
   return (
@@ -255,4 +308,4 @@ function MenuLink({
       {label}
     </Link>
   );
-}
+});
