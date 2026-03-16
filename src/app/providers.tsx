@@ -5,6 +5,7 @@ import { httpBatchLink } from "@trpc/client"
 import { createTRPCReact } from "@trpc/react-query"
 import superjson from "superjson"
 import type { AppRouter } from "@/server/api/root"
+import ThemeManager from "@/components/ThemeManager"
 
 export const trpc = createTRPCReact<AppRouter>()
 
@@ -23,6 +24,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
       <QueryClientProvider client={queryClient}>
+        <ThemeManager />
         {children}
       </QueryClientProvider>
     </trpc.Provider>

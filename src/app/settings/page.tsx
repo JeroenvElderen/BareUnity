@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import SidebarMenu from "@/components/SidebarMenu";
 import { supabase } from "@/lib/supabase";
+import ThemeCustomizer from "@/components/ThemeCustomizer";
 
 type SettingsTab = "Account" | "Profile" | "Privacy" | "Preferences" | "Notifications" | "Email";
 
@@ -95,15 +96,15 @@ export default function SettingsPage() {
   );
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_0%_0%,rgba(124,92,255,0.2),transparent_35%),radial-gradient(circle_at_100%_10%,rgba(45,212,191,0.12),transparent_25%),#0a0b10] p-3 text-[#eef2ff] sm:p-6">
-      <div className="mx-auto grid min-h-[calc(100vh-1.5rem)] w-full max-w-none grid-cols-1 overflow-hidden rounded-[26px] border border-[#242941] bg-linear-to-b from-white/2 to-white/0 shadow-[0_20px_80px_rgba(0,0,0,0.45)] sm:min-h-[calc(100vh-3rem)] lg:grid-cols-[250px_1fr]">
-        <div className="border-b border-[#242941] p-3 lg:border-b-0 lg:border-r lg:p-4">
+    <main className="min-h-screen p-3 text-text sm:p-6">
+      <div className="mx-auto grid min-h-[calc(100vh-1.5rem)] w-full max-w-none grid-cols-1 overflow-hidden rounded-[26px] border border-border/50 bg-linear-to-b from-card/20 to-transparent shadow-[0_20px_80px_rgba(0,0,0,0.45)] sm:min-h-[calc(100vh-3rem)] lg:grid-cols-[250px_1fr]">
+        <div className="border-b border-border/50 p-3 lg:border-b-0 lg:border-r lg:p-4">
           <SidebarMenu />
         </div>
 
         <section className="p-6">
           <h1 className="mb-4 text-5xl font-bold">Settings</h1>
-          <div className="mb-6 rounded-xl border border-[#2a3151] bg-[#121522] px-4 py-3 text-sm text-[#8e97b8]">
+          <div className="mb-6 rounded-xl border border-border/40 bg-card/30 px-4 py-3 text-sm text-muted">
             Use the sidebar settings dropdown to switch tabs.
           </div>
 
@@ -113,7 +114,7 @@ export default function SettingsPage() {
                 <h2 className="mb-5 text-4xl font-semibold">General</h2>
                 <div className="space-y-2">
                   {accountRows.map((row) => (
-                    <div key={row.label} className="flex w-full items-center justify-between rounded-xl px-3 py-3 text-left transition hover:bg-sand/10">
+                    <div key={row.label} className="flex w-full items-center justify-between rounded-xl px-3 py-3 text-left transition hover:bg-accent/10">
                       <span className="text-lg">{row.label}</span>
                       <span className="text-lg text-text/70">{row.value}</span>
                     </div>
@@ -122,7 +123,10 @@ export default function SettingsPage() {
               </div>
             </div>
           ) : (
-            <div className="rounded-2xl border border-sand/15 bg-card/35 p-5 text-sm text-text/75">{activeTab} settings will be added here next.</div>
+            <div className="space-y-4">
+              {activeTab === "Preferences" ? <ThemeCustomizer /> : null}
+              <div className="rounded-2xl border border-accent/15 bg-card/35 p-5 text-sm text-text/75">{activeTab} settings will be added here next.</div>
+            </div>
           )}
         </section>
       </div>
