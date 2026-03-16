@@ -89,9 +89,7 @@ export default async function ChannelPage({ params }: { params: Promise<{ channe
 
         <section className="p-4 sm:p-6">
           <h1 className="mb-4 text-2xl font-bold sm:text-3xl">{channel.name}</h1>
-          <div className="rounded-[18px] border border-accent/20 bg-card/90 p-3.5">
-            <ChannelContent channelId={channel.id} channelName={channel.name} contentType={channel.contentType} />
-          </div>
+          <ChannelContent channelId={channel.id} channelName={channel.name} contentType={channel.contentType} />
         </section>
       </div>
     </main>

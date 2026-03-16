@@ -41,6 +41,7 @@ declare global {
       }) => {
         remove: () => void;
         flyTo: (config: { center: [number, number]; zoom?: number }) => void;
+        on: (event: "click", listener: (payload: { lngLat: { lng: number; lat: number } }) => void) => void;
       };
       Marker: new (config?: { element?: HTMLElement }) => {
         setLngLat: (coords: [number, number]) => {
@@ -165,7 +166,6 @@ export default function NaturistMapChannel() {
     description: "",
     privacy: "Discreet" as NaturistSpot["privacy"],
   });
-  const [privacyFilter, setPrivacyFilter] = useState<"All" | NaturistSpot["privacy"]>("All");
 
   const publicCount = useMemo(() => spots.filter((spot) => spot.privacy === "Public").length, [spots]);
   const discreetCount = useMemo(() => spots.filter((spot) => spot.privacy === "Discreet").length, [spots]);
@@ -212,10 +212,7 @@ export default function NaturistMapChannel() {
     return [lngTotal / spots.length, latTotal / spots.length];
   }, [selectedCoords, spots]);
 
-  const visibleSpots = useMemo(
-    () => (privacyFilter === "All" ? spots : spots.filter((spot) => spot.privacy === privacyFilter)),
-    [privacyFilter, spots],
-  );
+  const visibleSpots = spots;
 
   useEffect(() => {
     let active = true;
@@ -250,6 +247,17 @@ export default function NaturistMapChannel() {
         });
 
         mapRef.current = mapInstance;
+
+        if (mode === "Creator") {
+          mapInstance.on("click", (payload) => {
+            const clickedCoords: [number, number] = [payload.lngLat.lng, payload.lngLat.lat];
+            setSelectedCoords(clickedCoords);
+            setSelectedLocationLabel(`${payload.lngLat.lat.toFixed(5)}, ${payload.lngLat.lng.toFixed(5)}`);
+            setIsAddingSpot(true);
+            setSaveError(null);
+            setSelectedSpotId(null);
+          });
+        }
 
         visibleSpots.forEach((spot) => {
           const markerEl = document.createElement("button");
@@ -363,20 +371,15 @@ export default function NaturistMapChannel() {
     setSaveError(null);
 
     if (!selectedCoords) {
-      setSaveError("Select a location from search results first.");
-      return;
-    }
-
-    if (!newSpot.name.trim() || !newSpot.description.trim()) {
-      setSaveError("Name and description are required.");
+      setSaveError("Pick a location by searching or clicking directly on the map.");
       return;
     }
 
     setSaving(true);
 
     const payload = {
-      name: newSpot.name.trim(),
-      description: newSpot.description.trim(),
+      name: newSpot.name.trim() || "Unnamed location",
+      description: newSpot.description.trim() || "No description provided.",
       latitude: selectedCoords[1],
       longitude: selectedCoords[0],
       privacy: newSpot.privacy,
@@ -410,8 +413,8 @@ export default function NaturistMapChannel() {
   }
 
   return (
-    <section className="flex max-h-[calc(100vh-6.75rem)] min-h-[32rem] flex-col overflow-hidden rounded-3xl border border-accent/20 bg-linear-to-b from-bg-deep via-card to-bg-deep text-text shadow-[0_24px_80px_rgba(0,0,0,0.45)]">
-      <div className="bg-bg-deep/60 px-4 py-3 backdrop-blur-sm sm:px-5 sm:py-4">
+    <section className="flex max-h-[calc(100vh-6.75rem)] min-h-[32rem] flex-col overflow-hidden rounded-3xl bg-linear-to-b from-bg-deep via-card to-bg-deep text-text shadow-[0_24px_80px_rgba(0,0,0,0.45)]">
+      <div className="px-5 py-4 sm:px-6 sm:py-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-base font-semibold text-text-strong sm:text-lg">Naturist Map · Orbital Explorer</h2>
@@ -436,22 +439,6 @@ export default function NaturistMapChannel() {
           </div>
         </div>
 
-        <div className="mt-3 flex flex-wrap gap-2 text-xs">
-          {(["All", "Public", "Discreet"] as const).map((option) => (
-            <button
-              key={option}
-              type="button"
-              onClick={() => setPrivacyFilter(option)}
-              className={`rounded-full border px-3 py-1.5 transition ${
-                privacyFilter === option
-                  ? "border-accent/60 bg-accent/20 text-text-strong"
-                  : "border-accent/25 bg-card/60 text-text/85 hover:border-accent/50"
-              }`}
-            >
-              {option} ({option === "All" ? spots.length : spots.filter((spot) => spot.privacy === option).length})
-            </button>
-          ))}
-        </div>
 
         {dataError ? <p className="mt-3 text-xs text-accent/90">{dataError}</p> : null}
       </div>
@@ -467,11 +454,11 @@ export default function NaturistMapChannel() {
           />
         </div>
       ) : (
-        <div className="grid min-h-0 flex-1 gap-3 p-3 sm:gap-4 sm:p-4 lg:grid-cols-[minmax(0,2fr)_minmax(19rem,1fr)] lg:p-4">
-          <div className="min-h-0 overflow-hidden rounded-3xl border border-accent/25 bg-bg-deep/70">
+        <div className="grid min-h-0 flex-1 gap-4 px-5 pb-5 sm:px-6 sm:pb-6 lg:grid-cols-[minmax(0,2.35fr)_minmax(20rem,1fr)]">
+          <div className="min-h-0 overflow-hidden rounded-3xl bg-bg-deep/70">
             <div className="relative">
               <div className="pointer-events-none absolute inset-0 z-[1] bg-[radial-gradient(circle_at_20%_20%,rgba(var(--brand),0.28),transparent_38%),radial-gradient(circle_at_78%_64%,rgba(var(--accent),0.22),transparent_36%),radial-gradient(circle_at_48%_84%,rgba(var(--brand-2),0.24),transparent_34%)]" />
-              <div ref={mapContainerRef} className="relative z-0 h-[55vh] max-h-[62vh] min-h-[20rem] w-full overflow-hidden lg:h-[66vh]" />
+              <div ref={mapContainerRef} className="relative z-0 h-[60vh] max-h-[70vh] min-h-[24rem] w-full overflow-hidden lg:h-[72vh]" />
             </div>
           </div>
 
@@ -479,7 +466,7 @@ export default function NaturistMapChannel() {
             <div className="flex min-h-0 flex-1 flex-col rounded-2xl border border-accent/25 bg-bg-deep/72 p-3 backdrop-blur-md sm:p-4">
               <h3 className="text-sm font-semibold text-text-strong">Visible locations</h3>
               <p className="mt-1 text-xs text-muted">
-                {mode === "Explorer" ? "Tap a card to focus and open a map popup." : "Creator mode uses gray dots to avoid duplicates."}
+                {mode === "Explorer" ? "Tap a card to focus and open a map popup." : "Creator mode: click anywhere on the map to place a new location."}
               </p>
 
               <div className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
