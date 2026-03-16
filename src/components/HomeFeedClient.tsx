@@ -454,19 +454,19 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
 
 
   return (
-    <main className={`h-screen overflow-hidden p-3 sm:p-6 ${theme.page}`}>
-      <div className={`mx-auto grid h-full w-full max-w-none grid-cols-1 overflow-hidden rounded-[26px] border bg-linear-to-b from-white/2 to-white/0 shadow-[0_20px_80px_rgba(0,0,0,0.45)] lg:grid-cols-[250px_1fr_340px] ${theme.shell}`}>
+    <main className={`min-h-screen p-3 sm:p-6 ${theme.page}`}>
+      <div className={`mx-auto grid w-full max-w-none grid-cols-1 rounded-[26px] border bg-linear-to-b from-white/2 to-white/0 shadow-[0_20px_80px_rgba(0,0,0,0.45)] lg:h-[calc(100vh-3rem)] lg:grid-cols-[250px_1fr_340px] lg:overflow-hidden ${theme.shell}`}>
         <div className={`border-b p-3 lg:border-b-0 lg:border-r lg:p-4 ${theme.shell}`}>
           <SidebarMenu channels={channels} onCreatePost={() => setIsComposerOpen(true)} />
         </div>
 
-        <section className="flex min-h-0 flex-col overflow-hidden p-3.5 sm:p-5.5">
+        <section className="flex min-h-0 flex-col p-3.5 sm:p-5.5 lg:overflow-hidden">
           <div className="mb-4 grid grid-cols-1 items-center gap-3 xl:grid-cols-[1fr_auto]">
             <div className={`rounded-[14px] border px-3.5 py-3.25 text-sm ${theme.panel} ${theme.subtleText}`}>🔎 Search channels, creators, and tags...</div>
           </div>
 
           <section className="min-h-0 flex-1">
-              <section className="grid h-full grid-cols-1 gap-3 overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <section className="grid h-full grid-cols-1 gap-3 pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:overflow-y-auto">
                 {posts.map((post) => {
                   const author = post.author_id ? authorMap.get(post.author_id) : null;
                   const authorName = author?.display_name ?? author?.username ?? "Community member";
@@ -524,7 +524,7 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
                         >
                           💬 {totalCommentCount} comments
                         </button>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <button
                             type="button"
                             onClick={() => {
@@ -546,7 +546,7 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
                         </div>
                       </div>
 
-                      <div className="mt-3 flex items-center gap-2">
+                    <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
                         <input
                           suppressHydrationWarning
                           value={newCommentByPost[post.id] ?? ""}
@@ -637,7 +637,7 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
                             <button type="button" className="rounded-full border border-accent/30 px-2.5 py-1 text-xs text-text">
                               💬 {totalCommentCount} comments
                             </button>
-                            <div className="flex items-center gap-2 text-xs">
+                            <div className="flex flex-wrap items-center gap-2 text-xs">
                               <button
                                 type="button"
                                 onClick={() => setPostVote(selectedPost.id, 1)}
@@ -655,14 +655,14 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
                             </div>
                           </div>
 
-                          <div className="flex gap-2">
+                          <div className="flex flex-col gap-2 sm:flex-row">
                             <input
                               value={newCommentByPost[selectedPost.id] ?? ""}
                               onChange={(event) => setNewCommentByPost((current) => ({ ...current, [selectedPost.id]: event.target.value }))}
                               placeholder="Add a comment"
                               className="w-full rounded-lg border border-accent/30 bg-bg-deep/75 px-3 py-2 text-sm text-text outline-none focus:border-accent/60"
                             />
-                            <button type="button" onClick={() => addComment(selectedPost.id)} className="rounded-lg border border-accent/30 px-3 py-2 text-xs text-text hover:bg-accent/10">
+                            <button type="button" onClick={() => addComment(selectedPost.id)} className="rounded-lg border border-accent/30 px-3 py-2 text-xs text-text hover:bg-accent/10 sm:self-auto">
                               Comment
                             </button>
                           </div>
@@ -679,7 +679,7 @@ export default function HomeFeedClient({ posts, channels, profile, activityProfi
                                     <p className="text-[10px] uppercase tracking-wide text-muted">{comment.author}</p>
                                     <p className="text-sm text-text">{comment.body}</p>
 
-                                    <div className="mt-2 flex gap-2">
+                                    <div className="mt-2 flex flex-col gap-2 sm:flex-row">
                                       <input
                                         value={replyDraftByComment[replyKey] ?? ""}
                                         onChange={(event) => setReplyDraftByComment((current) => ({ ...current, [replyKey]: event.target.value }))}

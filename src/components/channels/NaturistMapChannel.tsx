@@ -366,7 +366,7 @@ export default function NaturistMapChannel() {
   }
 
   return (
-    <section className="flex min-h-[calc(100vh-10rem)] flex-col rounded-3xl border border-accent/35 bg-linear-to-b from-bg-deep to-card p-4 text-text shadow-[0_18px_60px_rgba(0,0,0,0.35)] md:p-6">
+    <section className="flex min-h-[calc(100vh-10rem)] flex-col rounded-3xl border border-accent/35 bg-linear-to-b from-bg-deep to-card p-3 text-text shadow-[0_18px_60px_rgba(0,0,0,0.35)] sm:p-4 md:p-6">
       <div className="mb-4 space-y-2">
         <h2 className="text-base font-semibold text-text-strong">Naturist Map</h2>
         <p className="text-sm text-muted">
@@ -399,15 +399,15 @@ export default function NaturistMapChannel() {
           <iframe
             title="Naturist locations map fallback"
             src="https://www.openstreetmap.org/export/embed.html?bbox=3.7%2C51.75%2C5.7%2C52.8&layer=mapnik&marker=52.2%2C4.9"
-            className="h-105 w-full overflow-hidden rounded-2xl border border-accent/20"
+            className="h-72 w-full overflow-hidden rounded-2xl border border-accent/20 sm:h-105"
             loading="lazy"
           />
         </div>
       ) : (
         <div className="relative mt-1 flex-1 overflow-hidden rounded-2xl border border-accent/35 bg-bg-deep/75">
-          <div ref={mapContainerRef} className="h-full min-h-160 w-full overflow-hidden" />
+          <div ref={mapContainerRef} className="h-72 w-full overflow-hidden sm:h-full sm:min-h-160" />
 
-          <aside className="absolute inset-y-3 left-3 z-10 flex h-auto max-h-[calc(100%-1.5rem)] w-full max-w-88 flex-col rounded-2xl border border-accent/35 bg-bg-deep/72 p-3 backdrop-blur-md">
+          <aside className="relative z-10 m-2 flex h-auto max-h-64 w-auto flex-col rounded-2xl border border-accent/35 bg-bg-deep/72 p-3 backdrop-blur-md lg:absolute lg:inset-y-3 lg:left-3 lg:m-0 lg:max-h-[calc(100%-1.5rem)] lg:w-full lg:max-w-88">
             <h3 className="text-sm font-semibold text-text-strong">Visible locations</h3>
             <p className="mt-1 text-xs text-muted">Select a spot to focus it on the map.</p>
             <div className="mt-3 flex-1 space-y-2 overflow-y-auto pr-1">
@@ -441,17 +441,17 @@ export default function NaturistMapChannel() {
           </aside>
 
           {isAddingSpot ? (
-            <div className="absolute right-3 top-3 z-10 max-h-[calc(100%-1.5rem)] w-full max-w-105 overflow-y-auto rounded-2xl border border-accent/40 bg-linear-to-br from-bg-deep/95 to-card/95 p-3 text-sm shadow-xl backdrop-blur-md">
+            <div className="relative z-10 m-2 mt-0 max-h-96 w-auto overflow-y-auto rounded-2xl border border-accent/40 bg-linear-to-br from-bg-deep/95 to-card/95 p-3 text-sm shadow-xl backdrop-blur-md lg:absolute lg:right-3 lg:top-3 lg:m-0 lg:max-h-[calc(100%-1.5rem)] lg:w-full lg:max-w-105">
               <form className="space-y-3" onSubmit={searchPlaces}>
                 <p className="text-xs text-muted">Search beaches, resorts, buildings, or remote places, then select a result.</p>
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row">
                   <input
                     className="min-w-0 flex-1 rounded-lg border border-accent/35 bg-bg-deep/70 px-3 py-2 text-text"
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}
                     placeholder="Search location"
                   />
-                  <button type="submit" className="rounded-lg border border-accent/35 bg-card/70 px-3 text-xs text-text" disabled={searchLoading}>
+                  <button type="submit" className="rounded-lg border border-accent/35 bg-card/70 px-3 py-2 text-xs text-text" disabled={searchLoading}>
                     {searchLoading ? "Searching..." : "Search"}
                   </button>
                 </div>

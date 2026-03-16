@@ -290,13 +290,13 @@ export default function DiscussionChannel({ channelId, newcomerModeration = fals
 
   return (
     <section className="overflow-hidden rounded-3xl border border-accent/20 bg-linear-to-br from-bg-deep via-card to-card-2">
-      <div className="flex items-center justify-between border-b border-accent/20 px-6 py-5">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-accent/20 px-4 py-4 sm:px-6 sm:py-5">
         <h2 className="text-[1.05rem] font-semibold text-text">Combined Mockup — Bubble Chat + Thread Highlight</h2>
         <span className="rounded-full border border-accent/25 px-4 py-1.5 text-xs text-text/85">messages area concept</span>
       </div>
 
-      <div className="grid min-h-160 grid-cols-[250px_minmax(0,1fr)_300px]">
-        <aside className="border-r border-accent/20 p-3">
+      <div className="grid min-h-160 grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)_280px]">
+        <aside className="border-b border-accent/20 p-3 lg:border-b-0 lg:border-r">
           <div className="space-y-3">
             {Array.from({ length: 8 }).map((_, index) => (
               <div key={`left-nav-${index}`} className="h-12 rounded-xl border border-accent/20 bg-card/35" />
@@ -304,8 +304,8 @@ export default function DiscussionChannel({ channelId, newcomerModeration = fals
           </div>
         </aside>
 
-        <div className="flex flex-col border-r border-accent/20">
-          <div className="relative flex-1 overflow-y-auto px-4 py-5">
+        <div className="flex min-h-0 flex-col border-b border-accent/20 lg:border-b-0 lg:border-r">
+          <div className="relative flex-1 overflow-y-auto px-3 py-4 sm:px-4 sm:py-5">
             {isLoadingMessages ? (
               <p className="text-sm text-muted">Loading discussion…</p>
             ) : displayMessages.length === 0 ? (
@@ -338,25 +338,25 @@ export default function DiscussionChannel({ channelId, newcomerModeration = fals
             )}
           </div>
 
-          <form onSubmit={handleSend} className="flex items-center gap-3 border-t border-accent/20 px-4 py-4">
+          <form onSubmit={handleSend} className="flex flex-col gap-2 border-t border-accent/20 px-3 py-3 sm:flex-row sm:items-center sm:gap-3 sm:px-4 sm:py-4">
             <input
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
               maxLength={1000}
-              className="h-11 flex-1 rounded-xl border border-accent/20 bg-card/40 px-4 text-sm text-text outline-none placeholder:text-text/50 focus:border-accent/60"
+              className="h-11 w-full flex-1 rounded-xl border border-accent/20 bg-card/40 px-4 text-sm text-text outline-none placeholder:text-text/50 focus:border-accent/60"
               placeholder="Type your message"
             />
             <button
               type="submit"
               disabled={!canSend}
-              className="h-11 rounded-xl bg-accent px-5 text-sm font-medium text-text disabled:cursor-not-allowed disabled:opacity-50"
+              className="h-11 w-full rounded-xl bg-accent px-5 text-sm font-medium text-text disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
             >
               Send
             </button>
           </form>
         </div>
 
-        <aside className="space-y-3 p-4">
+        <aside className="space-y-3 p-3 sm:p-4">
           <div>
             <h3 className="mb-2 text-sm text-text/85">Active Thread</h3>
             <div className="rounded-xl border border-accent/20 bg-card/30 p-3">

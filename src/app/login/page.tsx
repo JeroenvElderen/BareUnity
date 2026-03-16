@@ -41,9 +41,9 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-6xl items-center px-4 py-10 text-text">
+    <main className="mx-auto flex min-h-screen w-full max-w-6xl items-start px-4 py-6 text-text sm:items-center sm:py-10">
       <section className="grid w-full gap-6 md:grid-cols-[1fr_420px]">
-        <div className="glass-card-strong p-8">
+        <div className="glass-card-strong p-5 sm:p-8">
           <p className="text-xs uppercase tracking-[0.28em] text-accent/80">Welcome back</p>
           <h1 className="mt-4 text-3xl font-semibold">Pick up where your community left off.</h1>
           <p className="mt-4 max-w-lg text-sm text-muted">
@@ -54,7 +54,7 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <div className="glass-card p-6 md:p-7">
+        <div className="glass-card p-5 sm:p-6 md:p-7">
           <h2 className="text-xl font-semibold">Log in</h2>
           <p className="mt-2 text-sm text-muted">Enter your account credentials.</p>
 

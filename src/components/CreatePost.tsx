@@ -168,26 +168,26 @@ export default function CreatePost({ onPublished, onCancel }: CreatePostProps) {
   );
 
   return (
-    <section className="glass-card-strong flex h-[calc(100vh-2.5rem)] flex-col overflow-hidden rounded-3xl p-4 text-text sm:p-5">
+    <section className="glass-card-strong flex min-h-[calc(100vh-2.5rem)] flex-col rounded-3xl p-4 text-text sm:p-5 lg:h-[calc(100vh-2.5rem)] lg:overflow-hidden">
       <header className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-accent/20 pb-3">
         <div className="space-y-3">
           <p className="text-xs uppercase tracking-[0.18em] text-muted">Community / Share Photos</p>
           <h2 className="mt-1 text-xl font-bold text-text sm:text-2xl">Naturist Post Studio</h2>
           <p className="mt-1 text-sm text-muted">Share respectful naturist moments with context and consent.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex w-full items-center gap-2 sm:w-auto">
           <button
             type="button"
             onClick={handleSubmit}
             disabled={submitDisabled}
-            className="premium-button rounded-xl px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40"
+            className="premium-button w-full rounded-xl px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto"
           >
             {loading ? "Publishing..." : "Publish Post"}
           </button>
         </div>
       </header>
 
-      <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="grid min-h-0 flex-1 gap-4 lg:overflow-y-auto xl:grid-cols-[minmax(0,1fr)_340px]">
         <div>
           
       <input

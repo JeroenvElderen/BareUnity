@@ -607,12 +607,12 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen bg-bg text-text">
       <main className="min-h-screen p-3 sm:p-6">
-        <div className="mx-auto grid min-h-[calc(100vh-24px)] w-full max-w-none grid-cols-1 overflow-hidden rounded-[26px] border border-accent/20 bg-linear-to-b from-white/2 to-white/0 shadow-[0_20px_80px_rgba(0,0,0,0.45)] sm:min-h-[calc(100vh-48px)] lg:grid-cols-[250px_1fr_320px]">
+        <div className="mx-auto grid min-h-[calc(100vh-24px)] w-full max-w-none grid-cols-1 rounded-[26px] border border-accent/20 bg-linear-to-b from-white/2 to-white/0 shadow-[0_20px_80px_rgba(0,0,0,0.45)] sm:min-h-[calc(100vh-48px)] lg:grid-cols-[250px_1fr_320px] lg:overflow-hidden">
           <div className="border-b border-accent/20 p-3 lg:border-b-0 lg:border-r lg:p-4">
             <SidebarMenu />
           </div>
 
-          <section className="order-1 overflow-hidden p-3.5 sm:p-5.5 lg:order-0">
+          <section className="order-1 p-3.5 sm:p-5.5 lg:order-0 lg:overflow-hidden">
             
 
             <section className="mb-4 overflow-hidden rounded-[18px] border border-accent/20 bg-card/90">
@@ -622,7 +622,7 @@ export default function ProfilePage() {
               ) : (
                 <div className="h-32.5 w-full bg-[linear-gradient(135deg,rgb(var(--brand)/0.5),rgb(var(--accent)/0.26))] sm:h-37.5" />
               )}
-              <div className="-mt-7 flex items-end gap-3 p-3 sm:-mt-8 sm:p-4">
+              <div className="-mt-7 flex flex-col items-start gap-3 p-3 sm:-mt-8 sm:flex-row sm:items-end sm:p-4">
                 <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border-2 border-accent/35 bg-linear-to-br from-brand to-brand-2 text-lg font-semibold text-text sm:h-16 sm:w-16">
                   {profileImageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -670,7 +670,7 @@ export default function ProfilePage() {
             )}
 
             {activeTab === "Posts" && (
-              <section className="grid max-h-155 grid-cols-1 gap-3 overflow-y-auto pr-1">
+              <section className="grid grid-cols-1 gap-3 pr-1 lg:max-h-155 lg:overflow-y-auto">
                 {profilePosts.length === 0 ? <article className="rounded-[18px] border border-accent/20 bg-card/90 p-3.5 text-sm text-muted">No posts yet.</article> : profilePosts.map((post) => (
                   <article key={post.id} className="rounded-[18px] border border-accent/20 bg-card/90 p-3.5">
                     <div className="mb-2.5 flex items-start justify-between"><div><strong className="block text-sm">{post.title ?? "Untitled post"}</strong><span className="text-xs text-muted">{formatRelativeTime(post.created_at)}</span></div></div>

@@ -129,9 +129,9 @@ export default function SignupPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-6xl items-center px-4 py-10 text-text">
+    <main className="mx-auto flex min-h-screen w-full max-w-6xl items-start px-4 py-6 text-text sm:items-center sm:py-10">
       <section className="grid w-full gap-6 md:grid-cols-[1fr_460px]">
-        <div className="glass-card-strong overflow-hidden p-8">
+        <div className="glass-card-strong overflow-hidden p-5 sm:p-8">
           <p className="text-xs uppercase tracking-[0.28em] text-accent/80">Guided onboarding</p>
           <h1 className="mt-4 text-3xl font-semibold">Set up your account in a few guided steps.</h1>
           <p className="mt-4 max-w-lg text-sm text-muted">This platform is channel-first for naturists and nudists. Role starts as newcomer and elevated roles can only be assigned by platform admin.</p>
@@ -152,7 +152,7 @@ export default function SignupPage() {
           </div>
         </div>
 
-        <div className="glass-card p-6 md:p-7">
+        <div className="glass-card p-5 sm:p-6 md:p-7">
           {step === 1 && (
             <div className="space-y-4">
               <h2 className="text-xl font-semibold">Create your account</h2>

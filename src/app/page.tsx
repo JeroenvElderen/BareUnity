@@ -129,7 +129,6 @@ export default async function Home() {
         : getChannels();
     profile = profileResult.status === "fulfilled" ? (profileResult.value as UserProfile | null) : null;
     activityProfiles = activityProfilesResult.status === "fulfilled" ? (activityProfilesResult.value as BasicProfile[]) : [];
-    activityProfiles = activityProfilesResult.status === "fulfilled" ? activityProfilesResult.value : [];
 
     const authorIds = Array.from(new Set(posts.map((post) => post.author_id).filter(Boolean))) as string[];
 
