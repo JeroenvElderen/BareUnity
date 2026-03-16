@@ -9,8 +9,8 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-brand text-text-inverse hover:bg-brand-2",
-        outline: "border-accent/35 bg-brand-2/45 text-text hover:bg-brand-2/60",
+        default: "border border-accent/50 bg-accent/72 text-[rgb(var(--accent-contrast))] hover:bg-accent",
+        outline: "border-accent/40 bg-accent/14 text-text hover:bg-accent/22",
       },
       size: {
         default: "h-10 px-4 py-2",

@@ -16,6 +16,7 @@
   --brand: 74 125 110;
   --brand-2: 70 110 146;
   --accent: 138 188 177;
+  --accent-contrast: 14 24 34;
   --ring: 111 167 154;
 }
 
@@ -347,5 +348,29 @@ body::before {
 
   .profile-menu-team:hover .profile-menu-icon {
     color: rgb(var(--accent));
+  }
+}
+
+@layer components {
+  .accent-fill {
+    border: 1px solid rgb(var(--accent) / 0.52);
+    background: rgb(var(--accent) / 0.24);
+    color: rgb(var(--accent-contrast));
+  }
+
+  .accent-fill:hover {
+    border-color: rgb(var(--accent) / 0.62);
+    background: rgb(var(--accent) / 0.34);
+  }
+
+  .accent-fill-soft {
+    border: 1px solid rgb(var(--accent) / 0.34);
+    background: rgb(var(--accent) / 0.12);
+    color: rgb(var(--text));
+  }
+
+  .accent-fill-soft:hover {
+    border-color: rgb(var(--accent) / 0.48);
+    background: rgb(var(--accent) / 0.2);
   }
 }

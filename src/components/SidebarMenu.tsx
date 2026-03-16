@@ -156,10 +156,10 @@ function SidebarBody({
       </div>
 
       <nav className="grid gap-2 text-sm" aria-label="Sidebar menu">
-       <button
+        <button
           type="button"
           onClick={onCreatePost}
-          className="mb-2 w-full rounded-xl border border-brand/50 bg-brand/18 px-3 py-2.75 text-left text-sm font-semibold text-text transition hover:bg-brand/26"
+          className="accent-fill mb-2 w-full rounded-xl px-3 py-2.75 text-left text-sm font-semibold transition"
         >
           + Create Post
         </button>
@@ -230,7 +230,7 @@ function SidebarBody({
         <button
           type="button"
           onClick={handleLogout}
-          className="mt-2 w-full rounded-xl border border-brand-2/35 bg-brand-2/20 px-3 py-2.75 text-left text-sm font-semibold text-text transition hover:border-brand-2/50 hover:bg-brand-2/25"
+          className="accent-fill mt-2 w-full rounded-xl px-3 py-2.75 text-left text-sm font-semibold transition"
         >
           ↪︎ Log out
         </button>
@@ -259,8 +259,8 @@ const Dropdown = memo(function Dropdown({
         onClick={onToggle}
         className={`flex w-full items-center justify-between rounded-xl border px-3 py-2.75 text-left transition ${
           isActive
-            ? "border-accent/50 bg-accent/85 text-text-inverse shadow-[0_10px_24px_-18px_rgba(138,188,177,0.95)]"
-            : "border-transparent bg-white/4 text-muted hover:border-accent/20 hover:bg-white/8"
+            ? "border-accent/60 bg-accent/56 text-[rgb(var(--accent-contrast))] shadow-[0_12px_28px_-16px_rgb(var(--accent)/0.85)]"
+            : "border-transparent bg-accent/10 text-muted hover:border-accent/42 hover:bg-accent/22"
         }`}
       >
         <span>{label}</span>
@@ -301,8 +301,8 @@ const MenuLink = memo(function MenuLink({
       onClick={onNavigate}
       className={`rounded-xl border px-3 ${compact ? "py-2 text-xs" : "py-2.75"} transition ${
         isActive
-          ? "border-accent/50 bg-accent/85 text-text-inverse shadow-[0_10px_24px_-18px_rgba(138,188,177,0.95)]"
-          : "border-transparent bg-white/4 text-muted hover:border-accent/20 hover:bg-white/8 hover:text-text"
+          ? "border-accent/60 bg-accent/56 text-[rgb(var(--accent-contrast))] shadow-[0_12px_28px_-16px_rgb(var(--accent)/0.85)]"
+          : "border-transparent bg-accent/10 text-muted hover:border-accent/42 hover:bg-accent/22 hover:text-text"
       }`}
     >
       {label}

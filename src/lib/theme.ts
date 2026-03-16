@@ -77,6 +77,22 @@ function shift(rgb: [number, number, number], amount: number): [number, number, 
   return [clamp(rgb[0] + amount), clamp(rgb[1] + amount), clamp(rgb[2] + amount)];
 }
 
+
+function relativeLuminance([r, g, b]: [number, number, number]) {
+  const toLinear = (value: number) => {
+    const normalized = value / 255;
+    return normalized <= 0.03928 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4;
+  };
+
+  const [lr, lg, lb] = [toLinear(r), toLinear(g), toLinear(b)];
+  return 0.2126 * lr + 0.7152 * lg + 0.0722 * lb;
+}
+
+function accentContrastTriplet(accentHex: string) {
+  const accentRgb = hexToRgb(accentHex);
+  return relativeLuminance(accentRgb) > 0.43 ? "14 24 34" : "245 250 252";
+}
+
 function rgbToHex([r, g, b]: [number, number, number]) {
   return `#${[r, g, b].map((value) => clamp(value).toString(16).padStart(2, "0")).join("")}`;
 }
@@ -174,4 +190,5 @@ export function applyTheme(theme: ThemeTokens, root: HTMLElement) {
   root.style.setProperty("--brand", toTriplet(normalized.brand));
   root.style.setProperty("--brand-2", toTriplet(normalized.brand2));
   root.style.setProperty("--accent", toTriplet(normalized.accent));
+  root.style.setProperty("--accent-contrast", accentContrastTriplet(normalized.accent));
 }
