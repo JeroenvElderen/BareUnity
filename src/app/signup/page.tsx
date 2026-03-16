@@ -142,7 +142,7 @@ export default function SignupPage() {
               const isComplete = step > index + 1;
               return (
                 <div key={label} className="flex items-center gap-3 rounded-xl border border-accent/20 bg-bg/35 px-3 py-2">
-                  <span className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${isComplete ? "bg-brand text-[#10262a]" : isActive ? "bg-accent/40 text-text" : "bg-card text-muted"}`}>
+                  <span className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${isComplete ? "bg-brand text-text-inverse" : isActive ? "bg-accent/40 text-text" : "bg-card text-muted"}`}>
                     {isComplete ? "✓" : index + 1}
                   </span>
                   <span className={isActive ? "text-text" : "text-muted"}>{label}</span>
@@ -206,7 +206,7 @@ export default function SignupPage() {
                   {PROFILE_INTERESTS.map((interest) => {
                     const active = interests.includes(interest);
                     return (
-                      <button key={interest} type="button" onClick={() => toggleInterest(interest)} className={`rounded-full px-3 py-1 text-xs capitalize ${active ? "bg-accent text-[#08232c]" : "border border-accent/30"}`}>
+                      <button key={interest} type="button" onClick={() => toggleInterest(interest)} className={`rounded-full px-3 py-1 text-xs capitalize ${active ? "bg-accent text-text-inverse" : "border border-accent/30"}`}>
                         {interest}
                       </button>
                     );
@@ -225,10 +225,10 @@ export default function SignupPage() {
                 <p className="mt-1 text-xs text-muted">Preview: @{normalizedUsername || "your-name"} · role: newcomer</p>
               </div>
 
-              {usernameValidationMessage && <p className="text-xs text-amber-300">{usernameValidationMessage}</p>}
+              {usernameValidationMessage && <p className="text-xs text-accent">{usernameValidationMessage}</p>}
               {!usernameValidationMessage && checkingUsername && <p className="text-xs text-muted">Checking availability…</p>}
               {!usernameValidationMessage && availability?.message && (
-                <p className={`text-xs ${availability.available ? "text-emerald-300" : "text-amber-300"}`}>{availability.message}</p>
+                <p className={`text-xs ${availability.available ? "text-accent" : "text-accent"}`}>{availability.message}</p>
               )}
 
               {!!availability?.suggestions?.length && !availability.available && (

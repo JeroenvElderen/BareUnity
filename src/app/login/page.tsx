@@ -78,7 +78,7 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
             />
             {!isSupabaseConfigured ? (
-              <p className="text-sm text-amber-300">Authentication is not configured in this environment.</p>
+              <p className="text-sm text-accent">Authentication is not configured in this environment.</p>
             ) : null}
             <button
               suppressHydrationWarning

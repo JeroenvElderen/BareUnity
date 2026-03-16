@@ -39,22 +39,22 @@ export default function SidebarMenu({ channels: channelsProp, onCreatePost }: { 
         <button
           type="button"
           onClick={() => setMobileOpen(true)}
-          className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-[#2b3150] bg-[#121522]"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-accent/20 bg-card/90"
           aria-label="Open sidebar menu"
         >
           <span className="flex flex-col gap-1">
-            <span className="h-0.5 w-5 rounded-full bg-[#dce2ff]" />
-            <span className="h-0.5 w-5 rounded-full bg-[#dce2ff]" />
-            <span className="h-0.5 w-5 rounded-full bg-[#dce2ff]" />
+            <span className="h-0.5 w-5 rounded-full bg-text" />
+            <span className="h-0.5 w-5 rounded-full bg-text" />
+            <span className="h-0.5 w-5 rounded-full bg-text" />
           </span>
         </button>
       </div>
 
       {mobileOpen ? (
         <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true">
-          <button type="button" className="absolute inset-0 bg-[#06070d]/70 backdrop-blur-sm" aria-label="Close sidebar" onClick={() => setMobileOpen(false)} />
+          <button type="button" className="absolute inset-0 bg-bg-deep/70 backdrop-blur-sm" aria-label="Close sidebar" onClick={() => setMobileOpen(false)} />
           <div className="relative h-full w-[84vw] max-w-85 p-3">
-            <div className="h-full overflow-y-auto rounded-3xl border border-[#242941] bg-[linear-gradient(180deg,#0f1222_0%,#070b15_100%)] p-4">
+            <div className="h-full overflow-y-auto rounded-3xl border border-accent/20 bg-[linear-gradient(180deg,rgb(var(--card)/0.95)_0%,rgb(var(--bg-deep)/0.96)_100%)] p-4">
               <SidebarBody
                 pathname={pathname}
                 searchParams={searchParams}
@@ -76,7 +76,7 @@ export default function SidebarMenu({ channels: channelsProp, onCreatePost }: { 
         </div>
       ) : null}
 
-      <aside className="hidden h-full rounded-3xl border border-[#242941] bg-[linear-gradient(180deg,#0f1222_0%,#070b15_100%)] px-4 py-5.5 lg:block">
+      <aside className="hidden h-full rounded-3xl border border-accent/20 bg-[linear-gradient(180deg,rgb(var(--card)/0.95)_0%,rgb(var(--bg-deep)/0.96)_100%)] px-4 py-5.5 lg:block">
         <SidebarBody
           pathname={pathname}
           searchParams={searchParams}
@@ -128,14 +128,14 @@ function SidebarBody({
   return (
     <>
       <div className="mb-6 text-[38px] font-bold leading-none tracking-[0.2px]">
-        Bare<span className="text-[#7c5cff]">Unity</span>
+        Bare<span className="text-accent">Unity</span>
       </div>
 
       <nav className="grid gap-2 text-sm" aria-label="Sidebar menu">
        <button
           type="button"
           onClick={onCreatePost}
-          className="mb-2 w-full rounded-xl border border-[rgba(124,92,255,0.5)] bg-[rgba(124,92,255,0.16)] px-3 py-2.75 text-left text-sm font-semibold text-[#eef2ff] transition hover:bg-[rgba(124,92,255,0.24)]"
+          className="mb-2 w-full rounded-xl border border-brand/50 bg-brand/18 px-3 py-2.75 text-left text-sm font-semibold text-text transition hover:bg-brand/26"
         >
           + Create Post
         </button>
@@ -178,7 +178,7 @@ function SidebarBody({
         <button
           type="button"
           onClick={handleLogout}
-          className="mt-2 w-full rounded-xl border border-[#5b2f48] bg-[#2b1721] px-3 py-2.75 text-left text-sm font-semibold text-[#ffd7e5] transition hover:border-[#7a3f5e] hover:bg-[#3a1c2b]"
+          className="mt-2 w-full rounded-xl border border-brand-2/35 bg-brand-2/20 px-3 py-2.75 text-left text-sm font-semibold text-text transition hover:border-brand-2/50 hover:bg-brand-2/25"
         >
           ↪︎ Log out
         </button>
@@ -207,15 +207,15 @@ function Dropdown({
         onClick={onToggle}
         className={`flex w-full items-center justify-between rounded-xl border px-3 py-2.75 text-left transition ${
           isActive
-            ? "border-[#4f5c8b] text-[#dbe3ff]"
-            : "border-transparent text-[#8e97b8] hover:border-[#2b3150]"
+            ? "border-accent/45 text-text"
+            : "border-transparent text-muted hover:border-accent/20"
         }`}
       >
         <span>{label}</span>
         <span className="text-xs">{isOpen ? "▾" : "▸"}</span>
       </button>
 
-      {isOpen ? <div className="ml-3 mt-1 grid gap-1 border-l border-[#2b3150] pl-3">{children}</div> : null}
+      {isOpen ? <div className="ml-3 mt-1 grid gap-1 border-l border-accent/20 pl-3">{children}</div> : null}
     </div>
   );
 }
@@ -248,8 +248,8 @@ function MenuLink({
       onClick={onNavigate}
       className={`rounded-xl border px-3 ${compact ? "py-2 text-xs" : "py-2.75"} transition ${
         isActive
-          ? "border-[rgba(124,92,255,0.4)] bg-[rgba(124,92,255,0.16)] text-[#eef2ff]"
-          : "border-transparent text-[#8e97b8] hover:border-[#2b3150] hover:text-[#dbe3ff]"
+          ? "border-brand/45 bg-brand/18 text-text"
+          : "border-transparent text-muted hover:border-accent/20 hover:text-text"
       }`}
     >
       {label}

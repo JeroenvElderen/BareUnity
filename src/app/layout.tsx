@@ -8,6 +8,42 @@ const themeInitScript = `(() => {
     const DEFAULT_THEME = ${JSON.stringify(DEFAULT_THEME)};
     const KEYS = ['bg','bgSoft','bgDeep','card','card2','text','textStrong','textInverse','muted','border','ring','brand','brand2','accent'];
     const isHex = (v) => typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v.trim());
+    const clamp = (value, min = 0, max = 255) => Math.max(min, Math.min(max, Math.round(value)));
+    const hexToRgb = (hex) => {
+      const value = hex.replace('#','').trim();
+      if (!/^[0-9a-fA-F]{6}$/.test(value)) return [16, 25, 34];
+      return [parseInt(value.slice(0,2),16), parseInt(value.slice(2,4),16), parseInt(value.slice(4,6),16)];
+    };
+    const rgbToHex = (rgb) => '#' + rgb.map((v) => clamp(v).toString(16).padStart(2, '0')).join('');
+    const mix = (a, b, ratio) => {
+      const r = Math.max(0, Math.min(1, ratio));
+      return [
+        clamp(a[0] * (1 - r) + b[0] * r),
+        clamp(a[1] * (1 - r) + b[1] * r),
+        clamp(a[2] * (1 - r) + b[2] * r),
+      ];
+    };
+    const shift = (rgb, amount) => [clamp(rgb[0] + amount), clamp(rgb[1] + amount), clamp(rgb[2] + amount)];
+    const buildThemeFromMainAccent = (mainColor, accentColor) => {
+      const base = hexToRgb(mainColor);
+      const accent = hexToRgb(accentColor);
+      return {
+        bg: rgbToHex(shift(base, -42)),
+        bgSoft: rgbToHex(shift(base, -30)),
+        bgDeep: rgbToHex(shift(base, -52)),
+        card: rgbToHex(mix(base, accent, 0.16)),
+        card2: rgbToHex(mix(base, accent, 0.28)),
+        text: rgbToHex(mix([245, 250, 252], accent, 0.12)),
+        textStrong: rgbToHex(mix([255, 255, 255], accent, 0.08)),
+        textInverse: rgbToHex(mix(shift(base, -52), [255, 255, 255], 0.05)),
+        muted: rgbToHex(mix([170, 180, 195], base, 0.2)),
+        border: rgbToHex(mix(accent, shift(base, -30), 0.52)),
+        ring: rgbToHex(mix(accent, [255, 255, 255], 0.16)),
+        brand: rgbToHex(mix(base, accent, 0.32)),
+        brand2: rgbToHex(mix(base, accent, 0.5)),
+        accent: rgbToHex(accent),
+      };
+    };
     const hexToTriplet = (hex) => {
       const value = hex.replace('#','').trim();
       return parseInt(value.slice(0,2),16) + ' ' + parseInt(value.slice(2,4),16) + ' ' + parseInt(value.slice(4,6),16);
@@ -16,6 +52,13 @@ const themeInitScript = `(() => {
     const raw = localStorage.getItem('${THEME_STORAGE_KEY}');
     let source = null;
     try { source = raw ? JSON.parse(raw) : null; } catch {}
+
+    if (source && (typeof source.mainColor === 'string' || typeof source.baseColor === 'string') && typeof source.accentColor === 'string') {
+      const mainColor = typeof source.mainColor === 'string' ? source.mainColor : source.baseColor;
+      if (isHex(mainColor) && isHex(source.accentColor)) {
+        source = buildThemeFromMainAccent(mainColor, source.accentColor);
+      }
+    }
 
     const theme = {};
     for (const key of KEYS) {
