@@ -85,7 +85,7 @@ function MessageAvatar({ author, avatarUrl }: { author: string; avatarUrl: strin
 }
 
 export default function DiscussionPage() {
-  const channelId = "discussion";
+  const channelSlug = "discussion";
   const newcomerModeration = false;
 
   const [messages, setMessages] = useState<DiscussionMessage[]>([]);
@@ -98,6 +98,7 @@ export default function DiscussionPage() {
 
   const currentUserIdRef = useRef<string | null>(null);
   const feedRef = useRef<HTMLDivElement | null>(null);
+  const [channelId, setChannelId] = useState<string>(channelSlug);
 
   const cachedMessages = useMemo(
     () => readCachedValue<DiscussionMessage[]>(getMessageCacheKey(channelId), MESSAGE_CACHE_TTL_MS) ?? [],
@@ -141,12 +142,20 @@ export default function DiscussionPage() {
     let isMounted = true;
 
     async function loadMessages() {
+        const { data: channelData } = await supabase
+        .from("channels")
+        .select("id")
+        .eq("slug", channelSlug)
+        .maybeSingle<{ id: string }>();
+
+      const resolvedChannelId = channelData?.id ?? channelSlug;
+      setChannelId(resolvedChannelId);
       setLoading(cachedMessages.length === 0);
 
       const { data, error } = await supabase
         .from("channel_messages")
         .select("id, body, created_at, author_id, profiles!channel_messages_author_id_fkey(username, avatar_url)")
-        .eq("channel_id", channelId)
+        .eq("channel_id", resolvedChannelId)
         .order("created_at", { ascending: true })
         .limit(150);
 
