@@ -210,21 +210,26 @@ body::before {
   .soft-button {
     border-radius: 0.75rem;
 
-    border: 1px solid rgb(var(--accent) / 0.3);
+    border: 1px solid rgb(var(--accent) / 0.36);
 
-    background: rgb(var(--accent) / 0.14);
+    background:
+      linear-gradient(
+        140deg,
+        rgb(var(--card-2) / 0.94),
+        rgb(var(--brand-2) / 0.72)
+      );
 
     padding: 0.5rem 1rem;
 
     font-weight: 500;
 
-    color: rgb(var(--accent));
+    color: rgb(var(--text));
 
-    transition: background-color 160ms ease;
+    transition: filter 160ms ease;
   }
 
   .soft-button:hover {
-    background: rgb(var(--accent) / 0.16);
+    filter: brightness(1.08);
   }
 }
 

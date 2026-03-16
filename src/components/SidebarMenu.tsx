@@ -259,8 +259,8 @@ const Dropdown = memo(function Dropdown({
         onClick={onToggle}
         className={`flex w-full items-center justify-between rounded-xl border px-3 py-2.75 text-left transition ${
           isActive
-            ? "border-accent/45 text-text"
-            : "border-transparent text-muted hover:border-accent/20"
+            ? "border-accent/50 bg-accent/85 text-text-inverse shadow-[0_10px_24px_-18px_rgba(138,188,177,0.95)]"
+            : "border-transparent bg-white/4 text-muted hover:border-accent/20 hover:bg-white/8"
         }`}
       >
         <span>{label}</span>
@@ -301,8 +301,8 @@ const MenuLink = memo(function MenuLink({
       onClick={onNavigate}
       className={`rounded-xl border px-3 ${compact ? "py-2 text-xs" : "py-2.75"} transition ${
         isActive
-          ? "border-brand/45 bg-brand/18 text-text"
-          : "border-transparent text-muted hover:border-accent/20 hover:text-text"
+          ? "border-accent/50 bg-accent/85 text-text-inverse shadow-[0_10px_24px_-18px_rgba(138,188,177,0.95)]"
+          : "border-transparent bg-white/4 text-muted hover:border-accent/20 hover:bg-white/8 hover:text-text"
       }`}
     >
       {label}

@@ -10,7 +10,7 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: "bg-brand text-text-inverse hover:bg-brand-2",
-        outline: "border-accent/30 bg-card text-text hover:bg-card-2/70",
+        outline: "border-accent/35 bg-brand-2/45 text-text hover:bg-brand-2/60",
       },
       size: {
         default: "h-10 px-4 py-2",

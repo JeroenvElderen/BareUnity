@@ -247,7 +247,7 @@ export default function ProfilePage() {
 
       const { data: profileData } = await supabase.from("profiles").select("username").eq("id", user.id).maybeSingle<{ username: string }>();
       setProfileUsername(profileData?.username ?? null);
-      
+
       let query = await supabase
         .from("profile_settings")
         .select("profile_primary, profile_secondary, avatar_url, banner_url, show_email, show_activity, allow_friend_requests, feed_style, friends, friend_requests, introduction, home_theme_pack, dashboard_widgets, verification_status, notable_contributor_note, follow_categories, impact_stats, social_graph_mode, blocked_usernames, custom_profile_url, vanity_slug, pronouns, communication_preferences, profile_sections, section_visibility, featured_post_ids, identity_badges, timeline_highlights, user_role, interests, onboarding_completed")
