@@ -3,6 +3,22 @@ import { moderateNsfwScores, toNsfwScores } from "@/lib/nsfw";
 
 const MODEL_ID = "strangerguardhf/nsfw_image_detection";
 const MODEL_URL = `https://api-inference.huggingface.co/models/${MODEL_ID}`;
+const FAIL_OPEN = process.env.NODE_ENV !== "production" || process.env.NSFW_FAIL_OPEN === "1";
+
+function unavailableResponse(detail?: string) {
+  return NextResponse.json(
+    {
+      decision: FAIL_OPEN ? "allow" : "block",
+      scores: { pornography: 0, enticingOrSensual: 0, normal: 0 },
+      reason: FAIL_OPEN
+        ? "Moderation service unavailable. Allowed in fail-open mode."
+        : "Moderation service unavailable. Please try again in a moment.",
+      error: "NSFW model request failed",
+      detail,
+    },
+    { status: FAIL_OPEN ? 200 : 422 },
+  );
+}
 
 export async function POST(request: NextRequest) {
   const formData = await request.formData();
@@ -17,14 +33,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "only image uploads are supported" }, { status: 400 });
   }
 
-  const huggingFaceApiKey = process.env.HUGGINGFACE_API_KEY;
+  const huggingFaceApiKey = process.env.HUGGINGFACE_API_KEY ?? process.env.HF_TOKEN;
 
   if (!huggingFaceApiKey) {
     return NextResponse.json(
       {
-        decision: "review",
+        decision: FAIL_OPEN ? "allow" : "review",
         scores: { pornography: 0, enticingOrSensual: 0, normal: 0 },
-        reason: "HUGGINGFACE_API_KEY is not configured",
+        reason: "Set HUGGINGFACE_API_KEY or HF_TOKEN to enable StrangerGuard moderation",
       },
       { status: 200 },
     );
@@ -41,16 +57,7 @@ export async function POST(request: NextRequest) {
 
   if (!response.ok) {
     const detail = await response.text();
-    return NextResponse.json(
-      {
-        decision: "block",
-        scores: { pornography: 0, enticingOrSensual: 0, normal: 0 },
-        reason: "Moderation service unavailable. Please try again in a moment.",
-        error: "NSFW model request failed",
-        detail,
-      },
-      { status: 422 },
-    );
+    return unavailableResponse(detail);
   }
 
   const payload = (await response.json()) as unknown;
