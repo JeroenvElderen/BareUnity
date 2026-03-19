@@ -107,10 +107,14 @@ export default function CreatePost({ onPublished, onCancel }: CreatePostProps) {
     };
 
     if (!response.ok && response.status !== 422) {
-      throw new Error(payload.error ?? "Unable to analyze image");
+      return {
+        decision: "block" as const,
+        reason: payload.error ?? "Unable to analyze image",
+        scores: payload.scores ?? { pornography: 0, enticingOrSensual: 0, normal: 0 },
+      };
     }
 
-  return {
+    return {
       decision: payload.decision ?? "review",
       reason: payload.reason ?? "Content is not allowed.",
       scores: payload.scores ?? { pornography: 0, enticingOrSensual: 0, normal: 0 },

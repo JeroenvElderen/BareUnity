@@ -41,13 +41,31 @@ export async function POST(request: NextRequest) {
 
   if (!response.ok) {
     const detail = await response.text();
-    return NextResponse.json({ error: "NSFW model request failed", detail }, { status: 502 });
+    return NextResponse.json(
+      {
+        decision: "block",
+        scores: { pornography: 0, enticingOrSensual: 0, normal: 0 },
+        reason: "Moderation service unavailable. Please try again in a moment.",
+        error: "NSFW model request failed",
+        detail,
+      },
+      { status: 422 },
+    );
   }
 
   const payload = (await response.json()) as unknown;
 
   if (!Array.isArray(payload)) {
-    return NextResponse.json({ error: "unexpected NSFW model response", payload }, { status: 502 });
+    return NextResponse.json(
+      {
+        decision: "block",
+        scores: { pornography: 0, enticingOrSensual: 0, normal: 0 },
+        reason: "Moderation service returned an invalid response.",
+        error: "unexpected NSFW model response",
+        payload,
+      },
+      { status: 422 },
+    );
   }
 
   const scoreInput = payload
@@ -66,7 +84,16 @@ export async function POST(request: NextRequest) {
     .filter((entry): entry is { label: string; score: number } => entry !== null);
 
   if (!scoreInput.length) {
-    return NextResponse.json({ error: "no usable scores returned from model", payload }, { status: 502 });
+    return NextResponse.json(
+      {
+        decision: "block",
+        scores: { pornography: 0, enticingOrSensual: 0, normal: 0 },
+        reason: "Moderation service did not return usable scores.",
+        error: "no usable scores returned from model",
+        payload,
+      },
+      { status: 422 },
+    );
   }
 
   const scores = toNsfwScores(scoreInput);
