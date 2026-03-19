@@ -1,110 +1,166 @@
 import { NextRequest, NextResponse } from "next/server";
-import { moderateNsfwScores, toNsfwScores } from "@/lib/nsfw";
+import {
+  calculateSexualSeverity,
+  moderateNsfwScores,
+  toNsfwScores,
+  inferContextSignals,
+  applyBusinessPolicy,
+} from "@/lib/nsfw";
 
-const MODEL_ID = "strangerguardhf/nsfw_image_detection";
-const MODEL_URL = `https://api-inference.huggingface.co/models/${MODEL_ID}`;
-const FAIL_OPEN = process.env.NODE_ENV !== "production" || process.env.NSFW_FAIL_OPEN === "1";
+export const runtime = "nodejs";
 
-function unavailableResponse(detail?: string) {
-  return NextResponse.json(
-    {
-      decision: FAIL_OPEN ? "allow" : "block",
-      scores: { pornography: 0, enticingOrSensual: 0, normal: 0 },
-      reason: FAIL_OPEN
-        ? "Moderation service unavailable. Allowed in fail-open mode."
-        : "Moderation service unavailable. Please try again in a moment.",
-      error: "NSFW model request failed",
-      detail,
-    },
-    { status: FAIL_OPEN ? 200 : 422 },
-  );
+const MODEL_URL =
+  "https://router.huggingface.co/hf-inference/models/Falconsai/nsfw_image_detection";
+
+const FALLBACK = {
+  decision: "review" as const,
+  scores: { pornography: 0, enticingOrSensual: 0, normal: 0 },
+};
+
+async function callHF(apiKey: string, buffer: Buffer) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+
+  try {
+    const res = await fetch(MODEL_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/octet-stream",
+      },
+      body: buffer,
+      signal: controller.signal,
+    });
+
+    return await res.text();
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function getModelResponse(apiKey: string, buffer: Buffer) {
+  for (let i = 0; i < 2; i++) {
+    try {
+      const text = await callHF(apiKey, buffer);
+
+      if (!text) continue;
+
+      if (text.toLowerCase().includes("loading")) {
+        await new Promise((r) => setTimeout(r, 1000));
+        continue;
+      }
+
+      return text;
+    } catch {
+      if (i === 1) throw new Error("HF failed after retry");
+    }
+  }
+
+  throw new Error("HF failed");
 }
 
 export async function POST(request: NextRequest) {
-  const formData = await request.formData();
-  const maybeFile = formData.get("image");
-  const allowExplicit = formData.get("allowExplicit") === "1";
+  try {
+    const formData = await request.formData();
+    const file = formData.get("image");
 
-  if (!(maybeFile instanceof File)) {
-    return NextResponse.json({ error: "image file is required" }, { status: 400 });
-  }
+    const userEmail = formData.get("userEmail")?.toString() ?? "";
 
-  if (!maybeFile.type.startsWith("image/")) {
-    return NextResponse.json({ error: "only image uploads are supported" }, { status: 400 });
-  }
+    if (!(file instanceof File)) {
+      return NextResponse.json(
+        { error: "image required" },
+        { status: 400 }
+      );
+    }
 
-  const huggingFaceApiKey = process.env.HUGGINGFACE_API_KEY ?? process.env.HF_TOKEN;
+    const apiKey =
+      process.env.HUGGINGFACE_API_KEY ?? process.env.HF_TOKEN;
 
-  if (!huggingFaceApiKey) {
+    if (!apiKey) {
+      return NextResponse.json(
+        { ...FALLBACK, reason: "missing api key" },
+        { status: 200 }
+      );
+    }
+
+    const buffer = Buffer.from(await file.arrayBuffer());
+
+    let text: string;
+
+    try {
+      text = await getModelResponse(apiKey, buffer);
+    } catch (err) {
+      console.error("HF FAILED:", err);
+
+      return NextResponse.json(
+        { ...FALLBACK, reason: "model unavailable" },
+        { status: 200 }
+      );
+    }
+
+    console.log("HF RAW:", text.slice(0, 200));
+
+    const trimmed = text.trim();
+
+    if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) {
+      return NextResponse.json(
+        { ...FALLBACK, reason: "non-json response" },
+        { status: 200 }
+      );
+    }
+
+    let payload: any;
+
+    try {
+      payload = JSON.parse(trimmed);
+    } catch {
+      return NextResponse.json(
+        { ...FALLBACK, reason: "json parse failed" },
+        { status: 200 }
+      );
+    }
+
+    if (!Array.isArray(payload)) {
+      return NextResponse.json(
+        { ...FALLBACK, reason: "invalid payload shape" },
+        { status: 200 }
+      );
+    }
+
+    // ✅ Stage 1
+    const scores = toNsfwScores(payload);
+
+    // ✅ Stage 2
+    const signals = inferContextSignals(scores);
+
+    // ✅ Stage 3
+    const moderation = moderateNsfwScores(scores, {
+      allowExplicit: false,
+      signals,
+    });
+
+    // 🔥 Stage 4 (NEW): business policy
+    const finalModeration = applyBusinessPolicy(
+      moderation,
+      scores,
+      signals,
+      userEmail
+    );
+
+    const severity = calculateSexualSeverity(scores, signals);
+
+    return NextResponse.json({
+      ...finalModeration,
+      sexualSeverity: severity.score,
+      sexualSeverityReason: severity.reason,
+      inferredSignals: signals,
+    });
+  } catch (err: any) {
+    console.error("FATAL:", err);
+
     return NextResponse.json(
-      {
-        decision: FAIL_OPEN ? "allow" : "review",
-        scores: { pornography: 0, enticingOrSensual: 0, normal: 0 },
-        reason: "Set HUGGINGFACE_API_KEY or HF_TOKEN to enable StrangerGuard moderation",
-      },
-      { status: 200 },
+      { ...FALLBACK, reason: "internal error" },
+      { status: 200 }
     );
   }
-
-  const response = await fetch(MODEL_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${huggingFaceApiKey}`,
-      "Content-Type": maybeFile.type,
-    },
-    body: Buffer.from(await maybeFile.arrayBuffer()),
-  });
-
-  if (!response.ok) {
-    const detail = await response.text();
-    return unavailableResponse(detail);
-  }
-
-  const payload = (await response.json()) as unknown;
-
-  if (!Array.isArray(payload)) {
-    return NextResponse.json(
-      {
-        decision: "block",
-        scores: { pornography: 0, enticingOrSensual: 0, normal: 0 },
-        reason: "Moderation service returned an invalid response.",
-        error: "unexpected NSFW model response",
-        payload,
-      },
-      { status: 422 },
-    );
-  }
-
-  const scoreInput = payload
-    .map((entry) => {
-      if (!entry || typeof entry !== "object") return null;
-
-      const label = "label" in entry ? entry.label : null;
-      const score = "score" in entry ? entry.score : null;
-
-      if (typeof label !== "string" || typeof score !== "number") {
-        return null;
-      }
-
-      return { label, score };
-    })
-    .filter((entry): entry is { label: string; score: number } => entry !== null);
-
-  if (!scoreInput.length) {
-    return NextResponse.json(
-      {
-        decision: "block",
-        scores: { pornography: 0, enticingOrSensual: 0, normal: 0 },
-        reason: "Moderation service did not return usable scores.",
-        error: "no usable scores returned from model",
-        payload,
-      },
-      { status: 422 },
-    );
-  }
-
-  const scores = toNsfwScores(scoreInput);
-  const moderation = moderateNsfwScores(scores, { allowExplicit });
-
-  return NextResponse.json(moderation, { status: moderation.decision === "block" ? 422 : 200 });
 }

@@ -4,6 +4,12 @@ export type NsfwScores = {
   normal: number;
 };
 
+export type SexualContextSignals = {
+  visibleGenitals?: boolean;
+  erection?: boolean;
+  genitalContact?: boolean;
+};
+
 export type ModerationDecision = "allow" | "review" | "block";
 
 export type ModerationResult = {
@@ -12,74 +18,144 @@ export type ModerationResult = {
   reason: string;
 };
 
-export type ModerationOptions = {
-  allowExplicit: boolean;
+export type SexualSeverity = 0 | 1 | 2 | 3;
+
+export type SexualSeverityResult = {
+  score: SexualSeverity;
+  reason: string;
 };
 
-function normalizeLabel(label: string) {
-  return label.trim().toLowerCase();
-}
+/**
+ * Normalize HF output
+ */
+export function toNsfwScores(entries: any[]): NsfwScores {
+  let pornography = 0;
+  let sensual = 0;
+  let normal = 0;
 
-export function toNsfwScores(entries: Array<{ label: string; score: number }>): NsfwScores {
-  const scoreByLabel = new Map(entries.map((entry) => [normalizeLabel(entry.label), entry.score]));
+  for (const e of entries) {
+    const label = e.label?.toLowerCase?.() ?? "";
+    const score = e.score ?? 0;
 
-  const pornography = scoreByLabel.get("pornography") ?? scoreByLabel.get("porn") ?? 0;
-
-  const enticingOrSensual = scoreByLabel.get("enticing or sensual") ?? scoreByLabel.get("sensual") ?? 0;
-
-  const normal = scoreByLabel.get("normal") ?? scoreByLabel.get("safe") ?? 0;
+    if (label.includes("nsfw")) pornography = Math.max(pornography, score);
+    if (label.includes("normal") || label.includes("safe"))
+      normal = Math.max(normal, score);
+    if (label.includes("sensual") || label.includes("sexy"))
+      sensual = Math.max(sensual, score);
+  }
 
   return {
     pornography,
-    enticingOrSensual,
+    enticingOrSensual: sensual,
     normal,
   };
 }
 
-export function moderateNsfwScores(scores: NsfwScores, options: ModerationOptions): ModerationResult {
-  if (scores.pornography > 0.85) {
-    if (options.allowExplicit) {
-      return {
-        decision: "allow",
-        scores,
-        reason: "explicit content allowed for trusted uploader",
-      };
-    }
+/**
+ * 🔥 IMPORTANT: Only detect interaction risk
+ */
+export function inferContextSignals(
+  scores: NsfwScores
+): SexualContextSignals {
+  const signals: SexualContextSignals = {};
 
+  // Nudity always allowed → only used for severity
+  if (scores.pornography > 0.25) {
+    signals.visibleGenitals = true;
+  }
+
+  // erection proxy
+  if (scores.pornography > 0.6) {
+    signals.erection = true;
+  }
+
+  // 🚨 ONLY thing we really care about: interaction
+  if (scores.pornography > 0.4 && scores.normal < 0.7) {
+    signals.genitalContact = true;
+  }
+
+  return signals;
+}
+
+/**
+ * 🔥 Naturist-friendly moderation
+ */
+export function moderateNsfwScores(
+  scores: NsfwScores,
+  options: {
+    allowExplicit: boolean;
+    signals?: SexualContextSignals;
+  }
+): ModerationResult {
+  const s = options.signals ?? {};
+
+  // 🚨 ONLY BLOCK RULE
+  if (s.genitalContact) {
     return {
       decision: "block",
       scores,
-      reason: "explicit sexual content is not allowed for this account",
+      reason: "sexual interaction not allowed",
     };
   }
 
-  if (scores.pornography > 0.5) {
-    return {
-      decision: "review",
-      scores,
-      reason: "high nudity confidence requires manual review",
-    };
-  }
-
-  if (scores.enticingOrSensual > 0.7) {
-    return {
-      decision: "allow",
-      scores,
-      reason: "sensual but not explicit",
-    };
-  }
-
-  if (scores.normal > 0.6) {
-    return {
-      decision: "allow",
-      scores,
-      reason: "normal-safe content",
-    };
-  }
-
+  // ✅ EVERYTHING ELSE ALLOWED
   return {
-    decision: "review",
+    decision: "allow",
     scores,
-    reason: "uncertain classification",
+    reason: "nudity allowed (naturist platform)",
   };
+}
+
+/**
+ * 🔥 Business policy (user overrides)
+ */
+export function applyBusinessPolicy(
+  moderation: ModerationResult,
+  scores: NsfwScores,
+  signals: SexualContextSignals,
+  userEmail: string
+): ModerationResult {
+  const isOwner = userEmail === "jeroen.vanelderen@hotmail.com";
+
+  // 🚨 interaction always blocked (even for owner)
+  if (signals.genitalContact) {
+    return {
+      decision: "block",
+      scores,
+      reason: "genital contact not allowed",
+    };
+  }
+
+  // erection allowed for owner
+  if (signals.erection && isOwner) {
+    return {
+      decision: "allow",
+      scores,
+      reason: "owner override (erection allowed)",
+    };
+  }
+
+  return moderation;
+}
+
+/**
+ * Severity = informational only
+ */
+export function calculateSexualSeverity(
+  scores: NsfwScores,
+  signals: SexualContextSignals
+): SexualSeverityResult {
+  if (signals.genitalContact) {
+    return { score: 3, reason: "sexual interaction" };
+  }
+
+  if (signals.erection) {
+    return { score: 2, reason: "erection" };
+  }
+
+  if (signals.visibleGenitals) {
+    return { score: 1, reason: "nudity" };
+  }
+
+  return { score: 0, reason: "none" };
 }
