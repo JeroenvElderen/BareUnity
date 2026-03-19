@@ -99,12 +99,20 @@ export default function CreatePost({ onPublished, onCancel }: CreatePostProps) {
       body: formData,
     });
 
-    const payload = (await response.json()) as {
+    let payload: {
       decision?: "allow" | "review" | "block";
       reason?: string;
       scores?: ModerationScores;
       error?: string;
-    };
+    } = {};
+
+    try {
+      const raw = await response.text();
+      payload = raw ? (JSON.parse(raw) as typeof payload) : {};
+    } catch (error) {
+      console.error("Failed to parse moderation response", error);
+      payload = {};
+    }
 
     if (!response.ok && response.status !== 422) {
       return {
