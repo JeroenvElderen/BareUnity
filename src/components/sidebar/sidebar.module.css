@@ -153,6 +153,21 @@
   display: flex;
   align-items: center;
   gap: 0.65rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+.profileCard:hover {
+  border-color: rgb(var(--brand) / 0.42);
+  background: rgb(var(--bg-soft));
+}
+
+.mobileProfileCard {
+  margin-top: 0.45rem;
+}
+
+.desktopFooter {
+  display: none;
 }
 
 .avatar,
@@ -213,7 +228,12 @@
     font-size: 0.74rem;
   }
 
-  .profileCard {
+  .mobileProfileCard {
+    display: none;
+  }
+
+  .desktopFooter {
+    display: block;
     margin-top: auto;
   }
 }

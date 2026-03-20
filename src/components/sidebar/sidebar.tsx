@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import {
@@ -44,8 +45,33 @@ function getInitials(name: string) {
   return parts.map((part) => part[0]?.toUpperCase() ?? "").join("") || "U";
 }
 
+type ProfileLinkProps = {
+  avatarUrl: string | null;
+  displayName: string;
+  initials: string;
+  className?: string;
+};
+
+function ProfileLink({ avatarUrl, displayName, initials, className }: ProfileLinkProps) {
+  return (
+    <Link href="/profile" className={`${styles.profileCard} ${className ?? ""}`.trim()}>
+      {avatarUrl ? (
+        <img src={avatarUrl} alt={`${displayName} avatar`} className={styles.avatar} />
+      ) : (
+        <div className={styles.avatarFallback} aria-hidden>
+          {initials}
+        </div>
+      )}
+      <div>
+        <p>{displayName}</p>
+        <small>@{displayName.toLowerCase().replace(/\s+/g, "")}</small>
+      </div>
+    </Link>
+  );
+}
+
 export function AppSidebar() {
-const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isRoomsOpen, setIsRoomsOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
 
@@ -151,20 +177,12 @@ const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
             ))}
           </nav>
         </section>
+
+        <ProfileLink avatarUrl={avatarUrl} displayName={displayName} initials={initials} className={styles.mobileProfileCard} />
       </div>
 
-      <footer className={styles.profileCard}>
-        {avatarUrl ? (
-          <img src={avatarUrl} alt={`${displayName} avatar`} className={styles.avatar} />
-        ) : (
-          <div className={styles.avatarFallback} aria-hidden>
-            {initials}
-          </div>
-        )}
-        <div>
-          <p>{displayName}</p>
-          <small>@{displayName.toLowerCase().replace(/\s+/g, "")}</small>
-        </div>
+      <footer className={styles.desktopFooter}>
+        <ProfileLink avatarUrl={avatarUrl} displayName={displayName} initials={initials} />
       </footer>
     </aside>
   );
