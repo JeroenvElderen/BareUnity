@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase-admin";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { db } from "@/server/db";
+import layoutStyles from "../page.module.css";
 
 type ProfileRow = {
   id: string;
@@ -133,22 +134,11 @@ export default async function ProfilePage() {
   const avatarFallback = getInitials(displayName);
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-[1600px] flex-col md:flex-row">
+    <main className={`${layoutStyles.main} w-full`}>
       <AppSidebar />
 
-      <section className="flex-1 bg-[rgb(var(--bg-deep))/0.55] p-0 md:p-4">
-        <Card className="min-h-full rounded-none border-x-0 border-y-0 border-[rgb(var(--border))] bg-[rgb(var(--card))/0.98] shadow-none md:rounded-[1.25rem] md:border md:shadow-[0_8px_26px_rgba(15,29,28,0.08)]">
-          <div className="border-b border-[rgb(var(--border))] bg-[rgb(var(--brand-2))] px-4 py-2.5 text-white md:rounded-t-[1.25rem]">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-xl font-semibold leading-none">BareUnity</p>
-              <div className="flex items-center gap-1.5">
-                <div className="h-2 w-2 rounded-full bg-white/65" />
-                <div className="h-2 w-2 rounded-full bg-white/55" />
-                <div className="h-2 w-2 rounded-full bg-white/45" />
-              </div>
-            </div>
-          </div>
-
+      <section className="min-w-0 flex-1 overflow-x-hidden bg-[rgb(var(--bg-deep))/0.55] p-0">
+        <Card className="min-h-full rounded-none border-x-0 border-y-0 border-[rgb(var(--border))] bg-[rgb(var(--card))/0.98] shadow-none">
           <div className="relative h-40 border-b border-[rgb(var(--border))/0.75] bg-[linear-gradient(110deg,rgb(var(--brand))_0%,rgb(var(--accent-soft))_100%)] md:h-48" />
 
           <CardContent className="space-y-4 p-3 md:p-5">
