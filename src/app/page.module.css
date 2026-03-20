@@ -1,0 +1,20 @@
+.main {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.content {
+  padding: 1rem;
+  color: #f9fafb;
+}
+
+@media (min-width: 900px) {
+  .main {
+    flex-direction: row;
+  }
+
+  .content {
+    padding: 1.25rem;
+  }
+}

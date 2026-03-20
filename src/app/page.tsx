@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { AppSidebar } from "@/components/sidebar/sidebar";
+import styles from "./page.module.css";
 
 export default function HomePage() {
   return (
-    <main style={{ display: "flex", minHeight: "100vh" }}>
+    <main className={styles.main}>
       <AppSidebar />
-      <section style={{ padding: "1.25rem", color: "#f9fafb" }}>
+      <section className={styles.content}>
         <h2>Content area</h2>
         <p>Starting fresh: next component comes after sidebar approval.</p>
         <p>
