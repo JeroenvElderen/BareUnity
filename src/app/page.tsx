@@ -11,7 +11,8 @@ export default function HomePage() {
         <p>Starting fresh: next component comes after sidebar approval.</p>
         <p>
           Auth screens preview: <Link href="/login">Login</Link> ·{" "}
-          <Link href="/register">Register</Link>
+          <Link href="/register">Register</Link> · {" "}
+          <Link href="/profile">Profile examples</Link>
         </p>
       </section>
     </main>
