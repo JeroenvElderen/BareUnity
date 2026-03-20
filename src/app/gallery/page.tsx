@@ -127,11 +127,7 @@ export default async function GalleryPage() {
 
       <section className={styles.wrapper}>
         <header className={styles.hero}>
-          <p className={styles.kicker}>Gallery showcase</p>
           <h1>Discover moments in the wild</h1>
-          <p>
-            Live gallery content from Supabase posts and storage uploads. Latest uploads appear first.
-          </p>
         </header>
 
         {galleryItems.length === 0 ? (
