@@ -193,6 +193,27 @@ model profile_settings {
   @@schema("public")
 }
 
+model verification_submissions {
+  user_id               String   @id @db.Uuid
+  legal_name            String
+  display_name          String
+  date_of_birth         DateTime @db.Date
+  country               String
+  membership_type       String
+  id_type               String
+  status                String   @default("pending")
+  is_adult_confirmed    Boolean  @default(false)
+  consent_code_accepted Boolean  @default(false)
+  terms_accepted        Boolean  @default(false)
+  reviewer_notes        String?
+  created_at            DateTime @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime @default(now()) @db.Timestamptz(6)
+  users                 users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([status], map: "verification_submissions_status_idx")
+  @@schema("public")
+}
+
 model friendships {
   id                                      String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   user_id                                 String   @db.Uuid
@@ -720,7 +741,8 @@ model users {
   profile_settings                                   profile_settings?
   profiles                                           profiles?
   user_badges                                        user_badges[]
-
+  verification_submissions                           verification_submissions?
+  
   @@index([instance_id])
   @@index([is_anonymous])
   @@schema("auth")

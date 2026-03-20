@@ -1,0 +1,151 @@
+.page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 2rem 1rem;
+  background:
+    radial-gradient(circle at 20% 0%, rgba(236, 211, 172, 0.2), transparent 50%),
+    radial-gradient(circle at 100% 100%, rgba(95, 64, 40, 0.4), transparent 40%),
+    #16120d;
+  color: #f7efe4;
+}
+
+.shell {
+  width: min(100%, 460px);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.brand {
+  text-align: center;
+  font-size: 0.95rem;
+  color: #f3dac0;
+}
+
+.card {
+  border: 1px solid rgba(246, 220, 190, 0.15);
+  border-radius: 16px;
+  background: rgba(20, 16, 12, 0.94);
+  padding: 1.5rem;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+}
+
+.title {
+  margin: 0;
+  text-align: center;
+  font-size: 1.65rem;
+}
+
+.subtitle {
+  margin: 0.5rem 0 1.2rem;
+  text-align: center;
+  color: #d8c3ab;
+  font-size: 0.95rem;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.split {
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 560px) {
+  .split {
+    grid-template-columns: 1fr;
+  }
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.label {
+  font-size: 0.88rem;
+  color: #f7e8d5;
+}
+
+.input,
+.select,
+.file {
+  width: 100%;
+  border: 1px solid rgba(243, 216, 184, 0.2);
+  border-radius: 10px;
+  background: rgba(248, 238, 224, 0.03);
+  color: #fff6ea;
+  min-height: 42px;
+  padding: 0.65rem 0.75rem;
+  font: inherit;
+}
+
+.input:focus,
+.select:focus,
+.file:focus {
+  outline: 2px solid rgba(245, 181, 117, 0.5);
+  border-color: rgba(245, 181, 117, 0.5);
+}
+
+.help {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #bfa88d;
+}
+
+.sectionLabel {
+  margin-top: 0.5rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #ffd8ad;
+}
+
+.checkboxRow {
+  display: flex;
+  gap: 0.55rem;
+  align-items: flex-start;
+  font-size: 0.84rem;
+  color: #e5cfb6;
+}
+
+.checkboxRow input {
+  margin-top: 0.15rem;
+}
+
+.button {
+  margin-top: 0.5rem;
+  border: none;
+  border-radius: 10px;
+  padding: 0.78rem 1rem;
+  font: inherit;
+  font-weight: 700;
+  color: #20160f;
+  background: linear-gradient(135deg, #f5b575, #f4d8b6);
+  cursor: pointer;
+}
+
+.alt {
+  margin: 0.4rem 0 0;
+  text-align: center;
+  font-size: 0.9rem;
+  color: #d5bea3;
+}
+
+.link {
+  color: #ffe0b7;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.legal {
+  text-align: center;
+  margin: 0;
+  font-size: 0.8rem;
+  color: #c5ab90;
+}
