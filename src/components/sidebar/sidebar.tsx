@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import {
   Bell,
   ChevronDown,
   Compass,
+  Image,
   Home,
   Menu,
   MessageCircle,
@@ -21,10 +23,11 @@ import styles from "./sidebar.module.css";
 import { supabase } from "@/lib/supabase";
 
 const primaryItems = [
-  { icon: Home, label: "Home", active: true },
-  { icon: Search, label: "Search" },
-  { icon: Compass, label: "Explore" },
-  { icon: MessageCircle, label: "Messages", badge: "4" },
+  { icon: Home, label: "Home", href: "/" },
+  { icon: Search, label: "Search", href: "#" },
+  { icon: Compass, label: "Explore", href: "#" },
+  { icon: Image, label: "Gallery", href: "/gallery" },
+  { icon: MessageCircle, label: "Messages", href: "#", badge: "4" },
 ] as const;
 
 const workspaceItems = [
@@ -71,6 +74,7 @@ function ProfileLink({ avatarUrl, displayName, initials, className }: ProfileLin
 }
 
 export function AppSidebar() {
+  const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isRoomsOpen, setIsRoomsOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
@@ -125,22 +129,26 @@ export function AppSidebar() {
 
       <div className={`${styles.menuContent} ${isMobileMenuOpen ? styles.menuContentOpen : ""}`}>
         <section className={styles.section}>
-          <p className={styles.sectionLabel}>Main</p>
+          <p className={styles.sectionLabel}>Discover</p>
           <nav>
-            {primaryItems.map(({ icon: Icon, label, active, badge }) => (
-              <a key={label} href="#" className={`${styles.navItem} ${active ? styles.active : ""}`}>
+            {primaryItems.map(({ icon: Icon, label, href, badge }) => (
+              <Link
+                key={label}
+                href={href}
+                className={`${styles.navItem} ${pathname === href ? styles.active : ""}`}
+              >
                 <span className={styles.itemLeft}>
                   <Icon size={18} aria-hidden />
                   <span>{label}</span>
                 </span>
                 {badge ? <span className={styles.badge}>{badge}</span> : null}
-              </a>
+              </Link>
             ))}
           </nav>
         </section>
 
         <section className={styles.section}>
-          <p className={styles.sectionLabel}>Workspace hub</p>
+          <p className={styles.sectionLabel}>Naturist Circle</p>
           <nav>
             <div className={styles.dropdown}>
               <button
