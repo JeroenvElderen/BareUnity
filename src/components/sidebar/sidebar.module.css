@@ -38,6 +38,18 @@
   color: rgb(var(--text-inverse));
 }
 
+.mobileMenuButton {
+  margin-left: auto;
+  border: 1px solid rgb(var(--border));
+  background: rgb(var(--card) / 0.88);
+  color: rgb(var(--text));
+  border-radius: 10px;
+  width: 2rem;
+  height: 2rem;
+  display: grid;
+  place-items: center;
+}
+
 .header h1 {
   margin: 0;
   font-size: 1.15rem;
@@ -48,6 +60,14 @@
   margin: 0.15rem 0 0;
   color: rgb(var(--muted));
   font-size: 0.76rem;
+}
+
+.menuContent {
+  display: none;
+}
+
+.menuContentOpen {
+  display: block;
 }
 
 .section {
@@ -105,20 +125,63 @@
   padding: 0.28rem 0.42rem;
 }
 
-.footerCard {
+.dropdownTrigger {
+  width: 100%;
+  background: transparent;
+  cursor: pointer;
+}
+
+.dropdownList {
+  padding: 0.1rem 0 0.45rem 2rem;
+}
+
+.dropdownItem {
+  font-size: 0.85rem;
+  margin-bottom: 0.2rem;
+  padding-block: 0.5rem;
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+.profileCard {
   border-radius: 12px;
   border: 1px solid rgb(var(--border));
   background: rgb(var(--card) / 0.86);
   padding: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
 }
 
-.footerCard p {
+.avatar,
+.avatarFallback {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+}
+
+.avatar {
+  object-fit: cover;
+}
+
+.avatarFallback {
+  display: grid;
+  place-items: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: rgb(var(--text-inverse));
+  background: linear-gradient(135deg, rgb(var(--brand)), rgb(var(--brand-2)));
+}
+
+.profileCard p {
   margin: 0;
   font-size: 0.88rem;
 }
 
-.footerCard small {
-  margin-top: 0.3rem;
+.profileCard small {
+  margin-top: 0.12rem;
   display: inline-block;
   color: rgb(var(--muted));
 }
@@ -133,6 +196,14 @@
     gap: 0.9rem;
   }
 
+  .mobileMenuButton {
+    display: none;
+  }
+
+  .menuContent {
+    display: block;
+  }
+
   .section {
     margin-top: 0.2rem;
   }
@@ -142,7 +213,7 @@
     font-size: 0.74rem;
   }
 
-  .footerCard {
+  .profileCard {
     margin-top: auto;
   }
 }
