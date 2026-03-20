@@ -4,10 +4,10 @@
   place-items: center;
   padding: 2rem 1rem;
   background:
-    radial-gradient(circle at 20% 0%, rgba(236, 211, 172, 0.2), transparent 50%),
-    radial-gradient(circle at 100% 100%, rgba(95, 64, 40, 0.4), transparent 40%),
-    #16120d;
-  color: #f7efe4;
+    radial-gradient(circle at 20% 0%, rgb(var(--accent-soft) / 0.42), transparent 50%),
+    radial-gradient(circle at 100% 100%, rgb(var(--brand-2) / 0.2), transparent 40%),
+    rgb(var(--bg));
+  color: rgb(var(--text));
 }
 
 .shell {
@@ -20,15 +20,15 @@
 .brand {
   text-align: center;
   font-size: 0.95rem;
-  color: #f3dac0;
+  color: rgb(var(--brand-2));
 }
 
 .card {
-  border: 1px solid rgba(246, 220, 190, 0.15);
+  border: 1px solid rgb(var(--border));
   border-radius: 16px;
-  background: rgba(20, 16, 12, 0.94);
+  background: rgb(var(--card) / 0.95);
   padding: 1.5rem;
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 18px 40px rgb(31 53 52 / 0.13);
 }
 
 .title {
@@ -40,7 +40,7 @@
 .subtitle {
   margin: 0.5rem 0 1.2rem;
   text-align: center;
-  color: #d8c3ab;
+  color: rgb(var(--muted));
   font-size: 0.95rem;
 }
 
@@ -70,17 +70,17 @@
 
 .label {
   font-size: 0.88rem;
-  color: #f7e8d5;
+  color: rgb(var(--text));
 }
 
 .input,
 .select,
 .file {
   width: 100%;
-  border: 1px solid rgba(243, 216, 184, 0.2);
+  border: 1px solid rgb(var(--border));
   border-radius: 10px;
-  background: rgba(248, 238, 224, 0.03);
-  color: #fff6ea;
+  background: rgb(var(--bg-soft) / 0.6);
+  color: rgb(var(--text));
   min-height: 42px;
   padding: 0.65rem 0.75rem;
   font: inherit;
@@ -89,21 +89,21 @@
 .input:focus,
 .select:focus,
 .file:focus {
-  outline: 2px solid rgba(245, 181, 117, 0.5);
-  border-color: rgba(245, 181, 117, 0.5);
+  outline: 2px solid rgb(var(--ring) / 0.35);
+  border-color: rgb(var(--ring) / 0.5);
 }
 
 .help {
   margin: 0;
   font-size: 0.78rem;
-  color: #bfa88d;
+  color: rgb(var(--muted));
 }
 
 .sectionLabel {
   margin-top: 0.5rem;
   font-size: 0.88rem;
   font-weight: 700;
-  color: #ffd8ad;
+  color: rgb(var(--accent));
 }
 
 .checkboxRow {
@@ -111,7 +111,7 @@
   gap: 0.55rem;
   align-items: flex-start;
   font-size: 0.84rem;
-  color: #e5cfb6;
+  color: rgb(var(--muted));
 }
 
 .checkboxRow input {
@@ -125,8 +125,8 @@
   padding: 0.78rem 1rem;
   font: inherit;
   font-weight: 700;
-  color: #20160f;
-  background: linear-gradient(135deg, #f5b575, #f4d8b6);
+  color: rgb(var(--text));
+  background: linear-gradient(135deg, rgb(var(--accent)), rgb(var(--accent-soft)));
   cursor: pointer;
 }
 
@@ -134,11 +134,11 @@
   margin: 0.4rem 0 0;
   text-align: center;
   font-size: 0.9rem;
-  color: #d5bea3;
+  color: rgb(var(--muted));
 }
 
 .link {
-  color: #ffe0b7;
+  color: rgb(var(--brand));
   text-decoration: underline;
   text-underline-offset: 3px;
 }
@@ -147,5 +147,5 @@
   text-align: center;
   margin: 0;
   font-size: 0.8rem;
-  color: #c5ab90;
+  color: rgb(var(--muted));
 }

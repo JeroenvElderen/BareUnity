@@ -18,23 +18,23 @@ export type ThemeTokens = {
 };
 
 export const DEFAULT_THEME: ThemeTokens = {
-  bg: "#101922",
-  bgSoft: "#14212d",
-  bgDeep: "#0a121a",
-  card: "#1e2e3d",
-  card2: "#26394b",
-  text: "#e2ecf2",
-  textStrong: "#f2fff9",
-  textInverse: "#0c1822",
-  muted: "#96aaba",
-  border: "#48667c",
-  ring: "#6fa79a",
-  brand: "#4a7d6e",
-  brand2: "#466e92",
-  accent: "#8abcb1",
+  bg: "#eef5f2",
+  bgSoft: "#f8f1e7",
+  bgDeep: "#dde8e4",
+  card: "#ffffff",
+  card2: "#f4d488",
+  text: "#1f3534",
+  textStrong: "#142524",
+  textInverse: "#ffffff",
+  muted: "#4d6967",
+  border: "#c7d7d3",
+  ring: "#3a7d7c",
+  brand: "#3a7d7c",
+  brand2: "#2f6665",
+  accent: "#e9b44c",
 };
 
-export const DEFAULT_MAIN_COLOR = "#24384a";
+export const DEFAULT_MAIN_COLOR = "#3a7d7c";
 export const DEFAULT_ACCENT_COLOR = DEFAULT_THEME.accent;
 
 export function hexToRgb(hex: string): [number, number, number] {
