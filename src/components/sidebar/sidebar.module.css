@@ -1,0 +1,113 @@
+.sidebar {
+  width: 295px;
+  min-height: 100vh;
+  padding: 1rem;
+  border-right: 1px solid #2e3550;
+  background: linear-gradient(180deg, #131a2b 0%, #101625 45%, #0d1220 100%);
+  color: #f8faff;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(94, 118, 214, 0.2), rgba(149, 96, 255, 0.12));
+  border: 1px solid #3a4160;
+}
+
+.logoMark {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #7e8fff, #aa7cff);
+  color: white;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 1.15rem;
+  letter-spacing: 0.01em;
+}
+
+.header p {
+  margin: 0.15rem 0 0;
+  color: #a6b0cb;
+  font-size: 0.76rem;
+}
+
+.section {
+  margin-top: 0.2rem;
+}
+
+.sectionLabel {
+  margin: 0 0 0.5rem;
+  color: #8f9aba;
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding-left: 0.35rem;
+}
+
+.navItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  text-decoration: none;
+  color: #e8ecfb;
+  border-radius: 12px;
+  padding: 0.62rem 0.68rem;
+  margin-bottom: 0.25rem;
+  border: 1px solid transparent;
+  transition: all 140ms ease;
+}
+
+.navItem:hover {
+  background: #1a2236;
+  border-color: #2f3a57;
+}
+
+.active {
+  background: linear-gradient(135deg, rgba(99, 127, 255, 0.26), rgba(147, 96, 255, 0.2));
+  border-color: #5161a4;
+}
+
+.itemLeft {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.badge {
+  background: #2e3856;
+  color: #dce5ff;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  line-height: 1;
+  padding: 0.28rem 0.42rem;
+}
+
+.footerCard {
+  margin-top: auto;
+  border-radius: 12px;
+  border: 1px solid #313a57;
+  background: #151d2f;
+  padding: 0.75rem;
+}
+
+.footerCard p {
+  margin: 0;
+  font-size: 0.88rem;
+}
+
+.footerCard small {
+  margin-top: 0.3rem;
+  display: inline-block;
+  color: #a8b3d0;
+}
