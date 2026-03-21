@@ -78,6 +78,7 @@ export function AppSidebar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isRoomsOpen, setIsRoomsOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const [isDesktop, setIsDesktop] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -96,6 +97,22 @@ export function AppSidebar() {
     return () => {
       isMounted = false;
       subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const desktopMediaQuery = window.matchMedia("(min-width: 900px)");
+    const syncBreakpoint = () => {
+      setIsDesktop(desktopMediaQuery.matches);
+    };
+
+    syncBreakpoint();
+    desktopMediaQuery.addEventListener("change", syncBreakpoint);
+
+    return () => {
+      desktopMediaQuery.removeEventListener("change", syncBreakpoint);
     };
   }, []);
 
@@ -186,11 +203,25 @@ export function AppSidebar() {
           </nav>
         </section>
 
-        <ProfileLink avatarUrl={avatarUrl} displayName={displayName} initials={initials} className={styles.mobileProfileCard} />
+        {!isDesktop ? (
+          <ProfileLink
+            avatarUrl={avatarUrl}
+            displayName={displayName}
+            initials={initials}
+            className={styles.mobileProfileCard}
+          />
+        ) : null}
       </div>
 
       <footer className={styles.desktopFooter}>
-        <ProfileLink avatarUrl={avatarUrl} displayName={displayName} initials={initials} />
+        {isDesktop ? (
+          <ProfileLink
+            avatarUrl={avatarUrl}
+            displayName={displayName}
+            initials={initials}
+            className={styles.desktopFloatingProfile}
+          />
+        ) : null}
       </footer>
     </aside>
   );

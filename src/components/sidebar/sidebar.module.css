@@ -170,6 +170,10 @@
   display: none;
 }
 
+.desktopFloatingProfile {
+  width: 100%;
+}
+
 .avatar,
 .avatarFallback {
   width: 2.25rem;
@@ -234,6 +238,10 @@
 
   .desktopFooter {
     display: block;
-    margin-top: auto;
+    position: fixed;
+    left: 1rem;
+    bottom: 1rem;
+    width: calc(295px - 2rem);
+    z-index: 20;
   }
 }
