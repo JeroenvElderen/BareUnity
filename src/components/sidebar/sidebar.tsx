@@ -24,7 +24,7 @@ import { SidebarProfileLink } from "./profile-link";
 const primaryItems = [
   { icon: Home, label: "Home", href: "/" },
   { icon: Search, label: "Search", href: "#" },
-  { icon: Compass, label: "Explore", href: "#" },
+  { icon: Compass, label: "Explore", href: "/explore" },
   { icon: Image, label: "Gallery", href: "/gallery" },
   { icon: MessageCircle, label: "Messages", href: "#", badge: "4" },
 ] as const;
