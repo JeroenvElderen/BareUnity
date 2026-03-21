@@ -12,8 +12,8 @@ type Spot = {
   id: string;
   name: string;
   description: string;
-  latitude: number;
-  longitude: number;
+  latitude: number | string;
+  longitude: number | string;
   privacy: "Public" | "Discreet" | string;
 };
 
@@ -159,11 +159,22 @@ export function MapStageClient({ isVerified }: MapStageClientProps) {
         map.addControl(new window.maplibregl.NavigationControl(), "top-right");
 
         try {
-          const response = await fetch("/api/map-spots", { cache: "no-store" });
-          const payload = (await response.json()) as { spots?: Spot[] };
+          const mapSpotsResponse = await fetch("/api/map-spots", { cache: "no-store" });
+          if (!mapSpotsResponse.ok) {
+            throw new Error(`Map spots request failed (${mapSpotsResponse.status})`);
+          }
+
+          const payload = (await mapSpotsResponse.json()) as { spots?: Spot[] };
           const spots = payload.spots ?? [];
 
           for (const spot of spots) {
+            const latitude = Number(spot.latitude);
+            const longitude = Number(spot.longitude);
+
+            if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+              continue;
+            }
+
             const popup = new window.maplibregl.Popup({ offset: 12 }).setHTML(
               `<strong>${escapeHtml(spot.name)}</strong><br/><small>${escapeHtml(spot.privacy)} · Naturist spot</small><br/>${escapeHtml(spot.description)}`,
             );
@@ -171,12 +182,15 @@ export function MapStageClient({ isVerified }: MapStageClientProps) {
             const markerElement = buildMarkerElement(spot.privacy);
 
             new window.maplibregl.Marker({ element: markerElement, anchor: "bottom" })
-              .setLngLat([spot.longitude, spot.latitude])
+              .setLngLat([longitude, latitude])
               .addTo(map)
               .setPopup(popup);
           }
         } catch (markerError) {
           console.error("Failed to load map markers", markerError);
+          if (mounted) {
+            setMapError("Map loaded but markers could not be fetched. Check server env configuration.");
+          }
         }
 
         mapInstance = map;
