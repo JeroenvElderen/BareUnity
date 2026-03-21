@@ -223,12 +223,6 @@ export default async function ProfilePage() {
             {/* Posts */}
             <section className="rounded-2xl border border-[rgb(var(--border))] bg-white p-3.5 md:p-4 min-w-0 overflow-hidden">
               
-              <div className="mb-3 flex flex-wrap gap-2">
-                <Badge>Timeline</Badge>
-                <Badge variant="outline">Masonry</Badge>
-                <Badge variant="outline">Supabase + Prisma</Badge>
-              </div>
-
               {posts.length === 0 ? (
                 <p className="text-sm text-[rgb(var(--muted))]">
                   No posts yet for this profile.
