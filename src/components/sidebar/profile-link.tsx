@@ -63,7 +63,7 @@ export function SidebarProfileLink({ className }: SidebarProfileLinkProps) {
           {initials}
         </div>
       )}
-      <div>
+      <div className={styles.textWrap}>
         <p>{displayName}</p>
         <small>@{displayName.toLowerCase().replace(/\s+/g, "")}</small>
       </div>

@@ -34,13 +34,18 @@ const workspaceItems = [
   { icon: Settings, label: "Settings" },
 ] as const;
 
-const discussionRooms = ["General Room", "Events Room", "Wellness Room", "Photography Room"] as const;
+const discussionRooms = [
+  "General Room",
+  "Events Room",
+  "Wellness Room",
+  "Photography Room",
+] as const;
 
 export function AppSidebar() {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isRoomsOpen, setIsRoomsOpen] = useState(false);
-  
+
   return (
     <aside className={styles.sidebar} aria-label="Main sidebar navigation">
       <header className={styles.header}>
@@ -62,7 +67,12 @@ export function AppSidebar() {
         </button>
       </header>
 
-      <div className={`${styles.menuContent} ${isMobileMenuOpen ? styles.menuContentOpen : ""}`}>
+      {/* ===== SCROLLABLE CONTENT ===== */}
+      <div
+        className={`${styles.menuContent} ${
+          isMobileMenuOpen ? styles.menuContentOpen : ""
+        }`}
+      >
         <section className={styles.section}>
           <p className={styles.sectionLabel}>Discover</p>
           <nav>
@@ -70,7 +80,9 @@ export function AppSidebar() {
               <Link
                 key={label}
                 href={href}
-                className={`${styles.navItem} ${pathname === href ? styles.active : ""}`}
+                className={`${styles.navItem} ${
+                  pathname === href ? styles.active : ""
+                }`}
               >
                 <span className={styles.itemLeft}>
                   <Icon size={18} aria-hidden />
@@ -96,17 +108,26 @@ export function AppSidebar() {
                   <Users size={18} aria-hidden />
                   <span>Discussion Rooms</span>
                 </span>
-                <ChevronDown className={isRoomsOpen ? styles.chevronOpen : ""} size={16} aria-hidden />
+                <ChevronDown
+                  className={isRoomsOpen ? styles.chevronOpen : ""}
+                  size={16}
+                  aria-hidden
+                />
               </button>
-              {isRoomsOpen ? (
+
+              {isRoomsOpen && (
                 <div className={styles.dropdownList}>
                   {discussionRooms.map((room) => (
-                    <a key={room} href="#" className={`${styles.navItem} ${styles.dropdownItem}`}>
+                    <a
+                      key={room}
+                      href="#"
+                      className={`${styles.navItem} ${styles.dropdownItem}`}
+                    >
                       {room}
                     </a>
                   ))}
                 </div>
-              ) : null}
+              )}
             </div>
 
             {workspaceItems.map(({ icon: Icon, label, badge }) => (
@@ -120,8 +141,11 @@ export function AppSidebar() {
             ))}
           </nav>
         </section>
+      </div>
 
-        <SidebarProfileLink className={styles.mobileProfileCard} />
+      {/* ===== ALWAYS VISIBLE FOOTER ===== */}
+      <div className={styles.sidebarFooter}>
+        <SidebarProfileLink />
       </div>
     </aside>
   );
