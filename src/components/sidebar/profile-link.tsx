@@ -70,11 +70,3 @@ export function SidebarProfileLink({ className }: SidebarProfileLinkProps) {
     </Link>
   );
 }
-
-export function FloatingSidebarProfileLink() {
-  return (
-    <div className={styles.floatingWrap}>
-      <SidebarProfileLink />
-    </div>
-  );
-}
