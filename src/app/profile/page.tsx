@@ -134,14 +134,14 @@ export default async function ProfilePage() {
   const avatarFallback = getInitials(displayName);
 
   return (
-    <main className={`${layoutStyles.main} w-full`}>
+    <main className={`${layoutStyles.main} w-full max-w-full overflow-x-hidden`}>
       <AppSidebar />
 
-      <section className="min-w-0 flex-1 overflow-x-hidden bg-[rgb(var(--bg-deep))/0.55] p-0">
-        <Card className="min-h-full rounded-none border-x-0 border-y-0 border-[rgb(var(--border))] bg-[rgb(var(--card))/0.98] shadow-none">
+      <section className="min-w-0 max-w-full flex-1 overflow-x-clip bg-[rgb(var(--bg-deep))/0.55] p-0">
+        <Card className="min-h-full max-w-full overflow-x-hidden rounded-none border-x-0 border-y-0 border-[rgb(var(--border))] bg-[rgb(var(--card))/0.98] shadow-none">
           <div className="relative h-40 border-b border-[rgb(var(--border))/0.75] bg-[linear-gradient(110deg,rgb(var(--brand))_0%,rgb(var(--accent-soft))_100%)] md:h-48" />
 
-          <CardContent className="space-y-4 p-3 md:p-5">
+          <CardContent className="space-y-4 overflow-x-hidden p-3 md:p-5">
             <div className="-mt-16 pl-0 md:-mt-20 md:pl-1">
               <Avatar
                 src={resolveMediaUrl(profile?.avatar_url ?? null) ?? undefined}
@@ -152,8 +152,8 @@ export default async function ProfilePage() {
             </div>
 
             <section className="rounded-2xl border border-[rgb(var(--border))] bg-white p-3.5 md:p-4">
-              <h1 className="text-3xl font-black tracking-tight text-[rgb(var(--text-strong))] md:text-4xl">{displayName}</h1>
-              <p className="mt-1 text-base text-[rgb(var(--muted))] md:text-lg">{bio}</p>
+              <h1 className="break-words text-3xl font-black tracking-tight text-[rgb(var(--text-strong))] md:text-4xl">{displayName}</h1>
+              <p className="mt-1 break-words text-base text-[rgb(var(--muted))] md:text-lg">{bio}</p>
               <div className="mt-2.5 flex flex-wrap gap-2">
                 <Badge className="bg-[rgb(var(--accent-soft))] text-[rgb(var(--text-strong))] hover:bg-[rgb(var(--accent-soft))]">Verified</Badge>
                 {profile?.location ? <Badge variant="outline">{profile.location}</Badge> : null}
@@ -221,11 +221,11 @@ export default async function ProfilePage() {
                           <p className="text-[10px] font-semibold uppercase tracking-wide text-[rgb(var(--muted))]">
                             {toReadableDate(post.created_at)}
                           </p>
-                          <h3 className="mt-1 text-base font-bold text-[rgb(var(--text-strong))]">
+                          <h3 className="mt-1 break-words text-base font-bold text-[rgb(var(--text-strong))]">
                             {post.title?.trim() || "Untitled update"}
                           </h3>
                           {post.content?.trim() ? (
-                            <p className="mt-1 text-sm text-[rgb(var(--muted))]">{post.content.slice(0, 180)}</p>
+                            <p className="mt-1 break-words text-sm text-[rgb(var(--muted))]">{post.content.slice(0, 180)}</p>
                           ) : null}
                         </div>
                       </article>

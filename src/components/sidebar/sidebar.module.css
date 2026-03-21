@@ -153,9 +153,10 @@
   margin-top: 0.45rem;
 }
 
-@media (min-width: 900px) {
+@media (min-width: 1100px) {
   .sidebar {
-    width: 295px;
+    width: clamp(240px, 24vw, 295px);
+    flex: 0 0 clamp(240px, 24vw, 295px);
     min-height: 100vh;
     border-right: 1px solid rgb(var(--border));
     border-bottom: 0;
