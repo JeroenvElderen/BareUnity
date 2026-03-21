@@ -129,19 +129,30 @@ async function getProfileData() {
 export default async function ProfilePage() {
   const { profile, posts, interests, stats } = await getProfileData();
 
-  const displayName = profile?.display_name?.trim() || profile?.username || "BareUnity Member";
-  const bio = profile?.bio?.trim() || "Nature-first connection, consent-forward gatherings, and calm community rituals.";
+  const displayName =
+    profile?.display_name?.trim() ||
+    profile?.username ||
+    "BareUnity Member";
+
+  const bio =
+    profile?.bio?.trim() ||
+    "Nature-first connection, consent-forward gatherings, and calm community rituals.";
+
   const avatarFallback = getInitials(displayName);
 
   return (
-    <main className={`${layoutStyles.main} w-full max-w-full overflow-x-hidden`}>
+    <main className={`${layoutStyles.main} w-full max-w-full`}>
       <AppSidebar />
 
-      <section className="min-w-0 max-w-full flex-1 overflow-x-clip bg-[rgb(var(--bg-deep))/0.55] p-0">
-        <Card className="min-h-full max-w-full overflow-x-hidden rounded-none border-x-0 border-y-0 border-[rgb(var(--border))] bg-[rgb(var(--card))/0.98] shadow-none">
+      {/* ✅ FIXED: important container */}
+      <section className="min-w-0 w-full flex-1 overflow-hidden bg-[rgb(var(--bg-deep))/0.55]">
+        <Card className="min-h-full w-full max-w-full overflow-hidden rounded-none border-x-0 border-y-0 border-[rgb(var(--border))] bg-[rgb(var(--card))/0.98] shadow-none">
+          
           <div className="relative h-40 border-b border-[rgb(var(--border))/0.75] bg-[linear-gradient(110deg,rgb(var(--brand))_0%,rgb(var(--accent-soft))_100%)] md:h-48" />
 
-          <CardContent className="space-y-4 overflow-x-hidden p-3 md:p-5">
+          {/* ✅ ADDED: min-w-0 */}
+          <CardContent className="space-y-4 p-3 md:p-5 min-w-0 overflow-hidden">
+
             <div className="-mt-16 pl-0 md:-mt-20 md:pl-1">
               <Avatar
                 src={resolveMediaUrl(profile?.avatar_url ?? null) ?? undefined}
@@ -151,45 +162,68 @@ export default async function ProfilePage() {
               />
             </div>
 
-            <section className="rounded-2xl border border-[rgb(var(--border))] bg-white p-3.5 md:p-4">
-              <h1 className="break-words text-3xl font-black tracking-tight text-[rgb(var(--text-strong))] md:text-4xl">{displayName}</h1>
-              <p className="mt-1 break-words text-base text-[rgb(var(--muted))] md:text-lg">{bio}</p>
+            {/* Profile Info */}
+            <section className="rounded-2xl border border-[rgb(var(--border))] bg-white p-3.5 md:p-4 min-w-0">
+              <h1 className="break-words text-3xl font-black tracking-tight text-[rgb(var(--text-strong))] md:text-4xl">
+                {displayName}
+              </h1>
+              <p className="mt-1 break-words text-base text-[rgb(var(--muted))] md:text-lg">
+                {bio}
+              </p>
+
               <div className="mt-2.5 flex flex-wrap gap-2">
-                <Badge className="bg-[rgb(var(--accent-soft))] text-[rgb(var(--text-strong))] hover:bg-[rgb(var(--accent-soft))]">Verified</Badge>
-                {profile?.location ? <Badge variant="outline">{profile.location}</Badge> : null}
+                <Badge className="bg-[rgb(var(--accent-soft))] text-[rgb(var(--text-strong))]">
+                  Verified
+                </Badge>
+                {profile?.location ? (
+                  <Badge variant="outline">{profile.location}</Badge>
+                ) : null}
               </div>
             </section>
 
+            {/* Stats */}
             <section className="grid gap-2.5 md:grid-cols-3">
               {[
                 { label: "Posts", value: stats.posts.toLocaleString() },
                 { label: "Friends", value: stats.friends.toLocaleString() },
                 { label: "Comments", value: stats.comments.toLocaleString() },
               ].map((item) => (
-                <article key={item.label} className="rounded-xl border border-[rgb(var(--border))] bg-white p-3">
-                  <p className="text-xs uppercase tracking-wide text-[rgb(var(--muted))]">{item.label}</p>
-                  <p className="text-2xl font-black tracking-tight text-[rgb(var(--text-strong))] md:text-3xl">{item.value}</p>
+                <article
+                  key={item.label}
+                  className="rounded-xl border border-[rgb(var(--border))] bg-white p-3 min-w-0"
+                >
+                  <p className="text-xs uppercase tracking-wide text-[rgb(var(--muted))]">
+                    {item.label}
+                  </p>
+                  <p className="text-2xl font-black tracking-tight text-[rgb(var(--text-strong))] md:text-3xl">
+                    {item.value}
+                  </p>
                 </article>
               ))}
             </section>
 
-            {interests.length > 0 ? (
-              <section className="rounded-2xl border border-[rgb(var(--border))] bg-white p-3.5 md:p-4">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-[0.08em] text-[rgb(var(--muted))]">Interests</p>
+            {/* Interests */}
+            {interests.length > 0 && (
+              <section className="rounded-2xl border border-[rgb(var(--border))] bg-white p-3.5 md:p-4 min-w-0">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-[0.08em] text-[rgb(var(--muted))]">
+                  Interests
+                </p>
                 <div className="flex flex-wrap gap-2">
                   {interests.map((interest) => (
                     <span
                       key={interest}
-                      className="rounded-full bg-[rgb(var(--bg-soft))] px-2.5 py-1 text-xs font-medium text-[rgb(var(--text))]"
+                      className="rounded-full bg-[rgb(var(--bg-soft))] px-2.5 py-1 text-xs font-medium break-words"
                     >
                       {interest}
                     </span>
                   ))}
                 </div>
               </section>
-            ) : null}
+            )}
 
-            <section className="rounded-2xl border border-[rgb(var(--border))] bg-white p-3.5 md:p-4">
+            {/* Posts */}
+            <section className="rounded-2xl border border-[rgb(var(--border))] bg-white p-3.5 md:p-4 min-w-0 overflow-hidden">
+              
               <div className="mb-3 flex flex-wrap gap-2">
                 <Badge>Timeline</Badge>
                 <Badge variant="outline">Masonry</Badge>
@@ -197,36 +231,44 @@ export default async function ProfilePage() {
               </div>
 
               {posts.length === 0 ? (
-                <p className="text-sm text-[rgb(var(--muted))]">No posts yet for this profile.</p>
+                <p className="text-sm text-[rgb(var(--muted))]">
+                  No posts yet for this profile.
+                </p>
               ) : (
-                <div className="columns-1 gap-3 sm:columns-2 lg:columns-3">
+                /* ✅ FIX: replaced columns with grid */
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {posts.map((post) => {
                     const mediaUrl = resolveMediaUrl(post.media_url);
 
                     return (
                       <article
                         key={post.id}
-                        className="mb-3 inline-block w-full overflow-hidden rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))/0.45]"
+                        className="w-full overflow-hidden rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))/0.45]"
                       >
-                        {mediaUrl ? (
+                        {mediaUrl && (
                           <Image
                             src={mediaUrl}
                             alt={post.title?.trim() || "Profile post"}
                             width={900}
                             height={680}
-                            className="h-auto w-full object-cover"
+                            className="w-full h-auto max-w-full object-cover"
                           />
-                        ) : null}
-                        <div className="p-3">
+                        )}
+
+                        <div className="p-3 min-w-0">
                           <p className="text-[10px] font-semibold uppercase tracking-wide text-[rgb(var(--muted))]">
                             {toReadableDate(post.created_at)}
                           </p>
+
                           <h3 className="mt-1 break-words text-base font-bold text-[rgb(var(--text-strong))]">
                             {post.title?.trim() || "Untitled update"}
                           </h3>
-                          {post.content?.trim() ? (
-                            <p className="mt-1 break-words text-sm text-[rgb(var(--muted))]">{post.content.slice(0, 180)}</p>
-                          ) : null}
+
+                          {post.content?.trim() && (
+                            <p className="mt-1 break-words text-sm text-[rgb(var(--muted))]">
+                              {post.content.slice(0, 180)}
+                            </p>
+                          )}
                         </div>
                       </article>
                     );
@@ -234,6 +276,7 @@ export default async function ProfilePage() {
                 </div>
               )}
             </section>
+
           </CardContent>
         </Card>
       </section>
