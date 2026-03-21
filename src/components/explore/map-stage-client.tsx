@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createRoot } from "react-dom/client";
 
+import { MapSpotPopup } from "@/components/explore/map-spot-popup";
 import { Button } from "@/components/ui/button";
 
 type MapStageClientProps = {
@@ -18,7 +20,7 @@ type Spot = {
 };
 
 type MapLibrePopupInstance = {
-  setHTML: (html: string) => MapLibrePopupInstance;
+  setDOMContent: (htmlNode: Node) => MapLibrePopupInstance;
 };
 
 type MapLibreGlobal = {
@@ -34,7 +36,7 @@ type MapLibreGlobal = {
       };
     };
   };
-  Popup: new (config?: { offset?: number }) => MapLibrePopupInstance;
+  Popup: new (config?: { offset?: number; className?: string; closeButton?: boolean; maxWidth?: string }) => MapLibrePopupInstance;
 };
 
 declare global {
@@ -106,14 +108,15 @@ function buildMarkerElement(privacy: Spot["privacy"]) {
 }
 
 
-function escapeHtml(value: string) {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
+function buildPopupContentNode(spot: Spot) {
+  const popupContainer = document.createElement("div");
+  createRoot(popupContainer).render(
+    <MapSpotPopup name={spot.name} description={spot.description} privacy={spot.privacy} />,
+  );
+
+  return popupContainer;
 }
+
 export function MapStageClient({ isVerified }: MapStageClientProps) {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
@@ -175,9 +178,12 @@ export function MapStageClient({ isVerified }: MapStageClientProps) {
               continue;
             }
 
-            const popup = new window.maplibregl.Popup({ offset: 12 }).setHTML(
-              `<strong>${escapeHtml(spot.name)}</strong><br/><small>${escapeHtml(spot.privacy)} · Naturist spot</small><br/>${escapeHtml(spot.description)}`,
-            );
+            const popup = new window.maplibregl.Popup({
+              offset: 16,
+              className: "spot-popup",
+              closeButton: false,
+              maxWidth: "320px",
+            }).setDOMContent(buildPopupContentNode(spot));
 
             const markerElement = buildMarkerElement(spot.privacy);
 
