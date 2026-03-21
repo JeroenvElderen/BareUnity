@@ -149,11 +149,8 @@ export default async function ProfilePage() {
         <Card className="min-h-full w-full max-w-full overflow-hidden rounded-none border-x-0 border-y-0 border-[rgb(var(--border))] bg-[rgb(var(--card))/0.98] shadow-none">
           
           <div className="relative h-40 border-b border-[rgb(var(--border))/0.75] bg-[linear-gradient(110deg,rgb(var(--brand))_0%,rgb(var(--accent-soft))_100%)] md:h-48" />
-
-          {/* ✅ ADDED: min-w-0 */}
-          <CardContent className="space-y-4 p-3 md:p-5 min-w-0 overflow-hidden">
-
-            <div className="-mt-16 pl-0 md:-mt-20 md:pl-1">
+          
+          <div className="-mt-16 pl-0 md:-mt-20 md:pl-1">
               <Avatar
                 src={resolveMediaUrl(profile?.avatar_url ?? null) ?? undefined}
                 alt={displayName}
@@ -161,6 +158,8 @@ export default async function ProfilePage() {
                 className="h-24 w-24 border-4 border-white bg-[rgb(var(--bg-soft))] text-2xl shadow-lg md:h-28 md:w-28"
               />
             </div>
+          {/* ✅ ADDED: min-w-0 */}
+          <CardContent className="space-y-4 p-3 md:p-5 min-w-0 overflow-hidden">
 
             {/* Profile Info */}
             <section className="rounded-2xl border border-[rgb(var(--border))] bg-white p-3.5 md:p-4 min-w-0">
