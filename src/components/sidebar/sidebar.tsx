@@ -2,8 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
-import type { User } from "@supabase/supabase-js";
+import { useState } from "react";
 import {
   Bell,
   ChevronDown,
@@ -20,7 +19,7 @@ import {
 } from "lucide-react";
 
 import styles from "./sidebar.module.css";
-import { supabase } from "@/lib/supabase";
+import { SidebarProfileLink } from "./profile-link";
 
 const primaryItems = [
   { icon: Home, label: "Home", href: "/" },
@@ -37,92 +36,11 @@ const workspaceItems = [
 
 const discussionRooms = ["General Room", "Events Room", "Wellness Room", "Photography Room"] as const;
 
-function getDisplayName(user: User | null) {
-  if (!user) return "Guest";
-  const rawName = user.user_metadata?.username ?? user.user_metadata?.full_name ?? user.email ?? "User";
-  return String(rawName).split("@")[0];
-}
-
-function getInitials(name: string) {
-  const parts = name.trim().split(/\s+/).slice(0, 2);
-  return parts.map((part) => part[0]?.toUpperCase() ?? "").join("") || "U";
-}
-
-type ProfileLinkProps = {
-  avatarUrl: string | null;
-  displayName: string;
-  initials: string;
-  className?: string;
-};
-
-function ProfileLink({ avatarUrl, displayName, initials, className }: ProfileLinkProps) {
-  return (
-    <Link href="/profile" className={`${styles.profileCard} ${className ?? ""}`.trim()}>
-      {avatarUrl ? (
-        <img src={avatarUrl} alt={`${displayName} avatar`} className={styles.avatar} />
-      ) : (
-        <div className={styles.avatarFallback} aria-hidden>
-          {initials}
-        </div>
-      )}
-      <div>
-        <p>{displayName}</p>
-        <small>@{displayName.toLowerCase().replace(/\s+/g, "")}</small>
-      </div>
-    </Link>
-  );
-}
-
 export function AppSidebar() {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isRoomsOpen, setIsRoomsOpen] = useState(false);
-  const [user, setUser] = useState<User | null>(null);
-  const [isDesktop, setIsDesktop] = useState(false);
-
-  useEffect(() => {
-    let isMounted = true;
-    void supabase.auth.getUser().then(({ data }) => {
-      if (isMounted) {
-        setUser(data.user ?? null);
-      }
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
-
-    return () => {
-      isMounted = false;
-      subscription.unsubscribe();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const desktopMediaQuery = window.matchMedia("(min-width: 900px)");
-    const syncBreakpoint = () => {
-      setIsDesktop(desktopMediaQuery.matches);
-    };
-
-    syncBreakpoint();
-    desktopMediaQuery.addEventListener("change", syncBreakpoint);
-
-    return () => {
-      desktopMediaQuery.removeEventListener("change", syncBreakpoint);
-    };
-  }, []);
-
-  const displayName = useMemo(() => getDisplayName(user), [user]);
-  const avatarUrl = useMemo(
-    () => (user?.user_metadata?.avatar_url ? String(user.user_metadata.avatar_url) : null),
-    [user],
-  );
-  const initials = useMemo(() => getInitials(displayName), [displayName]);
-
+  
   return (
     <aside className={styles.sidebar} aria-label="Main sidebar navigation">
       <header className={styles.header}>
@@ -203,26 +121,8 @@ export function AppSidebar() {
           </nav>
         </section>
 
-        {!isDesktop ? (
-          <ProfileLink
-            avatarUrl={avatarUrl}
-            displayName={displayName}
-            initials={initials}
-            className={styles.mobileProfileCard}
-          />
-        ) : null}
+        <SidebarProfileLink className={styles.mobileProfileCard} />
       </div>
-
-      <footer className={styles.desktopFooter}>
-        {isDesktop ? (
-          <ProfileLink
-            avatarUrl={avatarUrl}
-            displayName={displayName}
-            initials={initials}
-            className={styles.desktopFloatingProfile}
-          />
-        ) : null}
-      </footer>
     </aside>
   );
 }

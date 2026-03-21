@@ -1,0 +1,62 @@
+.profileCard {
+  border-radius: 12px;
+  border: 1px solid rgb(var(--border));
+  background: rgb(var(--card) / 0.86);
+  padding: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+.profileCard:hover {
+  border-color: rgb(var(--brand) / 0.42);
+  background: rgb(var(--bg-soft));
+}
+
+.avatar,
+.avatarFallback {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+}
+
+.avatar {
+  object-fit: cover;
+}
+
+.avatarFallback {
+  display: grid;
+  place-items: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: rgb(var(--text-inverse));
+  background: linear-gradient(135deg, rgb(var(--brand)), rgb(var(--brand-2)));
+}
+
+.profileCard p {
+  margin: 0;
+  font-size: 0.88rem;
+}
+
+.profileCard small {
+  margin-top: 0.12rem;
+  display: inline-block;
+  color: rgb(var(--muted));
+}
+
+.floatingWrap {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  .floatingWrap {
+    display: block;
+    position: fixed;
+    left: 1rem;
+    bottom: 1rem;
+    width: calc(295px - 2rem);
+    z-index: 30;
+  }
+}

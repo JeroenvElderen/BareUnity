@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 
+import { FloatingSidebarProfileLink } from "@/components/sidebar/profile-link";
 import { AppSidebar } from "@/components/sidebar/sidebar";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase-admin";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
@@ -124,6 +125,7 @@ export default async function GalleryPage() {
   return (
     <main className={layoutStyles.main}>
       <AppSidebar />
+      <FloatingSidebarProfileLink />
 
       <section className={styles.wrapper}>
         <header className={styles.hero}>

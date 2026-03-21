@@ -1,5 +1,6 @@
 import Image from "next/image";
 
+import { FloatingSidebarProfileLink } from "@/components/sidebar/profile-link";
 import { AppSidebar } from "@/components/sidebar/sidebar";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -136,6 +137,7 @@ export default async function ProfilePage() {
   return (
     <main className={`${layoutStyles.main} w-full`}>
       <AppSidebar />
+      <FloatingSidebarProfileLink />
 
       <section className="min-w-0 flex-1 overflow-x-hidden bg-[rgb(var(--bg-deep))/0.55] p-0">
         <Card className="min-h-full rounded-none border-x-0 border-y-0 border-[rgb(var(--border))] bg-[rgb(var(--card))/0.98] shadow-none">
