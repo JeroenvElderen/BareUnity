@@ -145,6 +145,10 @@
   transform: rotate(180deg);
 }
 
+.sidebarFooter {
+  display: none;
+}
+
 .mobileProfileCard {
   margin-top: 0.45rem;
 }
@@ -178,5 +182,9 @@
 
   .mobileProfileCard {
     display: none;
+  }
+
+  .sidebarFooter {
+    display: block;
   }
 }

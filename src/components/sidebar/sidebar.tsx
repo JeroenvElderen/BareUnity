@@ -141,11 +141,7 @@ export function AppSidebar() {
             ))}
           </nav>
         </section>
-      </div>
-
-      {/* ===== ALWAYS VISIBLE FOOTER ===== */}
-      <div className={styles.sidebarFooter}>
-        <SidebarProfileLink />
+        <SidebarProfileLink className={styles.mobileProfileCard} />
       </div>
     </aside>
   );
