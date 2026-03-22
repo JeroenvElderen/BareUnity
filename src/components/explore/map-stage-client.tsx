@@ -18,6 +18,40 @@ type Spot = {
   privacy: "Public" | "Discreet" | string;
 };
 
+type AccessType = "Public" | "Discreet" | "Private Club";
+type TerrainType = "Beach" | "Hot spring" | "Campground" | "Forest" | "Urban rooftop" | "Resort";
+type AmenityType =
+  | "Showers"
+  | "Restrooms"
+  | "Parking"
+  | "Food nearby"
+  | "Overnight stay"
+  | "Family area"
+  | "Sauna"
+  | "Pool";
+
+type CreateLocationFormState = {
+  name: string;
+  shortDescription: string;
+  fullDescription: string;
+  latitude: string;
+  longitude: string;
+  locationHint: string;
+  country: string;
+  region: string;
+  accessType: AccessType;
+  terrain: TerrainType;
+  clothingPolicy: "Nude only" | "Clothing optional" | "Mixed";
+  safetyLevel: "Beginner friendly" | "Intermediate" | "Experienced";
+  bestSeason: "Spring" | "Summer" | "Autumn" | "Winter" | "Year-round";
+  entryFee: string;
+  website: string;
+  rules: string;
+  amenities: AmenityType[];
+  tags: string;
+  reporterNotes: string;
+};
+
 type InteractionControl = {
   disable?: () => void;
   enable?: () => void;
@@ -118,12 +152,46 @@ const MAP_LOCK_INTERACTIONS: Array<keyof Pick<
   "dragPan" | "scrollZoom" | "boxZoom" | "dragRotate" | "keyboard" | "doubleClickZoom" | "touchZoomRotate"
 >> = ["dragPan", "scrollZoom", "boxZoom", "dragRotate", "keyboard", "doubleClickZoom", "touchZoomRotate"];
 
+const AMENITY_OPTIONS: AmenityType[] = [
+  "Showers",
+  "Restrooms",
+  "Parking",
+  "Food nearby",
+  "Overnight stay",
+  "Family area",
+  "Sauna",
+  "Pool",
+];
+
+const INITIAL_LOCATION_FORM: CreateLocationFormState = {
+  name: "",
+  shortDescription: "",
+  fullDescription: "",
+  latitude: "",
+  longitude: "",
+  locationHint: "",
+  country: "",
+  region: "",
+  accessType: "Public",
+  terrain: "Beach",
+  clothingPolicy: "Clothing optional",
+  safetyLevel: "Beginner friendly",
+  bestSeason: "Summer",
+  entryFee: "",
+  website: "",
+  rules: "",
+  amenities: [],
+  tags: "",
+  reporterNotes: "",
+};
+
 export function MapStageClient({ isVerified }: MapStageClientProps) {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMapInstance | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [selectedSpot, setSelectedSpot] = useState<Spot | null>(null);
+  const [locationForm, setLocationForm] = useState<CreateLocationFormState>(INITIAL_LOCATION_FORM);
 
   const canCreateLocation = useMemo(() => isVerified, [isVerified]);
 
@@ -234,6 +302,19 @@ export function MapStageClient({ isVerified }: MapStageClientProps) {
     }
   }, [selectedSpot]);
 
+  function updateLocationField<K extends keyof CreateLocationFormState>(field: K, value: CreateLocationFormState[K]) {
+    setLocationForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function toggleAmenity(amenity: AmenityType) {
+    setLocationForm((current) => ({
+      ...current,
+      amenities: current.amenities.includes(amenity)
+        ? current.amenities.filter((currentAmenity) => currentAmenity !== amenity)
+        : [...current.amenities, amenity],
+    }));
+  }
+
   return (
     <>
       <div ref={mapContainerRef} className="h-full w-full rounded-[14px]" aria-label="Explore map canvas" />
@@ -274,12 +355,12 @@ export function MapStageClient({ isVerified }: MapStageClientProps) {
 
       {open ? (
         <div className="absolute inset-0 z-20 grid place-items-center bg-black/35 p-4">
-          <div className="w-full max-w-md rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-5 shadow-xl">
+          <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-5 shadow-xl">
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
                 <h3 className="m-0 text-base font-semibold text-[rgb(var(--text-strong))]">Create location</h3>
                 <p className="mt-1 text-sm text-[rgb(var(--muted))]">
-                  Empty popout for verified users. Fields will be added next.
+                  Add comprehensive details so people understand access, vibe, safety, and local expectations.
                 </p>
               </div>
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>
@@ -287,9 +368,248 @@ export function MapStageClient({ isVerified }: MapStageClientProps) {
               </Button>
             </div>
 
-            <div className="rounded-xl border border-dashed border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))/0.55] p-6 text-center text-sm text-[rgb(var(--muted))]">
-              Location form placeholder
-            </div>
+            <form className="space-y-5">
+              <section className="grid gap-3 md:grid-cols-2">
+                <label className="space-y-1 md:col-span-2">
+                  <span className="text-xs font-medium text-[rgb(var(--muted))]">Location name</span>
+                  <input
+                    value={locationForm.name}
+                    onChange={(event) => updateLocationField("name", event.target.value)}
+                    placeholder="e.g. Sunset Cove Naturist Beach"
+                    className="w-full rounded-lg border border-[rgb(var(--border))] bg-transparent px-3 py-2 text-sm outline-none ring-[rgb(var(--brand))] transition focus:ring-2"
+                  />
+                </label>
+                <label className="space-y-1 md:col-span-2">
+                  <span className="text-xs font-medium text-[rgb(var(--muted))]">Short description</span>
+                  <input
+                    value={locationForm.shortDescription}
+                    onChange={(event) => updateLocationField("shortDescription", event.target.value)}
+                    placeholder="1 sentence summary for map popup"
+                    className="w-full rounded-lg border border-[rgb(var(--border))] bg-transparent px-3 py-2 text-sm outline-none ring-[rgb(var(--brand))] transition focus:ring-2"
+                  />
+                </label>
+                <label className="space-y-1 md:col-span-2">
+                  <span className="text-xs font-medium text-[rgb(var(--muted))]">Full description</span>
+                  <textarea
+                    value={locationForm.fullDescription}
+                    onChange={(event) => updateLocationField("fullDescription", event.target.value)}
+                    placeholder="Share atmosphere, etiquette, how busy it gets, and any known restrictions."
+                    rows={4}
+                    className="w-full rounded-lg border border-[rgb(var(--border))] bg-transparent px-3 py-2 text-sm outline-none ring-[rgb(var(--brand))] transition focus:ring-2"
+                  />
+                </label>
+              </section>
+
+              <section className="grid gap-3 md:grid-cols-2">
+                <label className="space-y-1">
+                  <span className="text-xs font-medium text-[rgb(var(--muted))]">Latitude</span>
+                  <input
+                    value={locationForm.latitude}
+                    onChange={(event) => updateLocationField("latitude", event.target.value)}
+                    placeholder="37.773972"
+                    className="w-full rounded-lg border border-[rgb(var(--border))] bg-transparent px-3 py-2 text-sm outline-none ring-[rgb(var(--brand))] transition focus:ring-2"
+                  />
+                </label>
+                <label className="space-y-1">
+                  <span className="text-xs font-medium text-[rgb(var(--muted))]">Longitude</span>
+                  <input
+                    value={locationForm.longitude}
+                    onChange={(event) => updateLocationField("longitude", event.target.value)}
+                    placeholder="-122.431297"
+                    className="w-full rounded-lg border border-[rgb(var(--border))] bg-transparent px-3 py-2 text-sm outline-none ring-[rgb(var(--brand))] transition focus:ring-2"
+                  />
+                </label>
+                <label className="space-y-1 md:col-span-2">
+                  <span className="text-xs font-medium text-[rgb(var(--muted))]">Location hint</span>
+                  <input
+                    value={locationForm.locationHint}
+                    onChange={(event) => updateLocationField("locationHint", event.target.value)}
+                    placeholder="Parking lot name, closest trail marker, or discreet meetup point"
+                    className="w-full rounded-lg border border-[rgb(var(--border))] bg-transparent px-3 py-2 text-sm outline-none ring-[rgb(var(--brand))] transition focus:ring-2"
+                  />
+                </label>
+                <label className="space-y-1">
+                  <span className="text-xs font-medium text-[rgb(var(--muted))]">Country</span>
+                  <input
+                    value={locationForm.country}
+                    onChange={(event) => updateLocationField("country", event.target.value)}
+                    placeholder="United States"
+                    className="w-full rounded-lg border border-[rgb(var(--border))] bg-transparent px-3 py-2 text-sm outline-none ring-[rgb(var(--brand))] transition focus:ring-2"
+                  />
+                </label>
+                <label className="space-y-1">
+                  <span className="text-xs font-medium text-[rgb(var(--muted))]">Region / state</span>
+                  <input
+                    value={locationForm.region}
+                    onChange={(event) => updateLocationField("region", event.target.value)}
+                    placeholder="California"
+                    className="w-full rounded-lg border border-[rgb(var(--border))] bg-transparent px-3 py-2 text-sm outline-none ring-[rgb(var(--brand))] transition focus:ring-2"
+                  />
+                </label>
+              </section>
+
+              <section className="grid gap-3 md:grid-cols-2">
+                <label className="space-y-1">
+                  <span className="text-xs font-medium text-[rgb(var(--muted))]">Access type</span>
+                  <select
+                    value={locationForm.accessType}
+                    onChange={(event) => updateLocationField("accessType", event.target.value as AccessType)}
+                    className="w-full rounded-lg border border-[rgb(var(--border))] bg-transparent px-3 py-2 text-sm outline-none ring-[rgb(var(--brand))] transition focus:ring-2"
+                  >
+                    <option>Public</option>
+                    <option>Discreet</option>
+                    <option>Private Club</option>
+                  </select>
+                </label>
+                <label className="space-y-1">
+                  <span className="text-xs font-medium text-[rgb(var(--muted))]">Terrain</span>
+                  <select
+                    value={locationForm.terrain}
+                    onChange={(event) => updateLocationField("terrain", event.target.value as TerrainType)}
+                    className="w-full rounded-lg border border-[rgb(var(--border))] bg-transparent px-3 py-2 text-sm outline-none ring-[rgb(var(--brand))] transition focus:ring-2"
+                  >
+                    <option>Beach</option>
+                    <option>Hot spring</option>
+                    <option>Campground</option>
+                    <option>Forest</option>
+                    <option>Urban rooftop</option>
+                    <option>Resort</option>
+                  </select>
+                </label>
+                <label className="space-y-1">
+                  <span className="text-xs font-medium text-[rgb(var(--muted))]">Clothing policy</span>
+                  <select
+                    value={locationForm.clothingPolicy}
+                    onChange={(event) =>
+                      updateLocationField(
+                        "clothingPolicy",
+                        event.target.value as CreateLocationFormState["clothingPolicy"],
+                      )
+                    }
+                    className="w-full rounded-lg border border-[rgb(var(--border))] bg-transparent px-3 py-2 text-sm outline-none ring-[rgb(var(--brand))] transition focus:ring-2"
+                  >
+                    <option>Nude only</option>
+                    <option>Clothing optional</option>
+                    <option>Mixed</option>
+                  </select>
+                </label>
+                <label className="space-y-1">
+                  <span className="text-xs font-medium text-[rgb(var(--muted))]">Safety level</span>
+                  <select
+                    value={locationForm.safetyLevel}
+                    onChange={(event) =>
+                      updateLocationField("safetyLevel", event.target.value as CreateLocationFormState["safetyLevel"])
+                    }
+                    className="w-full rounded-lg border border-[rgb(var(--border))] bg-transparent px-3 py-2 text-sm outline-none ring-[rgb(var(--brand))] transition focus:ring-2"
+                  >
+                    <option>Beginner friendly</option>
+                    <option>Intermediate</option>
+                    <option>Experienced</option>
+                  </select>
+                </label>
+              </section>
+
+              <section className="space-y-2">
+                <p className="text-xs font-medium text-[rgb(var(--muted))]">Amenities</p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {AMENITY_OPTIONS.map((amenity) => (
+                    <label
+                      key={amenity}
+                      className="flex cursor-pointer items-center justify-between rounded-lg border border-[rgb(var(--border))] px-3 py-2 text-sm"
+                    >
+                      <span>{amenity}</span>
+                      <input
+                        type="checkbox"
+                        checked={locationForm.amenities.includes(amenity)}
+                        onChange={() => toggleAmenity(amenity)}
+                        className="h-4 w-4 accent-[rgb(var(--brand))]"
+                      />
+                    </label>
+                  ))}
+                </div>
+              </section>
+
+              <section className="grid gap-3 md:grid-cols-2">
+                <label className="space-y-1">
+                  <span className="text-xs font-medium text-[rgb(var(--muted))]">Best season</span>
+                  <select
+                    value={locationForm.bestSeason}
+                    onChange={(event) =>
+                      updateLocationField("bestSeason", event.target.value as CreateLocationFormState["bestSeason"])
+                    }
+                    className="w-full rounded-lg border border-[rgb(var(--border))] bg-transparent px-3 py-2 text-sm outline-none ring-[rgb(var(--brand))] transition focus:ring-2"
+                  >
+                    <option>Spring</option>
+                    <option>Summer</option>
+                    <option>Autumn</option>
+                    <option>Winter</option>
+                    <option>Year-round</option>
+                  </select>
+                </label>
+                <label className="space-y-1">
+                  <span className="text-xs font-medium text-[rgb(var(--muted))]">Entry fee (optional)</span>
+                  <input
+                    value={locationForm.entryFee}
+                    onChange={(event) => updateLocationField("entryFee", event.target.value)}
+                    placeholder="$0, donation based, day pass..."
+                    className="w-full rounded-lg border border-[rgb(var(--border))] bg-transparent px-3 py-2 text-sm outline-none ring-[rgb(var(--brand))] transition focus:ring-2"
+                  />
+                </label>
+                <label className="space-y-1 md:col-span-2">
+                  <span className="text-xs font-medium text-[rgb(var(--muted))]">Website or info link</span>
+                  <input
+                    value={locationForm.website}
+                    onChange={(event) => updateLocationField("website", event.target.value)}
+                    placeholder="https://"
+                    className="w-full rounded-lg border border-[rgb(var(--border))] bg-transparent px-3 py-2 text-sm outline-none ring-[rgb(var(--brand))] transition focus:ring-2"
+                  />
+                </label>
+                <label className="space-y-1 md:col-span-2">
+                  <span className="text-xs font-medium text-[rgb(var(--muted))]">Rules & etiquette</span>
+                  <textarea
+                    value={locationForm.rules}
+                    onChange={(event) => updateLocationField("rules", event.target.value)}
+                    rows={3}
+                    placeholder="No photography, bring towel to sit on, respect quiet zones..."
+                    className="w-full rounded-lg border border-[rgb(var(--border))] bg-transparent px-3 py-2 text-sm outline-none ring-[rgb(var(--brand))] transition focus:ring-2"
+                  />
+                </label>
+                <label className="space-y-1">
+                  <span className="text-xs font-medium text-[rgb(var(--muted))]">Tags</span>
+                  <input
+                    value={locationForm.tags}
+                    onChange={(event) => updateLocationField("tags", event.target.value)}
+                    placeholder="quiet, social, LGBTQ+ friendly, couples..."
+                    className="w-full rounded-lg border border-[rgb(var(--border))] bg-transparent px-3 py-2 text-sm outline-none ring-[rgb(var(--brand))] transition focus:ring-2"
+                  />
+                </label>
+                <label className="space-y-1">
+                  <span className="text-xs font-medium text-[rgb(var(--muted))]">Reporter notes</span>
+                  <input
+                    value={locationForm.reporterNotes}
+                    onChange={(event) => updateLocationField("reporterNotes", event.target.value)}
+                    placeholder="Visited in Aug 2025, calm after 5pm..."
+                    className="w-full rounded-lg border border-[rgb(var(--border))] bg-transparent px-3 py-2 text-sm outline-none ring-[rgb(var(--brand))] transition focus:ring-2"
+                  />
+                </label>
+              </section>
+
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[rgb(var(--border))] pt-4">
+                <p className="text-xs text-[rgb(var(--muted))]">UI-only draft. Submission endpoint can be wired next.</p>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setLocationForm(INITIAL_LOCATION_FORM)}
+                  >
+                    Reset
+                  </Button>
+                  <Button type="button" className="bg-[rgb(var(--brand))] text-[rgb(var(--text-inverse))]">
+                    Save draft
+                  </Button>
+                </div>
+              </div>
+            </form>
           </div>
         </div>
       ) : null}

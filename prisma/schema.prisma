@@ -9,295 +9,6 @@ datasource db {
   schemas   = ["auth", "public"]
 }
 
-model badges {
-  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name        String
-  description String?
-  icon        String?
-  created_at  DateTime      @default(now()) @db.Timestamptz(6)
-  user_badges user_badges[]
-
-  @@schema("public")
-}
-
-model user_badges {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id    String   @db.Uuid
-  badge_id   String   @db.Uuid
-  awarded_at DateTime @default(now()) @db.Timestamptz(6)
-  badges     badges   @relation(fields: [badge_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@unique([user_id, badge_id])
-  @@index([user_id])
-  @@schema("public")
-}
-
-model channels {
-  id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name              String              @unique
-  slug              String              @unique
-  description       String?
-  privacy           String              @default("public")
-  join_mode         String              @default("open")
-  created_by        String?             @db.Uuid
-  featured          Boolean             @default(false)
-  verified          Boolean             @default(false)
-  mature            Boolean             @default(false)
-  created_at        DateTime            @default(now()) @db.Timestamptz(6)
-  updated_at        DateTime            @default(now()) @db.Timestamptz(6)
-  icon_url          String?
-  content_type      String              @default("custom")
-  content_config    Json                @default("{}")
-  position          Int                 @default(0)
-  is_enabled        Boolean             @default(true)
-  channel_messages  channel_messages[]
-  profiles          profiles?           @relation(fields: [created_by], references: [id], onUpdate: NoAction)
-  events            events[]
-  platform_settings platform_settings[]
-  posts             posts[]
-
-  @@index([slug])
-  @@index([is_enabled], map: "channels_enabled_idx")
-  @@index([position, name], map: "channels_position_idx")
-  @@schema("public")
-}
-
-model posts {
-  id         String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  author_id  String?      @db.Uuid
-  channel_id String?      @db.Uuid
-  title      String?
-  content    String?
-  media_url  String?
-  post_type  String?      @default("text")
-  created_at DateTime?    @default(now()) @db.Timestamptz(6)
-  comments   comments[]
-  post_votes post_votes[]
-  profiles   profiles?    @relation(fields: [author_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  channels   channels?    @relation(fields: [channel_id], references: [id], onUpdate: NoAction)
-  reports    reports[]
-
-  @@index([author_id], map: "posts_author_idx")
-  @@index([channel_id], map: "posts_channel_idx")
-  @@index([channel_id], map: "posts_community_idx")
-  @@schema("public")
-}
-
-model comments {
-  id             String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  post_id        String?    @db.Uuid
-  author_id      String?    @db.Uuid
-  parent_id      String?    @db.Uuid
-  content        String
-  created_at     DateTime?  @default(now()) @db.Timestamptz(6)
-  profiles       profiles?  @relation(fields: [author_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  comments       comments?  @relation("commentsTocomments", fields: [parent_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  other_comments comments[] @relation("commentsTocomments")
-  posts          posts?     @relation(fields: [post_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  reports        reports[]
-
-  @@index([post_id])
-  @@index([author_id])
-  @@index([created_at(sort: Desc)])
-  @@index([post_id], map: "comments_post_idx")
-  @@schema("public")
-}
-
-model post_votes {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  post_id    String   @db.Uuid
-  user_id    String   @db.Uuid
-  vote       Int      @db.SmallInt
-  created_at DateTime @default(now()) @db.Timestamptz(6)
-  updated_at DateTime @default(now()) @db.Timestamptz(6)
-  posts      posts    @relation(fields: [post_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  profiles   profiles @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@unique([post_id, user_id])
-  @@index([post_id], map: "post_votes_post_idx")
-  @@index([user_id], map: "post_votes_user_idx")
-  @@schema("public")
-}
-
-model reports {
-  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  reporter_id String?   @db.Uuid
-  post_id     String?   @db.Uuid
-  comment_id  String?   @db.Uuid
-  reason      String?
-  created_at  DateTime? @default(now()) @db.Timestamptz(6)
-  comments    comments? @relation(fields: [comment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  posts       posts?    @relation(fields: [post_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  profiles    profiles? @relation(fields: [reporter_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@schema("public")
-}
-
-model profiles {
-  id                      String             @id @db.Uuid
-  username                String             @unique
-  display_name            String?
-  bio                     String?
-  avatar_url              String?
-  location                String?
-  created_at              DateTime?          @default(now()) @db.Timestamptz(6)
-  profile_primary_color   String?            @default("#345f45")
-  profile_secondary_color String?            @default("#1f3326")
-  show_email              Boolean?           @default(false)
-  show_activity           Boolean?           @default(true)
-  allow_friend_requests   Boolean?           @default(true)
-  channel_messages        channel_messages[]
-  channels                channels[]
-  comments                comments[]
-  events                  events[]
-  post_votes              post_votes[]
-  posts                   posts[]
-  users                   users              @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  reports                 reports[]
-
-  @@schema("public")
-}
-
-model profile_settings {
-  user_id                   String   @id @db.Uuid
-  profile_primary           String   @default("#1fd8b5")
-  profile_secondary         String   @default("#112b44")
-  show_email                Boolean  @default(false)
-  show_activity             Boolean  @default(true)
-  allow_friend_requests     Boolean  @default(true)
-  feed_style                String   @default("balanced")
-  created_at                DateTime @default(now()) @db.Timestamptz(6)
-  updated_at                DateTime @default(now()) @db.Timestamptz(6)
-  friends                   Json?    @default("[]")
-  friend_requests           Json?    @default("[]")
-  introduction              String?  @default("")
-  avatar_url                String?
-  banner_url                String?
-  home_theme_pack           String?  @default("nature")
-  dashboard_widgets         Json?    @default("{\"goals\": true, \"profile_card\": true, \"recent_activity\": true}")
-  custom_profile_url        String?
-  vanity_slug               String?
-  pronouns                  String?
-  communication_preferences Json?    @default("[\"Direct messages\"]")
-  profile_sections          Json?    @default("{\"about\": true, \"links\": true, \"skills\": true, \"milestones\": true}")
-  section_visibility        Json?    @default("{\"about\": \"public\", \"links\": \"public\", \"skills\": \"public\", \"timeline\": \"followers_only\", \"portfolio\": \"public\", \"milestones\": \"followers_only\"}")
-  featured_post_ids         Json?    @default("[]")
-  identity_badges           Json?    @default("[]")
-  timeline_highlights       Json?    @default("[]")
-  user_role                 String?  @default("newcomer")
-  interests                 String[] @default([])
-  onboarding_completed      Boolean? @default(false)
-  users                     users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@schema("public")
-}
-
-model verification_submissions {
-  user_id               String   @id @db.Uuid
-  legal_name            String
-  display_name          String
-  date_of_birth         DateTime @db.Date
-  country               String
-  membership_type       String
-  id_type               String
-  status                String   @default("pending")
-  is_adult_confirmed    Boolean  @default(false)
-  consent_code_accepted Boolean  @default(false)
-  terms_accepted        Boolean  @default(false)
-  reviewer_notes        String?
-  created_at            DateTime @default(now()) @db.Timestamptz(6)
-  updated_at            DateTime @default(now()) @db.Timestamptz(6)
-  users                 users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@index([status], map: "verification_submissions_status_idx")
-  @@schema("public")
-}
-
-model friendships {
-  id                                      String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id                                 String   @db.Uuid
-  friend_user_id                          String?  @db.Uuid
-  friend_username                         String
-  status                                  String   @default("offline")
-  created_at                              DateTime @default(now()) @db.Timestamptz(6)
-  users_friendships_friend_user_idTousers users?   @relation("friendships_friend_user_idTousers", fields: [friend_user_id], references: [id], onUpdate: NoAction)
-  users_friendships_user_idTousers        users    @relation("friendships_user_idTousers", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@index([user_id])
-  @@index([friend_user_id])
-  @@index([user_id], map: "friendships_user_idx")
-  @@schema("public")
-}
-
-model friend_requests {
-  id                                       String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  sender_id                                String   @db.Uuid
-  receiver_id                              String   @db.Uuid
-  sender_username                          String
-  mutual_friends                           Int      @default(0)
-  status                                   String   @default("pending")
-  created_at                               DateTime @default(now()) @db.Timestamptz(6)
-  users_friend_requests_receiver_idTousers users    @relation("friend_requests_receiver_idTousers", fields: [receiver_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  users_friend_requests_sender_idTousers   users    @relation("friend_requests_sender_idTousers", fields: [sender_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@index([receiver_id, status], map: "friend_requests_receiver_idx")
-  @@schema("public")
-}
-
-model channel_messages {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  channel_id String   @db.Uuid
-  author_id  String   @db.Uuid
-  body       String
-  created_at DateTime @default(now()) @db.Timestamptz(6)
-  profiles   profiles @relation(fields: [author_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  channels   channels @relation(fields: [channel_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@index([channel_id, created_at], map: "channel_messages_channel_created_idx")
-  @@schema("public")
-}
-
-model events {
-  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  channel_id   String?   @db.Uuid
-  organizer_id String?   @db.Uuid
-  title        String
-  description  String?
-  location     String?
-  start_time   DateTime? @db.Timestamptz(6)
-  created_at   DateTime? @default(now()) @db.Timestamptz(6)
-  channels     channels? @relation(fields: [channel_id], references: [id], onUpdate: NoAction)
-  profiles     profiles? @relation(fields: [organizer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@index([channel_id], map: "events_channel_idx")
-  @@schema("public")
-}
-
-model naturist_map_spots {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name        String
-  description String
-  latitude    Float
-  longitude   Float
-  privacy     String   @default("Discreet")
-  created_at  DateTime @default(now()) @db.Timestamptz(6)
-
-  @@schema("public")
-}
-
-model platform_settings {
-  id                            Boolean   @id @default(true)
-  brand_mode                    Boolean   @default(true)
-  allow_user_community_creation Boolean   @default(false)
-  primary_community_id          String?   @db.Uuid
-  updated_at                    DateTime  @default(now()) @db.Timestamptz(6)
-  primary_channel_id            String?   @db.Uuid
-  channels                      channels? @relation(fields: [primary_channel_id], references: [id], onUpdate: NoAction)
-
-  @@schema("public")
-}
-
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model audit_log_entries {
@@ -693,59 +404,419 @@ model sso_providers {
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 /// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
 model users {
-  instance_id                                        String?                @db.Uuid
-  id                                                 String                 @id @db.Uuid
-  aud                                                String?                @db.VarChar(255)
-  role                                               String?                @db.VarChar(255)
-  email                                              String?                @db.VarChar(255)
-  encrypted_password                                 String?                @db.VarChar(255)
-  email_confirmed_at                                 DateTime?              @db.Timestamptz(6)
-  invited_at                                         DateTime?              @db.Timestamptz(6)
-  confirmation_token                                 String?                @db.VarChar(255)
-  confirmation_sent_at                               DateTime?              @db.Timestamptz(6)
-  recovery_token                                     String?                @db.VarChar(255)
-  recovery_sent_at                                   DateTime?              @db.Timestamptz(6)
-  email_change_token_new                             String?                @db.VarChar(255)
-  email_change                                       String?                @db.VarChar(255)
-  email_change_sent_at                               DateTime?              @db.Timestamptz(6)
-  last_sign_in_at                                    DateTime?              @db.Timestamptz(6)
+  instance_id                                        String?                   @db.Uuid
+  id                                                 String                    @id @db.Uuid
+  aud                                                String?                   @db.VarChar(255)
+  role                                               String?                   @db.VarChar(255)
+  email                                              String?                   @db.VarChar(255)
+  encrypted_password                                 String?                   @db.VarChar(255)
+  email_confirmed_at                                 DateTime?                 @db.Timestamptz(6)
+  invited_at                                         DateTime?                 @db.Timestamptz(6)
+  confirmation_token                                 String?                   @db.VarChar(255)
+  confirmation_sent_at                               DateTime?                 @db.Timestamptz(6)
+  recovery_token                                     String?                   @db.VarChar(255)
+  recovery_sent_at                                   DateTime?                 @db.Timestamptz(6)
+  email_change_token_new                             String?                   @db.VarChar(255)
+  email_change                                       String?                   @db.VarChar(255)
+  email_change_sent_at                               DateTime?                 @db.Timestamptz(6)
+  last_sign_in_at                                    DateTime?                 @db.Timestamptz(6)
   raw_app_meta_data                                  Json?
   raw_user_meta_data                                 Json?
   is_super_admin                                     Boolean?
-  created_at                                         DateTime?              @db.Timestamptz(6)
-  updated_at                                         DateTime?              @db.Timestamptz(6)
-  phone                                              String?                @unique
-  phone_confirmed_at                                 DateTime?              @db.Timestamptz(6)
-  phone_change                                       String?                @default("")
-  phone_change_token                                 String?                @default("") @db.VarChar(255)
-  phone_change_sent_at                               DateTime?              @db.Timestamptz(6)
-  confirmed_at                                       DateTime?              @default(dbgenerated("LEAST(email_confirmed_at, phone_confirmed_at)")) @db.Timestamptz(6)
-  email_change_token_current                         String?                @default("") @db.VarChar(255)
-  email_change_confirm_status                        Int?                   @default(0) @db.SmallInt
-  banned_until                                       DateTime?              @db.Timestamptz(6)
-  reauthentication_token                             String?                @default("") @db.VarChar(255)
-  reauthentication_sent_at                           DateTime?              @db.Timestamptz(6)
-  is_sso_user                                        Boolean                @default(false)
-  deleted_at                                         DateTime?              @db.Timestamptz(6)
-  is_anonymous                                       Boolean                @default(false)
+  created_at                                         DateTime?                 @db.Timestamptz(6)
+  updated_at                                         DateTime?                 @db.Timestamptz(6)
+  phone                                              String?                   @unique
+  phone_confirmed_at                                 DateTime?                 @db.Timestamptz(6)
+  phone_change                                       String?                   @default("")
+  phone_change_token                                 String?                   @default("") @db.VarChar(255)
+  phone_change_sent_at                               DateTime?                 @db.Timestamptz(6)
+  confirmed_at                                       DateTime?                 @default(dbgenerated("LEAST(email_confirmed_at, phone_confirmed_at)")) @db.Timestamptz(6)
+  email_change_token_current                         String?                   @default("") @db.VarChar(255)
+  email_change_confirm_status                        Int?                      @default(0) @db.SmallInt
+  banned_until                                       DateTime?                 @db.Timestamptz(6)
+  reauthentication_token                             String?                   @default("") @db.VarChar(255)
+  reauthentication_sent_at                           DateTime?                 @db.Timestamptz(6)
+  is_sso_user                                        Boolean                   @default(false)
+  deleted_at                                         DateTime?                 @db.Timestamptz(6)
+  is_anonymous                                       Boolean                   @default(false)
   identities                                         identities[]
   mfa_factors                                        mfa_factors[]
   oauth_authorizations                               oauth_authorizations[]
   oauth_consents                                     oauth_consents[]
   one_time_tokens                                    one_time_tokens[]
   sessions                                           sessions[]
-  friend_requests_friend_requests_receiver_idTousers friend_requests[]      @relation("friend_requests_receiver_idTousers")
-  friend_requests_friend_requests_sender_idTousers   friend_requests[]      @relation("friend_requests_sender_idTousers")
-  friendships_friendships_friend_user_idTousers      friendships[]          @relation("friendships_friend_user_idTousers")
-  friendships_friendships_user_idTousers             friendships[]          @relation("friendships_user_idTousers")
+  webauthn_challenges                                webauthn_challenges[]
+  webauthn_credentials                               webauthn_credentials[]
+  friend_requests_friend_requests_receiver_idTousers friend_requests[]         @relation("friend_requests_receiver_idTousers")
+  friend_requests_friend_requests_sender_idTousers   friend_requests[]         @relation("friend_requests_sender_idTousers")
+  friendships_friendships_friend_user_idTousers      friendships[]             @relation("friendships_friend_user_idTousers")
+  friendships_friendships_user_idTousers             friendships[]             @relation("friendships_user_idTousers")
+  naturist_map_spots                                 naturist_map_spots[]
   profile_settings                                   profile_settings?
   profiles                                           profiles?
   user_badges                                        user_badges[]
   verification_submissions                           verification_submissions?
-  
+
   @@index([instance_id])
   @@index([is_anonymous])
   @@schema("auth")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model webauthn_challenges {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id        String?  @db.Uuid
+  challenge_type String
+  session_data   Json
+  created_at     DateTime @default(now()) @db.Timestamptz(6)
+  expires_at     DateTime @db.Timestamptz(6)
+  users          users?   @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([expires_at])
+  @@index([user_id])
+  @@schema("auth")
+}
+
+model webauthn_credentials {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id          String    @db.Uuid
+  credential_id    Bytes     @unique
+  public_key       Bytes
+  attestation_type String    @default("")
+  aaguid           String?   @db.Uuid
+  sign_count       BigInt    @default(0)
+  transports       Json      @default("[]")
+  backup_eligible  Boolean   @default(false)
+  backed_up        Boolean   @default(false)
+  friendly_name    String    @default("")
+  created_at       DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime  @default(now()) @db.Timestamptz(6)
+  last_used_at     DateTime? @db.Timestamptz(6)
+  users            users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id])
+  @@schema("auth")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model badges {
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String
+  description String?
+  icon        String?
+  created_at  DateTime      @default(now()) @db.Timestamptz(6)
+  user_badges user_badges[]
+
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model channel_messages {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  channel_id String   @db.Uuid
+  author_id  String   @db.Uuid
+  body       String
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  profiles   profiles @relation(fields: [author_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  channels   channels @relation(fields: [channel_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([channel_id, created_at], map: "channel_messages_channel_created_idx")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model channels {
+  id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name              String              @unique
+  slug              String              @unique
+  description       String?
+  privacy           String              @default("public")
+  join_mode         String              @default("open")
+  created_by        String?             @db.Uuid
+  featured          Boolean             @default(false)
+  verified          Boolean             @default(false)
+  mature            Boolean             @default(false)
+  created_at        DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime            @default(now()) @db.Timestamptz(6)
+  icon_url          String?
+  content_type      String              @default("custom")
+  content_config    Json                @default("{}")
+  position          Int                 @default(0)
+  is_enabled        Boolean             @default(true)
+  channel_messages  channel_messages[]
+  profiles          profiles?           @relation(fields: [created_by], references: [id], onUpdate: NoAction)
+  events            events[]
+  platform_settings platform_settings[]
+  posts             posts[]
+
+  @@index([is_enabled], map: "channels_enabled_idx")
+  @@index([position, name], map: "channels_position_idx")
+  @@index([slug])
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model comments {
+  id             String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  post_id        String?    @db.Uuid
+  author_id      String?    @db.Uuid
+  parent_id      String?    @db.Uuid
+  content        String
+  created_at     DateTime?  @default(now()) @db.Timestamptz(6)
+  profiles       profiles?  @relation(fields: [author_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  comments       comments?  @relation("commentsTocomments", fields: [parent_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  other_comments comments[] @relation("commentsTocomments")
+  posts          posts?     @relation(fields: [post_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  reports        reports[]
+
+  @@index([author_id])
+  @@index([created_at(sort: Desc)])
+  @@index([post_id])
+  @@index([post_id], map: "comments_post_idx")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model events {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  channel_id   String?   @db.Uuid
+  organizer_id String?   @db.Uuid
+  title        String
+  description  String?
+  location     String?
+  start_time   DateTime? @db.Timestamptz(6)
+  created_at   DateTime? @default(now()) @db.Timestamptz(6)
+  channels     channels? @relation(fields: [channel_id], references: [id], onUpdate: NoAction)
+  profiles     profiles? @relation(fields: [organizer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([channel_id], map: "events_channel_idx")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model friend_requests {
+  id                                       String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sender_id                                String   @db.Uuid
+  receiver_id                              String   @db.Uuid
+  sender_username                          String
+  mutual_friends                           Int      @default(0)
+  status                                   String   @default("pending")
+  created_at                               DateTime @default(now()) @db.Timestamptz(6)
+  users_friend_requests_receiver_idTousers users    @relation("friend_requests_receiver_idTousers", fields: [receiver_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_friend_requests_sender_idTousers   users    @relation("friend_requests_sender_idTousers", fields: [sender_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([receiver_id, status], map: "friend_requests_receiver_idx")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model friendships {
+  id                                      String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id                                 String   @db.Uuid
+  friend_user_id                          String?  @db.Uuid
+  friend_username                         String
+  status                                  String   @default("offline")
+  created_at                              DateTime @default(now()) @db.Timestamptz(6)
+  users_friendships_friend_user_idTousers users?   @relation("friendships_friend_user_idTousers", fields: [friend_user_id], references: [id], onUpdate: NoAction)
+  users_friendships_user_idTousers        users    @relation("friendships_user_idTousers", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([friend_user_id])
+  @@index([user_id])
+  @@index([user_id], map: "friendships_user_idx")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model naturist_map_spots {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name              String
+  description       String
+  latitude          Float
+  longitude         Float
+  privacy           String   @default("Discreet")
+  created_at        DateTime @default(now()) @db.Timestamptz(6)
+  short_description String?
+  details           Json     @default("{}")
+  submitted_by      String?  @db.Uuid
+  status            String   @default("pending")
+  updated_at        DateTime @default(now()) @db.Timestamptz(6)
+  users             users?   @relation(fields: [submitted_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([status])
+  @@index([submitted_by])
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model platform_settings {
+  id                            Boolean   @id @default(true)
+  brand_mode                    Boolean   @default(true)
+  allow_user_community_creation Boolean   @default(false)
+  primary_community_id          String?   @db.Uuid
+  updated_at                    DateTime  @default(now()) @db.Timestamptz(6)
+  primary_channel_id            String?   @db.Uuid
+  channels                      channels? @relation(fields: [primary_channel_id], references: [id], onUpdate: NoAction)
+
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model post_votes {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  post_id    String   @db.Uuid
+  user_id    String   @db.Uuid
+  vote       Int      @db.SmallInt
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  posts      posts    @relation(fields: [post_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  profiles   profiles @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([post_id, user_id])
+  @@index([post_id], map: "post_votes_post_idx")
+  @@index([user_id], map: "post_votes_user_idx")
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model posts {
+  id         String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  author_id  String?      @db.Uuid
+  channel_id String?      @db.Uuid
+  title      String?
+  content    String?
+  media_url  String?
+  post_type  String?      @default("text")
+  created_at DateTime?    @default(now()) @db.Timestamptz(6)
+  comments   comments[]
+  post_votes post_votes[]
+  profiles   profiles?    @relation(fields: [author_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  channels   channels?    @relation(fields: [channel_id], references: [id], onUpdate: NoAction)
+  reports    reports[]
+
+  @@index([author_id], map: "posts_author_idx")
+  @@index([channel_id], map: "posts_channel_idx")
+  @@index([channel_id], map: "posts_community_idx")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model profile_settings {
+  user_id                   String   @id @db.Uuid
+  profile_primary           String   @default("#1fd8b5")
+  profile_secondary         String   @default("#112b44")
+  show_email                Boolean  @default(false)
+  show_activity             Boolean  @default(true)
+  allow_friend_requests     Boolean  @default(true)
+  feed_style                String   @default("balanced")
+  created_at                DateTime @default(now()) @db.Timestamptz(6)
+  updated_at                DateTime @default(now()) @db.Timestamptz(6)
+  friends                   Json?    @default("[]")
+  friend_requests           Json?    @default("[]")
+  introduction              String?  @default("")
+  avatar_url                String?
+  banner_url                String?
+  home_theme_pack           String?  @default("nature")
+  dashboard_widgets         Json?    @default("{\"goals\": true, \"profile_card\": true, \"recent_activity\": true}")
+  custom_profile_url        String?
+  vanity_slug               String?
+  pronouns                  String?
+  communication_preferences Json?    @default("[\"Direct messages\"]")
+  profile_sections          Json?    @default("{\"about\": true, \"links\": true, \"skills\": true, \"milestones\": true}")
+  section_visibility        Json?    @default("{\"about\": \"public\", \"links\": \"public\", \"skills\": \"public\", \"timeline\": \"followers_only\", \"portfolio\": \"public\", \"milestones\": \"followers_only\"}")
+  featured_post_ids         Json?    @default("[]")
+  identity_badges           Json?    @default("[]")
+  timeline_highlights       Json?    @default("[]")
+  user_role                 String?  @default("newcomer")
+  interests                 String[] @default([])
+  onboarding_completed      Boolean? @default(false)
+  users                     users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model profiles {
+  id                      String             @id @db.Uuid
+  username                String             @unique
+  display_name            String?
+  bio                     String?
+  avatar_url              String?
+  location                String?
+  created_at              DateTime?          @default(now()) @db.Timestamptz(6)
+  profile_primary_color   String?            @default("#345f45")
+  profile_secondary_color String?            @default("#1f3326")
+  show_email              Boolean?           @default(false)
+  show_activity           Boolean?           @default(true)
+  allow_friend_requests   Boolean?           @default(true)
+  channel_messages        channel_messages[]
+  channels                channels[]
+  comments                comments[]
+  events                  events[]
+  post_votes              post_votes[]
+  posts                   posts[]
+  users                   users              @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  reports                 reports[]
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model reports {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reporter_id String?   @db.Uuid
+  post_id     String?   @db.Uuid
+  comment_id  String?   @db.Uuid
+  reason      String?
+  created_at  DateTime? @default(now()) @db.Timestamptz(6)
+  comments    comments? @relation(fields: [comment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  posts       posts?    @relation(fields: [post_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  profiles    profiles? @relation(fields: [reporter_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model user_badges {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String   @db.Uuid
+  badge_id   String   @db.Uuid
+  awarded_at DateTime @default(now()) @db.Timestamptz(6)
+  badges     badges   @relation(fields: [badge_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, badge_id])
+  @@index([user_id])
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model verification_submissions {
+  user_id               String   @id @db.Uuid
+  legal_name            String
+  display_name          String
+  date_of_birth         DateTime @db.Date
+  country               String
+  membership_type       String
+  id_type               String
+  status                String   @default("pending")
+  is_adult_confirmed    Boolean  @default(false)
+  consent_code_accepted Boolean  @default(false)
+  terms_accepted        Boolean  @default(false)
+  reviewer_notes        String?
+  created_at            DateTime @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime @default(now()) @db.Timestamptz(6)
+  users                 users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([status])
+  @@schema("public")
 }
 
 enum aal_level {
