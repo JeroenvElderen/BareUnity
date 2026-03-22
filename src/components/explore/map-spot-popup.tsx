@@ -1,4 +1,4 @@
-import { Badge } from "@/components/ui/badge";
+import styles from "./map-spot-popup.module.css";
 
 type MapSpotPopupProps = {
   name: string;
@@ -6,41 +6,80 @@ type MapSpotPopupProps = {
   privacy: string;
 };
 
+function getInitials(name: string) {
+  return name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("");
+}
+
 export function MapSpotPopup({ name, description, privacy }: MapSpotPopupProps) {
   const isPublic = privacy === "Public";
+  const initials = getInitials(name) || "SP";
+  const mood = isPublic ? "Active" : "Calm";
+  const checkIns = isPublic ? 24 : 9;
 
   return (
-    <article className="spot-popup-card w-[316px] overflow-hidden rounded-3xl border border-white/55 bg-[rgb(var(--card))/0.97] text-[rgb(var(--text))] shadow-2xl backdrop-blur-md">
-      <header className="relative overflow-hidden border-b border-[rgb(var(--border))/0.7] bg-[linear-gradient(145deg,rgb(var(--brand))/0.2_0%,rgb(var(--accent-soft))/0.38_52%,rgb(var(--bg-soft))/0.7_100%)] px-5 pb-4 pt-4">
-        <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-white/40 blur-2xl" />
-        <div className="pointer-events-none absolute -left-8 bottom-0 h-16 w-16 rounded-full bg-[rgb(var(--brand))/0.28] blur-xl" />
-        
-        <div className="relative flex items-start justify-between gap-3">
-          <div className="space-y-1">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[rgb(var(--muted))]">Explore spot</p>
-            <h4 className="text-[1.05rem] font-semibold leading-tight text-[rgb(var(--text-strong))]">{name}</h4>
-          </div>
+    <article className={styles.card}>
+      <header className={styles.hero}>
+        <div className={styles.dismiss} aria-hidden="true">
+          ×
+        </div>
 
-          <Badge className="rounded-full border border-white/65 bg-white/78 px-2.5 py-1 text-[10px] font-semibold text-[rgb(var(--text-strong))] shadow-sm">
-            <span className="mr-1">{isPublic ? "☀️" : "🌿"}</span>
-            {privacy}
-          </Badge>
+        <div className={styles.identity}>
+          <div className={styles.avatar}>{initials}</div>
+          <div>
+            <h4 className={styles.heading}>{name}</h4>
+            <p className={styles.subheading}>Updated moments ago • Explore map</p>
+          </div>
         </div>
       </header>
 
-      <div className="space-y-3.5 px-5 pb-5 pt-4">
-        <p className="line-clamp-4 text-xs leading-relaxed text-[rgb(var(--muted))]">{description}</p>
+      <div className={styles.body}>
+        <div className={styles.badges}>
+          <span className={styles.privacy}>{privacy}</span>
+          <span className={styles.live}>{isPublic ? "Open" : "Quiet"}</span>
+        </div>
 
-        <div className="flex flex-wrap gap-1.5">
-          <Badge variant="outline" className="h-5 rounded-full border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))/0.85] px-2 text-[10px] font-medium text-[rgb(var(--muted))]">
-            Naturist
-          </Badge>
-          <Badge variant="outline" className="h-5 rounded-full border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))/0.85] px-2 text-[10px] font-medium text-[rgb(var(--muted))]">
-            Community
-          </Badge>
-          <Badge variant="outline" className="h-5 rounded-full border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))/0.85] px-2 text-[10px] font-medium text-[rgb(var(--muted))]">
-            Safe Spot
-          </Badge>
+        <p className={styles.description}>{description}</p>
+
+        <section className={styles.facts} aria-label="Spot details">
+          <div className={styles.fact}>
+            <span className={styles.factIcon}>📍</span>
+            <p className={styles.factLabel}>Type</p>
+            <p className={styles.factValue}>{isPublic ? "Open beach" : "Quiet retreat"}</p>
+          </div>
+          <div className={styles.fact}>
+            <span className={styles.factIcon}>👥</span>
+            <p className={styles.factLabel}>Visitors</p>
+            <p className={styles.factValue}>{isPublic ? "Medium" : "Low"}</p>
+          </div>
+          <div className={styles.fact}>
+            <span className={styles.factIcon}>🛡️</span>
+            <p className={styles.factLabel}>Safety</p>
+            <p className={styles.factValue}>Verified</p>
+          </div>
+        </section>
+
+        <button type="button" className={styles.cta}>
+          View full location →
+        </button>
+
+        <div className={styles.metrics}>
+          <div className={styles.metric}>
+            <p className={styles.metricLabel}>Mood</p>
+            <p className={styles.metricValue}>{mood}</p>
+          </div>
+          <div className={styles.metric}>
+            <p className={styles.metricLabel}>Safety</p>
+            <p className={styles.metricValue}>Trusted</p>
+          </div>
+          <div className={styles.metric}>
+            <p className={styles.metricLabel}>Check-ins</p>
+            <p className={styles.metricValue}>{checkIns}</p>
+          </div>
         </div>
       </div>
     </article>

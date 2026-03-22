@@ -182,7 +182,7 @@ export function MapStageClient({ isVerified }: MapStageClientProps) {
               offset: 16,
               className: "spot-popup",
               closeButton: false,
-              maxWidth: "320px",
+              maxWidth: "none",
             }).setDOMContent(buildPopupContentNode(spot));
 
             const markerElement = buildMarkerElement(spot.privacy);

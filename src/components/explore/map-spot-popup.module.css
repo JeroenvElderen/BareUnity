@@ -1,0 +1,225 @@
+.card {
+  width: min(360px, 88vw);
+  border-radius: 24px;
+  overflow: hidden;
+  border: 1px solid rgb(var(--border));
+  background: rgb(var(--card));
+  box-shadow: 0 24px 46px rgb(20 37 36 / 0.2);
+  color: rgb(var(--text));
+}
+
+.hero {
+  position: relative;
+  min-height: 154px;
+  padding: 1rem;
+  display: grid;
+  align-content: end;
+  background:
+    linear-gradient(170deg, rgb(17 28 36 / 0.2) 0%, rgb(17 28 36 / 0.68) 100%),
+    radial-gradient(circle at 18% 15%, rgb(var(--accent-soft) / 0.5), transparent 52%),
+    linear-gradient(125deg, rgb(var(--brand) / 0.8), rgb(var(--brand-2) / 0.87));
+}
+
+.dismiss {
+  position: absolute;
+  top: 0.72rem;
+  right: 0.72rem;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  border: 1px solid rgb(255 255 255 / 0.55);
+  background: rgb(255 255 255 / 0.16);
+  color: rgb(255 255 255 / 0.92);
+  display: grid;
+  place-items: center;
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.identity {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  border: 2px solid rgb(255 255 255 / 0.75);
+  background: rgb(255 255 255 / 0.92);
+  color: rgb(var(--text-strong));
+  font-size: 1.12rem;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  text-transform: uppercase;
+}
+
+.heading {
+  margin: 0;
+  font-size: 1.45rem;
+  line-height: 1.15;
+  color: rgb(var(--text-inverse));
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.28);
+}
+
+.subheading {
+  margin: 0.2rem 0 0;
+  font-size: 0.82rem;
+  color: rgb(255 255 255 / 0.86);
+}
+
+.body {
+  padding: 1rem;
+  display: grid;
+  gap: 0.92rem;
+}
+
+.badges {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.privacy,
+.live {
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.28rem 0.74rem;
+}
+
+.privacy {
+  border: 1px solid rgb(var(--border));
+  color: rgb(var(--text-strong));
+  background: rgb(var(--bg-soft));
+}
+
+.live {
+  background: rgb(var(--brand));
+  color: rgb(var(--text-inverse));
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.description {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.52;
+  color: rgb(var(--muted));
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+  border: 1px solid rgb(var(--border));
+  border-radius: 14px;
+  background: rgb(var(--bg-soft) / 0.38);
+  padding: 0.55rem;
+}
+
+.fact {
+  border-right: 1px solid rgb(var(--border));
+  padding-right: 0.4rem;
+}
+
+.fact:last-child {
+  border-right: 0;
+  padding-right: 0;
+}
+
+.factIcon {
+  font-size: 0.88rem;
+}
+
+.factLabel {
+  margin: 0.28rem 0 0;
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: rgb(var(--muted));
+}
+
+.factValue {
+  margin: 0.18rem 0 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: rgb(var(--text-strong));
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 0.62rem;
+}
+
+.play {
+  width: 46px;
+  height: 46px;
+  border-radius: 999px;
+  border: 1px solid rgb(var(--border));
+  background: rgb(var(--card));
+  color: rgb(var(--text-strong));
+  font-size: 1.08rem;
+}
+
+.progress {
+  flex: 1;
+  height: 14px;
+  border-radius: 999px;
+  border: 1px solid rgb(var(--border));
+  background: rgb(var(--bg-soft));
+  overflow: hidden;
+}
+
+.progressBar {
+  height: 100%;
+  width: 48%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgb(var(--brand) / 0.72), rgb(var(--accent)));
+}
+
+.cta {
+  border: 1px solid rgb(var(--brand));
+  border-radius: 10px;
+  background: rgb(var(--brand));
+  color: rgb(var(--text-inverse));
+  font-weight: 600;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.86rem;
+}
+
+.metrics {
+  border-top: 1px solid rgb(var(--border));
+  padding-top: 0.85rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.metric {
+  border-right: 1px solid rgb(var(--border));
+  padding-right: 0.45rem;
+}
+
+.metric:last-child {
+  border-right: 0;
+  padding-right: 0;
+}
+
+.metricLabel {
+  margin: 0;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: rgb(var(--muted));
+}
+
+.metricValue {
+  margin: 0.22rem 0 0;
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: rgb(var(--text-strong));
+}
