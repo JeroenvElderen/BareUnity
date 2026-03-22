@@ -44,19 +44,3 @@ body {
   );
   color: rgb(var(--text));
 }
-
-.spot-popup.maplibregl-popup {
-  max-width: none !important;
-}
-
-.spot-popup .maplibregl-popup-content {
-  padding: 0 !important;
-  border-radius: 0;
-  background: transparent !important;
-  box-shadow: none !important;
-}
-
-.spot-popup .maplibregl-popup-tip {
-  border-top-color: rgb(var(--card));
-  filter: drop-shadow(0 4px 6px rgb(20 37 36 / 0.2));
-}

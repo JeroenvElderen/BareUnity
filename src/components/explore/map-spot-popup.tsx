@@ -4,6 +4,7 @@ type MapSpotPopupProps = {
   name: string;
   description: string;
   privacy: string;
+  onClose?: () => void;
 };
 
 function getInitials(name: string) {
@@ -15,7 +16,7 @@ function getInitials(name: string) {
     .join("");
 }
 
-export function MapSpotPopup({ name, description, privacy }: MapSpotPopupProps) {
+export function MapSpotPopup({ name, description, privacy, onClose }: MapSpotPopupProps) {
   const isPublic = privacy === "Public";
   const initials = getInitials(name) || "SP";
   const mood = isPublic ? "Active" : "Calm";
@@ -24,9 +25,9 @@ export function MapSpotPopup({ name, description, privacy }: MapSpotPopupProps) 
   return (
     <article className={styles.card}>
       <header className={styles.hero}>
-        <div className={styles.dismiss} aria-hidden="true">
+        <button type="button" className={styles.dismiss} onClick={onClose} aria-label="Close popup">
           ×
-        </div>
+        </button>
 
         <div className={styles.identity}>
           <div className={styles.avatar}>{initials}</div>

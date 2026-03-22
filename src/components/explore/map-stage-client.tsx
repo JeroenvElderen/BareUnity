@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { createRoot } from "react-dom/client";
 
 import { MapSpotPopup } from "@/components/explore/map-spot-popup";
 import { Button } from "@/components/ui/button";
@@ -19,24 +18,31 @@ type Spot = {
   privacy: "Public" | "Discreet" | string;
 };
 
-type MapLibrePopupInstance = {
-  setDOMContent: (htmlNode: Node) => MapLibrePopupInstance;
+type InteractionControl = {
+  disable?: () => void;
+  enable?: () => void;
+};
+
+type MapLibreMapInstance = {
+  remove: () => void;
+  addControl: (control: unknown, position?: string) => void;
+  dragPan?: InteractionControl;
+  scrollZoom?: InteractionControl;
+  boxZoom?: InteractionControl;
+  dragRotate?: InteractionControl;
+  keyboard?: InteractionControl;
+  doubleClickZoom?: InteractionControl;
+  touchZoomRotate?: InteractionControl;
 };
 
 type MapLibreGlobal = {
-  Map: new (config: Record<string, unknown>) => {
-    remove: () => void;
-    addControl: (control: unknown, position?: string) => void;
-  };
+  Map: new (config: Record<string, unknown>) => MapLibreMapInstance;
   NavigationControl: new () => unknown;
   Marker: new (config: { element: HTMLElement; anchor?: string }) => {
     setLngLat: (lngLat: [number, number]) => {
-      addTo: (map: unknown) => {
-        setPopup: (popup: MapLibrePopupInstance) => void;
-      };
+      addTo: (map: unknown) => unknown;
     };
   };
-  Popup: new (config?: { offset?: number; className?: string; closeButton?: boolean; maxWidth?: string }) => MapLibrePopupInstance;
 };
 
 declare global {
@@ -107,26 +113,23 @@ function buildMarkerElement(privacy: Spot["privacy"]) {
   return marker;
 }
 
-
-function buildPopupContentNode(spot: Spot) {
-  const popupContainer = document.createElement("div");
-  createRoot(popupContainer).render(
-    <MapSpotPopup name={spot.name} description={spot.description} privacy={spot.privacy} />,
-  );
-
-  return popupContainer;
-}
+const MAP_LOCK_INTERACTIONS: Array<keyof Pick<
+  MapLibreMapInstance,
+  "dragPan" | "scrollZoom" | "boxZoom" | "dragRotate" | "keyboard" | "doubleClickZoom" | "touchZoomRotate"
+>> = ["dragPan", "scrollZoom", "boxZoom", "dragRotate", "keyboard", "doubleClickZoom", "touchZoomRotate"];
 
 export function MapStageClient({ isVerified }: MapStageClientProps) {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<MapLibreMapInstance | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
+  const [selectedSpot, setSelectedSpot] = useState<Spot | null>(null);
 
   const canCreateLocation = useMemo(() => isVerified, [isVerified]);
 
   useEffect(() => {
     let mounted = true;
-    let mapInstance: { remove: () => void } | null = null;
+    let mapInstance: MapLibreMapInstance | null = null;
 
     async function initMap() {
       try {
@@ -178,19 +181,15 @@ export function MapStageClient({ isVerified }: MapStageClientProps) {
               continue;
             }
 
-            const popup = new window.maplibregl.Popup({
-              offset: 16,
-              className: "spot-popup",
-              closeButton: false,
-              maxWidth: "none",
-            }).setDOMContent(buildPopupContentNode(spot));
-
             const markerElement = buildMarkerElement(spot.privacy);
+            markerElement.addEventListener("click", () => {
+              if (!mounted) return;
+              setSelectedSpot(spot);
+            });
 
             new window.maplibregl.Marker({ element: markerElement, anchor: "bottom" })
               .setLngLat([longitude, latitude])
-              .addTo(map)
-              .setPopup(popup);
+              .addTo(map);
           }
         } catch (markerError) {
           console.error("Failed to load map markers", markerError);
@@ -200,6 +199,7 @@ export function MapStageClient({ isVerified }: MapStageClientProps) {
         }
 
         mapInstance = map;
+        mapRef.current = map;
       } catch (error) {
         if (!mounted) return;
         const message = error instanceof Error ? error.message : "Map failed to initialize.";
@@ -211,21 +211,51 @@ export function MapStageClient({ isVerified }: MapStageClientProps) {
 
     return () => {
       mounted = false;
+      mapRef.current = null;
       mapInstance?.remove();
     };
   }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const lockMap = Boolean(selectedSpot);
+
+    for (const interactionKey of MAP_LOCK_INTERACTIONS) {
+      const interaction = map[interactionKey];
+      if (!interaction) continue;
+
+      if (lockMap) {
+        interaction.disable?.();
+      } else {
+        interaction.enable?.();
+      }
+    }
+  }, [selectedSpot]);
 
   return (
     <>
       <div ref={mapContainerRef} className="h-full w-full rounded-[14px]" aria-label="Explore map canvas" />
 
+      {selectedSpot ? (
+        <div className="absolute inset-0 z-30 grid place-items-center p-4">
+          <MapSpotPopup
+            name={selectedSpot.name}
+            description={selectedSpot.description}
+            privacy={selectedSpot.privacy}
+            onClose={() => setSelectedSpot(null)}
+          />
+        </div>
+      ) : null}
+      
       {mapError ? (
         <div className="pointer-events-none absolute inset-0 grid place-items-center p-6 text-center text-sm text-[rgb(var(--muted))]">
           <p>{mapError}</p>
         </div>
       ) : null}
 
-      <div className="absolute bottom-3 left-3 z-10">
+      <div className="absolute bottom-3 left-3 z-20">
         <Button
           type="button"
           onClick={() => setOpen(true)}
@@ -237,7 +267,7 @@ export function MapStageClient({ isVerified }: MapStageClientProps) {
       </div>
 
       {!canCreateLocation ? (
-        <p className="absolute bottom-3 left-44 z-10 rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--card))/0.94] px-3 py-1 text-xs text-[rgb(var(--muted))]">
+        <p className="absolute bottom-3 left-44 z-20 rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--card))/0.94] px-3 py-1 text-xs text-[rgb(var(--muted))]">
           Verified users only
         </p>
       ) : null}
