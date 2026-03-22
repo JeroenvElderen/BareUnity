@@ -4,10 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { MapSpotPopup } from "@/components/explore/map-spot-popup";
 import { Button } from "@/components/ui/button";
-
-type MapStageClientProps = {
-  isVerified: boolean;
-};
+import { supabase } from "@/lib/supabase";
 
 type Spot = {
   id: string;
@@ -185,15 +182,36 @@ const INITIAL_LOCATION_FORM: CreateLocationFormState = {
   reporterNotes: "",
 };
 
-export function MapStageClient({ isVerified }: MapStageClientProps) {
+export function MapStageClient() {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMapInstance | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [selectedSpot, setSelectedSpot] = useState<Spot | null>(null);
   const [locationForm, setLocationForm] = useState<CreateLocationFormState>(INITIAL_LOCATION_FORM);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-  const canCreateLocation = useMemo(() => isVerified, [isVerified]);
+  const canCreateLocation = useMemo(() => isLoggedIn, [isLoggedIn]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    void supabase.auth.getSession().then(({ data }) => {
+      if (!mounted) return;
+      setIsLoggedIn(Boolean(data.session?.user));
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsLoggedIn(Boolean(session?.user));
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     let mounted = true;

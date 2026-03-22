@@ -1,7 +1,5 @@
-import { auth } from "@/auth";
 import { MapStageClient } from "@/components/explore/map-stage-client";
 import { AppSidebar } from "@/components/sidebar/sidebar";
-import { db } from "@/server/db";
 import layoutStyles from "../page.module.css";
 import styles from "./explore.module.css";
 
@@ -12,28 +10,7 @@ const liveUpdates = [
   { title: "River Bend", detail: "New check-in from the community", time: "18m" },
 ] as const;
 
-async function getVerifiedStatus() {
-  const session = await auth();
-  const userId = (session?.user as { id?: string } | undefined)?.id;
-
-  if (!userId) return false;
-
-  try {
-    const submission = await db.verification_submissions.findUnique({
-      where: { user_id: userId },
-      select: { status: true },
-    });
-
-    return submission?.status === "approved";
-  } catch (error) {
-    console.error("Failed to load verification status", error);
-    return false;
-  }
-}
-
 export default async function ExplorePage() {
-  const isVerified = await getVerifiedStatus();
-
   return (
     <main className={layoutStyles.main}>
       <AppSidebar />
@@ -64,7 +41,7 @@ export default async function ExplorePage() {
             </div>
 
             <div id="explore-map-container" className={styles.mapSurface}>
-              <MapStageClient isVerified={isVerified} />
+              <MapStageClient />
             </div>
           </article>
 
