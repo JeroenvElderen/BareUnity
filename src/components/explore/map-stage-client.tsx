@@ -627,9 +627,33 @@ export function MapStageClient() {
             </div>
 
             <form className="space-y-5" onSubmit={(event) => void handleLocationSubmit(event)}>
-              <section className="grid gap-3 md:grid-cols-2">
+              <div className="grid gap-2 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))/0.45] p-3 text-xs text-[rgb(var(--muted))] sm:grid-cols-3">
+                <p className="m-0">
+                  <strong className="text-[rgb(var(--text-strong))]">1. Basics</strong>
+                  <br />
+                  Name + clear description
+                </p>
+                <p className="m-0">
+                  <strong className="text-[rgb(var(--text-strong))]">2. Pin location</strong>
+                  <br />
+                  Search or click on map
+                </p>
+                <p className="m-0">
+                  <strong className="text-[rgb(var(--text-strong))]">3. Helpful details</strong>
+                  <br />
+                  Access, safety, amenities
+                </p>
+              </div>
+
+              <section className="grid gap-3 rounded-xl border border-[rgb(var(--border))] p-4 md:grid-cols-2">
+                <div className="md:col-span-2">
+                  <h4 className="m-0 text-sm font-semibold text-[rgb(var(--text-strong))]">Basics</h4>
+                  <p className="mt-1 text-xs text-[rgb(var(--muted))]">
+                    Keep this short and factual so people understand the place quickly.
+                  </p>
+                </div>
                 <label className="space-y-1 md:col-span-2">
-                  <span className="text-xs font-medium text-[rgb(var(--muted))]">Location name</span>
+                  <span className="text-xs font-medium text-[rgb(var(--muted))]">Location name *</span>
                   <input
                     value={locationForm.name}
                     onChange={(event) => updateLocationField("name", event.target.value)}
@@ -638,7 +662,7 @@ export function MapStageClient() {
                   />
                 </label>
                 <label className="space-y-1 md:col-span-2">
-                  <span className="text-xs font-medium text-[rgb(var(--muted))]">Short description</span>
+                  <span className="text-xs font-medium text-[rgb(var(--muted))]">Short description *</span>
                   <input
                     value={locationForm.shortDescription}
                     onChange={(event) => updateLocationField("shortDescription", event.target.value)}
@@ -647,7 +671,7 @@ export function MapStageClient() {
                   />
                 </label>
                 <label className="space-y-1 md:col-span-2">
-                  <span className="text-xs font-medium text-[rgb(var(--muted))]">Full description</span>
+                  <span className="text-xs font-medium text-[rgb(var(--muted))]">Full description *</span>
                   <textarea
                     value={locationForm.fullDescription}
                     onChange={(event) => updateLocationField("fullDescription", event.target.value)}
@@ -658,9 +682,15 @@ export function MapStageClient() {
                 </label>
               </section>
 
-              <section className="grid gap-3 md:grid-cols-2">
+              <section className="grid gap-3 rounded-xl border border-[rgb(var(--border))] p-4 md:grid-cols-2">
+                <div className="md:col-span-2">
+                  <h4 className="m-0 text-sm font-semibold text-[rgb(var(--text-strong))]">Map location</h4>
+                  <p className="mt-1 text-xs text-[rgb(var(--muted))]">
+                    Coordinates are required. Use search for speed, then fine-tune with map picking.
+                  </p>
+                </div>
                 <div className="space-y-2 md:col-span-2">
-                  <span className="text-xs font-medium text-[rgb(var(--muted))]">Coordinates</span>
+                  <span className="text-xs font-medium text-[rgb(var(--muted))]">Coordinates *</span>
                   <div className="grid gap-2 rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))/0.55] p-3 sm:grid-cols-2">
                     <p className="m-0 text-sm text-[rgb(var(--text))]">
                       Latitude:{" "}
@@ -744,7 +774,10 @@ export function MapStageClient() {
                 </label>
               </section>
 
-              <section className="grid gap-3 md:grid-cols-2">
+              <section className="grid gap-3 rounded-xl border border-[rgb(var(--border))] p-4 md:grid-cols-2">
+                <div className="md:col-span-2">
+                  <h4 className="m-0 text-sm font-semibold text-[rgb(var(--text-strong))]">Access & environment</h4>
+                </div>
                 <label className="space-y-1">
                   <span className="text-xs font-medium text-[rgb(var(--muted))]">Access type</span>
                   <select
@@ -805,8 +838,9 @@ export function MapStageClient() {
                 </label>
               </section>
 
-              <section className="space-y-2">
-                <p className="text-xs font-medium text-[rgb(var(--muted))]">Amenities</p>
+              <section className="space-y-2 rounded-xl border border-[rgb(var(--border))] p-4">
+                <p className="m-0 text-sm font-semibold text-[rgb(var(--text-strong))]">Amenities</p>
+                <p className="m-0 text-xs text-[rgb(var(--muted))]">Select everything visitors should reasonably expect.</p>
                 <div className="grid gap-2 sm:grid-cols-2">
                   {AMENITY_OPTIONS.map((amenity) => (
                     <label
@@ -825,7 +859,13 @@ export function MapStageClient() {
                 </div>
               </section>
 
-              <section className="grid gap-3 md:grid-cols-2">
+              <section className="grid gap-3 rounded-xl border border-[rgb(var(--border))] p-4 md:grid-cols-2">
+                <div className="md:col-span-2">
+                  <h4 className="m-0 text-sm font-semibold text-[rgb(var(--text-strong))]">Extra details</h4>
+                  <p className="mt-1 text-xs text-[rgb(var(--muted))]">
+                    Optional notes improve trust and help people prepare respectfully.
+                  </p>
+                </div>
                 <label className="space-y-1">
                   <span className="text-xs font-medium text-[rgb(var(--muted))]">Best season</span>
                   <select
@@ -890,7 +930,7 @@ export function MapStageClient() {
                 </label>
               </section>
 
-              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[rgb(var(--border))] pt-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))/0.35] px-4 py-3">
                 {submitFeedback ? (
                   <p
                     className={`text-xs ${
@@ -900,7 +940,9 @@ export function MapStageClient() {
                     {submitFeedback.message}
                   </p>
                 ) : (
-                  <p className="text-xs text-[rgb(var(--muted))]">Submit sends this location to Supabase for moderation.</p>
+                  <p className="text-xs text-[rgb(var(--muted))]">
+                    Fields marked * are required. Submission sends this location to Supabase for moderation.
+                  </p>
                 )}
                 <div className="flex gap-2">
                   <Button
