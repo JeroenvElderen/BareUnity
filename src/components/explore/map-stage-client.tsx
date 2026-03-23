@@ -49,14 +49,33 @@ type CreateLocationFormState = {
   reporterNotes: string;
 };
 
+type LocationSearchResult = {
+  place_id: number;
+  display_name: string;
+  lat: string;
+  lon: string;
+  type?: string;
+  class?: string;
+};
+
 type InteractionControl = {
   disable?: () => void;
   enable?: () => void;
 };
 
+type MapClickEvent = {
+  lngLat?: {
+    lat: number;
+    lng: number;
+  };
+};
+
 type MapLibreMapInstance = {
   remove: () => void;
   addControl: (control: unknown, position?: string) => void;
+  on: (event: "click", listener: (event: MapClickEvent) => void) => void;
+  off: (event: "click", listener: (event: MapClickEvent) => void) => void;
+  flyTo?: (config: { center: [number, number]; zoom?: number }) => void;
   dragPan?: InteractionControl;
   scrollZoom?: InteractionControl;
   boxZoom?: InteractionControl;
@@ -66,14 +85,17 @@ type MapLibreMapInstance = {
   touchZoomRotate?: InteractionControl;
 };
 
+type MapLibreMarkerInstance = {
+  remove: () => void;
+  getLngLat?: () => { lat: number; lng: number };
+  setLngLat: (lngLat: [number, number]) => MapLibreMarkerInstance;
+  addTo: (map: unknown) => unknown;
+};
+
 type MapLibreGlobal = {
   Map: new (config: Record<string, unknown>) => MapLibreMapInstance;
   NavigationControl: new () => unknown;
-  Marker: new (config: { element: HTMLElement; anchor?: string }) => {
-    setLngLat: (lngLat: [number, number]) => {
-      addTo: (map: unknown) => unknown;
-    };
-  };
+  Marker: new (config: { element: HTMLElement; anchor?: string }) => MapLibreMarkerInstance;
 };
 
 declare global {
@@ -182,13 +204,25 @@ const INITIAL_LOCATION_FORM: CreateLocationFormState = {
   reporterNotes: "",
 };
 
+function formatCoordinate(value: string) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return "";
+  return num.toFixed(6);
+}
+
 export function MapStageClient() {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMapInstance | null>(null);
+  const selectionMarkerRef = useRef<MapLibreMarkerInstance | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
+  const [isPickingFromMap, setIsPickingFromMap] = useState(false);
   const [selectedSpot, setSelectedSpot] = useState<Spot | null>(null);
   const [locationForm, setLocationForm] = useState<CreateLocationFormState>(INITIAL_LOCATION_FORM);
+  const [locationSearchQuery, setLocationSearchQuery] = useState("");
+  const [locationSearchLoading, setLocationSearchLoading] = useState(false);
+  const [locationSearchError, setLocationSearchError] = useState<string | null>(null);
+  const [locationSearchResults, setLocationSearchResults] = useState<LocationSearchResult[]>([]);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   const canCreateLocation = useMemo(() => isLoggedIn, [isLoggedIn]);
@@ -297,6 +331,7 @@ export function MapStageClient() {
 
     return () => {
       mounted = false;
+      selectionMarkerRef.current = null;
       mapRef.current = null;
       mapInstance?.remove();
     };
@@ -306,7 +341,7 @@ export function MapStageClient() {
     const map = mapRef.current;
     if (!map) return;
 
-    const lockMap = Boolean(selectedSpot);
+    const lockMap = Boolean(selectedSpot) || (open && !isPickingFromMap);
 
     for (const interactionKey of MAP_LOCK_INTERACTIONS) {
       const interaction = map[interactionKey];
@@ -318,7 +353,7 @@ export function MapStageClient() {
         interaction.enable?.();
       }
     }
-  }, [selectedSpot]);
+  }, [isPickingFromMap, open, selectedSpot]);
 
   function updateLocationField<K extends keyof CreateLocationFormState>(field: K, value: CreateLocationFormState[K]) {
     setLocationForm((current) => ({ ...current, [field]: value }));
@@ -333,12 +368,124 @@ export function MapStageClient() {
     }));
   }
 
+  function clearLocationSearch() {
+    setLocationSearchResults([]);
+    setLocationSearchError(null);
+  }
+
+  function setFormCoordinates(latitude: number, longitude: number) {
+    setLocationForm((current) => ({
+      ...current,
+      latitude: latitude.toFixed(6),
+      longitude: longitude.toFixed(6),
+    }));
+  }
+
+  function placeSelectionMarker(latitude: number, longitude: number) {
+    const map = mapRef.current;
+    if (!map || !window.maplibregl) return;
+
+    if (!selectionMarkerRef.current) {
+      const markerElement = document.createElement("div");
+      markerElement.style.width = "16px";
+      markerElement.style.height = "16px";
+      markerElement.style.borderRadius = "999px";
+      markerElement.style.border = "2px solid white";
+      markerElement.style.background = "rgb(var(--brand))";
+      markerElement.style.boxShadow = "0 0 0 5px rgba(16, 100, 81, 0.25)";
+      selectionMarkerRef.current = new window.maplibregl.Marker({ element: markerElement, anchor: "bottom" });
+    }
+
+    selectionMarkerRef.current.setLngLat([longitude, latitude]).addTo(map);
+  }
+
+  async function searchLocations() {
+    const query = locationSearchQuery.trim();
+    if (query.length < 2) {
+      setLocationSearchError("Type at least 2 characters to search for a place.");
+      setLocationSearchResults([]);
+      return;
+    }
+
+    setLocationSearchLoading(true);
+    setLocationSearchError(null);
+
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(query)}&limit=8`,
+        {
+          headers: {
+            Accept: "application/json",
+          },
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error(`Search failed (${response.status})`);
+      }
+
+      const payload = (await response.json()) as LocationSearchResult[];
+      setLocationSearchResults(payload);
+
+      if (payload.length === 0) {
+        setLocationSearchError("No results found. You can click “Pick on map” and choose the spot manually.");
+      }
+    } catch (error) {
+      console.error("Failed to search locations", error);
+      setLocationSearchResults([]);
+      setLocationSearchError("Search failed. You can still pick the location directly on the map.");
+    } finally {
+      setLocationSearchLoading(false);
+    }
+  }
+
+  function selectSearchResult(result: LocationSearchResult) {
+    const lat = Number(result.lat);
+    const lon = Number(result.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+
+    setFormCoordinates(lat, lon);
+    placeSelectionMarker(lat, lon);
+    mapRef.current?.flyTo?.({ center: [lon, lat], zoom: 11 });
+    clearLocationSearch();
+  }
+
+  function beginMapPicking() {
+    setIsPickingFromMap(true);
+  }
+
+  function closeCreateLocationModal() {
+    setOpen(false);
+    setIsPickingFromMap(false);
+    clearLocationSearch();
+  }
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !open || !isPickingFromMap) return;
+
+    const onClick = (event: MapClickEvent) => {
+      const latitude = event.lngLat?.lat;
+      const longitude = event.lngLat?.lng;
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+
+      setFormCoordinates(latitude, longitude);
+      placeSelectionMarker(latitude, longitude);
+      setIsPickingFromMap(false);
+    };
+
+    map.on("click", onClick);
+    return () => {
+      map.off("click", onClick);
+    };
+  }, [isPickingFromMap, open]);
+
   return (
     <>
       <div ref={mapContainerRef} className="h-full w-full rounded-[14px]" aria-label="Explore map canvas" />
 
       {selectedSpot ? (
-        <div className="absolute inset-0 z-30 grid place-items-center p-4">
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
           <MapSpotPopup
             name={selectedSpot.name}
             description={selectedSpot.description}
@@ -357,7 +504,10 @@ export function MapStageClient() {
       <div className="absolute bottom-3 left-3 z-20">
         <Button
           type="button"
-          onClick={() => setOpen(true)}
+          onClick={() => {
+            setOpen(true);
+            setIsPickingFromMap(false);
+          }}
           disabled={!canCreateLocation}
           className="rounded-full bg-[rgb(var(--brand))] text-[rgb(var(--text-inverse))] hover:bg-[rgb(var(--brand-2))]"
         >
@@ -372,8 +522,25 @@ export function MapStageClient() {
       ) : null}
 
       {open ? (
-        <div className="absolute inset-0 z-20 grid place-items-center bg-black/35 p-4">
-          <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-5 shadow-xl">
+        <div className={`fixed inset-0 z-40 p-4 sm:p-6 ${isPickingFromMap ? "pointer-events-none bg-transparent" : "bg-black/45"}`}>
+          {isPickingFromMap ? (
+            <div className="pointer-events-auto mx-auto mb-3 w-full max-w-3xl rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-3 shadow-xl">
+              <p className="text-sm text-[rgb(var(--text-strong))]">
+                Click the exact location on the map to fill latitude/longitude automatically.
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Button type="button" variant="outline" onClick={() => setIsPickingFromMap(false)}>
+                  Back to form
+                </Button>
+                <Button type="button" variant="outline" onClick={closeCreateLocationModal}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          ) : null}
+
+          {!isPickingFromMap ? (
+            <div className="mx-auto max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-5 shadow-xl">
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
                 <h3 className="m-0 text-base font-semibold text-[rgb(var(--text-strong))]">Create location</h3>
@@ -381,7 +548,7 @@ export function MapStageClient() {
                   Add comprehensive details so people understand access, vibe, safety, and local expectations.
                 </p>
               </div>
-              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+              <Button type="button" variant="outline" onClick={closeCreateLocationModal}>
                 Close
               </Button>
             </div>
@@ -419,24 +586,62 @@ export function MapStageClient() {
               </section>
 
               <section className="grid gap-3 md:grid-cols-2">
-                <label className="space-y-1">
-                  <span className="text-xs font-medium text-[rgb(var(--muted))]">Latitude</span>
-                  <input
-                    value={locationForm.latitude}
-                    onChange={(event) => updateLocationField("latitude", event.target.value)}
-                    placeholder="37.773972"
-                    className="w-full rounded-lg border border-[rgb(var(--border))] bg-transparent px-3 py-2 text-sm outline-none ring-[rgb(var(--brand))] transition focus:ring-2"
-                  />
-                </label>
-                <label className="space-y-1">
-                  <span className="text-xs font-medium text-[rgb(var(--muted))]">Longitude</span>
-                  <input
-                    value={locationForm.longitude}
-                    onChange={(event) => updateLocationField("longitude", event.target.value)}
-                    placeholder="-122.431297"
-                    className="w-full rounded-lg border border-[rgb(var(--border))] bg-transparent px-3 py-2 text-sm outline-none ring-[rgb(var(--brand))] transition focus:ring-2"
-                  />
-                </label>
+                <div className="space-y-2 md:col-span-2">
+                  <span className="text-xs font-medium text-[rgb(var(--muted))]">Coordinates</span>
+                  <div className="grid gap-2 rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))/0.55] p-3 sm:grid-cols-2">
+                    <p className="m-0 text-sm text-[rgb(var(--text))]">
+                      Latitude:{" "}
+                      <strong>{formatCoordinate(locationForm.latitude) || "Not selected yet"}</strong>
+                    </p>
+                    <p className="m-0 text-sm text-[rgb(var(--text))]">
+                      Longitude:{" "}
+                      <strong>{formatCoordinate(locationForm.longitude) || "Not selected yet"}</strong>
+                    </p>
+                  </div>
+                  <p className="m-0 text-xs text-[rgb(var(--muted))]">
+                    Search for any place (beach, lake, forest, building, etc.) or choose directly on the map.
+                  </p>
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <label className="space-y-1">
+                    <span className="text-xs font-medium text-[rgb(var(--muted))]">Find a place</span>
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <input
+                        value={locationSearchQuery}
+                        onChange={(event) => setLocationSearchQuery(event.target.value)}
+                        placeholder="Try: Baker Beach, Yosemite Valley, Central Park..."
+                        className="w-full rounded-lg border border-[rgb(var(--border))] bg-transparent px-3 py-2 text-sm outline-none ring-[rgb(var(--brand))] transition focus:ring-2"
+                      />
+                      <Button type="button" onClick={() => void searchLocations()} disabled={locationSearchLoading}>
+                        {locationSearchLoading ? "Searching..." : "Search"}
+                      </Button>
+                      <Button type="button" variant="outline" onClick={beginMapPicking}>
+                        Pick on map
+                      </Button>
+                    </div>
+                  </label>
+                  {locationSearchError ? (
+                    <p className="m-0 text-xs text-[rgb(190,68,68)]">{locationSearchError}</p>
+                  ) : null}
+                  {locationSearchResults.length > 0 ? (
+                    <ul className="m-0 grid list-none gap-2 p-0">
+                      {locationSearchResults.map((result) => (
+                        <li key={result.place_id}>
+                          <button
+                            type="button"
+                            onClick={() => selectSearchResult(result)}
+                            className="w-full rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))/0.5] p-2 text-left text-sm transition hover:border-[rgb(var(--brand))]"
+                          >
+                            <p className="m-0 font-medium text-[rgb(var(--text-strong))]">{result.display_name}</p>
+                            <p className="m-0 mt-1 text-xs text-[rgb(var(--muted))]">
+                              {Number(result.lat).toFixed(5)}, {Number(result.lon).toFixed(5)}
+                            </p>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
                 <label className="space-y-1 md:col-span-2">
                   <span className="text-xs font-medium text-[rgb(var(--muted))]">Location hint</span>
                   <input
@@ -618,7 +823,10 @@ export function MapStageClient() {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => setLocationForm(INITIAL_LOCATION_FORM)}
+                    onClick={() => {
+                      setLocationForm(INITIAL_LOCATION_FORM);
+                      clearLocationSearch();
+                    }}
                   >
                     Reset
                   </Button>
@@ -628,7 +836,8 @@ export function MapStageClient() {
                 </div>
               </div>
             </form>
-          </div>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </>
