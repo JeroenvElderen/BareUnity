@@ -645,10 +645,26 @@ model naturist_map_spots {
   submitted_by      String?  @db.Uuid
   status            String   @default("pending")
   updated_at        DateTime @default(now()) @db.Timestamptz(6)
+  location_hint     String?
+  country           String?
+  region            String?
+  access_type       String   @default("Public")
+  terrain           String   @default("Beach")
+  clothing_policy   String   @default("Clothing optional")
+  safety_level      String   @default("Beginner friendly")
+  best_season       String   @default("Summer")
+  entry_fee         String?
+  website           String?
+  rules             String?
+  amenities         String[] @default([])
+  tags              String[] @default([])
+  reporter_notes    String?
   users             users?   @relation(fields: [submitted_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([status])
   @@index([submitted_by])
+  @@index([country, region])
+  @@index([status, created_at(sort: Desc)], map: "naturist_map_spots_status_created_idx")
   @@schema("public")
 }
 

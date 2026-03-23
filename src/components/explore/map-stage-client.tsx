@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { MapSpotPopup } from "@/components/explore/map-spot-popup";
 import { Button } from "@/components/ui/button";
@@ -224,6 +224,8 @@ export function MapStageClient() {
   const [locationSearchError, setLocationSearchError] = useState<string | null>(null);
   const [locationSearchResults, setLocationSearchResults] = useState<LocationSearchResult[]>([]);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isSubmittingLocation, setIsSubmittingLocation] = useState(false);
+  const [submitFeedback, setSubmitFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   const canCreateLocation = useMemo(() => isLoggedIn, [isLoggedIn]);
 
@@ -458,6 +460,77 @@ export function MapStageClient() {
     setOpen(false);
     setIsPickingFromMap(false);
     clearLocationSearch();
+    setSubmitFeedback(null);
+  }
+
+  async function handleLocationSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSubmitFeedback(null);
+
+    const latitude = Number(locationForm.latitude);
+    const longitude = Number(locationForm.longitude);
+
+    if (!locationForm.name.trim()) {
+      setSubmitFeedback({ type: "error", message: "Location name is required." });
+      return;
+    }
+
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      setSubmitFeedback({ type: "error", message: "Please choose valid coordinates before submitting." });
+      return;
+    }
+
+    setIsSubmittingLocation(true);
+
+    try {
+      const response = await fetch("/api/map-spots", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: locationForm.name.trim(),
+          shortDescription: locationForm.shortDescription.trim(),
+          fullDescription: locationForm.fullDescription.trim(),
+          latitude,
+          longitude,
+          locationHint: locationForm.locationHint.trim(),
+          country: locationForm.country.trim(),
+          region: locationForm.region.trim(),
+          accessType: locationForm.accessType,
+          terrain: locationForm.terrain,
+          clothingPolicy: locationForm.clothingPolicy,
+          safetyLevel: locationForm.safetyLevel,
+          bestSeason: locationForm.bestSeason,
+          entryFee: locationForm.entryFee.trim(),
+          website: locationForm.website.trim(),
+          rules: locationForm.rules.trim(),
+          amenities: locationForm.amenities,
+          tags: locationForm.tags
+            .split(",")
+            .map((tag) => tag.trim())
+            .filter(Boolean),
+          reporterNotes: locationForm.reporterNotes.trim(),
+        }),
+      });
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(payload?.error ?? `Submission failed (${response.status}).`);
+      }
+
+      setSubmitFeedback({ type: "success", message: "Location submitted for review." });
+      setLocationForm(INITIAL_LOCATION_FORM);
+      clearLocationSearch();
+    } catch (error) {
+      console.error("Failed to submit location", error);
+      setSubmitFeedback({
+        type: "error",
+        message: error instanceof Error ? error.message : "Failed to submit location.",
+      });
+    } finally {
+      setIsSubmittingLocation(false);
+    }
   }
 
   useEffect(() => {
@@ -553,7 +626,7 @@ export function MapStageClient() {
               </Button>
             </div>
 
-            <form className="space-y-5">
+            <form className="space-y-5" onSubmit={(event) => void handleLocationSubmit(event)}>
               <section className="grid gap-3 md:grid-cols-2">
                 <label className="space-y-1 md:col-span-2">
                   <span className="text-xs font-medium text-[rgb(var(--muted))]">Location name</span>
@@ -818,7 +891,17 @@ export function MapStageClient() {
               </section>
 
               <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[rgb(var(--border))] pt-4">
-                <p className="text-xs text-[rgb(var(--muted))]">UI-only draft. Submission endpoint can be wired next.</p>
+                {submitFeedback ? (
+                  <p
+                    className={`text-xs ${
+                      submitFeedback.type === "success" ? "text-[rgb(24,132,84)]" : "text-[rgb(190,68,68)]"
+                    }`}
+                  >
+                    {submitFeedback.message}
+                  </p>
+                ) : (
+                  <p className="text-xs text-[rgb(var(--muted))]">Submit sends this location to Supabase for moderation.</p>
+                )}
                 <div className="flex gap-2">
                   <Button
                     type="button"
@@ -830,8 +913,12 @@ export function MapStageClient() {
                   >
                     Reset
                   </Button>
-                  <Button type="button" className="bg-[rgb(var(--brand))] text-[rgb(var(--text-inverse))]">
-                    Save draft
+                  <Button
+                    type="submit"
+                    disabled={isSubmittingLocation}
+                    className="bg-[rgb(var(--brand))] text-[rgb(var(--text-inverse))]"
+                  >
+                    {isSubmittingLocation ? "Submitting..." : "Submit location"}
                   </Button>
                 </div>
               </div>
