@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "db:generate": "prisma generate",
-    "db:pull": "prisma db pull"
+    "db:pull": "prisma db pull",
+    "codex:screenshot": "node scripts/codex-screenshot.mjs",
+    "codex:screenshot:install": "playwright install chromium"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",
@@ -43,6 +45,7 @@
     "eslint-config-next": "16.1.6",
     "prisma": "^6.19.2",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "playwright": "^1.53.0"
   }
 }
