@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { db } from "@/server/db";
-import { getInitials, pickPostTone, pickStoryTone, relativeTime, type HomeFeedPayload } from "@/lib/homefeed";
+import {
+  getInitials,
+  pickPostTone,
+  pickStoryTone,
+  relativeTime,
+  type HomeFeedPayload,
+} from "@/lib/homefeed";
 
 const fallbackFeed: HomeFeedPayload = {
   stories: [],
@@ -96,7 +102,7 @@ export async function GET() {
       id: friend.id,
       name: friend.friend_username,
       fallback: getInitials(friend.friend_username),
-      status: friend.status === "online" ? "Online" : "Offline",
+      status: (friend.status === "online" ? "Online" : "Offline") as "Online" | "Offline",
     }));
 
     const posts = postsRaw.map((post, index) => {
@@ -110,7 +116,7 @@ export async function GET() {
         posted: relativeTime(post.created_at),
         text: [post.title?.trim(), post.content?.trim()].filter(Boolean).join("\n") || "Shared an update",
         mediaUrl: post.media_url ?? null,
-        postType: post.post_type === "image" ? "image" : "text",
+        postType: (post.post_type === "image" ? "image" : "text") as "image" | "text",
         likes,
         comments: post.comments.map((comment) => comment.content),
         likedByViewer: viewerId ? post.post_votes.some((vote) => vote.user_id === viewerId && vote.vote > 0) : false,
