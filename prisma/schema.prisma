@@ -708,6 +708,7 @@ model posts {
   content    String?
   media_url  String?
   post_type  String?      @default("text")
+  expires_at DateTime?    @db.Timestamptz(6)
   created_at DateTime?    @default(now()) @db.Timestamptz(6)
   comments   comments[]
   post_votes post_votes[]

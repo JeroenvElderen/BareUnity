@@ -1,8 +1,11 @@
 export type HomeFeedStory = {
   id: string;
+  postId: string;
   name: string;
   fallback: string;
   tone: string;
+  imageUrl: string | null;
+  posted: string;
 };
 
 export type HomeFeedFriend = {
@@ -18,6 +21,8 @@ export type HomeFeedPost = {
   fallback: string;
   posted: string;
   text: string;
+  mediaUrl: string | null;
+  postType: "text" | "image";
   likes: number;
   comments: string[];
   likedByViewer: boolean;

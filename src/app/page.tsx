@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import { Heart, MessageCircle, X } from "lucide-react";
 import { AppSidebar } from "@/components/sidebar/sidebar";
 import { Avatar } from "@/components/ui/avatar";
@@ -8,17 +8,60 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { HomeFeedFriend, HomeFeedPayload, HomeFeedPost, HomeFeedStory } from "@/lib/homefeed";
+import { sanitizeImageUpload } from "@/lib/image";
 import styles from "./page.module.css";
 
 function normalizePostText(text: string) {
-  return text
-    .replace(/^###\s(.+)$/gm, "<h3 class='text-base font-semibold mt-3'>$1</h3>")
-    .replace(/^##\s(.+)$/gm, "<h2 class='text-lg font-semibold mt-3'>$1</h2>")
-    .replace(/^#\s(.+)$/gm, "<h1 class='text-xl font-semibold mt-3'>$1</h1>")
-    .replace(/^[-*]\s(.+)$/gm, "<li class='ml-5 list-disc'>$1</li>")
-    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-    .replace(/\*(.+?)\*/g, "<em>$1</em>")
-    .replace(/\n/g, "<br />");
+  const escapeHtml = (value: string) =>
+    value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+  const formatInline = (value: string) =>
+    value
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/\*(.+?)\*/g, "<em>$1</em>");
+
+  const lines = text.split(/\r?\n/);
+  const html: string[] = [];
+  let listItems: string[] = [];
+  const flushList = () => {
+    if (!listItems.length) return;
+    html.push(`<ul class="my-2 list-disc pl-5">${listItems.join("")}</ul>`);
+    listItems = [];
+  };
+
+  lines.forEach((rawLine) => {
+    const line = rawLine.trimEnd();
+    if (!line.trim()) {
+      flushList();
+      return;
+    }
+
+    const safeLine = escapeHtml(line);
+    if (safeLine.startsWith("### ")) {
+      flushList();
+      html.push(`<h3 class="mt-3 text-base font-semibold">${formatInline(safeLine.slice(4))}</h3>`);
+      return;
+    }
+    if (safeLine.startsWith("## ")) {
+      flushList();
+      html.push(`<h2 class="mt-3 text-lg font-semibold">${formatInline(safeLine.slice(3))}</h2>`);
+      return;
+    }
+    if (safeLine.startsWith("# ")) {
+      flushList();
+      html.push(`<h1 class="mt-3 text-xl font-semibold">${formatInline(safeLine.slice(2))}</h1>`);
+      return;
+    }
+    if (safeLine.startsWith("- ") || safeLine.startsWith("* ")) {
+      listItems.push(`<li class="my-0.5">${formatInline(safeLine.slice(2))}</li>`);
+      return;
+    }
+
+    flushList();
+    html.push(`<p class="my-1">${formatInline(safeLine)}</p>`);
+  });
+  flushList();
+
+  return html.join("");
 }
 
 const defaultFeed: HomeFeedPayload = {
@@ -30,15 +73,21 @@ const defaultFeed: HomeFeedPayload = {
 
 export default function HomePage() {
   const [isComposerOpen, setComposerOpen] = useState(false);
+  const [composerKind, setComposerKind] = useState<"post" | "story" | null>(null);
   const [activeFeedTab, setActiveFeedTab] = useState<"following" | "forYou">("following");
   const [postTitle, setPostTitle] = useState("");
   const [postContent, setPostContent] = useState("");
+  const [postImagePreview, setPostImagePreview] = useState<string>("");
+  const [postImageDataUrl, setPostImageDataUrl] = useState<string>("");
   const [feed, setFeed] = useState<HomeFeedPayload>(defaultFeed);
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
   const [activePostId, setActivePostId] = useState<string | null>(null);
   const [isLoadingFeed, setLoadingFeed] = useState(true);
 
-  const canPublish = postTitle.trim().length > 0 && postContent.trim().length > 0;
+  const canPublish =
+    composerKind === "story"
+      ? Boolean(postImageDataUrl)
+      : postTitle.trim().length > 0 && (postContent.trim().length > 0 || Boolean(postImageDataUrl));
 
   const postPreview = useMemo(() => {
     if (!postContent.trim()) return "";
@@ -66,21 +115,48 @@ export default function HomePage() {
     return () => window.clearTimeout(timer);
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (postImagePreview) URL.revokeObjectURL(postImagePreview);
+    };
+  }, [postImagePreview]);
+
   const publishPost = async () => {
-    if (!canPublish) return;
+    if (!canPublish || !composerKind) return;
 
     const response = await fetch("/api/homefeed", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: postTitle, content: postContent }),
+      body: JSON.stringify({ title: postTitle, content: postContent, mediaUrl: postImageDataUrl, kind: composerKind }),
     });
 
     if (!response.ok) return;
 
     setPostTitle("");
     setPostContent("");
+    setPostImagePreview("");
+    setPostImageDataUrl("");
+    setComposerKind(null);
     setComposerOpen(false);
     await loadFeed();
+  };
+
+  const onPickImage = async (event: ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = event.target.files?.[0];
+    if (!selectedFile) return;
+
+    const sanitized = await sanitizeImageUpload(selectedFile, composerKind === "story" ? 1440 : 1920);
+    if (postImagePreview) URL.revokeObjectURL(postImagePreview);
+    const preview = URL.createObjectURL(sanitized);
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result ?? ""));
+      reader.onerror = () => reject(new Error("Could not read image file"));
+      reader.readAsDataURL(sanitized);
+    });
+
+    setPostImagePreview(preview);
+    setPostImageDataUrl(dataUrl);
   };
 
   const toggleLike = async (postId: string) => {
@@ -110,6 +186,14 @@ export default function HomePage() {
   const posts = feed.posts;
   const stories: HomeFeedStory[] = feed.stories;
   const friends: HomeFeedFriend[] = feed.friends;
+  const closeComposer = () => {
+    setComposerOpen(false);
+    setComposerKind(null);
+    setPostTitle("");
+    setPostContent("");
+    setPostImagePreview("");
+    setPostImageDataUrl("");
+  };
 
   return (
     <main className={styles.main}>
@@ -163,7 +247,15 @@ export default function HomePage() {
                       key={story.id}
                       className="relative flex shrink-0 flex-col items-center gap-1 min-[1100px]:items-stretch min-[1100px]:gap-0 min-[1100px]:overflow-hidden min-[1100px]:rounded-2xl min-[1100px]:border min-[1100px]:border-white/60 min-[1100px]:bg-white min-[1100px]:shadow-sm"
                     >
-                      <div className={`hidden min-[1100px]:block min-[1100px]:h-48 min-[1100px]:bg-gradient-to-b ${story.tone}`} />
+                      {story.imageUrl ? (
+                        <img
+                          src={story.imageUrl}
+                          alt={`${story.name}'s story`}
+                          className="hidden h-48 w-full object-cover min-[1100px]:block"
+                        />
+                      ) : (
+                        <div className={`hidden min-[1100px]:block min-[1100px]:h-48 min-[1100px]:bg-gradient-to-b ${story.tone}`} />
+                      )}
                       <div className="rounded-full bg-gradient-to-br from-fuchsia-500 via-rose-500 to-amber-400 p-[2px] min-[1100px]:absolute min-[1100px]:left-3 min-[1100px]:top-3">
                         <Avatar
                           alt={story.name}
@@ -176,6 +268,9 @@ export default function HomePage() {
                       </p>
                       <p className="hidden min-[1100px]:absolute min-[1100px]:bottom-3 min-[1100px]:left-3 min-[1100px]:block min-[1100px]:text-sm min-[1100px]:font-semibold min-[1100px]:text-white">
                         {story.name}
+                      </p>
+                      <p className="hidden min-[1100px]:absolute min-[1100px]:bottom-0 min-[1100px]:right-3 min-[1100px]:block min-[1100px]:text-[11px] min-[1100px]:text-white/90">
+                        {story.posted}
                       </p>
                     </article>
                   ))}
@@ -207,12 +302,20 @@ export default function HomePage() {
                     <button type="button" onClick={() => setActivePostId(post.id)} className="mb-3 w-full text-left">
                       <p className="whitespace-pre-line text-sm text-[rgb(var(--text))]">{post.text}</p>
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setActivePostId(post.id)}
-                      className={`mb-4 h-56 w-full rounded-2xl bg-gradient-to-r ${post.tone}`}
-                      aria-label={`Open full post from ${post.author}`}
-                    />
+                    <button type="button" onClick={() => setActivePostId(post.id)} className="mb-4 block w-full text-left">
+                      {post.mediaUrl ? (
+                        <img
+                          src={post.mediaUrl}
+                          alt={`${post.author}'s post`}
+                          className="h-56 w-full rounded-2xl object-cover"
+                        />
+                      ) : (
+                        <span
+                          className={`block h-56 w-full rounded-2xl bg-gradient-to-r ${post.tone}`}
+                          aria-label={`Open full post from ${post.author}`}
+                        />
+                      )}
+                    </button>
 
                     <div className="mb-3 flex flex-wrap items-center gap-2 border-t border-[rgb(var(--border))] pt-3">
                       <Button size="sm" variant={post.likedByViewer ? "default" : "outline"} onClick={() => toggleLike(post.id)}>
@@ -263,12 +366,18 @@ export default function HomePage() {
           <div className="w-full max-w-2xl rounded-2xl border border-[rgb(var(--border))] bg-white p-5 shadow-xl">
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-lg font-semibold text-[rgb(var(--text-strong))]">Create new post</h2>
-                <p className="text-sm text-[rgb(var(--muted))]">Supports markdown styling: headings (#), bullet points (-), bold (**text**).</p>
+                <h2 className="text-lg font-semibold text-[rgb(var(--text-strong))]">
+                  {composerKind === "story" ? "Create story" : "Create new post"}
+                </h2>
+                <p className="text-sm text-[rgb(var(--muted))]">
+                  {composerKind === "story"
+                    ? "Stories expire after 24 hours and the image is removed automatically."
+                    : "Use markdown: # heading, ## subheading, - bullet, **bold**, *italic*."}
+                </p>
               </div>
               <button
                 type="button"
-                onClick={() => setComposerOpen(false)}
+                onClick={closeComposer}
                 aria-label="Close post composer"
                 className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[rgb(var(--border))] text-[rgb(var(--muted))] hover:bg-[rgb(var(--bg-soft))]"
               >
@@ -276,41 +385,63 @@ export default function HomePage() {
               </button>
             </div>
 
-            <div className="space-y-3">
-              <input
-                type="text"
-                value={postTitle}
-                onChange={(event) => setPostTitle(event.target.value)}
-                placeholder="Post heading"
-                className="h-10 w-full rounded-lg border border-[rgb(var(--border))] px-3 text-sm outline-none focus:ring-2 focus:ring-[rgb(var(--ring))]"
-              />
-
-              <div className="grid grid-cols-3 gap-2 text-xs text-[rgb(var(--muted))] sm:grid-cols-6">
-                {[
-                  { label: "Heading", token: "# Heading" },
-                  { label: "Bullet", token: "- Bullet point" },
-                  { label: "Bold", token: "**bold text**" },
-                  { label: "Italic", token: "*italic text*" },
-                  { label: "Subheading", token: "## Subheading" },
-                  { label: "List", token: "- First\n- Second" },
-                ].map((option) => (
-                  <button
-                    key={option.label}
-                    type="button"
-                    className="rounded-md border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))] px-2 py-1"
-                    onClick={() => setPostContent((current) => `${current}${current ? "\n" : ""}${option.token}`)}
-                  >
-                    {option.label}
-                  </button>
-                ))}
+            {!composerKind ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  className="rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))] p-4 text-left hover:bg-white"
+                  onClick={() => setComposerKind("post")}
+                >
+                  <p className="font-semibold text-[rgb(var(--text-strong))]">New post</p>
+                  <p className="mt-1 text-sm text-[rgb(var(--muted))]">Share text, markdown formatting, and an image.</p>
+                </button>
+                <button
+                  type="button"
+                  className="rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))] p-4 text-left hover:bg-white"
+                  onClick={() => setComposerKind("story")}
+                >
+                  <p className="font-semibold text-[rgb(var(--text-strong))]">New story</p>
+                  <p className="mt-1 text-sm text-[rgb(var(--muted))]">Photo story that expires after 24 hours.</p>
+                </button>
               </div>
+            ) : null}
+
+            {composerKind ? (
+            <div className="space-y-3">
+              {composerKind === "post" ? (
+                <input
+                  type="text"
+                  value={postTitle}
+                  onChange={(event) => setPostTitle(event.target.value)}
+                  placeholder="Post heading"
+                  className="h-10 w-full rounded-lg border border-[rgb(var(--border))] px-3 text-sm outline-none focus:ring-2 focus:ring-[rgb(var(--ring))]"
+                />
+              ) : (
+                <input
+                  type="text"
+                  value={postTitle}
+                  onChange={(event) => setPostTitle(event.target.value)}
+                  placeholder="Story caption (optional)"
+                  className="h-10 w-full rounded-lg border border-[rgb(var(--border))] px-3 text-sm outline-none focus:ring-2 focus:ring-[rgb(var(--ring))]"
+                />
+              )}
 
               <textarea
                 value={postContent}
                 onChange={(event) => setPostContent(event.target.value)}
                 className="min-h-40 w-full rounded-lg border border-[rgb(var(--border))] px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[rgb(var(--ring))]"
-                placeholder="Write your post content here..."
+                placeholder={composerKind === "story" ? "Add an optional story note..." : "Write your post content here..."}
               />
+
+              <div className="space-y-2">
+                <label className="block text-sm text-[rgb(var(--muted))]">
+                  {composerKind === "story" ? "Story image (required)" : "Post image (optional)"}
+                </label>
+                <input type="file" accept="image/*" onChange={(event) => void onPickImage(event)} />
+                {postImagePreview ? (
+                  <img src={postImagePreview} alt="Selected upload preview" className="max-h-64 w-full rounded-xl object-cover" />
+                ) : null}
+              </div>
 
               <div className="rounded-lg bg-[rgb(var(--bg-soft))] p-3">
                 <p className="mb-2 text-xs uppercase tracking-[0.12em] text-[rgb(var(--muted))]">Preview</p>
@@ -322,14 +453,15 @@ export default function HomePage() {
               </div>
 
               <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setComposerOpen(false)}>
+                <Button variant="outline" onClick={closeComposer}>
                   Cancel
                 </Button>
                 <Button onClick={publishPost} disabled={!canPublish}>
-                  Publish post
+                  {composerKind === "story" ? "Publish story" : "Publish post"}
                 </Button>
               </div>
             </div>
+            ) : null}
           </div>
         </div>
       ) : null}
@@ -356,7 +488,11 @@ export default function HomePage() {
             </div>
 
             <p className="mb-3 whitespace-pre-line text-sm text-[rgb(var(--text))]">{activePost.text}</p>
-            <div className={`mb-4 h-64 rounded-2xl bg-gradient-to-r ${activePost.tone}`} />
+            {activePost.mediaUrl ? (
+              <img src={activePost.mediaUrl} alt={`${activePost.author}'s full post`} className="mb-4 h-64 w-full rounded-2xl object-cover" />
+            ) : (
+              <div className={`mb-4 h-64 rounded-2xl bg-gradient-to-r ${activePost.tone}`} />
+            )}
 
             <div className="mb-3 flex flex-wrap items-center gap-2 border-t border-[rgb(var(--border))] pt-3">
               <Button size="sm" variant={activePost.likedByViewer ? "default" : "outline"} onClick={() => toggleLike(activePost.id)}>
