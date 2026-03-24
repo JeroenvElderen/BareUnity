@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { Heart, MessageCircle, X } from "lucide-react";
 import { AppSidebar } from "@/components/sidebar/sidebar";
 import { Avatar } from "@/components/ui/avatar";
@@ -186,14 +185,19 @@ export default function HomePage() {
                 <CardHeader className="pb-4">
                   <CardTitle className="text-sm uppercase tracking-[0.12em] text-[rgb(var(--muted))]">Stories</CardTitle>
                 </CardHeader>
-                <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <CardContent className="flex items-center gap-2 overflow-x-auto pb-1 min-[1100px]:grid min-[1100px]:gap-3 min-[1100px]:grid-cols-4">
                   {stories.map((story) => (
-                    <article key={story.id} className="relative overflow-hidden rounded-2xl border border-white/60 bg-white shadow-sm">
-                      <div className={`h-48 bg-gradient-to-b ${story.tone}`} />
-                      <div className="absolute left-3 top-3">
-                        <Avatar alt={story.name} fallback={story.fallback} className="h-10 w-10 border-white" />
+                    <article
+                      key={story.id}
+                      className="relative flex shrink-0 flex-col items-center gap-1 min-[1100px]:items-stretch min-[1100px]:gap-0 min-[1100px]:overflow-hidden min-[1100px]:rounded-2xl min-[1100px]:border min-[1100px]:border-white/60 min-[1100px]:bg-white min-[1100px]:shadow-sm"
+                    >
+                      <div className={`hidden min-[1100px]:block min-[1100px]:h-48 min-[1100px]:bg-gradient-to-b ${story.tone}`} />
+                      <div className="min-[1100px]:absolute min-[1100px]:left-3 min-[1100px]:top-3">
+                        <Avatar alt={story.name} fallback={story.fallback} className="h-8 w-8 border-white min-[1100px]:h-10 min-[1100px]:w-10" />
                       </div>
-                      <p className="absolute bottom-3 left-3 text-sm font-semibold text-white">{story.name}</p>
+                      <p className="hidden min-[1100px]:absolute min-[1100px]:bottom-3 min-[1100px]:left-3 min-[1100px]:block min-[1100px]:text-sm min-[1100px]:font-semibold min-[1100px]:text-white">
+                        {story.name}
+                      </p>
                     </article>
                   ))}
                 </CardContent>
@@ -248,7 +252,7 @@ export default function HomePage() {
               })}
             </div>
 
-            <aside className="space-y-4">
+            <aside className="hidden space-y-4 min-[1100px]:block">
               <Card className="border-0 bg-[#eaf3ff]">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm uppercase tracking-[0.12em] text-[rgb(var(--muted))]">Friends</CardTitle>
@@ -267,23 +271,6 @@ export default function HomePage() {
                       />
                     </div>
                   ))}
-                </CardContent>
-              </Card>
-
-              <Card className="border-0 bg-white">
-                <CardContent className="p-4">
-                  <p className="mb-2 text-xs uppercase tracking-[0.12em] text-[rgb(var(--muted))]">Quick links</p>
-                  <div className="flex flex-wrap gap-2">
-                    <Button asChild variant="outline" size="sm">
-                      <Link href="/gallery">Gallery</Link>
-                    </Button>
-                    <Button asChild variant="outline" size="sm">
-                      <Link href="/explore">Explore</Link>
-                    </Button>
-                    <Button asChild variant="outline" size="sm">
-                      <Link href="/profile">Profile</Link>
-                    </Button>
-                  </div>
                 </CardContent>
               </Card>
             </aside>
