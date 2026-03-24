@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ChangeEvent } from "react";
-import { Heart, MessageCircle, X } from "lucide-react";
+import { Ellipsis, Heart, MessageCircle, Pencil, Trash2, X } from "lucide-react";
 import { AppSidebar } from "@/components/sidebar/sidebar";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -83,6 +83,7 @@ export default function HomePage() {
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
   const [activePostId, setActivePostId] = useState<string | null>(null);
   const [isLoadingFeed, setLoadingFeed] = useState(true);
+  const [openPostMenuId, setOpenPostMenuId] = useState<string | null>(null);
 
   const canPublish =
     composerKind === "story"
@@ -179,6 +180,46 @@ export default function HomePage() {
     if (!response.ok) return;
 
     setCommentDrafts((current) => ({ ...current, [postId]: "" }));
+    await loadFeed();
+  };
+
+  const editPost = async (post: HomeFeedPost) => {
+    const [existingTitle, ...existingContentLines] = post.text.split("\n");
+    const nextTitle = window.prompt("Edit post title", existingTitle ?? "");
+    if (nextTitle === null) return;
+    const nextContent = window.prompt("Edit post content", existingContentLines.join("\n"));
+    if (nextContent === null) return;
+
+    const response = await fetch(`/api/homefeed/posts/${post.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: nextTitle, content: nextContent }),
+    });
+
+    if (!response.ok) return;
+    setOpenPostMenuId(null);
+    await loadFeed();
+  };
+
+  const deletePost = async (postId: string) => {
+    const shouldDelete = window.confirm("Delete this post? This action cannot be undone.");
+    if (!shouldDelete) return;
+
+    const response = await fetch(`/api/homefeed/posts/${postId}`, { method: "DELETE" });
+    if (!response.ok) return;
+
+    setOpenPostMenuId(null);
+    if (activePostId === postId) setActivePostId(null);
+    await loadFeed();
+  };
+
+  const deleteComment = async (postId: string, commentId: string) => {
+    const shouldDelete = window.confirm("Delete this comment?");
+    if (!shouldDelete) return;
+
+    const response = await fetch(`/api/homefeed/posts/${postId}/comments/${commentId}`, { method: "DELETE" });
+    if (!response.ok) return;
+
     await loadFeed();
   };
 
@@ -295,9 +336,38 @@ export default function HomePage() {
                           <p className="text-xs text-[rgb(var(--muted))]">{post.posted}</p>
                         </div>
                       </div>
-                      <button type="button" className="text-sm text-[rgb(var(--muted))]">
-                        •••
-                      </button>
+                      {feed.viewerId && post.authorId === feed.viewerId ? (
+                        <div className="relative">
+                          <button
+                            type="button"
+                            aria-label="Open post actions"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[rgb(var(--muted))] hover:bg-[rgb(var(--bg-soft))]"
+                            onClick={() => setOpenPostMenuId((current) => (current === post.id ? null : post.id))}
+                          >
+                            <Ellipsis className="h-4 w-4" />
+                          </button>
+                          {openPostMenuId === post.id ? (
+                            <div className="absolute right-0 top-9 z-20 min-w-32 rounded-lg border border-[rgb(var(--border))] bg-white p-1 shadow-lg">
+                              <button
+                                type="button"
+                                onClick={() => void editPost(post)}
+                                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-[rgb(var(--text))] hover:bg-[rgb(var(--bg-soft))]"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                                Edit post
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => void deletePost(post.id)}
+                                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-rose-600 hover:bg-rose-50"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                                Delete post
+                              </button>
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : null}
                       </div>
                     <button type="button" onClick={() => setActivePostId(post.id)} className="mb-3 w-full text-left">
                       <p className="whitespace-pre-line text-sm text-[rgb(var(--text))]">{post.text}</p>
@@ -506,12 +576,21 @@ export default function HomePage() {
             </div>
 
             <div className="space-y-2">
-              {activePost.comments.map((comment, idx) => (
+              {activePost.comments.map((comment) => (
                 <div
-                  key={`${activePost.id}-${idx}`}
-                  className="rounded-lg bg-[rgb(var(--bg-soft))] px-3 py-2 text-sm text-[rgb(var(--text))]"
+                  key={comment.id}
+                  className="flex items-center justify-between gap-3 rounded-lg bg-[rgb(var(--bg-soft))] px-3 py-2 text-sm text-[rgb(var(--text))]"
                 >
-                  {comment}
+                  <span>{comment.content}</span>
+                  {feed.viewerId && comment.authorId === feed.viewerId ? (
+                    <button
+                      type="button"
+                      onClick={() => void deleteComment(activePost.id, comment.id)}
+                      className="text-xs font-medium text-rose-600 hover:underline"
+                    >
+                      Delete
+                    </button>
+                  ) : null}
                 </div>
               ))}
               <div className="flex items-center gap-2">

@@ -42,7 +42,7 @@ export async function GET() {
             select: { username: true, display_name: true },
           },
           comments: {
-            select: { content: true },
+            select: { id: true, content: true, author_id: true },
             orderBy: { created_at: "asc" },
           },
           post_votes: {
@@ -118,9 +118,14 @@ export async function GET() {
         mediaUrl: post.media_url ?? null,
         postType: (post.post_type === "image" ? "image" : "text") as "image" | "text",
         likes,
-        comments: post.comments.map((comment) => comment.content),
+        comments: post.comments.map((comment) => ({
+          id: comment.id,
+          content: comment.content,
+          authorId: comment.author_id ?? null,
+        })),
         likedByViewer: viewerId ? post.post_votes.some((vote) => vote.user_id === viewerId && vote.vote > 0) : false,
         tone: pickPostTone(index),
+        authorId: post.author_id ?? null,
       };
     });
 

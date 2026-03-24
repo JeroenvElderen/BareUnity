@@ -24,9 +24,16 @@ export type HomeFeedPost = {
   mediaUrl: string | null;
   postType: "text" | "image";
   likes: number;
-  comments: string[];
+  comments: HomeFeedComment[];
   likedByViewer: boolean;
   tone: string;
+  authorId: string | null;
+};
+
+export type HomeFeedComment = {
+  id: string;
+  content: string;
+  authorId: string | null;
 };
 
 export type HomeFeedPayload = {
