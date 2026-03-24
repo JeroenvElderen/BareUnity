@@ -5,12 +5,14 @@
   overflow-x: hidden; /* FIX: was clip */
   display: flex;
   flex-direction: column;
+  background: linear-gradient(180deg, rgb(var(--bg)) 0%, rgb(var(--bg-soft)) 100%);
 }
 
-.content {
-  padding: 1rem;
+.feedLayout {
+  width: 100%;
+  min-width: 0;
+  padding: 1.25rem 1rem 2rem;
   color: rgb(var(--text));
-  min-width: 0; /* safety */
 }
 
 @media (min-width: 1100px) {
@@ -18,7 +20,7 @@
     flex-direction: row;
   }
 
-  .content {
-    padding: 1.25rem;
+  .feedLayout {
+    padding: 1.5rem;
   }
 }
