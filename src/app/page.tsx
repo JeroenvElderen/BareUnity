@@ -1,65 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Heart, MessageCircle, X } from "lucide-react";
 import { AppSidebar } from "@/components/sidebar/sidebar";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import type { HomeFeedFriend, HomeFeedPayload, HomeFeedPost, HomeFeedStory } from "@/lib/homefeed";
 import styles from "./page.module.css";
-
-type Story = {
-  id: number;
-  name: string;
-  fallback: string;
-  tone: string;
-};
-
-type Friend = {
-  id: number;
-  name: string;
-  fallback: string;
-  status: "Online" | "Offline";
-};
-
-type Post = {
-  id: number;
-  author: string;
-  fallback: string;
-  posted: string;
-  text: string;
-  likes: number;
-  comments: string[];
-  tone: string;
-};
-
-const stories: Story[] = [
-  { id: 1, name: "Jenifer Caper", fallback: "JC", tone: "from-violet-600/75 to-indigo-900/90" },
-  { id: 2, name: "Della Femanel", fallback: "DF", tone: "from-amber-500/70 to-orange-900/90" },
-  { id: 3, name: "Rebecca Tarley", fallback: "RT", tone: "from-cyan-500/70 to-sky-900/90" },
-  { id: 4, name: "Garry Brasel", fallback: "GB", tone: "from-fuchsia-500/75 to-violet-950/90" },
-];
-
-const friends: Friend[] = [
-  { id: 1, name: "Stefania Backer", fallback: "SB", status: "Online" },
-  { id: 2, name: "Louis Sheldon", fallback: "LS", status: "Online" },
-  { id: 3, name: "Allan Butler", fallback: "AB", status: "Offline" },
-  { id: 4, name: "Carl Murphy", fallback: "CM", status: "Offline" },
-];
-
-const starterPosts: Post[] = [
-  {
-    id: 1,
-    author: "Kimberly Mason",
-    fallback: "KM",
-    posted: "1 day ago",
-    text: "This weekend was unforgettable. Thanks my friends <3",
-    likes: 17,
-    comments: ["Looks like such a great weekend!", "Love this energy 🔥"],
-    tone: "from-cyan-400/80 via-sky-400/70 to-indigo-600/80",
-  },
-];
 
 function normalizePostText(text: string) {
   return text
@@ -72,15 +21,22 @@ function normalizePostText(text: string) {
     .replace(/\n/g, "<br />");
 }
 
+const defaultFeed: HomeFeedPayload = {
+  stories: [],
+  friends: [],
+  posts: [],
+  viewerId: null,
+};
+
 export default function HomePage() {
   const [isComposerOpen, setComposerOpen] = useState(false);
   const [activeFeedTab, setActiveFeedTab] = useState<"following" | "forYou">("following");
   const [postTitle, setPostTitle] = useState("");
   const [postContent, setPostContent] = useState("");
-  const [posts, setPosts] = useState<Post[]>(starterPosts);
-  const [likedPostIds, setLikedPostIds] = useState<number[]>([]);
-  const [commentDrafts, setCommentDrafts] = useState<Record<number, string>>({});
-  const [activePostId, setActivePostId] = useState<number | null>(null);
+  const [feed, setFeed] = useState<HomeFeedPayload>(defaultFeed);
+  const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
+  const [activePostId, setActivePostId] = useState<string | null>(null);
+  const [isLoadingFeed, setLoadingFeed] = useState(true);
 
   const canPublish = postTitle.trim().length > 0 && postContent.trim().length > 0;
 
@@ -89,55 +45,71 @@ export default function HomePage() {
     return normalizePostText(postContent);
   }, [postContent]);
 
-  const publishPost = () => {
+  const loadFeed = async (options?: { showSpinner?: boolean }) => {
+    if (options?.showSpinner) setLoadingFeed(true);
+    const response = await fetch("/api/homefeed", { cache: "no-store" });
+    if (!response.ok) {
+      setLoadingFeed(false);
+      return;
+    }
+
+    const data = (await response.json()) as HomeFeedPayload;
+    setFeed(data);
+    setLoadingFeed(false);
+  };
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void loadFeed();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  const publishPost = async () => {
     if (!canPublish) return;
 
-    const newPost: Post = {
-      id: Date.now(),
-      author: "You",
-      fallback: "YO",
-      posted: "Just now",
-      text: `${postTitle}\n${postContent}`,
-      likes: 0,
-      comments: [],
-      tone: "from-teal-400/80 via-emerald-400/70 to-cyan-500/80",
-    };
+    const response = await fetch("/api/homefeed", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: postTitle, content: postContent }),
+    });
 
-    setPosts((currentPosts) => [newPost, ...currentPosts]);
+    if (!response.ok) return;
+
     setPostTitle("");
     setPostContent("");
     setComposerOpen(false);
+    await loadFeed();
   };
 
-  const toggleLike = (postId: number) => {
-    const alreadyLiked = likedPostIds.includes(postId);
+  const toggleLike = async (postId: string) => {
+    const response = await fetch(`/api/homefeed/posts/${postId}/like`, { method: "POST" });
+    if (!response.ok) return;
 
-    setLikedPostIds((currentLikedIds) =>
-      alreadyLiked ? currentLikedIds.filter((likedPostId) => likedPostId !== postId) : [...currentLikedIds, postId],
-    );
-
-    setPosts((currentPosts) =>
-      currentPosts.map((post) => {
-        if (post.id !== postId) return post;
-        return {
-          ...post,
-          likes: Math.max(0, post.likes + (alreadyLiked ? -1 : 1)),
-        };
-      }),
-    );
+    await loadFeed();
   };
 
-  const addComment = (postId: number) => {
+  const addComment = async (postId: string) => {
     const value = commentDrafts[postId]?.trim();
     if (!value) return;
 
-    setPosts((currentPosts) =>
-      currentPosts.map((post) => (post.id === postId ? { ...post, comments: [...post.comments, value] } : post)),
-    );
+    const response = await fetch(`/api/homefeed/posts/${postId}/comments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: value }),
+    });
+
+    if (!response.ok) return;
+
     setCommentDrafts((current) => ({ ...current, [postId]: "" }));
+    await loadFeed();
   };
 
-  const activePost = activePostId ? posts.find((post) => post.id === activePostId) ?? null : null;
+  const activePost = activePostId ? feed.posts.find((post) => post.id === activePostId) ?? null : null;
+  const posts = feed.posts;
+  const stories: HomeFeedStory[] = feed.stories;
+  const friends: HomeFeedFriend[] = feed.friends;
 
   return (
     <main className={styles.main}>
@@ -207,56 +179,56 @@ export default function HomePage() {
                       </p>
                     </article>
                   ))}
+                  {stories.length === 0 && <p className="text-sm text-[rgb(var(--muted))]">No stories yet.</p>}
                 </CardContent>
               </Card>
 
-              {posts.map((post) => {
-                const liked = likedPostIds.includes(post.id);
-                return (
-                  <Card key={post.id} className="border-0 bg-white">
-                    <CardContent className="p-4">
-                      <div className="mb-3 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <Avatar alt={post.author} fallback={post.fallback} className="h-11 w-11" />
-                          <div>
-                            <p className="text-sm font-semibold text-[rgb(var(--text-strong))]">{post.author}</p>
-                            <p className="text-xs text-[rgb(var(--muted))]">{post.posted}</p>
-                          </div>
-                        </div>
-                        <button type="button" className="text-sm text-[rgb(var(--muted))]">
-                          •••
-                        </button>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setActivePostId(post.id)}
-                        className="mb-3 w-full text-left"
-                      >
-                        <p className="whitespace-pre-line text-sm text-[rgb(var(--text))]">{post.text}</p>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setActivePostId(post.id)}
-                        className={`mb-4 h-56 w-full rounded-2xl bg-gradient-to-r ${post.tone}`}
-                        aria-label={`Open full post from ${post.author}`}
-                      />
+              {isLoadingFeed && posts.length === 0 ? (
+                <Card className="border-0 bg-white">
+                  <CardContent className="p-4 text-sm text-[rgb(var(--muted))]">Loading your feed…</CardContent>
+                </Card>
+              ) : null}
 
-                      <div className="mb-3 flex flex-wrap items-center gap-2 border-t border-[rgb(var(--border))] pt-3">
-                        <Button size="sm" variant={liked ? "default" : "outline"} onClick={() => toggleLike(post.id)}>
-                          <Heart className={`mr-1 h-4 w-4 ${liked ? "fill-current" : ""}`} />
-                          Like ({post.likes})
-                        </Button>
-                        <button type="button" onClick={() => setActivePostId(post.id)}>
-                          <Badge variant="outline" className="px-3 py-1 text-xs hover:bg-[rgb(var(--bg-soft))]">
-                            <MessageCircle className="mr-1 h-3.5 w-3.5" />
-                            {post.comments.length} comments
-                          </Badge>
-                        </button>
+              {posts.map((post: HomeFeedPost) => (
+                <Card key={post.id} className="border-0 bg-white">
+                  <CardContent className="p-4">
+                    <div className="mb-3 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <Avatar alt={post.author} fallback={post.fallback} className="h-11 w-11" />
+                        <div>
+                          <p className="text-sm font-semibold text-[rgb(var(--text-strong))]">{post.author}</p>
+                          <p className="text-xs text-[rgb(var(--muted))]">{post.posted}</p>
+                        </div>
                       </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
+                      <button type="button" className="text-sm text-[rgb(var(--muted))]">
+                        •••
+                      </button>
+                      </div>
+                    <button type="button" onClick={() => setActivePostId(post.id)} className="mb-3 w-full text-left">
+                      <p className="whitespace-pre-line text-sm text-[rgb(var(--text))]">{post.text}</p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActivePostId(post.id)}
+                      className={`mb-4 h-56 w-full rounded-2xl bg-gradient-to-r ${post.tone}`}
+                      aria-label={`Open full post from ${post.author}`}
+                    />
+
+                    <div className="mb-3 flex flex-wrap items-center gap-2 border-t border-[rgb(var(--border))] pt-3">
+                      <Button size="sm" variant={post.likedByViewer ? "default" : "outline"} onClick={() => toggleLike(post.id)}>
+                        <Heart className={`mr-1 h-4 w-4 ${post.likedByViewer ? "fill-current" : ""}`} />
+                        Like ({post.likes})
+                      </Button>
+                      <button type="button" onClick={() => setActivePostId(post.id)}>
+                        <Badge variant="outline" className="px-3 py-1 text-xs hover:bg-[rgb(var(--bg-soft))]">
+                          <MessageCircle className="mr-1 h-3.5 w-3.5" />
+                          {post.comments.length} comments
+                        </Badge>
+                      </button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
 
             <aside className="hidden space-y-4 min-[1100px]:block">
@@ -278,6 +250,7 @@ export default function HomePage() {
                       />
                     </div>
                   ))}
+                  {friends.length === 0 && <p className="text-sm text-[rgb(var(--muted))]">No friends added yet.</p>}
                 </CardContent>
               </Card>
             </aside>
@@ -342,10 +315,7 @@ export default function HomePage() {
               <div className="rounded-lg bg-[rgb(var(--bg-soft))] p-3">
                 <p className="mb-2 text-xs uppercase tracking-[0.12em] text-[rgb(var(--muted))]">Preview</p>
                 {postPreview ? (
-                  <div
-                    className="prose prose-sm max-w-none text-[rgb(var(--text))]"
-                    dangerouslySetInnerHTML={{ __html: postPreview }}
-                  />
+                  <div className="prose prose-sm max-w-none text-[rgb(var(--text))]" dangerouslySetInnerHTML={{ __html: postPreview }} />
                 ) : (
                   <p className="text-sm text-[rgb(var(--muted))]">Start typing to preview formatted content.</p>
                 )}
@@ -389,12 +359,8 @@ export default function HomePage() {
             <div className={`mb-4 h-64 rounded-2xl bg-gradient-to-r ${activePost.tone}`} />
 
             <div className="mb-3 flex flex-wrap items-center gap-2 border-t border-[rgb(var(--border))] pt-3">
-              <Button
-                size="sm"
-                variant={likedPostIds.includes(activePost.id) ? "default" : "outline"}
-                onClick={() => toggleLike(activePost.id)}
-              >
-                <Heart className={`mr-1 h-4 w-4 ${likedPostIds.includes(activePost.id) ? "fill-current" : ""}`} />
+              <Button size="sm" variant={activePost.likedByViewer ? "default" : "outline"} onClick={() => toggleLike(activePost.id)}>
+                <Heart className={`mr-1 h-4 w-4 ${activePost.likedByViewer ? "fill-current" : ""}`} />
                 Like ({activePost.likes})
               </Button>
               <Badge variant="outline" className="px-3 py-1 text-xs">
@@ -420,7 +386,7 @@ export default function HomePage() {
                   onKeyDown={(event) => {
                     if (event.key === "Enter") {
                       event.preventDefault();
-                      addComment(activePost.id);
+                      void addComment(activePost.id);
                     }
                   }}
                   placeholder="Write a comment..."
