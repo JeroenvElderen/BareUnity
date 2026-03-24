@@ -75,11 +75,13 @@ function normalizePostText(text: string) {
 
 export default function HomePage() {
   const [isComposerOpen, setComposerOpen] = useState(false);
+  const [activeFeedTab, setActiveFeedTab] = useState<"following" | "forYou">("following");
   const [postTitle, setPostTitle] = useState("");
   const [postContent, setPostContent] = useState("");
   const [posts, setPosts] = useState<Post[]>(starterPosts);
   const [likedPostIds, setLikedPostIds] = useState<number[]>([]);
   const [commentDrafts, setCommentDrafts] = useState<Record<number, string>>({});
+  const [activePostId, setActivePostId] = useState<number | null>(null);
 
   const canPublish = postTitle.trim().length > 0 && postContent.trim().length > 0;
 
@@ -136,6 +138,8 @@ export default function HomePage() {
     setCommentDrafts((current) => ({ ...current, [postId]: "" }));
   };
 
+  const activePost = activePostId ? posts.find((post) => post.id === activePostId) ?? null : null;
+
   return (
     <main className={styles.main}>
       <AppSidebar />
@@ -147,10 +151,29 @@ export default function HomePage() {
               <p className="text-xs uppercase tracking-[0.16em] text-[rgb(var(--muted))]">Home feed</p>
               <h1 className="text-lg font-semibold text-[rgb(var(--text-strong))]">Social dashboard</h1>
             </div>
-            <div className="flex items-center gap-2">
-              <Button size="sm" variant="outline">
+            <div className="flex items-center gap-2 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))] p-1">
+              <button
+                type="button"
+                onClick={() => setActiveFeedTab("following")}
+                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                  activeFeedTab === "following"
+                    ? "bg-white text-[rgb(var(--text-strong))] shadow-sm"
+                    : "text-[rgb(var(--muted))] hover:text-[rgb(var(--text-strong))]"
+                }`}
+              >
                 Following
-              </Button>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveFeedTab("forYou")}
+                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                  activeFeedTab === "forYou"
+                    ? "bg-white text-[rgb(var(--text-strong))] shadow-sm"
+                    : "text-[rgb(var(--muted))] hover:text-[rgb(var(--text-strong))]"
+                }`}
+              >
+                For you
+              </button>
               <Button size="sm" onClick={() => setComposerOpen(true)}>
                 Create
               </Button>
@@ -193,49 +216,31 @@ export default function HomePage() {
                           •••
                         </button>
                       </div>
-                      <p className="mb-3 whitespace-pre-line text-sm text-[rgb(var(--text))]">{post.text}</p>
-                      <div className={`mb-4 h-56 rounded-2xl bg-gradient-to-r ${post.tone}`} />
+                      <button
+                        type="button"
+                        onClick={() => setActivePostId(post.id)}
+                        className="mb-3 w-full text-left"
+                      >
+                        <p className="whitespace-pre-line text-sm text-[rgb(var(--text))]">{post.text}</p>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setActivePostId(post.id)}
+                        className={`mb-4 h-56 w-full rounded-2xl bg-gradient-to-r ${post.tone}`}
+                        aria-label={`Open full post from ${post.author}`}
+                      />
 
                       <div className="mb-3 flex flex-wrap items-center gap-2 border-t border-[rgb(var(--border))] pt-3">
                         <Button size="sm" variant={liked ? "default" : "outline"} onClick={() => toggleLike(post.id)}>
                           <Heart className={`mr-1 h-4 w-4 ${liked ? "fill-current" : ""}`} />
                           Like ({post.likes})
                         </Button>
-                        <Badge variant="outline" className="px-3 py-1 text-xs">
-                          <MessageCircle className="mr-1 h-3.5 w-3.5" />
-                          {post.comments.length} comments
-                        </Badge>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        {post.comments.map((comment, idx) => (
-                          <div
-                            key={`${post.id}-${idx}`}
-                            className="rounded-lg bg-[rgb(var(--bg-soft))] px-3 py-2 text-sm text-[rgb(var(--text))]"
-                          >
-                            {comment}
-                          </div>
-                        ))}
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="text"
-                            value={commentDrafts[post.id] ?? ""}
-                            onChange={(event) =>
-                              setCommentDrafts((current) => ({ ...current, [post.id]: event.target.value }))
-                            }
-                            onKeyDown={(event) => {
-                              if (event.key === "Enter") {
-                                event.preventDefault();
-                                addComment(post.id);
-                              }
-                            }}
-                            placeholder="Write a comment..."
-                            className="h-9 flex-1 rounded-lg border border-[rgb(var(--border))] px-3 text-sm outline-none focus:ring-2 focus:ring-[rgb(var(--ring))]"
-                          />
-                          <Button size="sm" onClick={() => addComment(post.id)}>
-                            Post
-                          </Button>
-                        </div>
+                        <button type="button" onClick={() => setActivePostId(post.id)}>
+                          <Badge variant="outline" className="px-3 py-1 text-xs hover:bg-[rgb(var(--bg-soft))]">
+                            <MessageCircle className="mr-1 h-3.5 w-3.5" />
+                            {post.comments.length} comments
+                          </Badge>
+                        </button>
                       </div>
                     </CardContent>
                   </Card>
@@ -255,7 +260,6 @@ export default function HomePage() {
                         <Avatar alt={friend.name} fallback={friend.fallback} className="h-10 w-10" />
                         <div>
                           <p className="text-sm font-semibold text-[rgb(var(--text-strong))]">{friend.name}</p>
-                          <p className="text-xs text-[rgb(var(--muted))]">{friend.status}</p>
                         </div>
                       </div>
                       <span
@@ -359,6 +363,77 @@ export default function HomePage() {
                 </Button>
                 <Button onClick={publishPost} disabled={!canPublish}>
                   Publish post
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {activePost ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 py-8" role="dialog" aria-modal="true">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-[rgb(var(--border))] bg-white p-5 shadow-xl">
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <Avatar alt={activePost.author} fallback={activePost.fallback} className="h-11 w-11" />
+                <div>
+                  <p className="text-sm font-semibold text-[rgb(var(--text-strong))]">{activePost.author}</p>
+                  <p className="text-xs text-[rgb(var(--muted))]">{activePost.posted}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActivePostId(null)}
+                aria-label="Close full post"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[rgb(var(--border))] text-[rgb(var(--muted))] hover:bg-[rgb(var(--bg-soft))]"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <p className="mb-3 whitespace-pre-line text-sm text-[rgb(var(--text))]">{activePost.text}</p>
+            <div className={`mb-4 h-64 rounded-2xl bg-gradient-to-r ${activePost.tone}`} />
+
+            <div className="mb-3 flex flex-wrap items-center gap-2 border-t border-[rgb(var(--border))] pt-3">
+              <Button
+                size="sm"
+                variant={likedPostIds.includes(activePost.id) ? "default" : "outline"}
+                onClick={() => toggleLike(activePost.id)}
+              >
+                <Heart className={`mr-1 h-4 w-4 ${likedPostIds.includes(activePost.id) ? "fill-current" : ""}`} />
+                Like ({activePost.likes})
+              </Button>
+              <Badge variant="outline" className="px-3 py-1 text-xs">
+                <MessageCircle className="mr-1 h-3.5 w-3.5" />
+                {activePost.comments.length} comments
+              </Badge>
+            </div>
+
+            <div className="space-y-2">
+              {activePost.comments.map((comment, idx) => (
+                <div
+                  key={`${activePost.id}-${idx}`}
+                  className="rounded-lg bg-[rgb(var(--bg-soft))] px-3 py-2 text-sm text-[rgb(var(--text))]"
+                >
+                  {comment}
+                </div>
+              ))}
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={commentDrafts[activePost.id] ?? ""}
+                  onChange={(event) => setCommentDrafts((current) => ({ ...current, [activePost.id]: event.target.value }))}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      addComment(activePost.id);
+                    }
+                  }}
+                  placeholder="Write a comment..."
+                  className="h-9 flex-1 rounded-lg border border-[rgb(var(--border))] px-3 text-sm outline-none focus:ring-2 focus:ring-[rgb(var(--ring))]"
+                />
+                <Button size="sm" onClick={() => addComment(activePost.id)}>
+                  Post
                 </Button>
               </div>
             </div>
