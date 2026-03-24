@@ -192,9 +192,16 @@ export default function HomePage() {
                       className="relative flex shrink-0 flex-col items-center gap-1 min-[1100px]:items-stretch min-[1100px]:gap-0 min-[1100px]:overflow-hidden min-[1100px]:rounded-2xl min-[1100px]:border min-[1100px]:border-white/60 min-[1100px]:bg-white min-[1100px]:shadow-sm"
                     >
                       <div className={`hidden min-[1100px]:block min-[1100px]:h-48 min-[1100px]:bg-gradient-to-b ${story.tone}`} />
-                      <div className="min-[1100px]:absolute min-[1100px]:left-3 min-[1100px]:top-3">
-                        <Avatar alt={story.name} fallback={story.fallback} className="h-8 w-8 border-white min-[1100px]:h-10 min-[1100px]:w-10" />
+                      <div className="rounded-full bg-gradient-to-br from-fuchsia-500 via-rose-500 to-amber-400 p-[2px] min-[1100px]:absolute min-[1100px]:left-3 min-[1100px]:top-3">
+                        <Avatar
+                          alt={story.name}
+                          fallback={story.fallback}
+                          className="h-10 w-10 border-2 border-white min-[1100px]:h-10 min-[1100px]:w-10"
+                        />
                       </div>
+                      <p className="max-w-16 truncate text-center text-[11px] font-medium text-[rgb(var(--text-strong))] min-[1100px]:hidden">
+                        {story.name.split(" ")[0]}
+                      </p>
                       <p className="hidden min-[1100px]:absolute min-[1100px]:bottom-3 min-[1100px]:left-3 min-[1100px]:block min-[1100px]:text-sm min-[1100px]:font-semibold min-[1100px]:text-white">
                         {story.name}
                       </p>
