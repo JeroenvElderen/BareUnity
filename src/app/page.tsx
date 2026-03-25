@@ -84,6 +84,10 @@ export default function HomePage() {
   const [activePostId, setActivePostId] = useState<string | null>(null);
   const [isLoadingFeed, setLoadingFeed] = useState(true);
   const [openPostMenuId, setOpenPostMenuId] = useState<string | null>(null);
+  const [editingPost, setEditingPost] = useState<HomeFeedPost | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editContent, setEditContent] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<{ postId: string; commentId?: string } | null>(null);
 
   const canPublish =
     composerKind === "story"
@@ -183,43 +187,49 @@ export default function HomePage() {
     await loadFeed();
   };
 
-  const editPost = async (post: HomeFeedPost) => {
+  const openEditPostModal = (post: HomeFeedPost) => {
     const [existingTitle, ...existingContentLines] = post.text.split("\n");
-    const nextTitle = window.prompt("Edit post title", existingTitle ?? "");
-    if (nextTitle === null) return;
-    const nextContent = window.prompt("Edit post content", existingContentLines.join("\n"));
-    if (nextContent === null) return;
+    setEditingPost(post);
+    setEditTitle(existingTitle ?? "");
+    setEditContent(existingContentLines.join("\n"));
+    setOpenPostMenuId(null);
+  };
 
-    const response = await fetch(`/api/homefeed/posts/${post.id}`, {
+  const editPost = async () => {
+    if (!editingPost) return;
+
+    const response = await fetch(`/api/homefeed/posts/${editingPost.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: nextTitle, content: nextContent }),
+      body: JSON.stringify({ title: editTitle, content: editContent }),
     });
 
     if (!response.ok) return;
+    setEditingPost(null);
+    setEditTitle("");
+    setEditContent("");
     setOpenPostMenuId(null);
     await loadFeed();
   };
 
-  const deletePost = async (postId: string) => {
-    const shouldDelete = window.confirm("Delete this post? This action cannot be undone.");
-    if (!shouldDelete) return;
-
-    const response = await fetch(`/api/homefeed/posts/${postId}`, { method: "DELETE" });
-    if (!response.ok) return;
-
+  const openDeleteModal = (postId: string, commentId?: string) => {
+    setDeleteTarget({ postId, commentId });
     setOpenPostMenuId(null);
-    if (activePostId === postId) setActivePostId(null);
-    await loadFeed();
   };
 
-  const deleteComment = async (postId: string, commentId: string) => {
-    const shouldDelete = window.confirm("Delete this comment?");
-    if (!shouldDelete) return;
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
 
-    const response = await fetch(`/api/homefeed/posts/${postId}/comments/${commentId}`, { method: "DELETE" });
+    const response = await fetch(
+      deleteTarget.commentId
+        ? `/api/homefeed/posts/${deleteTarget.postId}/comments/${deleteTarget.commentId}`
+        : `/api/homefeed/posts/${deleteTarget.postId}`,
+      { method: "DELETE" },
+    );
     if (!response.ok) return;
 
+    if (!deleteTarget.commentId && activePostId === deleteTarget.postId) setActivePostId(null);
+    setDeleteTarget(null);
     await loadFeed();
   };
 
@@ -350,7 +360,7 @@ export default function HomePage() {
                             <div className="absolute right-0 top-9 z-20 min-w-32 rounded-lg border border-[rgb(var(--border))] bg-white p-1 shadow-lg">
                               <button
                                 type="button"
-                                onClick={() => void editPost(post)}
+                                onClick={() => openEditPostModal(post)}
                                 className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-[rgb(var(--text))] hover:bg-[rgb(var(--bg-soft))]"
                               >
                                 <Pencil className="h-3.5 w-3.5" />
@@ -358,7 +368,7 @@ export default function HomePage() {
                               </button>
                               <button
                                 type="button"
-                                onClick={() => void deletePost(post.id)}
+                                onClick={() => openDeleteModal(post.id)}
                                 className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-rose-600 hover:bg-rose-50"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
@@ -585,7 +595,7 @@ export default function HomePage() {
                   {feed.viewerId && comment.authorId === feed.viewerId ? (
                     <button
                       type="button"
-                      onClick={() => void deleteComment(activePost.id, comment.id)}
+                      onClick={() => openDeleteModal(activePost.id, comment.id)}
                       className="text-xs font-medium text-rose-600 hover:underline"
                     >
                       Delete
@@ -611,6 +621,78 @@ export default function HomePage() {
                   Post
                 </Button>
               </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {editingPost ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 py-8" role="dialog" aria-modal="true">
+          <div className="w-full max-w-2xl rounded-2xl border border-[rgb(var(--border))] bg-white p-5 shadow-xl">
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold text-[rgb(var(--text-strong))]">Edit post</h2>
+                <p className="text-sm text-[rgb(var(--muted))]">Adjust your post title and body text. Image changes are not available.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingPost(null);
+                  setEditTitle("");
+                  setEditContent("");
+                }}
+                aria-label="Close edit post dialog"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[rgb(var(--border))] text-[rgb(var(--muted))] hover:bg-[rgb(var(--bg-soft))]"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <input
+                type="text"
+                value={editTitle}
+                onChange={(event) => setEditTitle(event.target.value)}
+                placeholder="Post heading"
+                className="h-10 w-full rounded-lg border border-[rgb(var(--border))] px-3 text-sm outline-none focus:ring-2 focus:ring-[rgb(var(--ring))]"
+              />
+              <textarea
+                value={editContent}
+                onChange={(event) => setEditContent(event.target.value)}
+                className="min-h-40 w-full rounded-lg border border-[rgb(var(--border))] px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[rgb(var(--ring))]"
+                placeholder="Write your post content here..."
+              />
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setEditingPost(null);
+                    setEditTitle("");
+                    setEditContent("");
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button onClick={editPost}>Save changes</Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {deleteTarget ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 py-8" role="dialog" aria-modal="true">
+          <div className="w-full max-w-md rounded-2xl border border-[rgb(var(--border))] bg-white p-5 shadow-xl">
+            <h2 className="text-lg font-semibold text-[rgb(var(--text-strong))]">Delete {deleteTarget.commentId ? "comment" : "post"}?</h2>
+            <p className="mt-1 text-sm text-[rgb(var(--muted))]">
+              {deleteTarget.commentId ? "Are you sure you want to delete this comment?" : "Are you sure you want to delete this post? This action cannot be undone."}
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+                Cancel
+              </Button>
+              <Button className="bg-rose-600 text-white hover:bg-rose-700" onClick={confirmDelete}>
+                Delete
+              </Button>
             </div>
           </div>
         </div>
