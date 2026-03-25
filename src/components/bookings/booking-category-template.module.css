@@ -1,0 +1,41 @@
+.page {
+  width: 100%;
+  min-height: 100vh;
+  padding: 1.5rem 1rem 2.5rem;
+  color: rgb(var(--text));
+}
+
+.container {
+  max-width: 980px;
+  margin: 0 auto;
+  display: grid;
+  gap: 1rem;
+}
+
+.header,
+.panel {
+  border: 1px solid rgba(var(--text-rgb), 0.12);
+  border-radius: 1rem;
+  padding: 1rem;
+  background: rgba(var(--card-rgb), 0.75);
+}
+
+.header h1 {
+  margin: 0 0 0.5rem;
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: 700;
+}
+
+.header p,
+.panel p {
+  margin: 0;
+  color: rgba(var(--text-rgb), 0.75);
+  line-height: 1.45;
+}
+
+.templateList {
+  margin: 0.75rem 0 0;
+  padding-left: 1rem;
+  display: grid;
+  gap: 0.45rem;
+}

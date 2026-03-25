@@ -1,0 +1,84 @@
+.main {
+  min-height: 100vh;
+  width: 100%;
+  background: linear-gradient(180deg, rgb(var(--bg)) 0%, rgb(var(--bg-soft)) 100%);
+  color: rgb(var(--text));
+  padding: 1.5rem 1rem 2.5rem;
+}
+
+.container {
+  margin: 0 auto;
+  max-width: 1080px;
+  display: grid;
+  gap: 1.5rem;
+}
+
+.hero {
+  border: 1px solid rgba(var(--text-rgb), 0.12);
+  border-radius: 1.25rem;
+  padding: 1.5rem;
+  background: rgba(var(--card-rgb), 0.8);
+  backdrop-filter: blur(6px);
+}
+
+.hero h1 {
+  font-size: clamp(1.7rem, 3vw, 2.2rem);
+  font-weight: 700;
+  margin: 0 0 0.4rem;
+}
+
+.hero p {
+  margin: 0;
+  color: rgba(var(--text-rgb), 0.76);
+  max-width: 65ch;
+}
+
+.grid {
+  display: grid;
+  gap: 1rem;
+}
+
+@media (min-width: 820px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.card {
+  border: 1px solid rgba(var(--text-rgb), 0.12);
+  border-radius: 1rem;
+  padding: 1rem;
+  background: rgba(var(--card-rgb), 0.78);
+  display: grid;
+  gap: 0.8rem;
+}
+
+.card h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.card p {
+  margin: 0;
+  color: rgba(var(--text-rgb), 0.72);
+  line-height: 1.45;
+}
+
+.link {
+  width: fit-content;
+  text-decoration: none;
+  color: rgb(var(--brand-2));
+  border: 1px solid rgba(var(--brand-rgb), 0.4);
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+  background: rgba(var(--brand-rgb), 0.08);
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.note {
+  margin: 0;
+  font-size: 0.92rem;
+  color: rgba(var(--text-rgb), 0.68);
+}
