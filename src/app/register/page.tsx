@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import styles from "@/app/auth.module.css";
+
+type QuizAnswer = "" | "correct" | "incorrect";
 
 type RegisterState = {
   fullName: string;
@@ -14,10 +16,19 @@ type RegisterState = {
   country: string;
   membershipType: string;
   idType: string;
+  motivation: string;
+  consentCode: string;
+  quizAnswerRespect: QuizAnswer;
+  quizAnswerConsent: QuizAnswer;
+  quizAnswerReporting: QuizAnswer;
   isAdultConfirmed: boolean;
   isConsentConfirmed: boolean;
   isPolicyConfirmed: boolean;
+  isPhotoRuleConfirmed: boolean;
+  idDocument: File | null;
 };
+
+const CONSENT_CODE = "NATURISM-FIRST";
 
 const initialState: RegisterState = {
   fullName: "",
@@ -29,15 +40,27 @@ const initialState: RegisterState = {
   country: "",
   membershipType: "",
   idType: "",
+  motivation: "",
+  consentCode: "",
+  quizAnswerRespect: "",
+  quizAnswerConsent: "",
+  quizAnswerReporting: "",
   isAdultConfirmed: false,
   isConsentConfirmed: false,
   isPolicyConfirmed: false,
+  isPhotoRuleConfirmed: false,
+  idDocument: null,
 };
 
 export default function RegisterPage() {
   const [form, setForm] = useState<RegisterState>(initialState);
   const [status, setStatus] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
+
+  const quizScore = useMemo(() => {
+    const answers = [form.quizAnswerRespect, form.quizAnswerConsent, form.quizAnswerReporting];
+    return answers.filter((answer) => answer === "correct").length;
+  }, [form.quizAnswerRespect, form.quizAnswerConsent, form.quizAnswerReporting]);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -48,13 +71,45 @@ export default function RegisterPage() {
       return;
     }
 
+    if (!form.idDocument) {
+      setStatus("Please upload a government ID file for manual review.");
+      return;
+    }
+
+    if (quizScore < 3) {
+      setStatus("Please pass all 3 safety questions with consent-first answers.");
+      return;
+    }
+
     setIsLoading(true);
 
     try {
+      const payload = new FormData();
+      payload.set("fullName", form.fullName);
+      payload.set("displayName", form.displayName);
+      payload.set("email", form.email);
+      payload.set("password", form.password);
+      payload.set("dateOfBirth", form.dateOfBirth);
+      payload.set("country", form.country);
+      payload.set("membershipType", form.membershipType);
+      payload.set("idType", form.idType);
+      payload.set("motivation", form.motivation);
+      payload.set("consentCode", form.consentCode);
+      payload.set("quizAnswerRespect", form.quizAnswerRespect);
+      payload.set("quizAnswerConsent", form.quizAnswerConsent);
+      payload.set("quizAnswerReporting", form.quizAnswerReporting);
+      payload.set("isAdultConfirmed", String(form.isAdultConfirmed));
+      payload.set("isConsentConfirmed", String(form.isConsentConfirmed));
+      payload.set("isPolicyConfirmed", String(form.isPolicyConfirmed));
+      payload.set("isPhotoRuleConfirmed", String(form.isPhotoRuleConfirmed));
+
+      if (form.idDocument) {
+        payload.set("idDocument", form.idDocument);
+      }
+
       const response = await fetch("/api/auth/register", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: payload,
       });
 
       const data = (await response.json()) as { error?: string; message?: string };
@@ -78,15 +133,20 @@ export default function RegisterPage() {
       <section className={styles.shell}>
         <p className={styles.brand}>🌿 BareUnity • Naturist Community</p>
         <article className={styles.card}>
-          <h1 className={styles.title}>Create your account</h1>
+          <h1 className={styles.title}>Strict onboarding application</h1>
           <p className={styles.subtitle}>
-            Join respectfully. We verify profiles to keep the community safe,
-            adult, and authentic.
+            This platform is free for members, but every applicant must complete
+            strict consent-first screening before full access is granted.
           </p>
 
+          <div className={styles.stageBanner}>
+            <p>Stage A: Identity basics • Stage B: Safety training • Stage C: Manual review</p>
+          </div>
+
           <form className={styles.form} onSubmit={onSubmit}>
+            <p className={styles.sectionLabel}>A. Identity basics</p>
             <label className={styles.field}>
-              <span className={styles.label}>Full name</span>
+              <span className={styles.label}>Legal full name</span>
               <input
                 className={styles.input}
                 placeholder="Alex Morgan"
@@ -123,7 +183,7 @@ export default function RegisterPage() {
 
             <div className={styles.split}>
               <label className={styles.field}>
-                <span className={styles.label}>Password</span>
+                <span className={styles.label}>Password (12+ chars)</span>
                 <input
                   className={styles.input}
                   type="password"
@@ -148,7 +208,7 @@ export default function RegisterPage() {
 
             <div className={styles.split}>
               <label className={styles.field}>
-                <span className={styles.label}>Date of birth</span>
+                <span className={styles.label}>Date of birth (18+ only)</span>
                 <input
                   className={styles.input}
                   type="date"
@@ -198,9 +258,9 @@ export default function RegisterPage() {
               </select>
             </label>
 
-            <p className={styles.sectionLabel}>Verification</p>
+            <p className={styles.sectionLabel}>B. Safety training</p>
             <label className={styles.field}>
-              <span className={styles.label}>Government ID type</span>
+              <span className={styles.label}>Government ID type for manual review</span>
               <select
                 className={styles.select}
                 value={form.idType}
@@ -216,14 +276,111 @@ export default function RegisterPage() {
               </select>
             </label>
 
+
             <label className={styles.field}>
-              <span className={styles.label}>Upload verification selfie (optional now)</span>
-              <input className={styles.file} type="file" disabled />
-              <p className={styles.help}>
-                File upload can be enabled once verification storage is connected.
-              </p>
+              <span className={styles.label}>Upload government ID (JPG, PNG, WEBP, PDF • max 10MB)</span>
+              <input
+                className={styles.file}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,application/pdf"
+                onChange={(event) =>
+                  setForm((prev) => ({ ...prev, idDocument: event.target.files?.[0] ?? null }))
+                }
+                required
+              />
+              <p className={styles.help}>This file is used only for your manual verification review.</p>
+            </label>
+            <label className={styles.field}>
+              <span className={styles.label}>Why are you joining this naturist community? (30+ chars)</span>
+              <textarea
+                className={styles.textarea}
+                value={form.motivation}
+                onChange={(event) => setForm((prev) => ({ ...prev, motivation: event.target.value }))}
+                placeholder="Share your naturist intent, community values, and what respectful participation means to you."
+                minLength={30}
+                required
+              />
             </label>
 
+            <label className={styles.field}>
+              <span className={styles.label}>Consent code (type exactly: {CONSENT_CODE})</span>
+              <input
+                className={styles.input}
+                type="text"
+                value={form.consentCode}
+                onChange={(event) => setForm((prev) => ({ ...prev, consentCode: event.target.value }))}
+                required
+              />
+            </label>
+
+            <fieldset className={styles.quizCard}>
+              <legend className={styles.label}>Safety quiz (must score 3/3) — current score: {quizScore}/3</legend>
+
+              <label className={styles.field}>
+                <span className={styles.label}>1) You see a new member being mocked in comments. What do you do?</span>
+                <select
+                  className={styles.select}
+                  value={form.quizAnswerRespect}
+                  onChange={(event) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      quizAnswerRespect: event.target.value as QuizAnswer,
+                    }))
+                  }
+                  required
+                >
+                  <option value="" disabled>
+                    Select answer
+                  </option>
+                  <option value="correct">Report the harassment and support respectful conduct.</option>
+                  <option value="incorrect">Join in because it is probably a joke.</option>
+                </select>
+              </label>
+
+              <label className={styles.field}>
+                <span className={styles.label}>2) Is it okay to share or screenshot someone&apos;s photo without consent?</span>
+                <select
+                  className={styles.select}
+                  value={form.quizAnswerConsent}
+                  onChange={(event) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      quizAnswerConsent: event.target.value as QuizAnswer,
+                    }))
+                  }
+                  required
+                >
+                  <option value="" disabled>
+                    Select answer
+                  </option>
+                  <option value="correct">No. Explicit consent is required every time.</option>
+                  <option value="incorrect">Yes, if the profile is public.</option>
+                </select>
+              </label>
+
+              <label className={styles.field}>
+                <span className={styles.label}>3) What should you do with sexual solicitation or unsafe behavior?</span>
+                <select
+                  className={styles.select}
+                  value={form.quizAnswerReporting}
+                  onChange={(event) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      quizAnswerReporting: event.target.value as QuizAnswer,
+                    }))
+                  }
+                  required
+                >
+                  <option value="" disabled>
+                    Select answer
+                  </option>
+                  <option value="correct">Report immediately; violations can trigger removal.</option>
+                  <option value="incorrect">Ignore it and let others handle it.</option>
+                </select>
+              </label>
+            </fieldset>
+
+            <p className={styles.sectionLabel}>C. Legal attestations</p>
             <label className={styles.checkboxRow}>
               <input
                 type="checkbox"
@@ -233,8 +390,7 @@ export default function RegisterPage() {
                 }
                 required
               />
-              I confirm I am at least 18 years old and legally allowed to join
-              naturist communities in my country.
+              I confirm I am at least 18 years old and legally allowed to join naturist communities in my country.
             </label>
             <label className={styles.checkboxRow}>
               <input
@@ -245,8 +401,18 @@ export default function RegisterPage() {
                 }
                 required
               />
-              I agree to consent-first conduct, no screenshots without
-              permission, and respectful communication.
+              I agree to consent-first conduct, no unsolicited sexual content, and respectful communication.
+            </label>
+            <label className={styles.checkboxRow}>
+              <input
+                type="checkbox"
+                checked={form.isPhotoRuleConfirmed}
+                onChange={(event) =>
+                  setForm((prev) => ({ ...prev, isPhotoRuleConfirmed: event.target.checked }))
+                }
+                required
+              />
+              I will never screenshot, download, or share another member&apos;s media without explicit consent.
             </label>
             <label className={styles.checkboxRow}>
               <input
@@ -257,12 +423,11 @@ export default function RegisterPage() {
                 }
                 required
               />
-              I agree to BareUnity&apos;s Terms, Privacy Policy, and moderation
-              guidelines.
+              I agree to BareUnity&apos;s Terms, Privacy Policy, and strict moderation guidelines.
             </label>
 
             <button className={styles.button} type="submit" disabled={isLoading}>
-              {isLoading ? "Creating account..." : "Create account"}
+              {isLoading ? "Submitting application..." : "Submit strict onboarding application"}
             </button>
 
             {status ? <p className={styles.help}>{status}</p> : null}
@@ -277,8 +442,7 @@ export default function RegisterPage() {
         </article>
 
         <p className={styles.legal}>
-          Verification helps us reduce fake profiles and protect community
-          members.
+          All new accounts stay in manual verification review before gaining full platform privileges.
         </p>
       </section>
     </main>
