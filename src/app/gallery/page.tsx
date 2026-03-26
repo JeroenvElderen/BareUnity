@@ -12,11 +12,29 @@ type GalleryRow = {
   media_url: string | null;
   created_at: string | null;
   post_type: string | null;
-  profiles: {
-    username: string;
-    location: string | null;
-  } | null;
+  profiles:
+    | {
+        username: string;
+        location: string | null;
+      }
+    | {
+        username: string;
+        location: string | null;
+      }[]
+    | null;
 };
+
+function getProfile(row: GalleryRow): { username: string; location: string | null } | null {
+  if (!row.profiles) {
+    return null;
+  }
+
+  if (Array.isArray(row.profiles)) {
+    return row.profiles[0] ?? null;
+  }
+
+  return row.profiles;
+}
 
 type GalleryItem = {
   id: string;
@@ -58,12 +76,13 @@ function mapRowsToGalleryItems(rows: GalleryRow[]): GalleryItem[] {
   return rows
     .filter((row) => Boolean(row.media_url))
     .map((row) => {
+      const profile = getProfile(row);
       const raw = row.media_url as string;
       const storagePath = resolveStoragePath(raw);
       return {
         id: `post-${row.id}`,
         title: row.title?.trim() || "Untitled capture",
-        place: row.profiles?.location?.trim() || row.profiles?.username || "BareUnity Community",
+        place: profile?.location?.trim() || profile?.username || "BareUnity Community",
         src: storagePath ? toPublicMediaUrl(storagePath) : toPublicMediaUrl(raw),
       };
     });

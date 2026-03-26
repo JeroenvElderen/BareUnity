@@ -28,7 +28,7 @@ async function callHF(apiKey: string, buffer: Buffer) {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/octet-stream",
       },
-      body: buffer,
+      body: new Uint8Array(buffer),
       signal: controller.signal,
     });
 
