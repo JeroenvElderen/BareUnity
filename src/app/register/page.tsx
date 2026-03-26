@@ -1,8 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+
 import styles from "@/app/auth.module.css";
+import { supabase } from "@/lib/supabase";
 
 type QuizAnswer = "" | "correct" | "incorrect";
 
@@ -56,6 +59,15 @@ export default function RegisterPage() {
   const [form, setForm] = useState<RegisterState>(initialState);
   const [status, setStatus] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
+
+  useEffect(() => {
+    void supabase.auth.getSession().then(({ data }) => {
+      if (data.session?.user) {
+        router.replace("/");
+      }
+    });
+  }, [router]);
 
   const quizScore = useMemo(() => {
     const answers = [form.quizAnswerRespect, form.quizAnswerConsent, form.quizAnswerReporting];

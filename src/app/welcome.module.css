@@ -1,0 +1,68 @@
+.page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle at top, rgba(34, 197, 94, 0.2), transparent 52%), rgb(var(--bg));
+  padding: 1.5rem;
+}
+
+.card {
+  width: min(100%, 34rem);
+  border: 1px solid rgb(var(--border));
+  border-radius: 1.5rem;
+  padding: 2rem;
+  background: rgb(var(--bg-soft));
+  box-shadow: 0 20px 48px rgba(15, 23, 42, 0.12);
+  display: grid;
+  gap: 1rem;
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: 0.78rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgb(var(--muted));
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(1.7rem, 2.6vw, 2.2rem);
+  font-weight: 700;
+  color: rgb(var(--text-strong));
+}
+
+.description {
+  margin: 0;
+  color: rgb(var(--muted));
+  line-height: 1.55;
+}
+
+.actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+}
+
+.signIn,
+.register {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0.75rem 1.1rem;
+  border-radius: 0.85rem;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.signIn {
+  background: rgb(var(--brand));
+  color: #fff;
+}
+
+.register {
+  border: 1px solid rgb(var(--border));
+  color: rgb(var(--text-strong));
+  background: #fff;
+}

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "@/app/auth.module.css";
 import { supabase } from "@/lib/supabase";
@@ -15,6 +15,14 @@ export default function LoginPage() {
   const [status, setStatus] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  useEffect(() => {
+    void supabase.auth.getSession().then(({ data }) => {
+      if (data.session?.user) {
+        router.replace("/");
+      }
+    });
+  }, [router]);
+  
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setStatus("");

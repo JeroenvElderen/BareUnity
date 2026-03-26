@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   Bell,
@@ -11,6 +11,7 @@ import {
   Image,
   Home,
   Menu,
+  LogOut,
   MessageCircle,
   Search,
   Settings,
@@ -22,6 +23,7 @@ import {
 } from "lucide-react";
 
 import { supabase } from "@/lib/supabase";
+import { logoutUser } from "@/lib/logout";
 import styles from "./sidebar.module.css";
 import { SidebarProfileLink } from "./profile-link";
 
@@ -58,10 +60,17 @@ const discussionRooms = ["General Room", "Events Room", "Wellness Room", "Photog
 
 export function AppSidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isRoomsOpen, setIsRoomsOpen] = useState(false);
   const [isBookingsOpen, setIsBookingsOpen] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+
+  const onLogout = async () => {
+    await logoutUser();
+    router.replace("/welcome");
+    router.refresh();
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -203,6 +212,13 @@ export function AppSidebar() {
                 </span>
               </Link>
             ) : null}
+
+            <button type="button" className={styles.navItem} onClick={() => void onLogout()}>
+              <span className={styles.itemLeft}>
+                <LogOut size={18} aria-hidden />
+                <span>Log out</span>
+              </span>
+            </button>
           </nav>
         </section>
         <SidebarProfileLink className={styles.mobileProfileCard} />
