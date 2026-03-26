@@ -27,25 +27,32 @@ import { SidebarProfileLink } from "./profile-link";
 
 const ADMIN_EMAIL = "jeroen.vanelderen@hotmail.com";
 
+type NavItem = {
+  icon: typeof Home;
+  label: string;
+  href?: string;
+  badge?: string;
+};
+
 const primaryItems = [
   { icon: Home, label: "Home", href: "/" },
   { icon: Search, label: "Search", href: "#" },
   { icon: Compass, label: "Explore", href: "/explore" },
   { icon: Image, label: "Gallery", href: "/gallery" },
   { icon: MessageCircle, label: "Messages", href: "#", badge: "4" },
-] as const;
+] satisfies readonly NavItem[];
 
 const bookingItems = [
   { icon: Building2, label: "Hotels & Airbnbs", href: "/bookings/hotels-airbnbs" },
   { icon: Sparkles, label: "Resorts", href: "/bookings/resorts" },
   { icon: Waves, label: "Spas", href: "/bookings/spas" },
   { icon: Compass, label: "Activities", href: "/bookings/activities" },
-] as const;
+] satisfies readonly NavItem[];
 
 const workspaceItems = [
   { icon: Bell, label: "Notifications", badge: "9+" },
   { icon: Settings, label: "Settings" },
-] as const;
+] satisfies readonly NavItem[];
 
 const discussionRooms = ["General Room", "Events Room", "Wellness Room", "Photography Room"] as const;
 

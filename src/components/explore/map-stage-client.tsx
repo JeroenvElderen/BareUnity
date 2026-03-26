@@ -540,6 +540,7 @@ export function MapStageClient() {
     const onClick = (event: MapClickEvent) => {
       const latitude = event.lngLat?.lat;
       const longitude = event.lngLat?.lng;
+      if (typeof latitude !== "number" || typeof longitude !== "number") return;
       if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
 
       setFormCoordinates(latitude, longitude);
