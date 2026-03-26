@@ -380,7 +380,7 @@ export default function HomePage() {
                       ) : null}
                       </div>
                     <button type="button" onClick={() => setActivePostId(post.id)} className="mb-3 w-full text-left">
-                      <p className="whitespace-pre-line text-sm text-[rgb(var(--text))]">{post.text}</p>
+                      <p className="whitespace-pre-line break-words [overflow-wrap:anywhere] text-sm text-[rgb(var(--text))]">{post.text}</p>
                     </button>
                     <button type="button" onClick={() => setActivePostId(post.id)} className="mb-4 block w-full text-left">
                       {post.mediaUrl ? (
@@ -567,7 +567,7 @@ export default function HomePage() {
               </button>
             </div>
 
-            <p className="mb-3 whitespace-pre-line text-sm text-[rgb(var(--text))]">{activePost.text}</p>
+            <p className="mb-3 whitespace-pre-line break-words [overflow-wrap:anywhere] text-sm text-[rgb(var(--text))]">{activePost.text}</p>
             {activePost.mediaUrl ? (
               <img src={activePost.mediaUrl} alt={`${activePost.author}'s full post`} className="mb-4 h-64 w-full rounded-2xl object-cover" />
             ) : (
@@ -591,7 +591,7 @@ export default function HomePage() {
                   key={comment.id}
                   className="flex items-center justify-between gap-3 rounded-lg bg-[rgb(var(--bg-soft))] px-3 py-2 text-sm text-[rgb(var(--text))]"
                 >
-                  <span>{comment.content}</span>
+                  <span className="break-words [overflow-wrap:anywhere]">{comment.content}</span>
                   {feed.viewerId && comment.authorId === feed.viewerId ? (
                     <button
                       type="button"
