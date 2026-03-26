@@ -11,6 +11,7 @@ type GalleryRow = {
   title: string | null;
   media_url: string | null;
   created_at: string | null;
+  post_type: string | null;
   profiles: {
     username: string;
     location: string | null;
@@ -100,8 +101,9 @@ async function getGalleryItems(): Promise<GalleryItem[]> {
 
   const { data, error } = await client
     .from("posts")
-    .select("id,title,media_url,created_at,profiles(username,location)")
+    .select("id,title,media_url,created_at,profiles(username,location),post_type")
     .not("media_url", "is", null)
+    .or("post_type.is.null,post_type.neq.story")
     .order("created_at", { ascending: false })
     .limit(24);
 

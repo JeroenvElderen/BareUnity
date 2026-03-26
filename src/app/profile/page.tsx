@@ -24,6 +24,7 @@ type PostRow = {
   content: string | null;
   media_url: string | null;
   created_at: string | null;
+  post_type: string | null;
 };
 
 type ProfileSettingsRow = {
@@ -93,8 +94,9 @@ async function getProfileData() {
   const [{ data: postsData }, { data: settingsData }] = await Promise.all([
     client
       .from("posts")
-      .select("id,title,content,media_url,created_at")
+      .select("id,title,content,media_url,created_at,post_type")
       .eq("author_id", profile.id)
+      .or("post_type.is.null,post_type.neq.story")
       .order("created_at", { ascending: false })
       .limit(30),
     client.from("profile_settings").select("interests").eq("user_id", profile.id).maybeSingle(),
@@ -104,7 +106,7 @@ async function getProfileData() {
 
   try {
     const [postCount, friendCount, commentCount] = await Promise.all([
-      db.posts.count({ where: { author_id: profile.id } }),
+      db.posts.count({ where: { author_id: profile.id, OR: [{ post_type: null }, { post_type: { not: "story" } }] } }),
       db.friendships.count({ where: { user_id: profile.id } }),
       db.comments.count({ where: { author_id: profile.id } }),
     ]);
