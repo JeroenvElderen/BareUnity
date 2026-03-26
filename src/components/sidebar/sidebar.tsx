@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Bell,
   Building2,
@@ -14,14 +14,18 @@ import {
   MessageCircle,
   Search,
   Settings,
+  ShieldCheck,
   Sparkles,
   Users,
   Waves,
   X,
 } from "lucide-react";
 
+import { supabase } from "@/lib/supabase";
 import styles from "./sidebar.module.css";
 import { SidebarProfileLink } from "./profile-link";
+
+const ADMIN_EMAIL = "jeroen.vanelderen@hotmail.com";
 
 const primaryItems = [
   { icon: Home, label: "Home", href: "/" },
@@ -50,6 +54,29 @@ export function AppSidebar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isRoomsOpen, setIsRoomsOpen] = useState(false);
   const [isBookingsOpen, setIsBookingsOpen] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    void supabase.auth.getUser().then(({ data }) => {
+      if (!isMounted) return;
+      const email = data.user?.email?.toLowerCase() ?? "";
+      setIsAdmin(email === ADMIN_EMAIL);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      const email = session?.user.email?.toLowerCase() ?? "";
+      setIsAdmin(email === ADMIN_EMAIL);
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
 
   return (
     <aside className={styles.sidebar} aria-label="Main sidebar navigation">
@@ -157,6 +184,18 @@ export function AppSidebar() {
                 {badge ? <span className={styles.badge}>{badge}</span> : null}
               </a>
             ))}
+
+            {isAdmin ? (
+              <Link
+                href="/admin/applications"
+                className={`${styles.navItem} ${pathname === "/admin/applications" ? styles.active : ""}`}
+              >
+                <span className={styles.itemLeft}>
+                  <ShieldCheck size={18} aria-hidden />
+                  <span>Admin review</span>
+                </span>
+              </Link>
+            ) : null}
           </nav>
         </section>
         <SidebarProfileLink className={styles.mobileProfileCard} />
