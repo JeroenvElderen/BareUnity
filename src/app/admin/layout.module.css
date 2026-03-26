@@ -1,0 +1,15 @@
+.frame {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
+.content {
+  min-width: 0;
+}
+
+@media (min-width: 1100px) {
+  .frame {
+    grid-template-columns: clamp(240px, 24vw, 295px) 1fr;
+  }
+}

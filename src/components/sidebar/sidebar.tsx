@@ -7,11 +7,13 @@ import {
   Bell,
   Building2,
   ChevronDown,
+  ClipboardCheck,
   Compass,
-  Image,
+  Flag,
   Home,
-  Menu,
+  Image,
   LogOut,
+  Menu,
   MessageCircle,
   Search,
   Settings,
@@ -22,10 +24,10 @@ import {
   X,
 } from "lucide-react";
 
-import { supabase } from "@/lib/supabase";
 import { logoutUser } from "@/lib/logout";
-import styles from "./sidebar.module.css";
+import { supabase } from "@/lib/supabase";
 import { SidebarProfileLink } from "./profile-link";
+import styles from "./sidebar.module.css";
 
 const ADMIN_EMAIL = "jeroen.vanelderen@hotmail.com";
 
@@ -58,13 +60,21 @@ const workspaceItems = [
 
 const discussionRooms = ["General Room", "Events Room", "Wellness Room", "Photography Room"] as const;
 
+const adminItems = [
+  { icon: ShieldCheck, label: "Overview", href: "/admin" },
+  { icon: ClipboardCheck, label: "Applications", href: "/admin/applications" },
+  { icon: Flag, label: "Reports", href: "/admin/reports" },
+] satisfies readonly NavItem[];
+
 export function AppSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isRoomsOpen, setIsRoomsOpen] = useState(false);
-  const [isBookingsOpen, setIsBookingsOpen] = useState(true);
+  const [isBookingsOpen, setIsBookingsOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const isAdminSection = pathname?.startsWith("/admin") ?? false;
+  const [isAdminOpen, setIsAdminOpen] = useState(isAdminSection);
 
   const onLogout = async () => {
     await logoutUser();
@@ -93,6 +103,7 @@ export function AppSidebar() {
       subscription.unsubscribe();
     };
   }, []);
+
 
   return (
     <aside className={styles.sidebar} aria-label="Main sidebar navigation">
@@ -202,15 +213,37 @@ export function AppSidebar() {
             ))}
 
             {isAdmin ? (
-              <Link
-                href="/admin/applications"
-                className={`${styles.navItem} ${pathname === "/admin/applications" ? styles.active : ""}`}
-              >
-                <span className={styles.itemLeft}>
-                  <ShieldCheck size={18} aria-hidden />
-                  <span>Admin review</span>
-                </span>
-              </Link>
+              <div className={styles.dropdown}>
+                <button
+                  type="button"
+                  className={`${styles.navItem} ${styles.dropdownTrigger}`}
+                  onClick={() => setIsAdminOpen((current) => !current)}
+                  aria-expanded={isAdminOpen || isAdminSection}
+                >
+                  <span className={styles.itemLeft}>
+                    <ShieldCheck size={18} aria-hidden />
+                    <span>Admin</span>
+                  </span>
+                  <ChevronDown className={isAdminOpen || isAdminSection ? styles.chevronOpen : ""} size={16} aria-hidden />
+                </button>
+
+                {(isAdminOpen || isAdminSection) && (
+                  <div className={styles.dropdownList}>
+                    {adminItems.map(({ icon: Icon, label, href }) => (
+                      <Link
+                        key={label}
+                        href={href}
+                        className={`${styles.navItem} ${styles.dropdownItem} ${pathname === href ? styles.active : ""}`}
+                      >
+                        <span className={styles.itemLeft}>
+                          <Icon size={16} aria-hidden />
+                          <span>{label}</span>
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
             ) : null}
 
             <button type="button" className={styles.navItem} onClick={() => void onLogout()}>

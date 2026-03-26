@@ -160,7 +160,7 @@ export default function AdminApplicationsPage() {
         <header className={styles.header}>
           <div>
             <p className={styles.eyebrow}>🌿 BareUnity • Admin Studio</p>
-            <h1 className={styles.title}>Application Review Board</h1>
+            <h1 className={styles.title}>Verification Application Review</h1>
             <p className={styles.subtitle}>A calm, consent-first moderation workspace for strict onboarding approvals.</p>
           </div>
           <div className={styles.badge}>{adminEmail || "Not signed in"}</div>

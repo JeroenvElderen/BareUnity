@@ -1,0 +1,121 @@
+.page {
+  min-height: 100vh;
+  background:
+    radial-gradient(1200px 600px at 8% 0%, rgba(163, 217, 170, 0.26), transparent 60%),
+    radial-gradient(900px 520px at 95% 8%, rgba(135, 206, 235, 0.2), transparent 58%),
+    linear-gradient(180deg, #f4faf6 0%, #eaf4ee 48%, #e7f0ec 100%);
+  padding: 2.5rem 1.25rem;
+}
+
+.shell {
+  margin: 0 auto;
+  max-width: 1160px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.header {
+  border: 1px solid rgba(35, 62, 45, 0.14);
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(6px);
+  border-radius: 24px;
+  padding: 1.4rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: start;
+}
+
+.eyebrow {
+  margin: 0;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #40634c;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.title {
+  margin: 0.35rem 0 0;
+  color: #143420;
+  font-size: clamp(1.6rem, 1.4rem + 1vw, 2.25rem);
+  font-weight: 800;
+}
+
+.subtitle {
+  margin: 0.35rem 0 0;
+  color: #3f5f4a;
+  max-width: 60ch;
+}
+
+.refreshButton {
+  border: 1px solid rgba(20, 52, 32, 0.2);
+  background: #f8fff9;
+  color: #1b472d;
+  border-radius: 12px;
+  padding: 0.52rem 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.error,
+.empty {
+  border-radius: 14px;
+  border: 1px solid rgba(95, 39, 39, 0.2);
+  background: rgba(255, 240, 240, 0.9);
+  color: #783535;
+  padding: 0.85rem 1rem;
+}
+
+.empty {
+  border-color: rgba(35, 62, 45, 0.12);
+  background: rgba(255, 255, 255, 0.9);
+  color: #35533f;
+}
+
+.list {
+  display: grid;
+  gap: 1rem;
+}
+
+.card {
+  border-radius: 22px;
+  border: 1px solid rgba(35, 62, 45, 0.13);
+  background: rgba(255, 255, 255, 0.92);
+  padding: 1rem;
+}
+
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: center;
+  color: #112f1d;
+}
+
+.cardHeader span {
+  color: #496451;
+  font-size: 0.86rem;
+}
+
+.reason,
+.meta,
+.content {
+  margin: 0.55rem 0 0;
+  color: #1f3d2a;
+}
+
+.reason {
+  font-weight: 700;
+}
+
+@media (max-width: 640px) {
+  .page {
+    padding: 1.1rem 0.75rem 1.3rem;
+  }
+
+  .header {
+    flex-direction: column;
+  }
+}
