@@ -109,7 +109,21 @@ export async function POST(req: Request) {
     );
   }
 
-  const formData = await req.formData();
+  let formData: FormData;
+
+  try {
+    formData = await req.formData();
+  } catch (error) {
+    console.error("Failed to parse register form data", error);
+    return NextResponse.json(
+      {
+        error:
+          "Unable to process the uploaded form data. Ensure the full request is under 10MB and try again.",
+      },
+      { status: 400 },
+    );
+  }
+  
   const fullName = getStringValue(formData, "fullName").trim();
   const displayName = getStringValue(formData, "displayName").trim();
   const email = getStringValue(formData, "email").trim().toLowerCase();
