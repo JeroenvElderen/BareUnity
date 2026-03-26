@@ -284,7 +284,7 @@ export async function POST(req: Request) {
   const { error: verificationError } = await supabaseAdmin.from("verification_submissions").upsert({
     user_id: userId,
     legal_name: fullName,
-    display_name,
+    display_name: displayName,
     date_of_birth: dateOfBirth,
     country,
     membership_type: membershipType,

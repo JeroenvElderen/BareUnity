@@ -72,7 +72,7 @@ export default function AdminApplicationsPage() {
       return;
     }
 
-    const response = await fetch("/api/admin/verification-applications", {
+    const response = await fetch("/admin/verification-applications", {
       headers: {
         Authorization: `Bearer ${session.access_token}`,
       },
@@ -120,7 +120,7 @@ export default function AdminApplicationsPage() {
       return;
     }
 
-    const response = await fetch(`/api/admin/verification-applications/${userId}`, {
+    const response = await fetch(`/admin/verification-applications/${userId}`, {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
