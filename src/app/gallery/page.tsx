@@ -102,7 +102,13 @@ async function getStorageGalleryItems() {
   }
 
   return files
-    .filter((file) => Boolean(file.name) && !file.id?.includes(".emptyFolderPlaceholder"))
+    .filter((file) => {
+      if (!file.name) return false;
+      if (file.id?.includes(".emptyFolderPlaceholder")) return false;
+      if (!file.metadata) return false;
+      const mimeType = file.metadata.mimetype;
+      return typeof mimeType === "string" && mimeType.startsWith("image/");
+    })
     .map((file) => ({
       id: `storage-${file.id ?? file.name}`,
       title: file.name || "Uploaded media",
