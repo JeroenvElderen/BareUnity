@@ -1,28 +1,62 @@
 .profileCard {
-  border-radius: 12px;
-  border: 1px solid rgb(var(--border));
-  background: rgb(var(--card) / 0.86);
-  padding: 0.75rem;
-  display: flex;
+  position: relative;
+  isolation: isolate;
+  border-radius: 16px;
+  border: 1px solid rgb(var(--brand) / 0.18);
+  background:
+    radial-gradient(circle at 0% 0%, rgb(var(--brand) / 0.14), transparent 58%),
+    linear-gradient(135deg, rgb(var(--card) / 0.96), rgb(var(--card) / 0.82));
+  box-shadow:
+    0 8px 24px rgb(19 24 29 / 0.1),
+    inset 0 1px 0 rgb(255 255 255 / 0.35);
+  padding: 0.66rem 0.72rem;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: 0.65rem;
+  column-gap: 0.6rem;
   width: 100%;
   min-width: 0;
   color: inherit;
   text-decoration: none;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease,
+    background 0.2s ease;
+}
+
+.profileCard::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1px solid rgb(255 255 255 / 0.38);
+  pointer-events: none;
+  z-index: -1;
 }
 
 .profileCard:hover {
-  border-color: rgb(var(--brand) / 0.42);
-  background: rgb(var(--bg-soft));
+  border-color: rgb(var(--brand) / 0.45);
+  background:
+    radial-gradient(circle at 0% 0%, rgb(var(--brand) / 0.2), transparent 62%),
+    linear-gradient(135deg, rgb(var(--card)), rgb(var(--card) / 0.87));
+  box-shadow:
+    0 12px 28px rgb(19 24 29 / 0.18),
+    0 0 0 3px rgb(var(--brand) / 0.14),
+    inset 0 1px 0 rgb(255 255 255 / 0.44);
+  transform: translateY(-1px);
 }
 
 .avatar,
 .avatarFallback {
-  width: 2.25rem;
-  height: 2.25rem;
+  width: 2.1rem;
+  height: 2.1rem;
   border-radius: 999px;
   flex-shrink: 0;
+  border: 2px solid rgb(255 255 255 / 0.9);
+  box-shadow:
+    0 6px 16px rgb(21 33 24 / 0.18),
+    0 0 0 1px rgb(var(--brand) / 0.2);
 }
 
 .avatar {
@@ -44,16 +78,22 @@
 
 .profileCard p {
   margin: 0;
-  font-size: 0.88rem;
+  font-size: 0.9rem;
+  font-weight: 650;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  color: rgb(var(--text) / 0.98);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .profileCard small {
-  margin-top: 0.12rem;
+  margin-top: 0.08rem;
   display: inline-block;
-  color: rgb(var(--muted));
+  color: rgb(var(--brand) / 0.9);
+  font-size: 0.74rem;
+  font-weight: 540;
   max-width: 100%;
   white-space: nowrap;
   overflow: hidden;

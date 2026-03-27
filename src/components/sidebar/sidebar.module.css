@@ -182,7 +182,7 @@
   }
 
   .mobileProfileCard {
-    display: none;
+    display: block;
   }
 
   .sidebarFooter {

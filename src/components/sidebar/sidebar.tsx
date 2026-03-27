@@ -55,7 +55,7 @@ const bookingItems = [
 
 const workspaceItems = [
   { icon: Bell, label: "Notifications", badge: "9+" },
-  { icon: Settings, label: "Settings" },
+  { icon: Settings, label: "Settings", href: "/settings" },
 ] satisfies readonly NavItem[];
 
 const discussionRooms = ["General Room", "Events Room", "Wellness Room", "Photography Room"] as const;
@@ -202,14 +202,18 @@ export function AppSidebar() {
               )}
             </div>
 
-            {workspaceItems.map(({ icon: Icon, label, badge }) => (
-              <a key={label} href="#" className={styles.navItem}>
+            {workspaceItems.map(({ icon: Icon, label, href, badge }) => (
+              <Link
+                key={label}
+                href={href ?? "#"}
+                className={`${styles.navItem} ${href && pathname === href ? styles.active : ""}`}
+              >
                 <span className={styles.itemLeft}>
                   <Icon size={18} aria-hidden />
                   <span>{label}</span>
                 </span>
                 {badge ? <span className={styles.badge}>{badge}</span> : null}
-              </a>
+              </Link>
             ))}
 
             {isAdmin ? (

@@ -1,12 +1,14 @@
+"use client";
+
 import Image from "next/image";
+import { useCallback, useEffect, useState } from "react";
+import type { User } from "@supabase/supabase-js";
 
 import { AppSidebar } from "@/components/sidebar/sidebar";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase-admin";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
-import { db } from "@/server/db";
 import layoutStyles from "../page.module.css";
 
 type ProfileRow = {
@@ -29,6 +31,20 @@ type PostRow = {
 
 type ProfileSettingsRow = {
   interests: string[] | null;
+};
+
+type ProfileData = {
+  profile: ProfileRow | null;
+  posts: PostRow[];
+  interests: string[];
+  stats: { posts: number; friends: number; comments: number };
+};
+
+const EMPTY_PROFILE_DATA: ProfileData = {
+  profile: null,
+  posts: [],
+  interests: [],
+  stats: { posts: 0, friends: 0, comments: 0 },
 };
 
 function getInitials(value: string) {
@@ -61,75 +77,87 @@ function toReadableDate(value: string | null): string {
   });
 }
 
-async function getProfileData() {
-  if (!isSupabaseConfigured && !isSupabaseAdminConfigured) {
-    return {
-      profile: null as ProfileRow | null,
-      posts: [] as PostRow[],
-      interests: [] as string[],
-      stats: { posts: 0, friends: 0, comments: 0 },
-    };
-  }
-
-  const client = isSupabaseAdminConfigured ? createSupabaseAdminClient() : supabase;
-
-  const { data: profileData } = await client
+async function getProfileDataForUser(userId: string): Promise<ProfileData> {
+  const { data: profileData } = await supabase
     .from("profiles")
     .select("id,username,display_name,bio,avatar_url,location")
-    .order("created_at", { ascending: false })
-    .limit(1)
+    .eq("id", userId)
     .maybeSingle();
 
   const profile = (profileData ?? null) as ProfileRow | null;
 
   if (!profile) {
-    return {
-      profile,
-      posts: [] as PostRow[],
-      interests: [] as string[],
-      stats: { posts: 0, friends: 0, comments: 0 },
-    };
+    return EMPTY_PROFILE_DATA;
   }
 
-  const [{ data: postsData }, { data: settingsData }] = await Promise.all([
-    client
+  const [postsResult, settingsResult, postCountResult, friendCountResult, commentCountResult] = await Promise.all([
+    supabase
       .from("posts")
       .select("id,title,content,media_url,created_at,post_type")
       .eq("author_id", profile.id)
       .or("post_type.is.null,post_type.neq.story")
       .order("created_at", { ascending: false })
       .limit(30),
-    client.from("profile_settings").select("interests").eq("user_id", profile.id).maybeSingle(),
+    supabase.from("profile_settings").select("interests").eq("user_id", profile.id).maybeSingle(),
+    supabase
+      .from("posts")
+      .select("id", { count: "exact", head: true })
+      .eq("author_id", profile.id)
+      .or("post_type.is.null,post_type.neq.story"),
+    supabase.from("friendships").select("id", { count: "exact", head: true }).eq("user_id", profile.id),
+    supabase.from("comments").select("id", { count: "exact", head: true }).eq("author_id", profile.id),
   ]);
-
-  let stats = { posts: 0, friends: 0, comments: 0 };
-
-  try {
-    const [postCount, friendCount, commentCount] = await Promise.all([
-      db.posts.count({ where: { author_id: profile.id, OR: [{ post_type: null }, { post_type: { not: "story" } }] } }),
-      db.friendships.count({ where: { user_id: profile.id } }),
-      db.comments.count({ where: { author_id: profile.id } }),
-    ]);
-
-    stats = {
-      posts: postCount,
-      friends: friendCount,
-      comments: commentCount,
-    };
-  } catch (error) {
-    console.error("Failed to load profile stats from Prisma", error);
-  }
 
   return {
     profile,
-    posts: (postsData ?? []) as PostRow[],
-    interests: ((settingsData as ProfileSettingsRow | null)?.interests ?? []).slice(0, 8),
-    stats,
+    posts: (postsResult.data ?? []) as PostRow[],
+    interests: ((settingsResult.data as ProfileSettingsRow | null)?.interests ?? []).slice(0, 8),
+    stats: {
+      posts: postCountResult.count ?? 0,
+      friends: friendCountResult.count ?? 0,
+      comments: commentCountResult.count ?? 0,
+    },
   };
 }
 
-export default async function ProfilePage() {
-  const { profile, posts, interests, stats } = await getProfileData();
+export default function ProfilePage() {
+  const [profileData, setProfileData] = useState<ProfileData>(EMPTY_PROFILE_DATA);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const loadProfileForUser = useCallback(async (sessionUser: User | null) => {
+    if (!isSupabaseConfigured || !sessionUser) {
+      setProfileData(EMPTY_PROFILE_DATA);
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+    const data = await getProfileDataForUser(sessionUser.id);
+    setProfileData(data);
+    setIsLoading(false);
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    void supabase.auth.getUser().then(({ data }) => {
+      if (!isMounted) return;
+      void loadProfileForUser(data.user ?? null);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      void loadProfileForUser(session?.user ?? null);
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, [loadProfileForUser]);
+
+  const { profile, posts, interests, stats } = profileData;
 
   const displayName =
     profile?.display_name?.trim() ||
@@ -146,24 +174,19 @@ export default async function ProfilePage() {
     <main className={`${layoutStyles.main} w-full max-w-full`}>
       <AppSidebar />
 
-      {/* ✅ FIXED: important container */}
       <section className="min-w-0 w-full flex-1 overflow-hidden bg-[rgb(var(--bg-deep))/0.55]">
         <Card className="min-h-full w-full max-w-full overflow-hidden rounded-none border-x-0 border-y-0 border-[rgb(var(--border))] bg-[rgb(var(--card))/0.98] shadow-none">
-          
           <div className="relative h-40 border-b border-[rgb(var(--border))/0.75] bg-[linear-gradient(110deg,rgb(var(--brand))_0%,rgb(var(--accent-soft))_100%)] md:h-48" />
           
           <div className="-mt-16 pl-0 md:-mt-20 md:pl-1">
               <Avatar
-                src={resolveMediaUrl(profile?.avatar_url ?? null) ?? undefined}
-                alt={displayName}
-                fallback={avatarFallback}
-                className="h-24 w-24 border-4 border-white bg-[rgb(var(--bg-soft))] text-2xl shadow-lg md:h-28 md:w-28"
-              />
-            </div>
-          {/* ✅ ADDED: min-w-0 */}
+              src={resolveMediaUrl(profile?.avatar_url ?? null) ?? undefined}
+              alt={displayName}
+              fallback={avatarFallback}
+              className="h-24 w-24 border-4 border-white bg-[rgb(var(--bg-soft))] text-2xl shadow-lg md:h-28 md:w-28"
+            />
+          </div>
           <CardContent className="space-y-4 p-3 md:p-5 min-w-0 overflow-hidden">
-
-            {/* Profile Info */}
             <section className="rounded-2xl border border-[rgb(var(--border))] bg-white p-3.5 md:p-4 min-w-0">
               <h1 className="break-words text-3xl font-black tracking-tight text-[rgb(var(--text-strong))] md:text-4xl">
                 {displayName}
@@ -182,7 +205,6 @@ export default async function ProfilePage() {
               </div>
             </section>
 
-            {/* Stats */}
             <section className="grid gap-2.5 md:grid-cols-3">
               {[
                 { label: "Posts", value: stats.posts.toLocaleString() },
@@ -203,7 +225,6 @@ export default async function ProfilePage() {
               ))}
             </section>
 
-            {/* Interests */}
             {interests.length > 0 && (
               <section className="rounded-2xl border border-[rgb(var(--border))] bg-white p-3.5 md:p-4 min-w-0">
                 <p className="mb-2 text-xs font-semibold uppercase tracking-[0.08em] text-[rgb(var(--muted))]">
@@ -222,15 +243,14 @@ export default async function ProfilePage() {
               </section>
             )}
 
-            {/* Posts */}
             <section className="rounded-2xl border border-[rgb(var(--border))] bg-white p-3.5 md:p-4 min-w-0 overflow-hidden">
-              
-              {posts.length === 0 ? (
+              {isLoading ? (
+                <p className="text-sm text-[rgb(var(--muted))]">Loading profile…</p>
+              ) : posts.length === 0 ? (
                 <p className="text-sm text-[rgb(var(--muted))]">
                   No posts yet for this profile.
                 </p>
               ) : (
-                /* ✅ FIX: replaced columns with grid */
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {posts.map((post) => {
                     const mediaUrl = resolveMediaUrl(post.media_url);

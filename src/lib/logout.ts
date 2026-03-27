@@ -14,6 +14,6 @@ function clearSupabaseAuthCookies() {
 }
 
 export async function logoutUser() {
-  await supabase.auth.signOut();
+  await supabase.auth.signOut({ scope: "local" });
   clearSupabaseAuthCookies();
 }
