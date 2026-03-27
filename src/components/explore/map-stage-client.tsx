@@ -52,8 +52,11 @@ type CreateLocationFormState = {
 type LocationSearchResult = {
   place_id: number;
   display_name: string;
-  lat: string;
-  lon: string;
+  lat?: string;
+  lon?: string;
+  lng?: string;
+  latitude?: string;
+  longitude?: string;
   type?: string;
   class?: string;
 };
@@ -181,6 +184,20 @@ const AMENITY_OPTIONS: AmenityType[] = [
   "Sauna",
   "Pool",
 ];
+
+function resolveSearchCoordinates(result: LocationSearchResult) {
+  const latitudeCandidate = result.lat ?? result.latitude;
+  const longitudeCandidate = result.lon ?? result.lng ?? result.longitude;
+
+  const latitude = Number(latitudeCandidate);
+  const longitude = Number(longitudeCandidate);
+
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    return null;
+  }
+
+  return { latitude, longitude };
+}
 
 const INITIAL_LOCATION_FORM: CreateLocationFormState = {
   name: "",
@@ -442,13 +459,15 @@ export function MapStageClient() {
   }
 
   function selectSearchResult(result: LocationSearchResult) {
-    const lat = Number(result.lat);
-    const lon = Number(result.lon);
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+    const coordinates = resolveSearchCoordinates(result);
+    if (!coordinates) {
+      setLocationSearchError("This result did not include coordinates. Try a different result or pick on map.");
+      return;
+    }
 
-    setFormCoordinates(lat, lon);
-    placeSelectionMarker(lat, lon);
-    mapRef.current?.flyTo?.({ center: [lon, lat], zoom: 11 });
+    setFormCoordinates(coordinates.latitude, coordinates.longitude);
+    placeSelectionMarker(coordinates.latitude, coordinates.longitude);
+    mapRef.current?.flyTo?.({ center: [coordinates.longitude, coordinates.latitude], zoom: 11 });
     clearLocationSearch();
   }
 
@@ -738,7 +757,11 @@ export function MapStageClient() {
                           >
                             <p className="m-0 font-medium text-[rgb(var(--text-strong))]">{result.display_name}</p>
                             <p className="m-0 mt-1 text-xs text-[rgb(var(--muted))]">
-                              {Number(result.lat).toFixed(5)}, {Number(result.lon).toFixed(5)}
+                              {(() => {
+                                const coordinates = resolveSearchCoordinates(result);
+                                if (!coordinates) return "Coordinates unavailable";
+                                return `${coordinates.latitude.toFixed(5)}, ${coordinates.longitude.toFixed(5)}`;
+                              })()}
                             </p>
                           </button>
                         </li>
