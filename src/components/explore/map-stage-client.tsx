@@ -1,6 +1,8 @@
 "use client";
 
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { createRoot } from "react-dom/client";
+import { Building2, Flame, Hotel, MapPin, TentTree, Trees, Umbrella } from "lucide-react";
 
 import { MapSpotPopup } from "@/components/explore/map-spot-popup";
 import { Button } from "@/components/ui/button";
@@ -13,6 +15,7 @@ type Spot = {
   latitude: number | string;
   longitude: number | string;
   privacy: "Public" | "Discreet" | string;
+  terrain?: string | null;
 };
 
 type AccessType = "Public" | "Discreet" | "Private Club";
@@ -147,24 +150,49 @@ function addScript(src: string) {
   });
 }
 
-function buildMarkerElement(privacy: Spot["privacy"]) {
+function terrainIconComponent(terrain: Spot["terrain"]) {
+  const normalized = (terrain ?? "").toLowerCase();
+
+  if (normalized.includes("beach")) return Umbrella;
+  if (normalized.includes("forest")) return Trees;
+  if (normalized.includes("resort")) return Hotel;
+  if (normalized.includes("camp")) return TentTree;
+  if (normalized.includes("hot spring")) return Flame;
+  if (normalized.includes("urban") || normalized.includes("rooftop")) return Building2;
+  return MapPin;
+}
+
+function buildMarkerElement(privacy: Spot["privacy"], terrain: Spot["terrain"]) {
   const marker = document.createElement("button");
   marker.type = "button";
-  marker.style.width = "40px";
-  marker.style.height = "40px";
-  marker.style.borderRadius = "999px";
-  marker.style.border = "1px solid rgb(var(--border))";
-  marker.style.boxShadow = "0 4px 10px rgba(0, 0, 0, 0.2)";
+  marker.style.width = "24px";
+  marker.style.height = "24px";
   marker.style.display = "grid";
   marker.style.placeItems = "center";
+  marker.style.padding = "0";
+  marker.style.borderRadius = "999px";
+  marker.style.border = "1px solid rgba(255, 255, 255, 0.72)";
+  marker.style.boxShadow = "0 8px 16px rgba(0, 0, 0, 0.22)";
+  marker.style.backdropFilter = "blur(1.5px)";
 
-  if (privacy === "Public") {
-    marker.style.background = "rgb(var(--accent-soft))";
-    marker.textContent = "☀️";
-  } else {
-    marker.style.background = "rgb(var(--brand))";
-    marker.textContent = "🌿";
-  }
+  const isPublic = privacy === "Public";
+  marker.style.background = isPublic
+    ? "linear-gradient(145deg, rgba(250, 205, 102, 0.98), rgba(236, 165, 66, 0.98))"
+    : "linear-gradient(145deg, rgba(16, 146, 112, 0.98), rgba(13, 108, 92, 0.98))";
+  marker.style.color = isPublic ? "rgba(90, 51, 0, 0.92)" : "rgba(225, 255, 242, 0.96)";
+
+  const icon = document.createElement("span");
+  icon.style.width = "13px";
+  icon.style.height = "13px";
+  icon.style.display = "inline-grid";
+  icon.style.placeItems = "center";
+  icon.style.filter = "drop-shadow(0 1px 0 rgba(0,0,0,0.12))";
+
+  const Icon = terrainIconComponent(terrain);
+  createRoot(icon).render(<Icon size={13} strokeWidth={2.25} />);
+  marker.appendChild(icon);
+
+  marker.style.lineHeight = "1";
 
   return marker;
 }
@@ -411,12 +439,12 @@ export function MapStageClient() {
     const longitude = Number(spot.longitude);
     if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
 
-    const markerElement = buildMarkerElement(spot.privacy);
+    const markerElement = buildMarkerElement(spot.privacy, spot.terrain);
     markerElement.addEventListener("click", () => {
       setSelectedSpot(spot);
     });
 
-    new window.maplibregl.Marker({ element: markerElement, anchor: "bottom" }).setLngLat([longitude, latitude]).addTo(map);
+    new window.maplibregl.Marker({ element: markerElement, anchor: "center" }).setLngLat([longitude, latitude]).addTo(map);
   }
 
   async function searchLocations() {
@@ -547,6 +575,7 @@ export function MapStageClient() {
         latitude,
         longitude,
         privacy: locationForm.accessType,
+        terrain: locationForm.terrain,
       };
 
       addSpotMarkerToMap(newSpot);

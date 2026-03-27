@@ -10,6 +10,7 @@ type MapSpotPayload = {
   latitude: number;
   longitude: number;
   privacy: string;
+  terrain: string | null;
 };
 
 type CreateMapSpotPayload = {
@@ -119,6 +120,7 @@ async function fetchSpotsWithPrisma(): Promise<MapSpotPayload[]> {
       latitude: true,
       longitude: true,
       privacy: true,
+      terrain: true,
     },
   });
 }
@@ -127,7 +129,7 @@ async function fetchSpotsWithSupabaseAdmin(): Promise<MapSpotPayload[]> {
   const supabaseAdmin = createSupabaseAdminClient();
   const { data, error } = await supabaseAdmin
     .from("naturist_map_spots")
-    .select("id, name, description, latitude, longitude, privacy")
+    .select("id, name, description, latitude, longitude, privacy, terrain")
     .order("created_at", { ascending: false })
     .limit(500);
 
