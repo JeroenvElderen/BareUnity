@@ -302,6 +302,7 @@ export function MapStageClient() {
         });
 
         map.addControl(new window.maplibregl.NavigationControl(), "top-right");
+        mapRef.current = map;
 
         try {
           const mapSpotsResponse = await fetch("/api/map-spots", { cache: "no-store" });
@@ -313,22 +314,7 @@ export function MapStageClient() {
           const spots = payload.spots ?? [];
 
           for (const spot of spots) {
-            const latitude = Number(spot.latitude);
-            const longitude = Number(spot.longitude);
-
-            if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-              continue;
-            }
-
-            const markerElement = buildMarkerElement(spot.privacy);
-            markerElement.addEventListener("click", () => {
-              if (!mounted) return;
-              setSelectedSpot(spot);
-            });
-
-            new window.maplibregl.Marker({ element: markerElement, anchor: "bottom" })
-              .setLngLat([longitude, latitude])
-              .addTo(map);
+            addSpotMarkerToMap(spot);
           }
         } catch (markerError) {
           console.error("Failed to load map markers", markerError);
@@ -338,7 +324,6 @@ export function MapStageClient() {
         }
 
         mapInstance = map;
-        mapRef.current = map;
       } catch (error) {
         if (!mounted) return;
         const message = error instanceof Error ? error.message : "Map failed to initialize.";
@@ -416,6 +401,22 @@ export function MapStageClient() {
     }
 
     selectionMarkerRef.current.setLngLat([longitude, latitude]).addTo(map);
+  }
+
+  function addSpotMarkerToMap(spot: Spot) {
+    const map = mapRef.current;
+    if (!map || !window.maplibregl) return;
+
+    const latitude = Number(spot.latitude);
+    const longitude = Number(spot.longitude);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+
+    const markerElement = buildMarkerElement(spot.privacy);
+    markerElement.addEventListener("click", () => {
+      setSelectedSpot(spot);
+    });
+
+    new window.maplibregl.Marker({ element: markerElement, anchor: "bottom" }).setLngLat([longitude, latitude]).addTo(map);
   }
 
   async function searchLocations() {
@@ -538,9 +539,20 @@ export function MapStageClient() {
         throw new Error(payload?.error ?? `Submission failed (${response.status}).`);
       }
 
-      setSubmitFeedback({ type: "success", message: "Location submitted for review." });
+      const payload = (await response.json()) as { id?: string };
+      const newSpot: Spot = {
+        id: payload.id ?? crypto.randomUUID(),
+        name: locationForm.name.trim(),
+        description: locationForm.fullDescription.trim() || locationForm.shortDescription.trim() || locationForm.name.trim(),
+        latitude,
+        longitude,
+        privacy: locationForm.accessType,
+      };
+
+      addSpotMarkerToMap(newSpot);
       setLocationForm(INITIAL_LOCATION_FORM);
       clearLocationSearch();
+      closeCreateLocationModal();
     } catch (error) {
       console.error("Failed to submit location", error);
       setSubmitFeedback({
@@ -965,7 +977,7 @@ export function MapStageClient() {
                   </p>
                 ) : (
                   <p className="text-xs text-[rgb(var(--muted))]">
-                    Fields marked * are required. Submission sends this location to Supabase for moderation.
+                    Fields marked * are required. Submitted locations are added to the map immediately.
                   </p>
                 )}
                 <div className="flex gap-2">
