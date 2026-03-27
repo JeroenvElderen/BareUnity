@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { HomeFeedFriend, HomeFeedPayload, HomeFeedPost, HomeFeedStory } from "@/lib/homefeed";
 import { sanitizeImageUpload } from "@/lib/image";
+import { supabase } from "@/lib/supabase";
 import styles from "./page.module.css";
 
 function normalizePostText(text: string) {
@@ -99,9 +100,27 @@ export default function HomePage() {
     return normalizePostText(postContent);
   }, [postContent]);
 
+  const getAuthHeaders = async (options?: { includeJsonContentType?: boolean }) => {
+    const headers: HeadersInit = {};
+    if (options?.includeJsonContentType) {
+      headers["Content-Type"] = "application/json";
+    }
+
+    const { data } = await supabase.auth.getSession();
+    const accessToken = data.session?.access_token;
+    if (accessToken) {
+      headers.Authorization = `Bearer ${accessToken}`;
+    }
+
+    return headers;
+  };
+
   const loadFeed = async (options?: { showSpinner?: boolean }) => {
     if (options?.showSpinner) setLoadingFeed(true);
-    const response = await fetch("/api/homefeed", { cache: "no-store" });
+    const response = await fetch("/api/homefeed", {
+      cache: "no-store",
+      headers: await getAuthHeaders(),
+    });
     if (!response.ok) {
       setLoadingFeed(false);
       return;
@@ -131,7 +150,7 @@ export default function HomePage() {
 
     const response = await fetch("/api/homefeed", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: await getAuthHeaders({ includeJsonContentType: true }),
       body: JSON.stringify({ title: postTitle, content: postContent, mediaUrl: postImageDataUrl, kind: composerKind }),
     });
 
@@ -165,7 +184,10 @@ export default function HomePage() {
   };
 
   const toggleLike = async (postId: string) => {
-    const response = await fetch(`/api/homefeed/posts/${postId}/like`, { method: "POST" });
+    const response = await fetch(`/api/homefeed/posts/${postId}/like`, {
+      method: "POST",
+      headers: await getAuthHeaders(),
+    });
     if (!response.ok) return;
 
     await loadFeed();
@@ -177,7 +199,7 @@ export default function HomePage() {
 
     const response = await fetch(`/api/homefeed/posts/${postId}/comments`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: await getAuthHeaders({ includeJsonContentType: true }),
       body: JSON.stringify({ content: value }),
     });
 
@@ -200,7 +222,7 @@ export default function HomePage() {
 
     const response = await fetch(`/api/homefeed/posts/${editingPost.id}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: await getAuthHeaders({ includeJsonContentType: true }),
       body: JSON.stringify({ title: editTitle, content: editContent }),
     });
 
@@ -224,7 +246,10 @@ export default function HomePage() {
       deleteTarget.commentId
         ? `/api/homefeed/posts/${deleteTarget.postId}/comments/${deleteTarget.commentId}`
         : `/api/homefeed/posts/${deleteTarget.postId}`,
-      { method: "DELETE" },
+      {
+        method: "DELETE",
+        headers: await getAuthHeaders(),
+      },
     );
     if (!response.ok) return;
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/server/db";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase-admin";
+import { loadViewerIdFromRequest } from "@/lib/viewer";
 import {
   getInitials,
   pickPostTone,
@@ -75,18 +76,9 @@ async function uploadMediaDataUrl(args: {
   return data.publicUrl;
 }
 
-async function loadViewerId() {
-  const viewer = await db.profiles.findFirst({
-    select: { id: true },
-    orderBy: { created_at: "desc" },
-  });
-
-  return viewer?.id ?? null;
-}
-
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const viewerId = await loadViewerId();
+    const viewerId = await loadViewerIdFromRequest(request);
     const now = new Date();
 
     const [postsRaw, friendsRaw, storiesRaw] = await Promise.all([
@@ -122,7 +114,7 @@ export async function GET() {
           post_type: "story",
           author_id: { not: null },
           media_url: { not: null },
-          OR: [{ expires_at: null }, { expires_at: { gt: now } }],
+          expires_at: { gt: now },
         },
         orderBy: { created_at: "desc" },
         take: 20,
@@ -205,7 +197,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const viewerId = await loadViewerId();
+    const viewerId = await loadViewerIdFromRequest(request);
 
     if (!viewerId) {
       return NextResponse.json({ error: "No profile found to publish as." }, { status: 400 });
