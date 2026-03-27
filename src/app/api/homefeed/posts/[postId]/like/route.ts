@@ -1,17 +1,9 @@
 import { NextResponse } from "next/server";
 import { db } from "@/server/db";
+import { loadViewerIdFromRequest } from "@/lib/viewer";
 
-async function loadViewerId() {
-  const viewer = await db.profiles.findFirst({
-    select: { id: true },
-    orderBy: { created_at: "desc" },
-  });
-
-  return viewer?.id ?? null;
-}
-
-export async function POST(_: Request, context: { params: Promise<{ postId: string }> }) {
-  const viewerId = await loadViewerId();
+export async function POST(request: Request, context: { params: Promise<{ postId: string }> }) {
+  const viewerId = await loadViewerIdFromRequest(request);
   if (!viewerId) {
     return NextResponse.json({ error: "No profile found for liking posts." }, { status: 400 });
   }

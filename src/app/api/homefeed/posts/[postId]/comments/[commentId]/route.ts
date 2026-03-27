@@ -1,17 +1,9 @@
 import { NextResponse } from "next/server";
 import { db } from "@/server/db";
+import { loadViewerIdFromRequest } from "@/lib/viewer";
 
-async function loadViewerId() {
-  const viewer = await db.profiles.findFirst({
-    select: { id: true },
-    orderBy: { created_at: "desc" },
-  });
-
-  return viewer?.id ?? null;
-}
-
-export async function DELETE(_: Request, context: { params: Promise<{ postId: string; commentId: string }> }) {
-  const viewerId = await loadViewerId();
+export async function DELETE(request: Request, context: { params: Promise<{ postId: string; commentId: string }> }) {
+  const viewerId = await loadViewerIdFromRequest(request);
   if (!viewerId) {
     return NextResponse.json({ error: "No profile found for deleting comments." }, { status: 400 });
   }

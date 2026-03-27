@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase-admin";
+import { loadViewerIdFromRequest } from "@/lib/viewer";
 import { db } from "@/server/db";
 
 type MapSpotPayload = {
@@ -140,7 +141,7 @@ async function fetchSpotsWithSupabaseAdmin(): Promise<MapSpotPayload[]> {
   return (data ?? []) as MapSpotPayload[];
 }
 
-async function createSpotWithPrisma(payload: NormalizedMapSpotPayload) {
+async function createSpotWithPrisma(payload: NormalizedMapSpotPayload, submittedBy: string) {
   return db.naturist_map_spots.create({
     data: {
       name: payload.name,
@@ -163,6 +164,7 @@ async function createSpotWithPrisma(payload: NormalizedMapSpotPayload) {
       amenities: payload.amenities,
       tags: payload.tags,
       reporter_notes: payload.reporterNotes,
+      submitted_by: submittedBy,
       details: {
         locationHint: payload.locationHint,
         country: payload.country,
@@ -184,7 +186,7 @@ async function createSpotWithPrisma(payload: NormalizedMapSpotPayload) {
   });
 }
 
-async function createSpotWithSupabaseAdmin(payload: NormalizedMapSpotPayload) {
+async function createSpotWithSupabaseAdmin(payload: NormalizedMapSpotPayload, submittedBy: string) {
   const supabaseAdmin = createSupabaseAdminClient();
   const { data, error } = await supabaseAdmin
     .from("naturist_map_spots")
@@ -209,6 +211,7 @@ async function createSpotWithSupabaseAdmin(payload: NormalizedMapSpotPayload) {
       amenities: payload.amenities,
       tags: payload.tags,
       reporter_notes: payload.reporterNotes,
+      submitted_by: submittedBy,
       details: {
         locationHint: payload.locationHint,
         country: payload.country,
@@ -266,18 +269,23 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const viewerId = await loadViewerIdFromRequest(request);
+    if (!viewerId) {
+      return NextResponse.json({ error: "You must be logged in to submit a map spot." }, { status: 401 });
+    }
+
     const rawPayload = (await request.json()) as CreateMapSpotPayload;
     const payload = normalizeCreatePayload(rawPayload);
 
     try {
-      const created = await createSpotWithPrisma(payload);
+      const created = await createSpotWithPrisma(payload, viewerId);
       return NextResponse.json({ id: created.id }, { status: 201 });
     } catch (prismaError) {
       console.error("Failed to create map spot with Prisma", prismaError);
 
       if (isSupabaseAdminConfigured) {
         try {
-          const created = await createSpotWithSupabaseAdmin(payload);
+          const created = await createSpotWithSupabaseAdmin(payload, viewerId);
           return NextResponse.json({ id: created.id, source: "supabase-admin-fallback" }, { status: 201 });
         } catch (supabaseError) {
           console.error("Failed to create map spot with Supabase admin fallback", supabaseError);

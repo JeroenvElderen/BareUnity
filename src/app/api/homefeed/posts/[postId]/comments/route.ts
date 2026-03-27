@@ -1,17 +1,9 @@
 import { NextResponse } from "next/server";
 import { db } from "@/server/db";
-
-async function loadViewerId() {
-  const viewer = await db.profiles.findFirst({
-    select: { id: true },
-    orderBy: { created_at: "desc" },
-  });
-
-  return viewer?.id ?? null;
-}
+import { loadViewerIdFromRequest } from "@/lib/viewer";
 
 export async function POST(request: Request, context: { params: Promise<{ postId: string }> }) {
-  const viewerId = await loadViewerId();
+  const viewerId = await loadViewerIdFromRequest(request);
   if (!viewerId) {
     return NextResponse.json({ error: "No profile found for commenting." }, { status: 400 });
   }

@@ -531,10 +531,13 @@ export function MapStageClient() {
     setIsSubmittingLocation(true);
 
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
       const response = await fetch("/api/map-spots", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         },
         body: JSON.stringify({
           name: locationForm.name.trim(),
