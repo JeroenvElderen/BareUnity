@@ -1,10 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
+import { UsernameChangeModal } from "@/components/settings/username-change-modal";
 import { AppSidebar } from "@/components/sidebar/sidebar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import layoutStyles from "../page.module.css";
 import styles from "./settings.module.css";
 
@@ -150,6 +153,35 @@ function getStateClass(state: OptionState) {
 
 export default function SettingsPage() {
   const [activeSectionKey, setActiveSectionKey] = useState(settingSections[0]?.key ?? "profile");
+  const [isUsernameModalOpen, setIsUsernameModalOpen] = useState(false);
+  const [isSavingUsername, setIsSavingUsername] = useState(false);
+  const [currentUsername, setCurrentUsername] = useState("member");
+  const [usernameUpdateError, setUsernameUpdateError] = useState<string | null>(null);
+  const [usernameUpdateStatus, setUsernameUpdateStatus] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+
+    let isMounted = true;
+
+    void supabase.auth.getUser().then(async ({ data }) => {
+      if (!isMounted || !data.user) return;
+
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("username")
+        .eq("id", data.user.id)
+        .maybeSingle();
+
+      const username = profileData?.username?.trim();
+      if (!username || !isMounted) return;
+      setCurrentUsername(username);
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const activeSection = useMemo(
     () => settingSections.find((section) => section.key === activeSectionKey) ?? settingSections[0],
@@ -157,6 +189,42 @@ export default function SettingsPage() {
   );
 
   const totalOptions = settingSections.reduce((acc, section) => acc + section.options.length, 0);
+  const handleUsernameSave = async (nextUsername: string) => {
+    const normalizedNext = nextUsername.trim();
+    if (!normalizedNext) return;
+
+    setIsSavingUsername(true);
+    setUsernameUpdateError(null);
+    setUsernameUpdateStatus(null);
+
+    if (!isSupabaseConfigured) {
+      setCurrentUsername(normalizedNext);
+      setIsSavingUsername(false);
+      setIsUsernameModalOpen(false);
+      setUsernameUpdateStatus("Username updated locally.");
+      return;
+    }
+
+    const { data } = await supabase.auth.getUser();
+    if (!data.user) {
+      setIsSavingUsername(false);
+      setUsernameUpdateError("You need to be signed in to update your username.");
+      return;
+    }
+
+    const { error } = await supabase.from("profiles").update({ username: normalizedNext }).eq("id", data.user.id);
+
+    setIsSavingUsername(false);
+
+    if (error) {
+      setUsernameUpdateError(error.message || "Could not update username right now.");
+      return;
+    }
+
+    setCurrentUsername(normalizedNext);
+    setIsUsernameModalOpen(false);
+    setUsernameUpdateStatus(`Username changed to @${normalizedNext}.`);
+  };
 
   if (!activeSection) return null;
 
@@ -218,24 +286,64 @@ export default function SettingsPage() {
                 <Badge variant="outline">{activeSection.options.length} options</Badge>
               </div>
               <p className={styles.sectionSubtitle}>{activeSection.subtitle}</p>
+              {usernameUpdateStatus ? <p className={styles.statusNote}>{usernameUpdateStatus}</p> : null}
 
               <div className={styles.optionList}>
-                {activeSection.options.map((option) => (
-                  <article key={option.label} className={styles.optionItem}>
-                    <div>
-                      <h3>{option.label}</h3>
-                      <p>{option.detail}</p>
-                    </div>
-                    <button type="button" className={`${styles.statePill} ${getStateClass(option.state)}`}>
-                      {option.state}
-                    </button>
-                  </article>
-                ))}
+                {activeSection.options.map((option) => {
+                  const isUsernameOption = activeSection.key === "profile" && option.label === "Username";
+
+                  if (isUsernameOption) {
+                    return (
+                      <button
+                        key={option.label}
+                        type="button"
+                        className={`${styles.optionItem} ${styles.optionItemButton}`}
+                        onClick={() => {
+                          setUsernameUpdateStatus(null);
+                          setUsernameUpdateError(null);
+                          setIsUsernameModalOpen(true);
+                        }}
+                      >
+                        <div>
+                          <h3>{option.label}</h3>
+                          <p>{option.detail}</p>
+                        </div>
+                        <span className={`${styles.statePill} ${styles.stateOn}`}>Edit</span>
+                      </button>
+                    );
+                  }
+
+                  return (
+                    <article key={option.label} className={styles.optionItem}>
+                      <div>
+                        <h3>{option.label}</h3>
+                        <p>{option.detail}</p>
+                      </div>
+                      <button type="button" className={`${styles.statePill} ${getStateClass(option.state)}`}>
+                        {option.state}
+                      </button>
+                    </article>
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
         </div>
       </section>
+      <UsernameChangeModal
+        key={`${currentUsername}-${isUsernameModalOpen ? "open" : "closed"}`}
+        isOpen={isUsernameModalOpen}
+        currentUsername={currentUsername}
+        isSaving={isSavingUsername}
+        errorMessage={usernameUpdateError}
+        onCancel={() => {
+          setUsernameUpdateError(null);
+          setIsUsernameModalOpen(false);
+        }}
+        onSave={(nextUsername) => {
+          void handleUsernameSave(nextUsername);
+        }}
+      />
     </main>
   );
 }

@@ -1,0 +1,86 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgb(2 6 23 / 0.55);
+  backdrop-filter: blur(2px);
+}
+
+.dialog {
+  width: min(460px, 100%);
+  border: 1px solid rgb(var(--border));
+  border-radius: 1rem;
+  background: linear-gradient(160deg, rgb(var(--card) / 0.98), rgb(var(--bg-soft) / 0.9));
+  box-shadow: 0 20px 44px rgb(0 0 0 / 0.3);
+  overflow: hidden;
+}
+
+.header {
+  padding: 1rem 1rem 0.65rem;
+  border-bottom: 1px solid rgb(var(--border) / 0.65);
+}
+
+.header h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  color: rgb(var(--text-strong));
+}
+
+.header p {
+  margin: 0.35rem 0 0;
+  color: rgb(var(--muted));
+  font-size: 0.87rem;
+}
+
+.form {
+  display: grid;
+  gap: 0.85rem;
+  padding: 0.95rem 1rem 1rem;
+}
+
+.label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  color: rgb(var(--muted));
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.value,
+.input {
+  width: 100%;
+  border: 1px solid rgb(var(--border));
+  border-radius: 0.7rem;
+  padding: 0.58rem 0.65rem;
+  font-size: 0.93rem;
+  color: rgb(var(--text-strong));
+  background: rgb(var(--card));
+}
+
+.value {
+  background: rgb(var(--bg-soft) / 0.9);
+}
+
+.input:focus-visible {
+  outline: 2px solid rgb(var(--brand) / 0.35);
+  outline-offset: 2px;
+}
+
+.error {
+  margin: 0;
+  font-size: 0.84rem;
+  color: rgb(185 28 28);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.1rem;
+}
