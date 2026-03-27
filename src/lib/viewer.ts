@@ -1,7 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
 
-import type { Database } from "@/types/database";
-
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -13,7 +11,7 @@ export async function loadViewerIdFromRequest(request: Request) {
   if (!accessToken) return null;
   if (!supabaseUrl || !supabaseAnonKey) return null;
 
-  const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     global: {
       headers: {
         Authorization: `Bearer ${accessToken}`,

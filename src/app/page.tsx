@@ -412,7 +412,7 @@ export default function HomePage() {
                         <img
                           src={post.mediaUrl}
                           alt={`${post.author}'s post`}
-                          className="h-56 w-full rounded-2xl object-cover"
+                          className="h-56 w-full rounded-2xl bg-[rgb(var(--bg-soft))] object-contain"
                         />
                       ) : (
                         <span
@@ -594,7 +594,11 @@ export default function HomePage() {
 
             <p className="mb-3 whitespace-pre-line break-words [overflow-wrap:anywhere] text-sm text-[rgb(var(--text))]">{activePost.text}</p>
             {activePost.mediaUrl ? (
-              <img src={activePost.mediaUrl} alt={`${activePost.author}'s full post`} className="mb-4 h-64 w-full rounded-2xl object-cover" />
+              <img
+                src={activePost.mediaUrl}
+                alt={`${activePost.author}'s full post`}
+                className="mb-4 h-64 w-full rounded-2xl bg-[rgb(var(--bg-soft))] object-contain"
+              />
             ) : (
               <div className={`mb-4 h-64 rounded-2xl bg-gradient-to-r ${activePost.tone}`} />
             )}
