@@ -2,67 +2,135 @@
   min-height: 100vh;
   display: grid;
   place-items: center;
-  background: radial-gradient(circle at top, rgba(34, 197, 94, 0.2), transparent 52%), rgb(var(--bg));
-  padding: 1.5rem;
+  padding: clamp(1rem, 2.5vw, 2.5rem);
+  background:
+    radial-gradient(circle at 12% 8%, rgba(16, 185, 129, 0.2), transparent 32%),
+    radial-gradient(circle at 86% 4%, rgba(129, 140, 248, 0.22), transparent 30%),
+    #130f24;
 }
 
-.card {
-  width: min(100%, 34rem);
-  border: 1px solid rgb(var(--border));
-  border-radius: 1.5rem;
-  padding: 2rem;
-  background: rgb(var(--bg-soft));
-  box-shadow: 0 20px 48px rgba(15, 23, 42, 0.12);
+.container {
+  width: min(100%, 62rem);
+  border-radius: 1.25rem;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  overflow: hidden;
+  background: linear-gradient(165deg, rgba(29, 23, 53, 0.95), rgba(20, 16, 39, 0.98));
+  box-shadow: 0 30px 80px rgba(5, 7, 20, 0.55);
   display: grid;
-  gap: 1rem;
+  grid-template-columns: 1.2fr 1fr;
 }
 
-.eyebrow {
+.hero {
+  padding: clamp(1.35rem, 3.2vw, 2.3rem);
+  display: grid;
+  align-content: center;
+  gap: 0.85rem;
+  color: #f8fafc;
+  background:
+    radial-gradient(circle at 20% 15%, rgba(167, 139, 250, 0.25), transparent 36%),
+    linear-gradient(170deg, rgba(79, 70, 229, 0.16), rgba(16, 185, 129, 0.08));
+}
+
+.badge {
   margin: 0;
-  font-size: 0.78rem;
+  width: fit-content;
+  padding: 0.3rem 0.72rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: rgb(var(--muted));
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  color: #cbd5e1;
 }
 
-.title {
+.hero h1 {
   margin: 0;
-  font-size: clamp(1.7rem, 2.6vw, 2.2rem);
-  font-weight: 700;
-  color: rgb(var(--text-strong));
+  font-size: clamp(2rem, 3.6vw, 3rem);
+  line-height: 1.05;
 }
 
-.description {
+.hero > p {
   margin: 0;
-  color: rgb(var(--muted));
-  line-height: 1.55;
+  color: rgba(226, 232, 240, 0.92);
+  line-height: 1.65;
+  max-width: 46ch;
 }
 
-.actions {
+.heroLinks {
+  margin-top: 0.45rem;
   display: flex;
-  gap: 0.75rem;
   flex-wrap: wrap;
-  margin-top: 0.5rem;
+  align-items: center;
+  gap: 0.5rem;
+  color: #a5b4fc;
 }
 
-.signIn,
-.register {
+.heroLinks a {
+  color: #c4b5fd;
+  text-decoration: none;
+}
+
+.accessCard {
+  padding: clamp(1.35rem, 3.2vw, 2.3rem);
+  display: grid;
+  align-content: center;
+  gap: 0.85rem;
+  background: rgba(15, 23, 42, 0.42);
+  border-left: 1px solid rgba(148, 163, 184, 0.22);
+}
+
+.accessCard h2 {
+  margin: 0;
+  font-size: clamp(1.45rem, 2.8vw, 2.1rem);
+  color: #f8fafc;
+}
+
+.accessCopy {
+  margin: 0;
+  color: #cbd5e1;
+  line-height: 1.6;
+}
+
+.pillars {
+  margin: 0.35rem 0 0;
+  padding-left: 1rem;
+  display: grid;
+  gap: 0.45rem;
+  color: #e2e8f0;
+  line-height: 1.5;
+}
+
+.loginButton {
+  margin-top: 0.45rem;
+  min-height: 2.8rem;
+  border-radius: 0.75rem;
   display: inline-flex;
   justify-content: center;
   align-items: center;
-  padding: 0.75rem 1.1rem;
-  border-radius: 0.85rem;
   text-decoration: none;
-  font-weight: 600;
-}
-
-.signIn {
-  background: rgb(var(--brand));
+  font-weight: 650;
   color: #fff;
+  background: linear-gradient(120deg, #8b5cf6, #6366f1);
 }
 
-.register {
-  border: 1px solid rgb(var(--border));
-  color: rgb(var(--text-strong));
-  background: #fff;
+.registerText {
+  margin: 0;
+  text-align: center;
+  color: #cbd5e1;
+  font-size: 0.92rem;
+}
+
+.registerText a {
+  color: #d8b4fe;
+}
+
+@media (max-width: 900px) {
+  .container {
+    grid-template-columns: 1fr;
+  }
+
+  .accessCard {
+    border-left: 0;
+    border-top: 1px solid rgba(148, 163, 184, 0.22);
+  }
 }
