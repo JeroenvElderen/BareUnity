@@ -259,6 +259,9 @@ export default function HomePage() {
   };
 
   const activePost = activePostId ? feed.posts.find((post) => post.id === activePostId) ?? null : null;
+  const [activePostRawTitle, ...activePostBodyLines] = (activePost?.text ?? "").split("\n");
+  const activePostTitle = activePostRawTitle?.trim() || "Untitled post";
+  const activePostBody = activePostBodyLines.join("\n").trim();
   const posts = feed.posts;
   const stories: HomeFeedStory[] = feed.stories;
   const friends: HomeFeedFriend[] = feed.friends;
@@ -360,7 +363,11 @@ export default function HomePage() {
                 </Card>
               ) : null}
 
-              {posts.map((post: HomeFeedPost) => (
+              {posts.map((post: HomeFeedPost) => {
+                const [rawTitle] = post.text.split("\n");
+                const title = rawTitle?.trim() || "Untitled post";
+
+                return (
                 <Card key={post.id} className="border-0 bg-white">
                   <CardContent className="p-4">
                     <div className="mb-3 flex items-center justify-between">
@@ -405,23 +412,22 @@ export default function HomePage() {
                       ) : null}
                       </div>
                     <button type="button" onClick={() => setActivePostId(post.id)} className="mb-3 w-full text-left">
-                      <p className="whitespace-pre-line break-words [overflow-wrap:anywhere] text-sm text-[rgb(var(--text))]">{post.text}</p>
+                      <h3 className="break-words text-2xl font-bold leading-tight text-[rgb(var(--text-strong))] [overflow-wrap:anywhere]">{title}</h3>
                     </button>
                     <button type="button" onClick={() => setActivePostId(post.id)} className="mb-4 block w-full text-left">
                       {post.mediaUrl ? (
                         <img
                           src={post.mediaUrl}
                           alt={`${post.author}'s post`}
-                          className="h-56 w-full rounded-2xl bg-[rgb(var(--bg-soft))] object-contain"
+                          className="h-130 w-full rounded-2xl bg-[rgb(var(--bg-soft))] object-contain"
                         />
                       ) : (
                         <span
-                          className={`block h-56 w-full rounded-2xl bg-gradient-to-r ${post.tone}`}
+                          className={`block h-130 w-full rounded-2xl bg-gradient-to-r ${post.tone}`}
                           aria-label={`Open full post from ${post.author}`}
                         />
                       )}
                     </button>
-
                     <div className="mb-3 flex flex-wrap items-center gap-2 border-t border-[rgb(var(--border))] pt-3">
                       <Button size="sm" variant={post.likedByViewer ? "default" : "outline"} onClick={() => toggleLike(post.id)}>
                         <Heart className={`mr-1 h-4 w-4 ${post.likedByViewer ? "fill-current" : ""}`} />
@@ -436,7 +442,7 @@ export default function HomePage() {
                     </div>
                   </CardContent>
                 </Card>
-              ))}
+              )})}
             </div>
 
             <aside className="hidden space-y-4 min-[1100px]:block">
@@ -573,7 +579,7 @@ export default function HomePage() {
 
       {activePost ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 py-8" role="dialog" aria-modal="true">
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-[rgb(var(--border))] bg-white p-5 shadow-xl">
+          <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-[rgb(var(--border))] bg-white p-5 shadow-xl">
             <div className="mb-4 flex items-start justify-between gap-4">
               <div className="flex items-center gap-3">
                 <Avatar alt={activePost.author} fallback={activePost.fallback} className="h-11 w-11" />
@@ -592,46 +598,53 @@ export default function HomePage() {
               </button>
             </div>
 
-            <p className="mb-3 whitespace-pre-line break-words [overflow-wrap:anywhere] text-sm text-[rgb(var(--text))]">{activePost.text}</p>
-            {activePost.mediaUrl ? (
-              <img
-                src={activePost.mediaUrl}
-                alt={`${activePost.author}'s full post`}
-                className="mb-4 h-64 w-full rounded-2xl bg-[rgb(var(--bg-soft))] object-contain"
-              />
-            ) : (
-              <div className={`mb-4 h-64 rounded-2xl bg-gradient-to-r ${activePost.tone}`} />
-            )}
+            <div className="min-h-0 flex-1 overflow-y-auto pb-4 pr-1">
+              <h2 className="mb-3 break-words text-2xl font-bold leading-tight text-[rgb(var(--text-strong))] [overflow-wrap:anywhere]">{activePostTitle}</h2>
+              {activePost.mediaUrl ? (
+                <img
+                  src={activePost.mediaUrl}
+                  alt={`${activePost.author}'s full post`}
+                  className="mb-4 h-[32.5rem] w-full rounded-2xl bg-[rgb(var(--bg-soft))] object-contain"
+                />
+              ) : (
+                <div className={`mb-4 h-[32.5rem] rounded-2xl bg-gradient-to-r ${activePost.tone}`} />
+              )}
+              {activePostBody ? (
+                <p className="mb-4 whitespace-pre-line break-words [overflow-wrap:anywhere] text-sm text-[rgb(var(--text))]">{activePostBody}</p>
+              ) : null}
 
-            <div className="mb-3 flex flex-wrap items-center gap-2 border-t border-[rgb(var(--border))] pt-3">
-              <Button size="sm" variant={activePost.likedByViewer ? "default" : "outline"} onClick={() => toggleLike(activePost.id)}>
-                <Heart className={`mr-1 h-4 w-4 ${activePost.likedByViewer ? "fill-current" : ""}`} />
-                Like ({activePost.likes})
-              </Button>
-              <Badge variant="outline" className="px-3 py-1 text-xs">
-                <MessageCircle className="mr-1 h-3.5 w-3.5" />
-                {activePost.comments.length} comments
-              </Badge>
             </div>
 
-            <div className="space-y-2">
-              {activePost.comments.map((comment) => (
-                <div
-                  key={comment.id}
-                  className="flex items-center justify-between gap-3 rounded-lg bg-[rgb(var(--bg-soft))] px-3 py-2 text-sm text-[rgb(var(--text))]"
-                >
-                  <span className="break-words [overflow-wrap:anywhere]">{comment.content}</span>
-                  {feed.viewerId && comment.authorId === feed.viewerId ? (
-                    <button
-                      type="button"
-                      onClick={() => openDeleteModal(activePost.id, comment.id)}
-                      className="text-xs font-medium text-rose-600 hover:underline"
-                    >
-                      Delete
-                    </button>
-                  ) : null}
-                </div>
-              ))}
+            <div className="mt-2 space-y-2 border-t border-[rgb(var(--border))] bg-white pt-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <Button size="sm" variant={activePost.likedByViewer ? "default" : "outline"} onClick={() => toggleLike(activePost.id)}>
+                  <Heart className={`mr-1 h-4 w-4 ${activePost.likedByViewer ? "fill-current" : ""}`} />
+                  Like ({activePost.likes})
+                </Button>
+                <Badge variant="outline" className="px-3 py-1 text-xs">
+                  <MessageCircle className="mr-1 h-3.5 w-3.5" />
+                  {activePost.comments.length} comments
+                </Badge>
+              </div>
+              <div className="max-h-44 space-y-2 overflow-y-auto pr-1">
+                {activePost.comments.map((comment) => (
+                  <div
+                    key={comment.id}
+                    className="flex items-center justify-between gap-3 rounded-lg bg-[rgb(var(--bg-soft))] px-3 py-2 text-sm text-[rgb(var(--text))]"
+                  >
+                    <span className="break-words [overflow-wrap:anywhere]">{comment.content}</span>
+                    {feed.viewerId && comment.authorId === feed.viewerId ? (
+                      <button
+                        type="button"
+                        onClick={() => openDeleteModal(activePost.id, comment.id)}
+                        className="text-xs font-medium text-rose-600 hover:underline"
+                      >
+                        Delete
+                      </button>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
               <div className="flex items-center gap-2">
                 <input
                   type="text"
