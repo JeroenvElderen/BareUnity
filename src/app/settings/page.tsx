@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { PasswordResetModal } from "@/components/settings/password-reset-modal";
 import { PrimaryEmailModal } from "@/components/settings/primary-email-modal";
 import { RecoveryKeysModal } from "@/components/settings/recovery-keys-modal";
+import { SettingsOptionCard } from "@/components/settings/settings-option-card";
 import { UsernameChangeModal } from "@/components/settings/username-change-modal";
 import { AppSidebar } from "@/components/sidebar/sidebar";
 import { Badge } from "@/components/ui/badge";
@@ -144,6 +145,13 @@ type ProfileSecurityCache = {
 
 function getCachedProfileSecurity() {
   return readCachedValue<ProfileSecurityCache>(PROFILE_SECURITY_CACHE_KEY, PROFILE_SECURITY_CACHE_MAX_AGE_MS);
+}
+
+function getOptionCardVariant(index: number): "frame" | "split" | "glow" | "band" {
+  const pattern = index % 4;
+  if (pattern === 2) return "glow";
+  if (pattern === 3) return "band";
+  return "frame";
 }
 
 function getToneClass(tone: SettingSection["tone"]) {
@@ -499,18 +507,22 @@ export default function SettingsPage() {
               {recoveryKeysStatus ? <p className={styles.statusNote}>{recoveryKeysStatus}</p> : null}
 
               <div className={styles.optionList}>
-                {activeSection.options.map((option) => {
+                {activeSection.options.map((option, index) => {
                   const isUsernameOption = activeSection.key === "profile" && option.label === "Username";
                   const isPrimaryEmailOption = activeSection.key === "profile" && option.label === "Primary email";
                   const isPasswordOption = activeSection.key === "profile" && option.label === "Password reset";
                   const isRecoveryKeysOption = activeSection.key === "profile" && option.label === "Recovery keys";
 
+                  const variant = getOptionCardVariant(index);
+
                   if (isUsernameOption || isPrimaryEmailOption || isPasswordOption || isRecoveryKeysOption) {
                     return (
-                      <button
+                      <SettingsOptionCard
                         key={option.label}
-                        type="button"
-                        className={`${styles.optionItem} ${styles.optionItemButton}`}
+                        label={option.label}
+                        detail={option.detail}
+                        variant={variant}
+                        badge="Action"
                         onClick={() => {
                           if (isUsernameOption) {
                             setUsernameUpdateStatus(null);
@@ -535,26 +547,22 @@ export default function SettingsPage() {
                           setPasswordUpdateError(null);
                           setIsPasswordModalOpen(true);
                         }}
-                      >
-                        <div>
-                          <h3>{option.label}</h3>
-                          <p>{option.detail}</p>
-                        </div>
-                        <span className={`${styles.statePill} ${styles.stateOn}`}>Edit</span>
-                      </button>
+                      stateNode={<span className={`${styles.statePill} ${styles.stateOn}`}>Edit</span>}
+                      />
                     );
                   }
 
                   return (
-                    <article key={option.label} className={styles.optionItem}>
-                      <div>
-                        <h3>{option.label}</h3>
-                        <p>{option.detail}</p>
-                      </div>
-                      <button type="button" className={`${styles.statePill} ${getStateClass(option.state)}`}>
-                        {option.state}
-                      </button>
-                    </article>
+                    <SettingsOptionCard
+                      key={option.label}
+                      label={option.label}
+                      detail={option.detail}
+                      variant={variant}
+                      badge="Status"
+                      stateNode={
+                        <span className={`${styles.statePill} ${getStateClass(option.state)}`}>{option.state}</span>
+                      }
+                    />
                   );
                 })}
               </div>

@@ -1,0 +1,172 @@
+.card {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  width: 100%;
+  border: 1px solid rgb(var(--border));
+  border-radius: 1.25rem;
+  background:
+    linear-gradient(180deg, rgb(var(--card) / 0.99), rgb(var(--bg-soft) / 0.86));
+  padding: 0;
+  display: grid;
+  text-align: left;
+  box-shadow:
+    0 16px 34px rgb(15 23 42 / 0.1),
+    inset 0 1px 0 rgb(255 255 255 / 0.42);
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  background: linear-gradient(125deg, rgb(var(--brand) / 0.08), transparent 38%, rgb(var(--accent-soft) / 0.22));
+}
+
+.card:hover {
+  transform: translateY(-3px) scale(1.003);
+  border-color: rgb(var(--brand) / 0.48);
+  box-shadow:
+    0 22px 38px rgb(15 23 42 / 0.15),
+    inset 0 1px 0 rgb(255 255 255 / 0.48);
+}
+
+.actionable {
+  cursor: pointer;
+}
+
+.topRail {
+  height: 0.34rem;
+  background: linear-gradient(90deg, rgb(var(--brand) / 0.85), rgb(var(--accent-soft) / 0.75));
+}
+
+.body {
+  padding: 0.78rem 0.92rem 0.68rem;
+  display: grid;
+  gap: 0.34rem;
+}
+
+.badge {
+  margin: 0;
+  display: inline-flex;
+  width: fit-content;
+  border-radius: 999px;
+  border: 1px solid rgb(var(--brand) / 0.28);
+  padding: 0.14rem 0.44rem;
+  font-size: 0.61rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 800;
+  color: rgb(var(--brand-2));
+  background: rgb(var(--brand) / 0.14);
+}
+
+.title {
+  margin: 0;
+  color: rgb(var(--text-strong));
+  font-size: 0.98rem;
+  letter-spacing: -0.012em;
+  line-height: 1.2;
+}
+
+.detail {
+  margin: 0;
+  color: rgb(var(--muted));
+  font-size: 0.84rem;
+  line-height: 1.38;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0 0.92rem 0.84rem;
+}
+
+.footerLine {
+  height: 1px;
+  flex: 1;
+  background: linear-gradient(90deg, rgb(var(--border) / 0.7), transparent);
+}
+
+.stateWrap {
+  display: inline-flex;
+}
+
+.layoutFrame {
+  border-radius: 1.35rem;
+}
+
+.layoutFrame::after {
+  content: "";
+  position: absolute;
+  right: -22px;
+  top: -18px;
+  width: 82px;
+  height: 82px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgb(var(--brand) / 0.24), transparent 70%);
+  pointer-events: none;
+}
+
+.layoutSplit {
+  background:
+    linear-gradient(100deg, rgb(var(--accent-soft) / 0.44) 0 33%, rgb(var(--card) / 0.99) 33% 100%);
+}
+
+.layoutSplit .topRail {
+  background: linear-gradient(90deg, rgb(14 165 233 / 0.82), rgb(var(--brand) / 0.7));
+}
+
+.layoutSplit .badge {
+  background: rgb(14 165 233 / 0.14);
+  border-color: rgb(14 165 233 / 0.32);
+  color: rgb(3 105 161);
+}
+
+.layoutGlow {
+  background:
+    radial-gradient(circle at 94% 14%, rgb(245 158 11 / 0.24), transparent 45%),
+    linear-gradient(154deg, rgb(var(--card) / 0.99), rgb(var(--bg-soft) / 0.82));
+}
+
+.layoutGlow .topRail {
+  background: linear-gradient(90deg, rgb(245 158 11 / 0.86), rgb(249 115 22 / 0.82));
+}
+
+.layoutGlow .badge {
+  background: rgb(245 158 11 / 0.14);
+  border-color: rgb(245 158 11 / 0.34);
+  color: rgb(146 64 14);
+}
+
+.layoutBand {
+  background:
+    linear-gradient(180deg, rgb(var(--card) / 0.99), rgb(var(--card) / 0.99)),
+    linear-gradient(125deg, rgb(var(--accent-soft) / 0.22), transparent 50%);
+}
+
+.layoutBand::after {
+  content: "";
+  position: absolute;
+  right: -42px;
+  bottom: -42px;
+  width: 126px;
+  height: 126px;
+  border-radius: 999px;
+  border: 1px solid rgb(34 197 94 / 0.28);
+  pointer-events: none;
+}
+
+.layoutBand .topRail {
+  background: linear-gradient(90deg, rgb(34 197 94 / 0.84), rgb(var(--brand) / 0.78));
+}
+
+.layoutBand .badge {
+  background: rgb(34 197 94 / 0.14);
+  border-color: rgb(34 197 94 / 0.34);
+  color: rgb(22 101 52);
+}
