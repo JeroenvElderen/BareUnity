@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import { PasswordResetModal } from "@/components/settings/password-reset-modal";
 import { UsernameChangeModal } from "@/components/settings/username-change-modal";
 import { AppSidebar } from "@/components/sidebar/sidebar";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import layoutStyles from "../page.module.css";
@@ -158,6 +158,10 @@ export default function SettingsPage() {
   const [currentUsername, setCurrentUsername] = useState("member");
   const [usernameUpdateError, setUsernameUpdateError] = useState<string | null>(null);
   const [usernameUpdateStatus, setUsernameUpdateStatus] = useState<string | null>(null);
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [isSavingPassword, setIsSavingPassword] = useState(false);
+  const [passwordUpdateError, setPasswordUpdateError] = useState<string | null>(null);
+  const [passwordUpdateStatus, setPasswordUpdateStatus] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isSupabaseConfigured) return;
@@ -189,6 +193,53 @@ export default function SettingsPage() {
   );
 
   const totalOptions = settingSections.reduce((acc, section) => acc + section.options.length, 0);
+  const handlePasswordSave = async (oldPassword: string, newPassword: string) => {
+    const normalizedOld = oldPassword.trim();
+    const normalizedNew = newPassword.trim();
+    if (!normalizedOld || !normalizedNew) return;
+
+    setIsSavingPassword(true);
+    setPasswordUpdateError(null);
+    setPasswordUpdateStatus(null);
+
+    if (!isSupabaseConfigured) {
+      setIsSavingPassword(false);
+      setIsPasswordModalOpen(false);
+      setPasswordUpdateStatus("Password reset locally.");
+      return;
+    }
+
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user || !userData.user.email) {
+      setIsSavingPassword(false);
+      setPasswordUpdateError("You need to be signed in to reset your password.");
+      return;
+    }
+
+    const { error: authError } = await supabase.auth.signInWithPassword({
+      email: userData.user.email,
+      password: normalizedOld,
+    });
+
+    if (authError) {
+      setIsSavingPassword(false);
+      setPasswordUpdateError(authError.message || "Your old password is incorrect.");
+      return;
+    }
+
+    const { error: updateError } = await supabase.auth.updateUser({ password: normalizedNew });
+
+    setIsSavingPassword(false);
+
+    if (updateError) {
+      setPasswordUpdateError(updateError.message || "Could not reset your password right now.");
+      return;
+    }
+
+    setIsPasswordModalOpen(false);
+    setPasswordUpdateStatus("Password updated.");
+  };
+
   const handleUsernameSave = async (nextUsername: string) => {
     const normalizedNext = nextUsername.trim();
     if (!normalizedNext) return;
@@ -287,21 +338,30 @@ export default function SettingsPage() {
               </div>
               <p className={styles.sectionSubtitle}>{activeSection.subtitle}</p>
               {usernameUpdateStatus ? <p className={styles.statusNote}>{usernameUpdateStatus}</p> : null}
+              {passwordUpdateStatus ? <p className={styles.statusNote}>{passwordUpdateStatus}</p> : null}
 
               <div className={styles.optionList}>
                 {activeSection.options.map((option) => {
                   const isUsernameOption = activeSection.key === "profile" && option.label === "Username";
+                  const isPasswordOption = activeSection.key === "profile" && option.label === "Password reset";
 
-                  if (isUsernameOption) {
+                  if (isUsernameOption || isPasswordOption) {
                     return (
                       <button
                         key={option.label}
                         type="button"
                         className={`${styles.optionItem} ${styles.optionItemButton}`}
                         onClick={() => {
-                          setUsernameUpdateStatus(null);
-                          setUsernameUpdateError(null);
-                          setIsUsernameModalOpen(true);
+                          if (isUsernameOption) {
+                            setUsernameUpdateStatus(null);
+                            setUsernameUpdateError(null);
+                            setIsUsernameModalOpen(true);
+                            return;
+                          }
+
+                          setPasswordUpdateStatus(null);
+                          setPasswordUpdateError(null);
+                          setIsPasswordModalOpen(true);
                         }}
                       >
                         <div>
@@ -342,6 +402,18 @@ export default function SettingsPage() {
         }}
         onSave={(nextUsername) => {
           void handleUsernameSave(nextUsername);
+        }}
+      />
+      <PasswordResetModal
+        isOpen={isPasswordModalOpen}
+        isSaving={isSavingPassword}
+        errorMessage={passwordUpdateError}
+        onCancel={() => {
+          setPasswordUpdateError(null);
+          setIsPasswordModalOpen(false);
+        }}
+        onSave={(oldPassword, newPassword) => {
+          void handlePasswordSave(oldPassword, newPassword);
         }}
       />
     </main>
