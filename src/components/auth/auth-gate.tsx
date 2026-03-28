@@ -76,7 +76,7 @@ export function AuthGate({ children }: AuthGateProps) {
     if (!isAuthenticated) return;
 
     let isCancelled = false;
-    let refreshTimer: ReturnType<typeof window.setTimeout> | null = null;
+    let refreshTimer: number | null = null;
 
     const prefetchCoreData = async (options?: { invalidateProfileCache?: boolean }) => {
       const {
