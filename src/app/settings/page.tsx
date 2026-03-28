@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { PasswordResetModal } from "@/components/settings/password-reset-modal";
+import { PrimaryEmailModal } from "@/components/settings/primary-email-modal";
 import { UsernameChangeModal } from "@/components/settings/username-change-modal";
 import { AppSidebar } from "@/components/sidebar/sidebar";
 import { Badge } from "@/components/ui/badge";
@@ -156,8 +157,13 @@ export default function SettingsPage() {
   const [isUsernameModalOpen, setIsUsernameModalOpen] = useState(false);
   const [isSavingUsername, setIsSavingUsername] = useState(false);
   const [currentUsername, setCurrentUsername] = useState("member");
+  const [currentEmail, setCurrentEmail] = useState("member@example.com");
   const [usernameUpdateError, setUsernameUpdateError] = useState<string | null>(null);
   const [usernameUpdateStatus, setUsernameUpdateStatus] = useState<string | null>(null);
+  const [isPrimaryEmailModalOpen, setIsPrimaryEmailModalOpen] = useState(false);
+  const [isSavingPrimaryEmail, setIsSavingPrimaryEmail] = useState(false);
+  const [primaryEmailUpdateError, setPrimaryEmailUpdateError] = useState<string | null>(null);
+  const [primaryEmailUpdateStatus, setPrimaryEmailUpdateStatus] = useState<string | null>(null);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [isSavingPassword, setIsSavingPassword] = useState(false);
   const [passwordUpdateError, setPasswordUpdateError] = useState<string | null>(null);
@@ -170,6 +176,9 @@ export default function SettingsPage() {
 
     void supabase.auth.getUser().then(async ({ data }) => {
       if (!isMounted || !data.user) return;
+      if (data.user.email) {
+        setCurrentEmail(data.user.email);
+      }
 
       const { data: profileData } = await supabase
         .from("profiles")
@@ -193,6 +202,44 @@ export default function SettingsPage() {
   );
 
   const totalOptions = settingSections.reduce((acc, section) => acc + section.options.length, 0);
+  
+  const handlePrimaryEmailSave = async (nextEmail: string) => {
+    const normalizedNext = nextEmail.trim().toLowerCase();
+    if (!normalizedNext) return;
+
+    setIsSavingPrimaryEmail(true);
+    setPrimaryEmailUpdateError(null);
+    setPrimaryEmailUpdateStatus(null);
+
+    if (!isSupabaseConfigured) {
+      setCurrentEmail(normalizedNext);
+      setIsSavingPrimaryEmail(false);
+      setIsPrimaryEmailModalOpen(false);
+      setPrimaryEmailUpdateStatus("Primary email updated locally.");
+      return;
+    }
+
+    const { data } = await supabase.auth.getUser();
+    if (!data.user) {
+      setIsSavingPrimaryEmail(false);
+      setPrimaryEmailUpdateError("You need to be signed in to update your email.");
+      return;
+    }
+
+    const { error } = await supabase.auth.updateUser({ email: normalizedNext });
+
+    setIsSavingPrimaryEmail(false);
+
+    if (error) {
+      setPrimaryEmailUpdateError(error.message || "Could not update your primary email right now.");
+      return;
+    }
+
+    setCurrentEmail(normalizedNext);
+    setIsPrimaryEmailModalOpen(false);
+    setPrimaryEmailUpdateStatus(`Primary email changed to ${normalizedNext}.`);
+  };
+
   const handlePasswordSave = async (oldPassword: string, newPassword: string) => {
     const normalizedOld = oldPassword.trim();
     const normalizedNew = newPassword.trim();
@@ -338,14 +385,16 @@ export default function SettingsPage() {
               </div>
               <p className={styles.sectionSubtitle}>{activeSection.subtitle}</p>
               {usernameUpdateStatus ? <p className={styles.statusNote}>{usernameUpdateStatus}</p> : null}
+              {primaryEmailUpdateStatus ? <p className={styles.statusNote}>{primaryEmailUpdateStatus}</p> : null}
               {passwordUpdateStatus ? <p className={styles.statusNote}>{passwordUpdateStatus}</p> : null}
 
               <div className={styles.optionList}>
                 {activeSection.options.map((option) => {
                   const isUsernameOption = activeSection.key === "profile" && option.label === "Username";
+                  const isPrimaryEmailOption = activeSection.key === "profile" && option.label === "Primary email";
                   const isPasswordOption = activeSection.key === "profile" && option.label === "Password reset";
 
-                  if (isUsernameOption || isPasswordOption) {
+                  if (isUsernameOption || isPrimaryEmailOption || isPasswordOption) {
                     return (
                       <button
                         key={option.label}
@@ -356,6 +405,12 @@ export default function SettingsPage() {
                             setUsernameUpdateStatus(null);
                             setUsernameUpdateError(null);
                             setIsUsernameModalOpen(true);
+                            return;
+                          }
+                          if (isPrimaryEmailOption) {
+                            setPrimaryEmailUpdateStatus(null);
+                            setPrimaryEmailUpdateError(null);
+                            setIsPrimaryEmailModalOpen(true);
                             return;
                           }
 
@@ -414,6 +469,20 @@ export default function SettingsPage() {
         }}
         onSave={(oldPassword, newPassword) => {
           void handlePasswordSave(oldPassword, newPassword);
+        }}
+      />
+      <PrimaryEmailModal
+        key={`${currentEmail}-${isPrimaryEmailModalOpen ? "open" : "closed"}`}
+        isOpen={isPrimaryEmailModalOpen}
+        currentEmail={currentEmail}
+        isSaving={isSavingPrimaryEmail}
+        errorMessage={primaryEmailUpdateError}
+        onCancel={() => {
+          setPrimaryEmailUpdateError(null);
+          setIsPrimaryEmailModalOpen(false);
+        }}
+        onSave={(nextEmail) => {
+          void handlePrimaryEmailSave(nextEmail);
         }}
       />
     </main>
