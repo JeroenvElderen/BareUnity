@@ -4,10 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 
 import { PasswordResetModal } from "@/components/settings/password-reset-modal";
 import { PrimaryEmailModal } from "@/components/settings/primary-email-modal";
+import { RecoveryKeysModal } from "@/components/settings/recovery-keys-modal";
 import { UsernameChangeModal } from "@/components/settings/username-change-modal";
 import { AppSidebar } from "@/components/sidebar/sidebar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { readCachedValue, writeCachedValue } from "@/lib/client-cache";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import layoutStyles from "../page.module.css";
 import styles from "./settings.module.css";
@@ -41,7 +43,7 @@ const settingSections: SettingSection[] = [
       { label: "Primary email", detail: "Update your sign-in email and verification address.", state: "On" },
       { label: "Password reset", detail: "Rotate password and invalidate older credentials.", state: "On" },
       { label: "Passkey sign-in", detail: "Use device biometrics as passwordless login.", state: "On" },
-      { label: "Recovery codes", detail: "Generate backup codes for account recovery.", state: "On" },
+      { label: "Recovery keys", detail: "Generate backup keys for account recovery.", state: "On" },
       { label: "Connected devices", detail: "Review and remove active sessions.", state: "On" },
     ],
   },
@@ -132,6 +134,19 @@ const settingSections: SettingSection[] = [
   },
 ];
 
+const PROFILE_SECURITY_CACHE_KEY = "settings:profile-security:v1";
+const PROFILE_SECURITY_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 12;
+
+type ProfileSecurityCache = {
+  username: string;
+  email: string;
+  recoveryKeys: string[];
+};
+
+function getCachedProfileSecurity() {
+  return readCachedValue<ProfileSecurityCache>(PROFILE_SECURITY_CACHE_KEY, PROFILE_SECURITY_CACHE_MAX_AGE_MS);
+}
+
 function getToneClass(tone: SettingSection["tone"]) {
   switch (tone) {
     case "sun":
@@ -153,11 +168,12 @@ function getStateClass(state: OptionState) {
 }
 
 export default function SettingsPage() {
+  const cachedProfileSecurity = getCachedProfileSecurity();
   const [activeSectionKey, setActiveSectionKey] = useState(settingSections[0]?.key ?? "profile");
   const [isUsernameModalOpen, setIsUsernameModalOpen] = useState(false);
   const [isSavingUsername, setIsSavingUsername] = useState(false);
-  const [currentUsername, setCurrentUsername] = useState("member");
-  const [currentEmail, setCurrentEmail] = useState("member@example.com");
+  const [currentUsername, setCurrentUsername] = useState(cachedProfileSecurity?.username ?? "member");
+  const [currentEmail, setCurrentEmail] = useState(cachedProfileSecurity?.email ?? "member@example.com");
   const [usernameUpdateError, setUsernameUpdateError] = useState<string | null>(null);
   const [usernameUpdateStatus, setUsernameUpdateStatus] = useState<string | null>(null);
   const [isPrimaryEmailModalOpen, setIsPrimaryEmailModalOpen] = useState(false);
@@ -168,6 +184,19 @@ export default function SettingsPage() {
   const [isSavingPassword, setIsSavingPassword] = useState(false);
   const [passwordUpdateError, setPasswordUpdateError] = useState<string | null>(null);
   const [passwordUpdateStatus, setPasswordUpdateStatus] = useState<string | null>(null);
+  const [isRecoveryKeysModalOpen, setIsRecoveryKeysModalOpen] = useState(false);
+  const [isSavingRecoveryKeys, setIsSavingRecoveryKeys] = useState(false);
+  const [recoveryKeys, setRecoveryKeys] = useState<string[]>(cachedProfileSecurity?.recoveryKeys ?? []);
+  const [recoveryKeysError, setRecoveryKeysError] = useState<string | null>(null);
+  const [recoveryKeysStatus, setRecoveryKeysStatus] = useState<string | null>(null);
+
+  const persistProfileSecurityCache = (nextValues: Partial<ProfileSecurityCache>) => {
+    writeCachedValue<ProfileSecurityCache>(PROFILE_SECURITY_CACHE_KEY, {
+      username: nextValues.username ?? currentUsername,
+      email: nextValues.email ?? currentEmail,
+      recoveryKeys: nextValues.recoveryKeys ?? recoveryKeys,
+    });
+  };
 
   useEffect(() => {
     if (!isSupabaseConfigured) return;
@@ -187,8 +216,31 @@ export default function SettingsPage() {
         .maybeSingle();
 
       const username = profileData?.username?.trim();
-      if (!username || !isMounted) return;
-      setCurrentUsername(username);
+      if (username && isMounted) {
+        setCurrentUsername(username);
+      }
+
+      const { data: profileSettingsData } = await supabase
+        .from("profile_settings")
+        .select("recovery_keys")
+        .eq("user_id", data.user.id)
+        .maybeSingle();
+
+      const parsedRecoveryKeys = Array.isArray(profileSettingsData?.recovery_keys)
+        ? profileSettingsData.recovery_keys.filter((entry): entry is string => typeof entry === "string")
+        : [];
+
+      if (isMounted) {
+        setRecoveryKeys(parsedRecoveryKeys);
+      }
+
+      if (isMounted) {
+        writeCachedValue<ProfileSecurityCache>(PROFILE_SECURITY_CACHE_KEY, {
+          username: username || "member",
+          email: data.user.email ?? "member@example.com",
+          recoveryKeys: parsedRecoveryKeys,
+        });
+      }
     });
 
     return () => {
@@ -238,6 +290,7 @@ export default function SettingsPage() {
     setCurrentEmail(normalizedNext);
     setIsPrimaryEmailModalOpen(false);
     setPrimaryEmailUpdateStatus(`Primary email changed to ${normalizedNext}.`);
+    persistProfileSecurityCache({ email: normalizedNext });
   };
 
   const handlePasswordSave = async (oldPassword: string, newPassword: string) => {
@@ -322,6 +375,63 @@ export default function SettingsPage() {
     setCurrentUsername(normalizedNext);
     setIsUsernameModalOpen(false);
     setUsernameUpdateStatus(`Username changed to @${normalizedNext}.`);
+    persistProfileSecurityCache({ username: normalizedNext });
+  };
+
+  const generateRecoveryKeys = () => {
+    const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+    const makePart = () =>
+      Array.from({ length: 4 })
+        .map(() => {
+          const index = Math.floor(Math.random() * alphabet.length);
+          return alphabet[index] ?? "X";
+        })
+        .join("");
+
+    return Array.from({ length: 10 }).map(() => `${makePart()}-${makePart()}-${makePart()}`);
+  };
+
+  const handleRecoveryKeysGenerate = async () => {
+    setIsSavingRecoveryKeys(true);
+    setRecoveryKeysError(null);
+    setRecoveryKeysStatus(null);
+    const nextRecoveryKeys = generateRecoveryKeys();
+
+    if (!isSupabaseConfigured) {
+      setRecoveryKeys(nextRecoveryKeys);
+      setIsSavingRecoveryKeys(false);
+      setRecoveryKeysStatus("Recovery keys generated locally.");
+      persistProfileSecurityCache({ recoveryKeys: nextRecoveryKeys });
+      return;
+    }
+
+    const { data } = await supabase.auth.getUser();
+    if (!data.user) {
+      setIsSavingRecoveryKeys(false);
+      setRecoveryKeysError("You need to be signed in to generate recovery keys.");
+      return;
+    }
+
+    const { error } = await supabase.from("profile_settings").upsert(
+      {
+        user_id: data.user.id,
+        recovery_keys: nextRecoveryKeys,
+        recovery_keys_generated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id" },
+    );
+
+    setIsSavingRecoveryKeys(false);
+
+    if (error) {
+      setRecoveryKeysError(error.message || "Could not generate recovery keys right now.");
+      return;
+    }
+
+    setRecoveryKeys(nextRecoveryKeys);
+    setRecoveryKeysStatus("Recovery keys regenerated.");
+    persistProfileSecurityCache({ recoveryKeys: nextRecoveryKeys });
   };
 
   if (!activeSection) return null;
@@ -387,14 +497,16 @@ export default function SettingsPage() {
               {usernameUpdateStatus ? <p className={styles.statusNote}>{usernameUpdateStatus}</p> : null}
               {primaryEmailUpdateStatus ? <p className={styles.statusNote}>{primaryEmailUpdateStatus}</p> : null}
               {passwordUpdateStatus ? <p className={styles.statusNote}>{passwordUpdateStatus}</p> : null}
+              {recoveryKeysStatus ? <p className={styles.statusNote}>{recoveryKeysStatus}</p> : null}
 
               <div className={styles.optionList}>
                 {activeSection.options.map((option) => {
                   const isUsernameOption = activeSection.key === "profile" && option.label === "Username";
                   const isPrimaryEmailOption = activeSection.key === "profile" && option.label === "Primary email";
                   const isPasswordOption = activeSection.key === "profile" && option.label === "Password reset";
+                  const isRecoveryKeysOption = activeSection.key === "profile" && option.label === "Recovery keys";
 
-                  if (isUsernameOption || isPrimaryEmailOption || isPasswordOption) {
+                  if (isUsernameOption || isPrimaryEmailOption || isPasswordOption || isRecoveryKeysOption) {
                     return (
                       <button
                         key={option.label}
@@ -411,6 +523,12 @@ export default function SettingsPage() {
                             setPrimaryEmailUpdateStatus(null);
                             setPrimaryEmailUpdateError(null);
                             setIsPrimaryEmailModalOpen(true);
+                            return;
+                          }
+                          if (isRecoveryKeysOption) {
+                            setRecoveryKeysStatus(null);
+                            setRecoveryKeysError(null);
+                            setIsRecoveryKeysModalOpen(true);
                             return;
                           }
 
@@ -483,6 +601,19 @@ export default function SettingsPage() {
         }}
         onSave={(nextEmail) => {
           void handlePrimaryEmailSave(nextEmail);
+        }}
+      />
+      <RecoveryKeysModal
+        isOpen={isRecoveryKeysModalOpen}
+        recoveryKeys={recoveryKeys}
+        isSaving={isSavingRecoveryKeys}
+        errorMessage={recoveryKeysError}
+        onCancel={() => {
+          setRecoveryKeysError(null);
+          setIsRecoveryKeysModalOpen(false);
+        }}
+        onGenerate={() => {
+          void handleRecoveryKeysGenerate();
         }}
       />
     </main>

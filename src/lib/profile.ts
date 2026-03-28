@@ -50,6 +50,7 @@ export async function ensureProfileExists(user: User, options: EnsureProfileOpti
       user_role: role,
       interests,
       onboarding_completed: true,
+      recovery_keys: [],
     },
     { onConflict: "user_id" },
   );
