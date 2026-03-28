@@ -6,6 +6,7 @@ import { Building2, Flame, Hotel, MapPin, TentTree, Trees, Umbrella } from "luci
 
 import { MapSpotPopup } from "@/components/explore/map-spot-popup";
 import { Button } from "@/components/ui/button";
+import { loadCachedThenRefresh } from "@/lib/client-cache";
 import { supabase } from "@/lib/supabase";
 
 type Spot = {
@@ -212,6 +213,8 @@ const AMENITY_OPTIONS: AmenityType[] = [
   "Sauna",
   "Pool",
 ];
+const MAP_SPOTS_CACHE_KEY = "map-spots:v1";
+const MAP_SPOTS_CACHE_MAX_AGE_MS = 1000 * 60 * 5;
 
 function resolveSearchCoordinates(result: LocationSearchResult) {
   const latitudeCandidate = result.lat ?? result.latitude;
@@ -258,6 +261,7 @@ function formatCoordinate(value: string) {
 export function MapStageClient() {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMapInstance | null>(null);
+  const renderedSpotIdsRef = useRef<Set<string>>(new Set());
   const selectionMarkerRef = useRef<MapLibreMarkerInstance | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -297,6 +301,8 @@ export function MapStageClient() {
   useEffect(() => {
     let mounted = true;
     let mapInstance: MapLibreMapInstance | null = null;
+    const renderedSpotIds = renderedSpotIdsRef.current;
+    renderedSpotIds.clear();
 
     async function initMap() {
       try {
@@ -333,13 +339,24 @@ export function MapStageClient() {
         mapRef.current = map;
 
         try {
-          const mapSpotsResponse = await fetch("/api/map-spots", { cache: "no-store" });
-          if (!mapSpotsResponse.ok) {
-            throw new Error(`Map spots request failed (${mapSpotsResponse.status})`);
-          }
+          const spots = await loadCachedThenRefresh<Spot[]>({
+            key: MAP_SPOTS_CACHE_KEY,
+            maxAgeMs: MAP_SPOTS_CACHE_MAX_AGE_MS,
+            onCachedData: (cachedSpots) => {
+              for (const cachedSpot of cachedSpots) {
+                addSpotMarkerToMap(cachedSpot);
+              }
+            },
+            fetchFresh: async () => {
+              const mapSpotsResponse = await fetch("/api/map-spots", { cache: "no-store" });
+              if (!mapSpotsResponse.ok) {
+                throw new Error(`Map spots request failed (${mapSpotsResponse.status})`);
+              }
 
-          const payload = (await mapSpotsResponse.json()) as { spots?: Spot[] };
-          const spots = payload.spots ?? [];
+              const payload = (await mapSpotsResponse.json()) as { spots?: Spot[] };
+              return payload.spots ?? [];
+            },
+          });
 
           for (const spot of spots) {
             addSpotMarkerToMap(spot);
@@ -364,6 +381,7 @@ export function MapStageClient() {
     return () => {
       mounted = false;
       selectionMarkerRef.current = null;
+      renderedSpotIds.clear();
       mapRef.current = null;
       mapInstance?.remove();
     };
@@ -434,6 +452,7 @@ export function MapStageClient() {
   function addSpotMarkerToMap(spot: Spot) {
     const map = mapRef.current;
     if (!map || !window.maplibregl) return;
+    if (renderedSpotIdsRef.current.has(spot.id)) return;
 
     const latitude = Number(spot.latitude);
     const longitude = Number(spot.longitude);
@@ -445,6 +464,7 @@ export function MapStageClient() {
     });
 
     new window.maplibregl.Marker({ element: markerElement, anchor: "center" }).setLngLat([longitude, latitude]).addTo(map);
+    renderedSpotIdsRef.current.add(spot.id);
   }
 
   async function searchLocations() {

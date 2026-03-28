@@ -7,6 +7,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { loadCachedThenRefresh } from "@/lib/client-cache";
 import type { HomeFeedFriend, HomeFeedPayload, HomeFeedPost, HomeFeedStory } from "@/lib/homefeed";
 import { sanitizeImageUpload } from "@/lib/image";
 import { supabase } from "@/lib/supabase";
@@ -71,6 +72,8 @@ const defaultFeed: HomeFeedPayload = {
   posts: [],
   viewerId: null,
 };
+const HOME_FEED_CACHE_KEY = "home-feed:v1";
+const HOME_FEED_CACHE_MAX_AGE_MS = 1000 * 60 * 2;
 
 export default function HomePage() {
   const [isComposerOpen, setComposerOpen] = useState(false);
@@ -117,18 +120,34 @@ export default function HomePage() {
 
   const loadFeed = async (options?: { showSpinner?: boolean }) => {
     if (options?.showSpinner) setLoadingFeed(true);
-    const response = await fetch("/api/homefeed", {
-      cache: "no-store",
-      headers: await getAuthHeaders(),
-    });
-    if (!response.ok) {
-      setLoadingFeed(false);
-      return;
-    }
+    try {
+      const data = await loadCachedThenRefresh<HomeFeedPayload>({
+        key: HOME_FEED_CACHE_KEY,
+        maxAgeMs: HOME_FEED_CACHE_MAX_AGE_MS,
+        onCachedData: (cached) => {
+          setFeed(cached);
+          setLoadingFeed(false);
+        },
+        fetchFresh: async () => {
+          const response = await fetch("/api/homefeed", {
+            cache: "no-store",
+            headers: await getAuthHeaders(),
+          });
 
-    const data = (await response.json()) as HomeFeedPayload;
-    setFeed(data);
-    setLoadingFeed(false);
+          if (!response.ok) {
+            throw new Error(`Home feed request failed (${response.status})`);
+          }
+
+          return (await response.json()) as HomeFeedPayload;
+        },
+      });
+
+      setFeed(data);
+    } catch {
+      // Keep showing cached data when available. If neither cache nor network works, page keeps current state.
+    } finally {
+      setLoadingFeed(false);
+    }
   };
 
   useEffect(() => {

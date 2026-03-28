@@ -8,6 +8,7 @@ import { AppSidebar } from "@/components/sidebar/sidebar";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { loadCachedThenRefresh } from "@/lib/client-cache";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import layoutStyles from "../page.module.css";
 
@@ -46,6 +47,7 @@ const EMPTY_PROFILE_DATA: ProfileData = {
   interests: [],
   stats: { posts: 0, friends: 0, comments: 0 },
 };
+const PROFILE_CACHE_MAX_AGE_MS = 1000 * 60 * 3;
 
 function getInitials(value: string) {
   const words = value.trim().split(/\s+/).filter(Boolean);
@@ -132,9 +134,20 @@ export default function ProfilePage() {
     }
 
     setIsLoading(true);
-    const data = await getProfileDataForUser(sessionUser.id);
-    setProfileData(data);
-    setIsLoading(false);
+    try {
+      const data = await loadCachedThenRefresh<ProfileData>({
+        key: `profile:${sessionUser.id}:v1`,
+        maxAgeMs: PROFILE_CACHE_MAX_AGE_MS,
+        onCachedData: (cached) => {
+          setProfileData(cached);
+          setIsLoading(false);
+        },
+        fetchFresh: () => getProfileDataForUser(sessionUser.id),
+      });
+      setProfileData(data);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
   useEffect(() => {

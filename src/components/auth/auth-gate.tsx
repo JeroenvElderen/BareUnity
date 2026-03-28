@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 
+import { evictCachedValuesByPrefix, writeCachedValue } from "@/lib/client-cache";
 import { supabase } from "@/lib/supabase";
 
 type AuthGateProps = {
@@ -10,6 +11,8 @@ type AuthGateProps = {
 };
 
 const PUBLIC_PATHS = new Set(["/welcome", "/login", "/register"]);
+const PROFILE_CACHE_KEY_PREFIX = "profile:";
+const LIVE_TABLES = ["posts", "comments", "friendships", "profiles", "profile_settings", "map_spots"] as const;
 
 export function AuthGate({ children }: AuthGateProps) {
   const pathname = usePathname();
@@ -68,6 +71,73 @@ export function AuthGate({ children }: AuthGateProps) {
       subscription.unsubscribe();
     };
   }, [isPublicPath, pathname, router]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    let isCancelled = false;
+    let refreshTimer: ReturnType<typeof window.setTimeout> | null = null;
+
+    const prefetchCoreData = async (options?: { invalidateProfileCache?: boolean }) => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (isCancelled) return;
+
+      const accessToken = session?.access_token;
+      const headers: HeadersInit = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
+
+      const warmupTargets: Array<{ url: string; cacheKey: string; valuePath: "identity" | "spots" }> = [
+        { url: "/api/homefeed", cacheKey: "home-feed:v1", valuePath: "identity" },
+        { url: "/api/map-spots", cacheKey: "map-spots:v1", valuePath: "spots" },
+      ];
+
+      await Promise.all(
+        warmupTargets.map(async (target) => {
+          try {
+            const response = await fetch(target.url, { cache: "no-store", headers });
+            if (!response.ok) return;
+            const payload = (await response.json()) as { spots?: unknown[] };
+            writeCachedValue(target.cacheKey, target.valuePath === "spots" ? (payload.spots ?? []) : payload);
+          } catch {
+            // warmup failures should not block routing
+          }
+        }),
+      );
+
+      if (options?.invalidateProfileCache) {
+        evictCachedValuesByPrefix(PROFILE_CACHE_KEY_PREFIX);
+      }
+    };
+
+    void prefetchCoreData();
+
+    const scheduleRefresh = (options?: { invalidateProfileCache?: boolean }) => {
+      if (refreshTimer) window.clearTimeout(refreshTimer);
+      refreshTimer = window.setTimeout(() => {
+        void prefetchCoreData(options);
+      }, 450);
+    };
+
+    const liveUpdatesChannel = supabase.channel("client-cache-live-updates");
+    LIVE_TABLES.forEach((table) => {
+      liveUpdatesChannel.on(
+        "postgres_changes",
+        { event: "*", schema: "public", table },
+        () => {
+          scheduleRefresh({ invalidateProfileCache: true });
+        },
+      );
+    });
+    void liveUpdatesChannel.subscribe();
+
+    return () => {
+      isCancelled = true;
+      if (refreshTimer) window.clearTimeout(refreshTimer);
+      void supabase.removeChannel(liveUpdatesChannel);
+    };
+  }, [isAuthenticated]);
 
   if (!isReady) {
     return (
