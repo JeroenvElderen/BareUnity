@@ -39,3 +39,48 @@ export function writeCachedValue<T>(key: string, data: T) {
     // localStorage may be unavailable in private mode / strict browser settings.
   }
 }
+
+export function removeCachedValue(key: string) {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    // localStorage may be unavailable in private mode / strict browser settings.
+  }
+}
+
+export function evictCachedValuesByPrefix(prefix: string) {
+  if (typeof window === "undefined") return;
+
+  try {
+    const keysToRemove: string[] = [];
+
+    for (let index = 0; index < window.localStorage.length; index += 1) {
+      const key = window.localStorage.key(index);
+      if (!key) continue;
+      if (key.startsWith(prefix)) keysToRemove.push(key);
+    }
+
+    keysToRemove.forEach((key) => window.localStorage.removeItem(key));
+  } catch {
+    // localStorage may be unavailable in private mode / strict browser settings.
+  }
+}
+
+export async function loadCachedThenRefresh<T>(options: {
+  key: string;
+  maxAgeMs: number;
+  fetchFresh: () => Promise<T>;
+  onCachedData?: (data: T) => void;
+}): Promise<T> {
+  const cached = readCachedValue<T>(options.key, options.maxAgeMs);
+
+  if (cached && options.onCachedData) {
+    options.onCachedData(cached);
+  }
+
+  const fresh = await options.fetchFresh();
+  writeCachedValue(options.key, fresh);
+  return fresh;
+}
