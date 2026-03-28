@@ -5,7 +5,6 @@ import { useEffect, useMemo, useState } from "react";
 import { PasswordResetModal } from "@/components/settings/password-reset-modal";
 import { PrimaryEmailModal } from "@/components/settings/primary-email-modal";
 import { RecoveryKeysModal } from "@/components/settings/recovery-keys-modal";
-import { PasskeyCredential, PasskeySignInModal } from "@/components/settings/passkey-sign-in-modal";
 import { UsernameChangeModal } from "@/components/settings/username-change-modal";
 import { AppSidebar } from "@/components/sidebar/sidebar";
 import { Badge } from "@/components/ui/badge";
@@ -43,7 +42,6 @@ const settingSections: SettingSection[] = [
       { label: "Username", detail: "Change your @handle used in search and mentions.", state: "On" },
       { label: "Primary email", detail: "Update your sign-in email and verification address.", state: "On" },
       { label: "Password reset", detail: "Rotate password and invalidate older credentials.", state: "On" },
-      { label: "Passkey sign-in", detail: "Use device biometrics as passwordless login.", state: "On" },
       { label: "Recovery keys", detail: "Generate backup keys for account recovery.", state: "On" },
       { label: "Connected devices", detail: "Review and remove active sessions.", state: "On" },
     ],
@@ -142,15 +140,6 @@ type ProfileSecurityCache = {
   username: string;
   email: string;
   recoveryKeys: string[];
-  passkeys: PasskeyCredential[];
-};
-
-type MfaPasskeyFactor = {
-  id: string;
-  friendly_name?: string;
-  factor_type: string;
-  status: string;
-  created_at: string;
 };
 
 function getCachedProfileSecurity() {
@@ -199,18 +188,12 @@ export default function SettingsPage() {
   const [recoveryKeys, setRecoveryKeys] = useState<string[]>(cachedProfileSecurity?.recoveryKeys ?? []);
   const [recoveryKeysError, setRecoveryKeysError] = useState<string | null>(null);
   const [recoveryKeysStatus, setRecoveryKeysStatus] = useState<string | null>(null);
-  const [isPasskeyModalOpen, setIsPasskeyModalOpen] = useState(false);
-  const [isSavingPasskey, setIsSavingPasskey] = useState(false);
-  const [passkeys, setPasskeys] = useState<PasskeyCredential[]>(cachedProfileSecurity?.passkeys ?? []);
-  const [passkeyError, setPasskeyError] = useState<string | null>(null);
-  const [passkeyStatus, setPasskeyStatus] = useState<string | null>(null);
 
   const persistProfileSecurityCache = (nextValues: Partial<ProfileSecurityCache>) => {
     writeCachedValue<ProfileSecurityCache>(PROFILE_SECURITY_CACHE_KEY, {
       username: nextValues.username ?? currentUsername,
       email: nextValues.email ?? currentEmail,
       recoveryKeys: nextValues.recoveryKeys ?? recoveryKeys,
-      passkeys: nextValues.passkeys ?? passkeys,
     });
   };
 
@@ -246,19 +229,8 @@ export default function SettingsPage() {
         ? profileSettingsData.recovery_keys.filter((entry): entry is string => typeof entry === "string")
         : [];
 
-      const { data: passkeyFactorData } = await supabase.auth.mfa.listFactors();
-      const parsedPasskeys =
-        passkeyFactorData?.all
-          ?.filter((factor): factor is MfaPasskeyFactor => factor.factor_type === "webauthn" && factor.status === "verified")
-          .map((factor) => ({
-            id: factor.id,
-            nickname: factor.friendly_name?.trim() || "Passkey device",
-            addedAt: factor.created_at,
-          })) ?? [];
-
       if (isMounted) {
         setRecoveryKeys(parsedRecoveryKeys);
-        setPasskeys(parsedPasskeys);
       }
 
       if (isMounted) {
@@ -266,7 +238,6 @@ export default function SettingsPage() {
           username: username || "member",
           email: data.user.email ?? "member@example.com",
           recoveryKeys: parsedRecoveryKeys,
-          passkeys: parsedPasskeys,
         });
       }
     });
@@ -420,129 +391,6 @@ export default function SettingsPage() {
     return Array.from({ length: 10 }).map(() => `${makePart()}-${makePart()}-${makePart()}`);
   };
 
-  const listPasskeys = async () => {
-    if (!isSupabaseConfigured) return passkeys;
-    const { data, error } = await supabase.auth.mfa.listFactors();
-    if (error) {
-      throw new Error(error.message || "Could not load passkeys right now.");
-    }
-
-    return (
-      data?.all
-        ?.filter((factor): factor is MfaPasskeyFactor => factor.factor_type === "webauthn" && factor.status === "verified")
-        .map((factor) => ({
-          id: factor.id,
-          nickname: factor.friendly_name?.trim() || "Passkey device",
-          addedAt: factor.created_at,
-        })) ?? []
-    );
-  };
-
-  const persistPasskeys = async (nextPasskeys: PasskeyCredential[]) => {
-    if (!isSupabaseConfigured) {
-      setPasskeys(nextPasskeys);
-      persistProfileSecurityCache({ passkeys: nextPasskeys });
-      return { ok: true as const };
-    }
-
-    setPasskeys(nextPasskeys);
-    persistProfileSecurityCache({ passkeys: nextPasskeys });
-    return { ok: true as const };
-  };
-
-  const handlePasskeyAdd = async (nickname: string) => {
-    setIsSavingPasskey(true);
-    setPasskeyError(null);
-    setPasskeyStatus(null);
-
-    const nextPasskey: PasskeyCredential = {
-      nickname: nickname.trim() || "This device",
-      addedAt: new Date().toISOString(),
-      id: typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}`,
-    };
-
-    if (isSupabaseConfigured) {
-      const { error } = await supabase.auth.mfa.webauthn.register({ friendlyName: nextPasskey.nickname });
-      if (error) {
-        setIsSavingPasskey(false);
-        setPasskeyError(error.message || "Could not register passkey right now.");
-        return;
-      }
-
-      try {
-        const refreshedPasskeys = await listPasskeys();
-        const result = await persistPasskeys(refreshedPasskeys);
-        setIsSavingPasskey(false);
-        if (!result.ok) {
-          setPasskeyError(result.error);
-          return;
-        }
-      } catch (error) {
-        setIsSavingPasskey(false);
-        setPasskeyError(error instanceof Error ? error.message : "Could not load passkeys right now.");
-        return;
-      }
-
-      setPasskeyStatus(`Passkey added for ${nextPasskey.nickname}.`);
-      return;
-    }
-
-    const result = await persistPasskeys([...passkeys, nextPasskey]);
-
-    setIsSavingPasskey(false);
-
-    if (!result.ok) {
-      setPasskeyError(result.error);
-      return;
-    }
-
-    setPasskeyStatus(`Passkey added for ${nextPasskey.nickname}.`);
-  };
-
-  const handlePasskeyRemove = async (id: string) => {
-    setIsSavingPasskey(true);
-    setPasskeyError(null);
-    setPasskeyStatus(null);
-
-    if (isSupabaseConfigured) {
-      const { error } = await supabase.auth.mfa.unenroll({ factorId: id });
-      if (error) {
-        setIsSavingPasskey(false);
-        setPasskeyError(error.message || "Could not remove this passkey right now.");
-        return;
-      }
-
-      try {
-        const refreshedPasskeys = await listPasskeys();
-        const result = await persistPasskeys(refreshedPasskeys);
-        setIsSavingPasskey(false);
-        if (!result.ok) {
-          setPasskeyError(result.error);
-          return;
-        }
-      } catch (error) {
-        setIsSavingPasskey(false);
-        setPasskeyError(error instanceof Error ? error.message : "Could not load passkeys right now.");
-        return;
-      }
-
-      setPasskeyStatus("Passkey removed.");
-      return;
-    }
-
-    const nextPasskeys = passkeys.filter((item) => item.id !== id);
-    const result = await persistPasskeys(nextPasskeys);
-
-    setIsSavingPasskey(false);
-
-    if (!result.ok) {
-      setPasskeyError(result.error);
-      return;
-    }
-
-    setPasskeyStatus("Passkey removed.");
-  };
-
   const handleRecoveryKeysGenerate = async () => {
     setIsSavingRecoveryKeys(true);
     setRecoveryKeysError(null);
@@ -649,7 +497,6 @@ export default function SettingsPage() {
               {primaryEmailUpdateStatus ? <p className={styles.statusNote}>{primaryEmailUpdateStatus}</p> : null}
               {passwordUpdateStatus ? <p className={styles.statusNote}>{passwordUpdateStatus}</p> : null}
               {recoveryKeysStatus ? <p className={styles.statusNote}>{recoveryKeysStatus}</p> : null}
-              {passkeyStatus ? <p className={styles.statusNote}>{passkeyStatus}</p> : null}
 
               <div className={styles.optionList}>
                 {activeSection.options.map((option) => {
@@ -657,9 +504,8 @@ export default function SettingsPage() {
                   const isPrimaryEmailOption = activeSection.key === "profile" && option.label === "Primary email";
                   const isPasswordOption = activeSection.key === "profile" && option.label === "Password reset";
                   const isRecoveryKeysOption = activeSection.key === "profile" && option.label === "Recovery keys";
-                  const isPasskeyOption = activeSection.key === "profile" && option.label === "Passkey sign-in";
 
-                  if (isUsernameOption || isPrimaryEmailOption || isPasswordOption || isRecoveryKeysOption || isPasskeyOption) {
+                  if (isUsernameOption || isPrimaryEmailOption || isPasswordOption || isRecoveryKeysOption) {
                     return (
                       <button
                         key={option.label}
@@ -682,13 +528,6 @@ export default function SettingsPage() {
                             setRecoveryKeysStatus(null);
                             setRecoveryKeysError(null);
                             setIsRecoveryKeysModalOpen(true);
-                            return;
-                          }
-
-                          if (isPasskeyOption) {
-                            setPasskeyStatus(null);
-                            setPasskeyError(null);
-                            setIsPasskeyModalOpen(true);
                             return;
                           }
 
@@ -761,22 +600,6 @@ export default function SettingsPage() {
         }}
         onSave={(nextEmail) => {
           void handlePrimaryEmailSave(nextEmail);
-        }}
-      />
-      <PasskeySignInModal
-        isOpen={isPasskeyModalOpen}
-        passkeys={passkeys}
-        isSaving={isSavingPasskey}
-        errorMessage={passkeyError}
-        onCancel={() => {
-          setPasskeyError(null);
-          setIsPasskeyModalOpen(false);
-        }}
-        onAddPasskey={(nickname) => {
-          void handlePasskeyAdd(nickname);
-        }}
-        onRemovePasskey={(id) => {
-          void handlePasskeyRemove(id);
         }}
       />
       <RecoveryKeysModal
