@@ -51,6 +51,50 @@ export default function LoginPage() {
     router.refresh();
   }
 
+  async function onPasskeySignIn() {
+    setStatus("");
+    setIsLoading(true);
+
+    if (!email.trim() || !password) {
+      setStatus("Enter your email and password first, then use passkey sign-in.");
+      setIsLoading(false);
+      return;
+    }
+
+    const { error: passwordError } = await supabase.auth.signInWithPassword({ email, password });
+    if (passwordError) {
+      setStatus(passwordError.message || "Could not start passkey sign-in.");
+      setIsLoading(false);
+      return;
+    }
+
+    const { data: factorsData, error: factorsError } = await supabase.auth.mfa.listFactors();
+    if (factorsError) {
+      setStatus(factorsError.message || "Could not load your passkeys.");
+      setIsLoading(false);
+      return;
+    }
+
+    const passkeyFactor = factorsData.all.find((factor) => factor.factor_type === "webauthn" && factor.status === "verified");
+    if (!passkeyFactor) {
+      setStatus("No verified passkey found for this account. Add one in Settings first.");
+      setIsLoading(false);
+      return;
+    }
+
+    const { error: passkeyError } = await supabase.auth.mfa.webauthn.authenticate({ factorId: passkeyFactor.id });
+    if (passkeyError) {
+      setStatus(passkeyError.message || "Passkey verification failed.");
+      setIsLoading(false);
+      return;
+    }
+
+    setStatus("Signed in with passkey.");
+    setIsLoading(false);
+    router.push("/");
+    router.refresh();
+  }
+
   return (
     <main className={styles.page}>
       <section className={styles.shell}>
@@ -109,6 +153,10 @@ export default function LoginPage() {
               {isLoading ? "Signing in..." : "Sign in"}
             </button>
 
+            <button className={styles.button} type="button" onClick={() => void onPasskeySignIn()} disabled={isLoading}>
+              {isLoading ? "Checking passkey..." : "Sign in with passkey"}
+            </button>
+            
             {status ? <p className={styles.help}>{status}</p> : null}
 
             <p className={styles.alt}>
