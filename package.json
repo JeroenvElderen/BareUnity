@@ -11,6 +11,7 @@
     "db:pull": "prisma db pull",
     "codex:screenshot": "node scripts/codex-screenshot.mjs",
     "codex:screenshot:install": "playwright install chromium",
+    "codex:screenshot:doctor": "node scripts/codex-screenshot-doctor.mjs",
     "postinstall": "prisma generate"
   },
   "dependencies": {
