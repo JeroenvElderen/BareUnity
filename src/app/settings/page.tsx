@@ -210,45 +210,36 @@ export default function SettingsPage() {
 
     let isMounted = true;
 
-    void supabase.auth.getUser().then(async ({ data }) => {
-      if (!isMounted || !data.user) return;
-      if (data.user.email) {
-        setCurrentEmail(data.user.email);
-      }
+    const loadSnapshot = async () => {
+      const { data } = await supabase.auth.getSession();
+      const accessToken = data.session?.access_token;
+      if (!accessToken) return;
 
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select("username")
-        .eq("id", data.user.id)
-        .maybeSingle();
+      const response = await fetch("/api/settings/snapshot", {
+        cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
 
-      const username = profileData?.username?.trim();
-      if (username && isMounted) {
-        setCurrentUsername(username);
-      }
+      if (!response.ok) return;
 
-      const { data: profileSettingsData } = await supabase
-        .from("profile_settings")
-        .select("recovery_keys")
-        .eq("user_id", data.user.id)
-        .maybeSingle();
+      const snapshot = (await response.json()) as ProfileSecurityCache;
 
-      const parsedRecoveryKeys = Array.isArray(profileSettingsData?.recovery_keys)
-        ? profileSettingsData.recovery_keys.filter((entry): entry is string => typeof entry === "string")
-        : [];
+      if (!isMounted) return;
 
-      if (isMounted) {
-        setRecoveryKeys(parsedRecoveryKeys);
-      }
+      setCurrentUsername(snapshot.username || "member");
+      setCurrentEmail(snapshot.email || "member@example.com");
+      setRecoveryKeys(Array.isArray(snapshot.recoveryKeys) ? snapshot.recoveryKeys : []);
 
-      if (isMounted) {
-        writeCachedValue<ProfileSecurityCache>(profileSecurityCacheKey, {
-          username: username || "member",
-          email: data.user.email ?? "member@example.com",
-          recoveryKeys: parsedRecoveryKeys,
-        });
-      }
-    });
+      writeCachedValue<ProfileSecurityCache>(profileSecurityCacheKey, {
+        username: snapshot.username || "member",
+        email: snapshot.email || "member@example.com",
+        recoveryKeys: Array.isArray(snapshot.recoveryKeys) ? snapshot.recoveryKeys : [],
+      });
+    };
+
+    void loadSnapshot();
 
     return () => {
       isMounted = false;

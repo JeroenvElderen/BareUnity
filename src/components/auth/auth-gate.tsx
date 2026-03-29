@@ -74,6 +74,7 @@ export function AuthGate({ children }: AuthGateProps) {
         evictCachedValuesByPrefix("home-feed:");
         evictCachedValuesByPrefix("map-spots:");
         evictCachedValuesByPrefix("settings:profile-security:");
+        evictCachedValuesByPrefix("gallery-items:");
         evictCachedValuesByPrefix(PROFILE_CACHE_KEY_PREFIX);
         router.replace("/welcome");
       }
@@ -113,20 +114,39 @@ export function AuthGate({ children }: AuthGateProps) {
       const cacheUserId = session?.user?.id ?? null;
       const homeFeedCacheKey = buildUserScopedCacheKey("home-feed", cacheUserId);
       const mapSpotsCacheKey = buildUserScopedCacheKey("map-spots", cacheUserId);
+      const profileCacheKey = cacheUserId ? `profile:${cacheUserId}:v2` : null;
+      const settingsCacheKey = buildUserScopedCacheKey("settings:profile-security", cacheUserId);
+      const galleryCacheKey = buildUserScopedCacheKey("gallery-items", cacheUserId);
       const headers: HeadersInit = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
 
-      const warmupTargets: Array<{ url: string; cacheKey: string; valuePath: "identity" | "spots" }> = [
+      const warmupTargets: Array<{ url: string; cacheKey: string | null; valuePath: "identity" | "spots" | "items" }> = [
         { url: "/api/homefeed", cacheKey: homeFeedCacheKey, valuePath: "identity" },
         { url: "/api/map-spots", cacheKey: mapSpotsCacheKey, valuePath: "spots" },
+        { url: "/api/profile/snapshot", cacheKey: profileCacheKey, valuePath: "identity" },
+        { url: "/api/settings/snapshot", cacheKey: settingsCacheKey, valuePath: "identity" },
+        { url: "/api/gallery/snapshot", cacheKey: galleryCacheKey, valuePath: "items" },
       ];
 
       await Promise.all(
         warmupTargets.map(async (target) => {
+          if (!target.cacheKey) return;
+
           try {
             const response = await fetch(target.url, { cache: "no-store", headers });
             if (!response.ok) return;
-            const payload = (await response.json()) as { spots?: unknown[] };
-            writeCachedValue(target.cacheKey, target.valuePath === "spots" ? (payload.spots ?? []) : payload);
+            const payload = (await response.json()) as { spots?: unknown[]; items?: unknown[] };
+
+            if (target.valuePath === "spots") {
+              writeCachedValue(target.cacheKey, payload.spots ?? []);
+              return;
+            }
+
+            if (target.valuePath === "items") {
+              writeCachedValue(target.cacheKey, payload.items ?? []);
+              return;
+            }
+
+            writeCachedValue(target.cacheKey, payload);
           } catch {
             // warmup failures should not block routing
           }

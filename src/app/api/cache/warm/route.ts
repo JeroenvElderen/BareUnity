@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 
 import { buildHomeFeedPayload, getHomeFeedSourceVersion } from "@/lib/homefeed-server";
+import { buildProfileSnapshotPayload, getProfileSnapshotSourceVersion } from "@/lib/profile-snapshot";
 import { writeServerCache } from "@/lib/server-user-cache";
+import { buildSettingsSnapshotPayload, getSettingsSnapshotSourceVersion } from "@/lib/settings-snapshot";
 import { db } from "@/server/db";
 
 const MAX_USERS_TO_WARM = 100;
@@ -47,6 +49,34 @@ export async function POST(request: Request) {
         sourceVersion,
         value: payload,
         ttlSeconds: 60 * 60,
+      });
+
+      const [profileSourceVersion, profilePayload] = await Promise.all([
+        getProfileSnapshotSourceVersion(user.id),
+        buildProfileSnapshotPayload(user.id),
+      ]);
+
+      await writeServerCache({
+        userId: user.id,
+        scope: "profile",
+        key: "snapshot:v1",
+        sourceVersion: profileSourceVersion,
+        value: profilePayload,
+        ttlSeconds: 60 * 30,
+      });
+
+      const [settingsSourceVersion, settingsPayload] = await Promise.all([
+        getSettingsSnapshotSourceVersion(user.id),
+        buildSettingsSnapshotPayload(user.id),
+      ]);
+
+      await writeServerCache({
+        userId: user.id,
+        scope: "settings",
+        key: "profile-security:v1",
+        sourceVersion: settingsSourceVersion,
+        value: settingsPayload,
+        ttlSeconds: 60 * 30,
       });
 
       warmedCount += 1;

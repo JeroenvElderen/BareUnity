@@ -30,10 +30,6 @@ type PostRow = {
   post_type: string | null;
 };
 
-type ProfileSettingsRow = {
-  interests: string[] | null;
-};
-
 type ProfileData = {
   profile: ProfileRow | null;
   posts: PostRow[];
@@ -79,55 +75,27 @@ function toReadableDate(value: string | null): string {
   });
 }
 
-async function getProfileDataForUser(userId: string): Promise<ProfileData> {
-  const { data: profileData } = await supabase
-    .from("profiles")
-    .select("id,username,display_name,bio,avatar_url,location")
-    .eq("id", userId)
-    .maybeSingle();
+async function getProfileDataForUser(accessToken: string): Promise<ProfileData> {
+  const response = await fetch("/api/profile/snapshot", {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    cache: "no-store",
+  });
 
-  const profile = (profileData ?? null) as ProfileRow | null;
-
-  if (!profile) {
-    return EMPTY_PROFILE_DATA;
+  if (!response.ok) {
+    throw new Error(`Profile snapshot request failed (${response.status})`);
   }
 
-  const [postsResult, settingsResult, postCountResult, friendCountResult, commentCountResult] = await Promise.all([
-    supabase
-      .from("posts")
-      .select("id,title,content,media_url,created_at,post_type")
-      .eq("author_id", profile.id)
-      .or("post_type.is.null,post_type.neq.story")
-      .order("created_at", { ascending: false })
-      .limit(30),
-    supabase.from("profile_settings").select("interests").eq("user_id", profile.id).maybeSingle(),
-    supabase
-      .from("posts")
-      .select("id", { count: "exact", head: true })
-      .eq("author_id", profile.id)
-      .or("post_type.is.null,post_type.neq.story"),
-    supabase.from("friendships").select("id", { count: "exact", head: true }).eq("user_id", profile.id),
-    supabase.from("comments").select("id", { count: "exact", head: true }).eq("author_id", profile.id),
-  ]);
-
-  return {
-    profile,
-    posts: (postsResult.data ?? []) as PostRow[],
-    interests: ((settingsResult.data as ProfileSettingsRow | null)?.interests ?? []).slice(0, 8),
-    stats: {
-      posts: postCountResult.count ?? 0,
-      friends: friendCountResult.count ?? 0,
-      comments: commentCountResult.count ?? 0,
-    },
-  };
+  return (await response.json()) as ProfileData;
 }
 
 export default function ProfilePage() {
   const [profileData, setProfileData] = useState<ProfileData>(EMPTY_PROFILE_DATA);
   const [isLoading, setIsLoading] = useState(true);
 
-  const loadProfileForUser = useCallback(async (sessionUser: User | null) => {
-    if (!isSupabaseConfigured || !sessionUser) {
+  const loadProfileForUser = useCallback(async (sessionUser: User | null, accessToken: string | null) => {
+    if (!isSupabaseConfigured || !sessionUser || !accessToken) {
       setProfileData(EMPTY_PROFILE_DATA);
       setIsLoading(false);
       return;
@@ -136,13 +104,13 @@ export default function ProfilePage() {
     setIsLoading(true);
     try {
       const data = await loadCachedThenRefresh<ProfileData>({
-        key: `profile:${sessionUser.id}:v1`,
+        key: `profile:${sessionUser.id}:v2`,
         maxAgeMs: PROFILE_CACHE_MAX_AGE_MS,
         onCachedData: (cached) => {
           setProfileData(cached);
           setIsLoading(false);
         },
-        fetchFresh: () => getProfileDataForUser(sessionUser.id),
+        fetchFresh: () => getProfileDataForUser(accessToken),
       });
       setProfileData(data);
     } finally {
@@ -153,15 +121,15 @@ export default function ProfilePage() {
   useEffect(() => {
     let isMounted = true;
 
-    void supabase.auth.getUser().then(({ data }) => {
+    void supabase.auth.getSession().then(({ data }) => {
       if (!isMounted) return;
-      void loadProfileForUser(data.user ?? null);
+      void loadProfileForUser(data.session?.user ?? null, data.session?.access_token ?? null);
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      void loadProfileForUser(session?.user ?? null);
+      void loadProfileForUser(session?.user ?? null, session?.access_token ?? null);
     });
 
     return () => {
@@ -190,9 +158,9 @@ export default function ProfilePage() {
       <section className="min-w-0 w-full flex-1 overflow-hidden bg-[rgb(var(--bg-deep))/0.55]">
         <Card className="min-h-full w-full max-w-full overflow-hidden rounded-none border-x-0 border-y-0 border-[rgb(var(--border))] bg-[rgb(var(--card))/0.98] shadow-none">
           <div className="relative h-40 border-b border-[rgb(var(--border))/0.75] bg-[linear-gradient(110deg,rgb(var(--brand))_0%,rgb(var(--accent-soft))_100%)] md:h-48" />
-          
+
           <div className="-mt-16 pl-0 md:-mt-20 md:pl-1">
-              <Avatar
+            <Avatar
               src={resolveMediaUrl(profile?.avatar_url ?? null) ?? undefined}
               alt={displayName}
               fallback={avatarFallback}
@@ -304,7 +272,6 @@ export default function ProfilePage() {
                 </div>
               )}
             </section>
-
           </CardContent>
         </Card>
       </section>
