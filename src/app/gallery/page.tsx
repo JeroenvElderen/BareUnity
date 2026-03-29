@@ -1,40 +1,12 @@
-import type { CSSProperties } from "react";
+"use client";
+
+import { useEffect, useState, type CSSProperties } from "react";
 
 import { AppSidebar } from "@/components/sidebar/sidebar";
-import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase-admin";
-import { isSupabaseConfigured, supabase } from "@/lib/supabase";
+import { buildUserScopedCacheKey, loadCachedThenRefresh } from "@/lib/client-cache";
+import { supabase } from "@/lib/supabase";
 import layoutStyles from "../page.module.css";
 import styles from "./gallery.module.css";
-
-type GalleryRow = {
-  id: string;
-  title: string | null;
-  media_url: string | null;
-  created_at: string | null;
-  post_type: string | null;
-  profiles:
-    | {
-        username: string;
-        location: string | null;
-      }
-    | {
-        username: string;
-        location: string | null;
-      }[]
-    | null;
-};
-
-function getProfile(row: GalleryRow): { username: string; location: string | null } | null {
-  if (!row.profiles) {
-    return null;
-  }
-
-  if (Array.isArray(row.profiles)) {
-    return row.profiles[0] ?? null;
-  }
-
-  return row.profiles;
-}
 
 type GalleryItem = {
   id: string;
@@ -43,110 +15,79 @@ type GalleryItem = {
   src: string;
 };
 
+const GALLERY_CACHE_MAX_AGE_MS = 1000 * 60 * 15;
 
-function resolveStoragePath(rawUrl: string): string | null {
-  const value = rawUrl.trim();
-  if (!value) return null;
-
-  if (!value.startsWith("http")) {
-    return value.startsWith("posts/") ? value : `posts/${value}`;
-  }
-
-  const marker = "/storage/v1/object/public/media/";
-  const markerIndex = value.indexOf(marker);
-
-  if (markerIndex >= 0) {
-    return value.slice(markerIndex + marker.length);
-  }
-
-  return null;
-}
-
-function toPublicMediaUrl(pathOrUrl: string, fallbackClient = supabase): string {
+function toPublicMediaUrl(pathOrUrl: string): string {
   if (pathOrUrl.startsWith("http")) {
     return pathOrUrl;
   }
 
   const normalizedPath = pathOrUrl.startsWith("posts/") ? pathOrUrl : `posts/${pathOrUrl}`;
-  const { data } = fallbackClient.storage.from("media").getPublicUrl(normalizedPath);
+  const { data } = supabase.storage.from("media").getPublicUrl(normalizedPath);
   return data.publicUrl;
 }
 
-function mapRowsToGalleryItems(rows: GalleryRow[]): GalleryItem[] {
-  return rows
-    .filter((row) => Boolean(row.media_url))
-    .map((row) => {
-      const profile = getProfile(row);
-      const raw = row.media_url as string;
-      const storagePath = resolveStoragePath(raw);
-      return {
-        id: `post-${row.id}`,
-        title: row.title?.trim() || "Untitled capture",
-        place: profile?.location?.trim() || profile?.username || "BareUnity Community",
-        src: storagePath ? toPublicMediaUrl(storagePath) : toPublicMediaUrl(raw),
-      };
-    });
-}
+async function fetchGallerySnapshot(accessToken?: string | null): Promise<GalleryItem[]> {
+  const headers: HeadersInit = {};
+  if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
 
-async function getStorageGalleryItems() {
-  const client = isSupabaseAdminConfigured ? createSupabaseAdminClient() : supabase;
-
-  const { data: files, error } = await client.storage.from("media").list("posts", {
-    limit: 100,
-    sortBy: { column: "created_at", order: "desc" },
+  const response = await fetch("/api/gallery/snapshot", {
+    cache: "no-store",
+    headers,
   });
 
-  if (error || !files) {
-    console.error("Failed to list storage media", error);
-    return [] as GalleryItem[];
+  if (!response.ok) {
+    throw new Error(`Gallery snapshot request failed (${response.status})`);
   }
 
-  return files
-    .filter((file) => {
-      if (!file.name) return false;
-      if (file.id?.includes(".emptyFolderPlaceholder")) return false;
-      if (!file.metadata) return false;
-      const mimeType = file.metadata.mimetype;
-      return typeof mimeType === "string" && mimeType.startsWith("image/");
-    })
-    .map((file) => ({
-      id: `storage-${file.id ?? file.name}`,
-      title: file.name || "Uploaded media",
-      place: "Supabase Storage",
-      src: toPublicMediaUrl(`posts/${file.name}`),
-    }));
+  const payload = (await response.json()) as { items?: GalleryItem[] };
+
+  return (payload.items ?? []).map((item) => ({
+    ...item,
+    src: toPublicMediaUrl(item.src),
+  }));
 }
 
-async function getGalleryItems(): Promise<GalleryItem[]> {
-  if (!isSupabaseConfigured && !isSupabaseAdminConfigured) {
-    return [];
-  }
+export default function GalleryPage() {
+  const [items, setItems] = useState<GalleryItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const client = isSupabaseAdminConfigured ? createSupabaseAdminClient() : supabase;
+  useEffect(() => {
+    let mounted = true;
 
-  const { data, error } = await client
-    .from("posts")
-    .select("id,title,media_url,created_at,profiles(username,location),post_type")
-    .not("media_url", "is", null)
-    .or("post_type.is.null,post_type.neq.story")
-    .order("created_at", { ascending: false })
-    .limit(24);
+    const load = async () => {
+      const { data } = await supabase.auth.getSession();
+      const userId = data.session?.user?.id ?? null;
+      const accessToken = data.session?.access_token ?? null;
+      const cacheKey = buildUserScopedCacheKey("gallery-items", userId);
 
-  if (error) {
-    console.error("Failed to load gallery posts", error);
-  }
+      try {
+        const next = await loadCachedThenRefresh<GalleryItem[]>({
+          key: cacheKey,
+          maxAgeMs: GALLERY_CACHE_MAX_AGE_MS,
+          onCachedData: (cached) => {
+            if (!mounted) return;
+            setItems(cached);
+            setIsLoading(false);
+          },
+          fetchFresh: () => fetchGallerySnapshot(accessToken),
+        });
 
-  const postItems = mapRowsToGalleryItems((data ?? []) as GalleryRow[]);
-  const storageItems = await getStorageGalleryItems();
+        if (!mounted) return;
+        setItems(next);
+      } catch {
+        if (!mounted) return;
+      } finally {
+        if (mounted) setIsLoading(false);
+      }
+    };
 
-  const seenSources = new Set(postItems.map((item) => item.src));
-  const missingStorageItems = storageItems.filter((item) => !seenSources.has(item.src));
+    void load();
 
-  return [...postItems, ...missingStorageItems].slice(0, 48);
-}
-
-export default async function GalleryPage() {
-  const galleryItems = await getGalleryItems();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   return (
     <main className={layoutStyles.main}>
@@ -157,14 +98,14 @@ export default async function GalleryPage() {
           <h1>Discover moments in the wild</h1>
         </header>
 
-        {galleryItems.length === 0 ? (
+        {!isLoading && items.length === 0 ? (
           <div className={styles.emptyState}>
             <p>No gallery media found yet.</p>
             <small>Upload a post with media or add files to media/posts in Supabase Storage.</small>
           </div>
         ) : (
           <div className={styles.grid}>
-            {galleryItems.map((item, index) => (
+            {items.map((item, index) => (
               <article key={item.id} className={styles.card} style={{ "--index": index } as CSSProperties}>
                 <img
                   src={item.src}
