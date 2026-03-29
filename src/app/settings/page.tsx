@@ -10,7 +10,7 @@ import { UsernameChangeModal } from "@/components/settings/username-change-modal
 import { AppSidebar } from "@/components/sidebar/sidebar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { readCachedValue, writeCachedValue } from "@/lib/client-cache";
+import { buildUserScopedCacheKey, readCachedValue, writeCachedValue } from "@/lib/client-cache";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import layoutStyles from "../page.module.css";
 import styles from "./settings.module.css";
@@ -134,7 +134,6 @@ const settingSections: SettingSection[] = [
   },
 ];
 
-const PROFILE_SECURITY_CACHE_KEY = "settings:profile-security:v1";
 const PROFILE_SECURITY_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 12;
 
 type ProfileSecurityCache = {
@@ -143,8 +142,8 @@ type ProfileSecurityCache = {
   recoveryKeys: string[];
 };
 
-function getCachedProfileSecurity() {
-  return readCachedValue<ProfileSecurityCache>(PROFILE_SECURITY_CACHE_KEY, PROFILE_SECURITY_CACHE_MAX_AGE_MS);
+function getCachedProfileSecurity(cacheKey: string) {
+  return readCachedValue<ProfileSecurityCache>(cacheKey, PROFILE_SECURITY_CACHE_MAX_AGE_MS);
 }
 
 function getOptionCardVariant(index: number): "frame" | "split" | "glow" | "band" {
@@ -175,7 +174,8 @@ function getStateClass(state: OptionState) {
 }
 
 export default function SettingsPage() {
-  const cachedProfileSecurity = getCachedProfileSecurity();
+  const [profileSecurityCacheKey] = useState(() => buildUserScopedCacheKey("settings:profile-security"));
+  const cachedProfileSecurity = getCachedProfileSecurity(profileSecurityCacheKey);
   const [activeSectionKey, setActiveSectionKey] = useState(settingSections[0]?.key ?? "profile");
   const [isUsernameModalOpen, setIsUsernameModalOpen] = useState(false);
   const [isSavingUsername, setIsSavingUsername] = useState(false);
@@ -198,7 +198,7 @@ export default function SettingsPage() {
   const [recoveryKeysStatus, setRecoveryKeysStatus] = useState<string | null>(null);
 
   const persistProfileSecurityCache = (nextValues: Partial<ProfileSecurityCache>) => {
-    writeCachedValue<ProfileSecurityCache>(PROFILE_SECURITY_CACHE_KEY, {
+    writeCachedValue<ProfileSecurityCache>(profileSecurityCacheKey, {
       username: nextValues.username ?? currentUsername,
       email: nextValues.email ?? currentEmail,
       recoveryKeys: nextValues.recoveryKeys ?? recoveryKeys,
@@ -242,7 +242,7 @@ export default function SettingsPage() {
       }
 
       if (isMounted) {
-        writeCachedValue<ProfileSecurityCache>(PROFILE_SECURITY_CACHE_KEY, {
+        writeCachedValue<ProfileSecurityCache>(profileSecurityCacheKey, {
           username: username || "member",
           email: data.user.email ?? "member@example.com",
           recoveryKeys: parsedRecoveryKeys,
@@ -253,7 +253,7 @@ export default function SettingsPage() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [profileSecurityCacheKey]);
 
   const activeSection = useMemo(
     () => settingSections.find((section) => section.key === activeSectionKey) ?? settingSections[0],

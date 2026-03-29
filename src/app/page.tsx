@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ChangeEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from "react";
 import { Ellipsis, Heart, MessageCircle, Pencil, Trash2, X } from "lucide-react";
 import { AppSidebar } from "@/components/sidebar/sidebar";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { loadCachedThenRefresh } from "@/lib/client-cache";
+import { buildUserScopedCacheKey, hasFreshCachedValue, readCachedValue, writeCachedValue } from "@/lib/client-cache";
 import type { HomeFeedFriend, HomeFeedPayload, HomeFeedPost, HomeFeedStory } from "@/lib/homefeed";
 import { sanitizeImageUpload } from "@/lib/image";
 import { supabase } from "@/lib/supabase";
@@ -72,10 +72,17 @@ const defaultFeed: HomeFeedPayload = {
   posts: [],
   viewerId: null,
 };
-const HOME_FEED_CACHE_KEY = "home-feed:v1";
-const HOME_FEED_CACHE_MAX_AGE_MS = 1000 * 60 * 2;
+const HOME_FEED_CACHE_MAX_AGE_MS = 1000 * 60 * 15;
 
 export default function HomePage() {
+  const [homeFeedCacheKey] = useState(() => buildUserScopedCacheKey("home-feed"));
+  const [cachedFeed] = useState<HomeFeedPayload | null>(() =>
+    readCachedValue<HomeFeedPayload>(homeFeedCacheKey, {
+      maxAgeMs: HOME_FEED_CACHE_MAX_AGE_MS,
+      allowExpired: true,
+    }),
+  );
+  const [hasFreshCacheOnMount] = useState(() => hasFreshCachedValue(homeFeedCacheKey, HOME_FEED_CACHE_MAX_AGE_MS));
   const [isComposerOpen, setComposerOpen] = useState(false);
   const [composerKind, setComposerKind] = useState<"post" | "story" | null>(null);
   const [activeFeedTab, setActiveFeedTab] = useState<"following" | "forYou">("following");
@@ -83,10 +90,10 @@ export default function HomePage() {
   const [postContent, setPostContent] = useState("");
   const [postImagePreview, setPostImagePreview] = useState<string>("");
   const [postImageDataUrl, setPostImageDataUrl] = useState<string>("");
-  const [feed, setFeed] = useState<HomeFeedPayload>(defaultFeed);
+  const [feed, setFeed] = useState<HomeFeedPayload>(() => cachedFeed ?? defaultFeed);
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
   const [activePostId, setActivePostId] = useState<string | null>(null);
-  const [isLoadingFeed, setLoadingFeed] = useState(true);
+  const [isLoadingFeed, setLoadingFeed] = useState(() => !cachedFeed);
   const [openPostMenuId, setOpenPostMenuId] = useState<string | null>(null);
   const [editingPost, setEditingPost] = useState<HomeFeedPost | null>(null);
   const [editTitle, setEditTitle] = useState("");
@@ -118,45 +125,41 @@ export default function HomePage() {
     return headers;
   };
 
-  const loadFeed = async (options?: { showSpinner?: boolean }) => {
-    if (options?.showSpinner) setLoadingFeed(true);
-    try {
-      const data = await loadCachedThenRefresh<HomeFeedPayload>({
-        key: HOME_FEED_CACHE_KEY,
-        maxAgeMs: HOME_FEED_CACHE_MAX_AGE_MS,
-        onCachedData: (cached) => {
-          setFeed(cached);
-          setLoadingFeed(false);
-        },
-        fetchFresh: async () => {
-          const response = await fetch("/api/homefeed", {
-            cache: "no-store",
-            headers: await getAuthHeaders(),
-          });
+  const loadFeed = useCallback(
+    async (options?: { showSpinner?: boolean }) => {
+      if (options?.showSpinner) setLoadingFeed(true);
+      try {
+        const response = await fetch("/api/homefeed", {
+          cache: "no-store",
+          headers: await getAuthHeaders(),
+        });
 
-          if (!response.ok) {
-            throw new Error(`Home feed request failed (${response.status})`);
-          }
+        if (!response.ok) {
+          throw new Error(`Home feed request failed (${response.status})`);
+        }
 
-          return (await response.json()) as HomeFeedPayload;
-        },
-      });
-
-      setFeed(data);
-    } catch {
-      // Keep showing cached data when available. If neither cache nor network works, page keeps current state.
-    } finally {
-      setLoadingFeed(false);
-    }
-  };
+        const data = (await response.json()) as HomeFeedPayload;
+        writeCachedValue(homeFeedCacheKey, data);
+        setFeed(data);
+      } catch {
+        // Keep showing cached data when available. If neither cache nor network works, page keeps current state.
+      } finally {
+        setLoadingFeed(false);
+      }
+    },
+    [homeFeedCacheKey],
+  );
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      void loadFeed();
+      const shouldRefresh = !cachedFeed || !hasFreshCacheOnMount;
+      if (shouldRefresh) {
+        void loadFeed();
+      }
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [cachedFeed, hasFreshCacheOnMount, loadFeed]);
 
   useEffect(() => {
     return () => {

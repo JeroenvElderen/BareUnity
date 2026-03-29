@@ -6,7 +6,7 @@ import { Building2, Flame, Hotel, MapPin, TentTree, Trees, Umbrella } from "luci
 
 import { MapSpotPopup } from "@/components/explore/map-spot-popup";
 import { Button } from "@/components/ui/button";
-import { loadCachedThenRefresh } from "@/lib/client-cache";
+import { buildUserScopedCacheKey, loadCachedThenRefresh } from "@/lib/client-cache";
 import { supabase } from "@/lib/supabase";
 
 type Spot = {
@@ -213,7 +213,6 @@ const AMENITY_OPTIONS: AmenityType[] = [
   "Sauna",
   "Pool",
 ];
-const MAP_SPOTS_CACHE_KEY = "map-spots:v1";
 const MAP_SPOTS_CACHE_MAX_AGE_MS = 1000 * 60 * 5;
 
 function resolveSearchCoordinates(result: LocationSearchResult) {
@@ -259,6 +258,7 @@ function formatCoordinate(value: string) {
 }
 
 export function MapStageClient() {
+  const [mapSpotsCacheKey] = useState(() => buildUserScopedCacheKey("map-spots"));
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMapInstance | null>(null);
   const renderedSpotIdsRef = useRef<Set<string>>(new Set());
@@ -340,7 +340,7 @@ export function MapStageClient() {
 
         try {
           const spots = await loadCachedThenRefresh<Spot[]>({
-            key: MAP_SPOTS_CACHE_KEY,
+            key: mapSpotsCacheKey,
             maxAgeMs: MAP_SPOTS_CACHE_MAX_AGE_MS,
             onCachedData: (cachedSpots) => {
               for (const cachedSpot of cachedSpots) {
@@ -385,7 +385,7 @@ export function MapStageClient() {
       mapRef.current = null;
       mapInstance?.remove();
     };
-  }, []);
+  }, [mapSpotsCacheKey]);
 
   useEffect(() => {
     const map = mapRef.current;
