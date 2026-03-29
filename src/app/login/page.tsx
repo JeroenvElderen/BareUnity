@@ -15,6 +15,10 @@ export default function LoginPage() {
   const [status, setStatus] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  const markPostLoginHydration = () => {
+    window.sessionStorage.setItem("bareunity_post_login_loading", "true");
+  };
+
   useEffect(() => {
     void supabase.auth.getSession().then(({ data }) => {
       if (data.session?.user) {
@@ -47,6 +51,7 @@ export default function LoginPage() {
     }
 
     setIsLoading(false);
+    markPostLoginHydration();
     router.push("/");
     router.refresh();
   }
@@ -91,6 +96,7 @@ export default function LoginPage() {
 
     setStatus("Signed in with passkey.");
     setIsLoading(false);
+    markPostLoginHydration();
     router.push("/");
     router.refresh();
   }
