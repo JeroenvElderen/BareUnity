@@ -298,7 +298,7 @@ export default function HomePage() {
       <AppSidebar />
       
       <section className={styles.feedLayout}>
-        <div className="w-full rounded-[2rem] border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))] p-4 shadow-sm md:p-6">
+        <div className="w-full rounded-4xl border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))] p-4 shadow-sm md:p-6">
           <header className="mb-4 flex items-center justify-between rounded-2xl border border-[rgb(var(--border))] bg-white px-4 py-3">
             <div>
               <p className="text-xs uppercase tracking-[0.16em] text-[rgb(var(--muted))]">Home feed</p>
@@ -352,9 +352,9 @@ export default function HomePage() {
                           className="hidden h-48 w-full object-cover min-[1100px]:block"
                         />
                       ) : (
-                        <div className={`hidden min-[1100px]:block min-[1100px]:h-48 min-[1100px]:bg-gradient-to-b ${story.tone}`} />
+                        <div className={`hidden min-[1100px]:block min-[1100px]:h-48 min-[1100px]:bg-linear-to-b ${story.tone}`} />
                       )}
-                      <div className="rounded-full bg-gradient-to-br from-fuchsia-500 via-rose-500 to-amber-400 p-[2px] min-[1100px]:absolute min-[1100px]:left-3 min-[1100px]:top-3">
+                      <div className="rounded-full bg-linear-to-br from-fuchsia-500 via-rose-500 to-amber-400 p-0.5 min-[1100px]:absolute min-[1100px]:left-3 min-[1100px]:top-3">
                         <Avatar
                           alt={story.name}
                           fallback={story.fallback}

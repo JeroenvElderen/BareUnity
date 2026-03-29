@@ -4,16 +4,15 @@
   overflow: hidden;
   width: 100%;
   border: 1px solid rgb(var(--border));
-  border-radius: 1.25rem;
-  background:
-    linear-gradient(180deg, rgb(var(--card) / 0.99), rgb(var(--bg-soft) / 0.86));
+  border-radius: 1.15rem;
+  background: linear-gradient(180deg, rgb(var(--card) / 0.99), rgb(var(--bg-soft) / 0.9));
   padding: 0;
   display: grid;
   text-align: left;
   box-shadow:
-    0 16px 34px rgb(15 23 42 / 0.1),
-    inset 0 1px 0 rgb(255 255 255 / 0.42);
-  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+    0 14px 30px rgb(15 23 42 / 0.1),
+    inset 0 1px 0 rgb(255 255 255 / 0.45);
+  transition: transform 170ms ease, border-color 170ms ease, box-shadow 170ms ease;
 }
 
 .card::before {
@@ -22,15 +21,15 @@
   inset: 0;
   pointer-events: none;
   z-index: -1;
-  background: linear-gradient(125deg, rgb(var(--brand) / 0.08), transparent 38%, rgb(var(--accent-soft) / 0.22));
+  background: linear-gradient(125deg, rgb(var(--brand) / 0.06), transparent 42%, rgb(var(--accent-soft) / 0.2));
 }
 
 .card:hover {
-  transform: translateY(-3px) scale(1.003);
+  transform: translateY(-2px);
   border-color: rgb(var(--brand) / 0.48);
   box-shadow:
-    0 22px 38px rgb(15 23 42 / 0.15),
-    inset 0 1px 0 rgb(255 255 255 / 0.48);
+    0 20px 36px rgb(15 23 42 / 0.15),
+    inset 0 1px 0 rgb(255 255 255 / 0.5);
 }
 
 .actionable {
@@ -38,14 +37,21 @@
 }
 
 .topRail {
-  height: 0.34rem;
-  background: linear-gradient(90deg, rgb(var(--brand) / 0.85), rgb(var(--accent-soft) / 0.75));
+  height: 0.3rem;
+  background: linear-gradient(90deg, rgb(var(--brand) / 0.85), rgb(var(--accent-soft) / 0.78));
 }
 
 .body {
-  padding: 0.78rem 0.92rem 0.68rem;
+  padding: 0.78rem 0.88rem 0.7rem;
   display: grid;
-  gap: 0.34rem;
+  gap: 0.35rem;
+}
+
+.headlineRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
 }
 
 .badge {
@@ -53,14 +59,22 @@
   display: inline-flex;
   width: fit-content;
   border-radius: 999px;
-  border: 1px solid rgb(var(--brand) / 0.28);
-  padding: 0.14rem 0.44rem;
-  font-size: 0.61rem;
+  border: 1px solid rgb(var(--brand) / 0.3);
+  padding: 0.15rem 0.44rem;
+  font-size: 0.6rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   font-weight: 800;
   color: rgb(var(--brand-2));
   background: rgb(var(--brand) / 0.14);
+}
+
+.actionHint {
+  font-size: 0.7rem;
+  color: rgb(var(--muted));
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .title {
@@ -75,7 +89,7 @@
   margin: 0;
   color: rgb(var(--muted));
   font-size: 0.84rem;
-  line-height: 1.38;
+  line-height: 1.42;
 }
 
 .footer {
@@ -83,38 +97,33 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  padding: 0 0.92rem 0.84rem;
+  padding: 0 0.88rem 0.82rem;
 }
 
 .footerLine {
   height: 1px;
   flex: 1;
-  background: linear-gradient(90deg, rgb(var(--border) / 0.7), transparent);
+  background: linear-gradient(90deg, rgb(var(--border) / 0.75), transparent);
 }
 
 .stateWrap {
   display: inline-flex;
 }
 
-.layoutFrame {
-  border-radius: 1.35rem;
-}
-
 .layoutFrame::after {
   content: "";
   position: absolute;
-  right: -22px;
+  right: -24px;
   top: -18px;
   width: 82px;
   height: 82px;
   border-radius: 999px;
-  background: radial-gradient(circle, rgb(var(--brand) / 0.24), transparent 70%);
+  background: radial-gradient(circle, rgb(var(--brand) / 0.22), transparent 70%);
   pointer-events: none;
 }
 
 .layoutSplit {
-  background:
-    linear-gradient(100deg, rgb(var(--accent-soft) / 0.44) 0 33%, rgb(var(--card) / 0.99) 33% 100%);
+  background: linear-gradient(100deg, rgb(var(--accent-soft) / 0.4) 0 35%, rgb(var(--card) / 0.99) 35% 100%);
 }
 
 .layoutSplit .topRail {
@@ -146,7 +155,7 @@
 .layoutBand {
   background:
     linear-gradient(180deg, rgb(var(--card) / 0.99), rgb(var(--card) / 0.99)),
-    linear-gradient(125deg, rgb(var(--accent-soft) / 0.22), transparent 50%);
+    linear-gradient(125deg, rgb(var(--accent-soft) / 0.2), transparent 50%);
 }
 
 .layoutBand::after {
@@ -157,7 +166,7 @@
   width: 126px;
   height: 126px;
   border-radius: 999px;
-  border: 1px solid rgb(34 197 94 / 0.28);
+  border: 1px solid rgb(34 197 94 / 0.3);
   pointer-events: none;
 }
 

@@ -261,7 +261,11 @@ export default function SettingsPage() {
   );
 
   const totalOptions = settingSections.reduce((acc, section) => acc + section.options.length, 0);
-  
+  const enabledCount = settingSections.reduce(
+    (acc, section) => acc + section.options.filter((option) => option.state === "On").length,
+    0,
+  );
+
   const handlePrimaryEmailSave = async (nextEmail: string) => {
     const normalizedNext = nextEmail.trim().toLowerCase();
     if (!normalizedNext) return;
@@ -450,124 +454,149 @@ export default function SettingsPage() {
       <section className={styles.pageSection}>
         <div className={styles.contentWrap}>
           <header className={styles.header}>
-            <p className={styles.eyebrow}>Account workshop</p>
-            <h1>Settings & Preferences</h1>
-            <p className={styles.subhead}>
-              Focused settings only: these options are the highest-impact controls for privacy, consent, safety, and
-              account trust.
-            </p>
-            <div className={styles.headerPills}>
-              <span className={styles.headerPill}>{totalOptions} high-impact options</span>
-              <span className={styles.headerPill}>{settingSections.length} focused subjects</span>
+            <div>
+              <p className={styles.eyebrow}>Account Control Center</p>
+              <h1>Settings & Security</h1>
+              <p className={styles.subhead}>
+                A redesigned command center for profile controls, privacy boundaries, and trust settings. Use the left
+                rail to jump between sections and review controls in context.
+              </p>
+            </div>
+            <div className={styles.quickStats}>
+              <article>
+                <p>Active protections</p>
+                <strong>{enabledCount}</strong>
+              </article>
+              <article>
+                <p>Total controls</p>
+                <strong>{totalOptions}</strong>
+              </article>
+              <article>
+                <p>Sections</p>
+                <strong>{settingSections.length}</strong>
+              </article>
             </div>
           </header>
 
-          <nav className={styles.subjectNav} aria-label="Settings subjects">
-            {settingSections.map((section) => (
-              <button
-                key={section.key}
-                type="button"
-                className={`${styles.subjectChip} ${activeSection.key === section.key ? styles.subjectChipActive : ""}`}
-                onClick={() => setActiveSectionKey(section.key)}
-              >
-                <span>{section.title}</span>
-                <Badge variant="outline">{section.options.length}</Badge>
-              </button>
-            ))}
-          </nav>
-
-          <label className={styles.subjectSelectWrap}>
-            <span>Jump to subject</span>
-            <select
-              className={styles.subjectSelect}
-              value={activeSection.key}
-              onChange={(event) => setActiveSectionKey(event.target.value)}
-            >
-              {settingSections.map((section) => (
-                <option key={section.key} value={section.key}>
-                  {section.title}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <Card className={`${styles.card} ${getToneClass(activeSection.tone)}`}>
-            <CardContent className={styles.cardContent}>
-              <div className={styles.sectionHeading}>
-                <div>
-                  <p className={styles.sectionPill}>{activeSection.pill}</p>
-                  <h2>{activeSection.title}</h2>
-                </div>
-                <Badge variant="outline">{activeSection.options.length} options</Badge>
+          <div className={styles.dashboardGrid}>
+            <aside className={styles.navPanel} aria-label="Settings subjects">
+              <div className={styles.navHeader}>
+                <h2>Navigation</h2>
+                <p>Pick a category to edit.</p>
               </div>
-              <p className={styles.sectionSubtitle}>{activeSection.subtitle}</p>
-              {usernameUpdateStatus ? <p className={styles.statusNote}>{usernameUpdateStatus}</p> : null}
-              {primaryEmailUpdateStatus ? <p className={styles.statusNote}>{primaryEmailUpdateStatus}</p> : null}
-              {passwordUpdateStatus ? <p className={styles.statusNote}>{passwordUpdateStatus}</p> : null}
-              {recoveryKeysStatus ? <p className={styles.statusNote}>{recoveryKeysStatus}</p> : null}
 
-              <div className={styles.optionList}>
-                {activeSection.options.map((option, index) => {
-                  const isUsernameOption = activeSection.key === "profile" && option.label === "Username";
-                  const isPrimaryEmailOption = activeSection.key === "profile" && option.label === "Primary email";
-                  const isPasswordOption = activeSection.key === "profile" && option.label === "Password reset";
-                  const isRecoveryKeysOption = activeSection.key === "profile" && option.label === "Recovery keys";
+              <div className={styles.navList}>
+                {settingSections.map((section) => (
+                  <button
+                    key={section.key}
+                    type="button"
+                    className={`${styles.subjectChip} ${activeSection.key === section.key ? styles.subjectChipActive : ""}`}
+                    onClick={() => setActiveSectionKey(section.key)}
+                  >
+                    <div>
+                      <span>{section.title}</span>
+                      <small>{section.subtitle}</small>
+                    </div>
+                    <Badge variant="outline">{section.options.length}</Badge>
+                  </button>
+                ))}
+              </div>
+              
+              <label className={styles.subjectSelectWrap}>
+                <span>Jump to section</span>
+                <select
+                  className={styles.subjectSelect}
+                  value={activeSection.key}
+                  onChange={(event) => setActiveSectionKey(event.target.value)}
+                >
+                  {settingSections.map((section) => (
+                    <option key={section.key} value={section.key}>
+                      {section.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </aside>
 
-                  const variant = getOptionCardVariant(index);
+            <Card className={`${styles.card} ${getToneClass(activeSection.tone)}`}>
+              <CardContent className={styles.cardContent}>
+                <div className={styles.sectionHeading}>
+                  <div>
+                    <p className={styles.sectionPill}>{activeSection.pill}</p>
+                    <h2>{activeSection.title}</h2>
+                    <p className={styles.sectionSubtitle}>{activeSection.subtitle}</p>
+                  </div>
+                  <Badge variant="outline">{activeSection.options.length} controls</Badge>
+                </div>
 
-                  if (isUsernameOption || isPrimaryEmailOption || isPasswordOption || isRecoveryKeysOption) {
+                <div className={styles.statusStack}>
+                  {usernameUpdateStatus ? <p className={styles.statusNote}>{usernameUpdateStatus}</p> : null}
+                  {primaryEmailUpdateStatus ? <p className={styles.statusNote}>{primaryEmailUpdateStatus}</p> : null}
+                  {passwordUpdateStatus ? <p className={styles.statusNote}>{passwordUpdateStatus}</p> : null}
+                  {recoveryKeysStatus ? <p className={styles.statusNote}>{recoveryKeysStatus}</p> : null}
+                </div>
+
+                <div className={styles.optionList}>
+                  {activeSection.options.map((option, index) => {
+                    const isUsernameOption = activeSection.key === "profile" && option.label === "Username";
+                    const isPrimaryEmailOption = activeSection.key === "profile" && option.label === "Primary email";
+                    const isPasswordOption = activeSection.key === "profile" && option.label === "Password reset";
+                    const isRecoveryKeysOption = activeSection.key === "profile" && option.label === "Recovery keys";
+
+                    const variant = getOptionCardVariant(index);
+
+                    if (isUsernameOption || isPrimaryEmailOption || isPasswordOption || isRecoveryKeysOption) {
+                      return (
+                        <SettingsOptionCard
+                          key={option.label}
+                          label={option.label}
+                          detail={option.detail}
+                          variant={variant}
+                          badge="Action"
+                          onClick={() => {
+                            if (isUsernameOption) {
+                              setUsernameUpdateStatus(null);
+                              setUsernameUpdateError(null);
+                              setIsUsernameModalOpen(true);
+                              return;
+                            }
+                            if (isPrimaryEmailOption) {
+                              setPrimaryEmailUpdateStatus(null);
+                              setPrimaryEmailUpdateError(null);
+                              setIsPrimaryEmailModalOpen(true);
+                              return;
+                            }
+                            if (isRecoveryKeysOption) {
+                              setRecoveryKeysStatus(null);
+                              setRecoveryKeysError(null);
+                              setIsRecoveryKeysModalOpen(true);
+                              return;
+                            }
+
+                            setPasswordUpdateStatus(null);
+                            setPasswordUpdateError(null);
+                            setIsPasswordModalOpen(true);
+                          }}
+                          stateNode={<span className={`${styles.statePill} ${styles.stateOn}`}>Manage</span>}
+                        />
+                      );
+                    }
+
                     return (
                       <SettingsOptionCard
                         key={option.label}
                         label={option.label}
                         detail={option.detail}
                         variant={variant}
-                        badge="Action"
-                        onClick={() => {
-                          if (isUsernameOption) {
-                            setUsernameUpdateStatus(null);
-                            setUsernameUpdateError(null);
-                            setIsUsernameModalOpen(true);
-                            return;
-                          }
-                          if (isPrimaryEmailOption) {
-                            setPrimaryEmailUpdateStatus(null);
-                            setPrimaryEmailUpdateError(null);
-                            setIsPrimaryEmailModalOpen(true);
-                            return;
-                          }
-                          if (isRecoveryKeysOption) {
-                            setRecoveryKeysStatus(null);
-                            setRecoveryKeysError(null);
-                            setIsRecoveryKeysModalOpen(true);
-                            return;
-                          }
-
-                          setPasswordUpdateStatus(null);
-                          setPasswordUpdateError(null);
-                          setIsPasswordModalOpen(true);
-                        }}
-                      stateNode={<span className={`${styles.statePill} ${styles.stateOn}`}>Edit</span>}
+                        badge="Status"
+                        stateNode={<span className={`${styles.statePill} ${getStateClass(option.state)}`}>{option.state}</span>}
                       />
                     );
-                  }
-
-                  return (
-                    <SettingsOptionCard
-                      key={option.label}
-                      label={option.label}
-                      detail={option.detail}
-                      variant={variant}
-                      badge="Status"
-                      stateNode={
-                        <span className={`${styles.statePill} ${getStateClass(option.state)}`}>{option.state}</span>
-                      }
-                    />
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </section>
       <UsernameChangeModal

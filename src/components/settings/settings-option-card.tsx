@@ -27,7 +27,9 @@ export function SettingsOptionCard({ label, detail, badge, stateNode, variant, o
     <>
       <div className={styles.topRail} aria-hidden="true" />
       <div className={styles.body}>
-        <p className={styles.badge}>{badge}</p>
+        <div className={styles.headlineRow}>
+          <p className={styles.badge}>{badge}</p>
+        </div>
         <h3 className={styles.title}>{label}</h3>
         <p className={styles.detail}>{detail}</p>
       </div>
