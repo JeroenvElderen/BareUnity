@@ -3,7 +3,12 @@
 import { usePathname, useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 
-import { evictCachedValuesByPrefix, writeCachedValue } from "@/lib/client-cache";
+import {
+  buildUserScopedCacheKey,
+  evictCachedValuesByPrefix,
+  setActiveCacheUser,
+  writeCachedValue,
+} from "@/lib/client-cache";
 import { supabase } from "@/lib/supabase";
 
 import styles from "./auth-gate.module.css";
@@ -42,6 +47,7 @@ export function AuthGate({ children }: AuthGateProps) {
       const authed = Boolean(session?.user);
       setIsAuthenticated(authed);
       setIsHydratingApp(authed && window.sessionStorage.getItem(POST_LOGIN_LOADER_FLAG) === "true");
+      setActiveCacheUser(session?.user?.id ?? null);
       setIsReady(true);
 
       if (!authed && !isPublicPath) {
@@ -62,8 +68,13 @@ export function AuthGate({ children }: AuthGateProps) {
       const authed = Boolean(session?.user);
       setIsAuthenticated(authed);
       setIsHydratingApp(authed && window.sessionStorage.getItem(POST_LOGIN_LOADER_FLAG) === "true");
+      setActiveCacheUser(session?.user?.id ?? null);
 
       if (!authed && !isPublicPath) {
+        evictCachedValuesByPrefix("home-feed:");
+        evictCachedValuesByPrefix("map-spots:");
+        evictCachedValuesByPrefix("settings:profile-security:");
+        evictCachedValuesByPrefix(PROFILE_CACHE_KEY_PREFIX);
         router.replace("/welcome");
       }
 
@@ -99,11 +110,14 @@ export function AuthGate({ children }: AuthGateProps) {
       if (isCancelled) return;
 
       const accessToken = session?.access_token;
+      const cacheUserId = session?.user?.id ?? null;
+      const homeFeedCacheKey = buildUserScopedCacheKey("home-feed", cacheUserId);
+      const mapSpotsCacheKey = buildUserScopedCacheKey("map-spots", cacheUserId);
       const headers: HeadersInit = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
 
       const warmupTargets: Array<{ url: string; cacheKey: string; valuePath: "identity" | "spots" }> = [
-        { url: "/api/homefeed", cacheKey: "home-feed:v1", valuePath: "identity" },
-        { url: "/api/map-spots", cacheKey: "map-spots:v1", valuePath: "spots" },
+        { url: "/api/homefeed", cacheKey: homeFeedCacheKey, valuePath: "identity" },
+        { url: "/api/map-spots", cacheKey: mapSpotsCacheKey, valuePath: "spots" },
       ];
 
       await Promise.all(
