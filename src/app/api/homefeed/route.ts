@@ -2,20 +2,9 @@ import { NextResponse } from "next/server";
 import { db } from "@/server/db";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase-admin";
 import { loadViewerIdFromRequest } from "@/lib/viewer";
-import {
-  getInitials,
-  pickPostTone,
-  pickStoryTone,
-  relativeTime,
-  type HomeFeedPayload,
-} from "@/lib/homefeed";
-
-const fallbackFeed: HomeFeedPayload = {
-  stories: [],
-  friends: [],
-  posts: [],
-  viewerId: null,
-};
+import { type HomeFeedPayload } from "@/lib/homefeed";
+import { buildHomeFeedPayload, fallbackFeed, getHomeFeedSourceVersion } from "@/lib/homefeed-server";
+import { readServerCache, writeServerCache } from "@/lib/server-user-cache";
 
 const IMAGE_DATA_URL_PATTERN = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/;
 
@@ -79,114 +68,50 @@ async function uploadMediaDataUrl(args: {
 export async function GET(request: Request) {
   try {
     const viewerId = await loadViewerIdFromRequest(request);
-    const now = new Date();
+    if (!viewerId) {
+      const payload = await buildHomeFeedPayload(null);
+      return NextResponse.json(payload);
+    }
 
-    const [postsRaw, friendsRaw, storiesRaw] = await Promise.all([
-      db.posts.findMany({
-        take: 20,
-        orderBy: { created_at: "desc" },
-        where: {
-          post_type: { not: "story" },
-          OR: [{ channel_id: null }, { channels: { is: { is_enabled: true } } }],
-        },
-        include: {
-          profiles: {
-            select: { username: true, display_name: true },
-          },
-          comments: {
-            select: { id: true, content: true, author_id: true },
-            orderBy: { created_at: "asc" },
-          },
-          post_votes: {
-            select: { user_id: true, vote: true },
-          },
-        },
-    }),
-      viewerId
-        ? db.friendships.findMany({
-            where: { user_id: viewerId },
-            orderBy: { created_at: "desc" },
-            take: 8,
-          })
-        : Promise.resolve([]),
-      db.posts.findMany({
-        where: {
-          post_type: "story",
-          author_id: { not: null },
-          media_url: { not: null },
-          expires_at: { gt: now },
-        },
-        orderBy: { created_at: "desc" },
-        take: 20,
-        include: {
-          profiles: {
-            select: { username: true, display_name: true },
-          },
-        },
-      }),
-    ]);
+    const cacheKey = "homefeed:v1";
+    let sourceVersion: string | null = null;
 
-    const uniqueStoryAuthorIds = new Set<string>();
-
-    const stories = storiesRaw
-      .filter((post) => post.author_id)
-      .filter((post) => {
-        const authorId = post.author_id!;
-        if (uniqueStoryAuthorIds.has(authorId)) return false;
-        uniqueStoryAuthorIds.add(authorId);
-        return true;
-      })
-      .slice(0, 8)
-      .map((post, index) => {
-        const name = post.profiles?.display_name?.trim() || post.profiles?.username || "Community member";
-        return {
-          id: `${post.author_id!}-${post.id}`,
-          postId: post.id,
-          name,
-          fallback: getInitials(name),
-          tone: pickStoryTone(index),
-          imageUrl: post.media_url ?? null,
-          posted: relativeTime(post.created_at),
-        };
+    try {
+      sourceVersion = await getHomeFeedSourceVersion(viewerId);
+      const cached = await readServerCache<HomeFeedPayload>({
+        userId: viewerId,
+        scope: "homefeed",
+        key: cacheKey,
       });
 
-    const friends = friendsRaw.map((friend) => ({
-      id: friend.id,
-      name: friend.friend_username,
-      fallback: getInitials(friend.friend_username),
-      status: (friend.status === "online" ? "Online" : "Offline") as "Online" | "Offline",
-    }));
+    if (cached && cached.sourceVersion === sourceVersion) {
+        return NextResponse.json(cached.value, {
+          headers: {
+            "x-bareunity-cache": "hit",
+            "x-bareunity-cache-version": sourceVersion,
+          },
+        });
+      }
+    } catch (cacheReadError) {
+      console.warn("Home feed cache read skipped (cache store unavailable)", cacheReadError);
+    }
 
-    const posts = postsRaw.map((post, index) => {
-      const author = post.profiles?.display_name?.trim() || post.profiles?.username || "Community member";
-      const likes = post.post_votes.filter((vote) => vote.vote > 0).length;
+    const payload = await buildHomeFeedPayload(viewerId);
 
-      return {
-        id: post.id,
-        author,
-        fallback: getInitials(author),
-        posted: relativeTime(post.created_at),
-        text: [post.title?.trim(), post.content?.trim()].filter(Boolean).join("\n") || "Shared an update",
-        mediaUrl: post.media_url ?? null,
-        postType: (post.post_type === "image" ? "image" : "text") as "image" | "text",
-        likes,
-        comments: post.comments.map((comment) => ({
-          id: comment.id,
-          content: comment.content,
-          authorId: comment.author_id ?? null,
-        })),
-        likedByViewer: viewerId ? post.post_votes.some((vote) => vote.user_id === viewerId && vote.vote > 0) : false,
-        tone: pickPostTone(index),
-        authorId: post.author_id ?? null,
-      };
-    });
-
-  const payload: HomeFeedPayload = {
-      stories,
-      friends,
-      posts,
-      viewerId,
-    };
+    if (sourceVersion) {
+      try {
+        await writeServerCache({
+          userId: viewerId,
+          scope: "homefeed",
+          key: cacheKey,
+          value: payload,
+          sourceVersion,
+          ttlSeconds: 60 * 15,
+        });
+      } catch (cacheWriteError) {
+        console.warn("Home feed cache write skipped (cache store unavailable)", cacheWriteError);
+      }
+    }
   
     return NextResponse.json(payload);
   } catch (error) {

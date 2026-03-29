@@ -456,6 +456,7 @@ model users {
   profile_settings                                   profile_settings?
   profiles                                           profiles?
   user_badges                                        user_badges[]
+  user_cache_entries                                 user_cache_entries[]
   verification_submissions                           verification_submissions?
 
   @@index([instance_id])
@@ -757,10 +758,29 @@ model profile_settings {
   onboarding_completed       Boolean?  @default(false)
   recovery_keys              Json      @default("[]")
   recovery_keys_generated_at DateTime? @db.Timestamptz(6)
-  passkeys                   Json      @default("[]")
+  passkeys                   Json?     @default("[]")
   passkeys_updated_at        DateTime? @db.Timestamptz(6)
   users                      users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
+  @@schema("public")
+}
+
+/// User-scoped server cache entries used to warm personalized payloads.
+model user_cache_entries {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id        String    @db.Uuid
+  cache_scope    String
+  cache_key      String
+  source_version String
+  payload        Json
+  created_at     DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime  @default(now()) @db.Timestamptz(6)
+  expires_at     DateTime? @db.Timestamptz(6)
+  users          users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, cache_scope, cache_key])
+  @@index([expires_at], map: "user_cache_entries_expires_idx")
+  @@index([cache_scope, updated_at(sort: Desc)], map: "user_cache_entries_scope_updated_idx")
   @@schema("public")
 }
 
@@ -796,12 +816,15 @@ model reports {
   reporter_id String?   @db.Uuid
   post_id     String?   @db.Uuid
   comment_id  String?   @db.Uuid
-  reason      String?
+  reason      String
   created_at  DateTime? @default(now()) @db.Timestamptz(6)
+  target_type String    @default("other")
+  target_id   String?
   comments    comments? @relation(fields: [comment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   posts       posts?    @relation(fields: [post_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   profiles    profiles? @relation(fields: [reporter_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
+  @@index([target_type, target_id], map: "reports_target_lookup_idx")
   @@schema("public")
 }
 

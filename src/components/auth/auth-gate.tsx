@@ -158,7 +158,7 @@ export function AuthGate({ children }: AuthGateProps) {
     };
   }, [isAuthenticated, isHydratingApp]);
 
-  if (!isReady || isHydratingApp) {
+  if (isHydratingApp || (!isReady && !isPublicPath)) {
     return (
       <div className={styles.loaderShell}>
         <div className={styles.loaderCard} role="status" aria-live="polite" aria-label="Loading your BareUnity space">
