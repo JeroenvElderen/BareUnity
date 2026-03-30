@@ -164,6 +164,41 @@ export function AuthGate({ children }: AuthGateProps) {
     }
   }, [cacheWarmupResponse]);
 
+  const prefetchHomeFeedUntilReady = useCallback(async (options?: { maxAttempts?: number; retryDelayMs?: number }) => {
+    const maxAttempts = options?.maxAttempts ?? 8;
+    const retryDelayMs = options?.retryDelayMs ?? 200;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const accessToken = session?.access_token;
+
+      if (!accessToken) {
+        await new Promise((resolve) => {
+          window.setTimeout(resolve, retryDelayMs);
+        });
+        continue;
+      }
+
+      const response = await fetch(POST_LOGIN_HOMEFEED_ENDPOINT, {
+        cache: "no-store",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+
+      if (response.ok) {
+        await cacheWarmupResponse(POST_LOGIN_HOMEFEED_ENDPOINT, response);
+        return true;
+      }
+
+      await new Promise((resolve) => {
+        window.setTimeout(resolve, retryDelayMs);
+      });
+    }
+
+    return false;
+  }, [cacheWarmupResponse]);
+
   useEffect(() => {
     if (!pathname || hasPrefetchedBeforeLoginRef.current) return;
     const shouldPrefetchOnEntry = pathname === "/" || pathname === "/welcome";
@@ -192,7 +227,10 @@ export function AuthGate({ children }: AuthGateProps) {
       await prefetchEndpoints(POST_LOGIN_DATA_ENDPOINTS);
       if (isCancelled) return;
 
-      await prefetchEndpoints([POST_LOGIN_HOMEFEED_ENDPOINT, POST_LOGIN_PROFILE_ENDPOINT], { includeAuthToken: true });
+      await prefetchEndpoints([POST_LOGIN_PROFILE_ENDPOINT], { includeAuthToken: true });
+      if (isCancelled) return;
+
+      await prefetchHomeFeedUntilReady();
       if (isCancelled) return;
     };
 
@@ -233,7 +271,7 @@ export function AuthGate({ children }: AuthGateProps) {
       isCancelled = true;
       void supabase.removeChannel(liveUpdatesChannel);
     };
-  }, [isAuthenticated, isHydratingApp, prefetchEndpoints, router]);
+  }, [isAuthenticated, isHydratingApp, prefetchEndpoints, prefetchHomeFeedUntilReady, router]);
 
   if (isHydratingApp || (!isReady && !isPublicPath)) {
     return (
