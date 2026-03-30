@@ -12,8 +12,25 @@ type ReadCachedValueOptions = {
 };
 
 function readCachedPayload<T>(key: string): ClientCachePayload<T> | null {
-  void key;
-  return null;
+  if (typeof window === "undefined") return null;
+
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw) as Partial<ClientCachePayload<T>>;
+    if (typeof parsed?.savedAt !== "number" || !Number.isFinite(parsed.savedAt) || !("data" in parsed)) {
+      window.localStorage.removeItem(key);
+      return null;
+    }
+
+    return {
+      data: parsed.data as T,
+      savedAt: parsed.savedAt,
+    };
+  } catch {
+    return null;
+  }
 }
 
 export function readCachedValue<T>(key: string, options: number | ReadCachedValueOptions): T | null {
@@ -34,9 +51,9 @@ export function readCachedValue<T>(key: string, options: number | ReadCachedValu
 }
 
 export function hasFreshCachedValue(key: string, maxAgeMs: number) {
-  void key;
-  void maxAgeMs;
-  return false;
+  const parsed = readCachedPayload(key);
+  if (!parsed) return false;
+  return Date.now() - parsed.savedAt <= maxAgeMs;
 }
 
 export function setActiveCacheUser(userId: string | null) {
@@ -72,16 +89,42 @@ export function buildUserScopedCacheKey(scope: string, userId?: string | null) {
 }
 
 export function writeCachedValue<T>(key: string, data: T) {
-  void key;
-  void data;
+  if (typeof window === "undefined") return;
+
+  const payload: ClientCachePayload<T> = {
+    data,
+    savedAt: Date.now(),
+  };
+
+  try {
+    window.localStorage.setItem(key, JSON.stringify(payload));
+  } catch {
+    // localStorage may be unavailable in private mode / strict browser settings.
+  }
 }
 
 export function removeCachedValue(key: string) {
-  void key;
+  if (typeof window === "undefined") return;
+
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    // localStorage may be unavailable in private mode / strict browser settings.
+  }
 }
 
 export function evictCachedValuesByPrefix(prefix: string) {
-  void prefix;
+  if (typeof window === "undefined") return;
+
+  try {
+    for (let index = window.localStorage.length - 1; index >= 0; index -= 1) {
+      const key = window.localStorage.key(index);
+      if (!key || !key.startsWith(prefix)) continue;
+      window.localStorage.removeItem(key);
+    }
+  } catch {
+    // localStorage may be unavailable in private mode / strict browser settings.
+  }
 }
 
 export async function loadCachedThenRefresh<T>(options: {

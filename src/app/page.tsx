@@ -167,6 +167,40 @@ export default function HomePage() {
     };
   }, [postImagePreview]);
 
+  useEffect(() => {
+    let refreshTimer: number | undefined;
+
+    const scheduleRefresh = () => {
+      if (refreshTimer) {
+        window.clearTimeout(refreshTimer);
+      }
+
+      refreshTimer = window.setTimeout(() => {
+        void loadFeed();
+      }, 500);
+    };
+
+    const liveFeedChannel = supabase.channel("homefeed-live-updates");
+    ["posts", "comments", "friendships", "profiles"].forEach((table) => {
+      liveFeedChannel.on(
+        "postgres_changes",
+        { event: "*", schema: "public", table },
+        () => {
+          scheduleRefresh();
+        },
+      );
+    });
+
+    void liveFeedChannel.subscribe();
+
+    return () => {
+      if (refreshTimer) {
+        window.clearTimeout(refreshTimer);
+      }
+      void supabase.removeChannel(liveFeedChannel);
+    };
+  }, [loadFeed]);
+  
   const publishPost = async () => {
     if (!canPublish || !composerKind) return;
 

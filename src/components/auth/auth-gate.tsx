@@ -1,9 +1,15 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { evictCachedValuesByPrefix, setActiveCacheUser } from "@/lib/client-cache";
+import {
+  buildUserScopedCacheKey,
+  evictCachedValuesByPrefix,
+  setActiveCacheUser,
+  writeCachedValue,
+} from "@/lib/client-cache";
+import type { HomeFeedPayload } from "@/lib/homefeed";
 import { supabase } from "@/lib/supabase";
 
 import styles from "./auth-gate.module.css";
@@ -37,7 +43,9 @@ const PRE_LOGIN_DATA_ENDPOINTS = [
   "/api/settings/snapshot",
   "/api/gallery/snapshot",
 ];
-const POST_LOGIN_DATA_ENDPOINTS = ["/api/profile/snapshot"];
+const POST_LOGIN_DATA_ENDPOINTS = ["/api/map-spots", "/api/settings/snapshot", "/api/gallery/snapshot"];
+const POST_LOGIN_HOMEFEED_ENDPOINT = "/api/homefeed";
+const POST_LOGIN_PROFILE_ENDPOINT = "/api/profile/snapshot";
 const WARMUP_MIN_INTERVAL_MS = 5 * 60_000;
 
 export function AuthGate({ children }: AuthGateProps) {
@@ -111,7 +119,19 @@ export function AuthGate({ children }: AuthGateProps) {
     };
   }, [isPublicPath, pathname, router]);
 
-  const prefetchEndpoints = async (
+  const cacheWarmupResponse = useCallback(async (url: string, response: Response) => {
+    if (!response.ok) return;
+    if (url !== POST_LOGIN_HOMEFEED_ENDPOINT) return;
+
+    try {
+      const payload = (await response.json()) as HomeFeedPayload;
+      writeCachedValue(buildUserScopedCacheKey("home-feed"), payload);
+    } catch {
+      // warmup cache writes should not block routing
+    }
+  }, []);
+
+  const prefetchEndpoints = useCallback(async (
     urls: readonly string[],
     options: { includeAuthToken?: boolean } = {},
   ) => {
@@ -129,13 +149,12 @@ export function AuthGate({ children }: AuthGateProps) {
         headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
       }
 
-      for (const url of urls) {
-        try {
-          await fetch(url, { cache: "no-store", headers });
-        } catch {
-          // warmup failures should not block routing
-        }
-      }
+      await Promise.allSettled(
+        urls.map(async (url) => {
+          const response = await fetch(url, { cache: "no-store", headers });
+          await cacheWarmupResponse(url, response);
+        }),
+      );
 
       if (shouldIncludeAuthToken) {
         lastWarmupAtRef.current = Date.now();
@@ -143,7 +162,7 @@ export function AuthGate({ children }: AuthGateProps) {
     } finally {
       warmupInFlightRef.current = false;
     }
-  };
+  }, [cacheWarmupResponse]);
 
   useEffect(() => {
     if (!pathname || hasPrefetchedBeforeLoginRef.current) return;
@@ -155,7 +174,7 @@ export function AuthGate({ children }: AuthGateProps) {
     });
     void prefetchEndpoints(PRE_LOGIN_DATA_ENDPOINTS);
     hasPrefetchedBeforeLoginRef.current = true;
-  }, [pathname, router]);
+  }, [pathname, prefetchEndpoints, router]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -169,8 +188,11 @@ export function AuthGate({ children }: AuthGateProps) {
       }
     };
 
-    const prefetchProfileData = async () => {
-      await prefetchEndpoints(POST_LOGIN_DATA_ENDPOINTS, { includeAuthToken: true });
+    const prefetchPostLoginData = async () => {
+      await prefetchEndpoints(POST_LOGIN_DATA_ENDPOINTS);
+      if (isCancelled) return;
+
+      await prefetchEndpoints([POST_LOGIN_HOMEFEED_ENDPOINT, POST_LOGIN_PROFILE_ENDPOINT], { includeAuthToken: true });
       if (isCancelled) return;
     };
 
@@ -184,11 +206,11 @@ export function AuthGate({ children }: AuthGateProps) {
     }
 
     if (isHydratingApp) {
-      void prefetchProfileData().finally(() => {
+      void prefetchPostLoginData().finally(() => {
         completePostLoginHydration();
       });
     } else {
-      void prefetchProfileData();
+      void prefetchPostLoginData();
     }
 
     const liveUpdatesChannel = supabase.channel("client-cache-live-updates");
@@ -201,7 +223,7 @@ export function AuthGate({ children }: AuthGateProps) {
           if (elapsed < WARMUP_MIN_INTERVAL_MS || warmupInFlightRef.current) {
             return;
           }
-          void prefetchProfileData();
+          void prefetchPostLoginData();
         },
       );
     });
@@ -211,7 +233,7 @@ export function AuthGate({ children }: AuthGateProps) {
       isCancelled = true;
       void supabase.removeChannel(liveUpdatesChannel);
     };
-  }, [isAuthenticated, isHydratingApp, router]);
+  }, [isAuthenticated, isHydratingApp, prefetchEndpoints, router]);
 
   if (isHydratingApp || (!isReady && !isPublicPath)) {
     return (
