@@ -31,13 +31,13 @@ const APP_ROUTES_TO_PREFETCH = [
   "/admin/applications",
   "/admin/reports",
 ];
-const CORE_DATA_ENDPOINTS = [
+const PRE_LOGIN_DATA_ENDPOINTS = [
   "/api/homefeed",
   "/api/map-spots",
-  "/api/profile/snapshot",
   "/api/settings/snapshot",
   "/api/gallery/snapshot",
 ];
+const POST_LOGIN_DATA_ENDPOINTS = ["/api/profile/snapshot"];
 const WARMUP_MIN_INTERVAL_MS = 5 * 60_000;
 
 export function AuthGate({ children }: AuthGateProps) {
@@ -48,6 +48,7 @@ export function AuthGate({ children }: AuthGateProps) {
   const [isHydratingApp, setIsHydratingApp] = useState(false);
   const lastWarmupAtRef = useRef(0);
   const warmupInFlightRef = useRef(false);
+  const hasPrefetchedBeforeLoginRef = useRef(false);
 
   const isPublicPath = useMemo(() => {
     if (!pathname) return false;
@@ -110,6 +111,52 @@ export function AuthGate({ children }: AuthGateProps) {
     };
   }, [isPublicPath, pathname, router]);
 
+  const prefetchEndpoints = async (
+    urls: readonly string[],
+    options: { includeAuthToken?: boolean } = {},
+  ) => {
+    if (warmupInFlightRef.current) return;
+    warmupInFlightRef.current = true;
+    try {
+      const shouldIncludeAuthToken = options.includeAuthToken ?? false;
+      let headers: HeadersInit = {};
+      if (shouldIncludeAuthToken) {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        const accessToken = session?.access_token;
+        headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
+      }
+
+      for (const url of urls) {
+        try {
+          await fetch(url, { cache: "no-store", headers });
+        } catch {
+          // warmup failures should not block routing
+        }
+      }
+
+      if (shouldIncludeAuthToken) {
+        lastWarmupAtRef.current = Date.now();
+      }
+    } finally {
+      warmupInFlightRef.current = false;
+    }
+  };
+
+  useEffect(() => {
+    if (!pathname || hasPrefetchedBeforeLoginRef.current) return;
+    const shouldPrefetchOnEntry = pathname === "/" || pathname === "/welcome";
+    if (!shouldPrefetchOnEntry) return;
+
+    APP_ROUTES_TO_PREFETCH.forEach((route) => {
+      void router.prefetch(route);
+    });
+    void prefetchEndpoints(PRE_LOGIN_DATA_ENDPOINTS);
+    hasPrefetchedBeforeLoginRef.current = true;
+  }, [pathname, router]);
+
   useEffect(() => {
     if (!isAuthenticated) return;
 
@@ -122,30 +169,9 @@ export function AuthGate({ children }: AuthGateProps) {
       }
     };
 
-    const prefetchCoreData = async () => {
-      if (warmupInFlightRef.current) return;
-      warmupInFlightRef.current = true;
-      try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-
-        if (isCancelled) return;
-
-        const accessToken = session?.access_token;
-        const headers: HeadersInit = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
-
-        for (const url of CORE_DATA_ENDPOINTS) {
-          try {
-            await fetch(url, { cache: "no-store", headers });
-          } catch {
-            // warmup failures should not block routing
-          }
-        }
-        lastWarmupAtRef.current = Date.now();
-      } finally {
-        warmupInFlightRef.current = false;
-      }
+    const prefetchProfileData = async () => {
+      await prefetchEndpoints(POST_LOGIN_DATA_ENDPOINTS, { includeAuthToken: true });
+      if (isCancelled) return;
     };
 
     APP_ROUTES_TO_PREFETCH.forEach((route) => {
@@ -158,11 +184,11 @@ export function AuthGate({ children }: AuthGateProps) {
     }
 
     if (isHydratingApp) {
-      void prefetchCoreData().finally(() => {
+      void prefetchProfileData().finally(() => {
         completePostLoginHydration();
       });
     } else {
-      void prefetchCoreData();
+      void prefetchProfileData();
     }
 
     const liveUpdatesChannel = supabase.channel("client-cache-live-updates");
@@ -175,7 +201,7 @@ export function AuthGate({ children }: AuthGateProps) {
           if (elapsed < WARMUP_MIN_INTERVAL_MS || warmupInFlightRef.current) {
             return;
           }
-          void prefetchCoreData();
+          void prefetchProfileData();
         },
       );
     });
