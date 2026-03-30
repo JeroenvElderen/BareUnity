@@ -1,14 +1,9 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
-import {
-  buildUserScopedCacheKey,
-  evictCachedValuesByPrefix,
-  setActiveCacheUser,
-  writeCachedValue,
-} from "@/lib/client-cache";
+import { evictCachedValuesByPrefix, setActiveCacheUser } from "@/lib/client-cache";
 import { supabase } from "@/lib/supabase";
 
 import styles from "./auth-gate.module.css";
@@ -21,6 +16,29 @@ const PUBLIC_PATHS = new Set(["/welcome", "/login", "/register"]);
 const PROFILE_CACHE_KEY_PREFIX = "profile:";
 const LIVE_TABLES = ["posts", "comments", "friendships", "profiles", "profile_settings", "map_spots"] as const;
 const POST_LOGIN_LOADER_FLAG = "bareunity_post_login_loading";
+const APP_ROUTES_TO_PREFETCH = [
+  "/",
+  "/explore",
+  "/profile",
+  "/gallery",
+  "/settings",
+  "/bookings",
+  "/bookings/activities",
+  "/bookings/hotels-airbnbs",
+  "/bookings/resorts",
+  "/bookings/spas",
+  "/admin",
+  "/admin/applications",
+  "/admin/reports",
+];
+const CORE_DATA_ENDPOINTS = [
+  "/api/homefeed",
+  "/api/map-spots",
+  "/api/profile/snapshot",
+  "/api/settings/snapshot",
+  "/api/gallery/snapshot",
+];
+const WARMUP_MIN_INTERVAL_MS = 5 * 60_000;
 
 export function AuthGate({ children }: AuthGateProps) {
   const pathname = usePathname();
@@ -28,6 +46,8 @@ export function AuthGate({ children }: AuthGateProps) {
   const [isReady, setIsReady] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isHydratingApp, setIsHydratingApp] = useState(false);
+  const lastWarmupAtRef = useRef(0);
+  const warmupInFlightRef = useRef(false);
 
   const isPublicPath = useMemo(() => {
     if (!pathname) return false;
@@ -94,7 +114,6 @@ export function AuthGate({ children }: AuthGateProps) {
     if (!isAuthenticated) return;
 
     let isCancelled = false;
-    let refreshTimer: number | null = null;
 
     const completePostLoginHydration = () => {
       window.sessionStorage.removeItem(POST_LOGIN_LOADER_FLAG);
@@ -103,75 +122,48 @@ export function AuthGate({ children }: AuthGateProps) {
       }
     };
 
-    const prefetchCoreData = async (options?: { invalidateProfileCache?: boolean }) => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+    const prefetchCoreData = async () => {
+      if (warmupInFlightRef.current) return;
+      warmupInFlightRef.current = true;
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
 
-      if (isCancelled) return;
+        if (isCancelled) return;
 
-      const accessToken = session?.access_token;
-      const cacheUserId = session?.user?.id ?? null;
-      const homeFeedCacheKey = buildUserScopedCacheKey("home-feed", cacheUserId);
-      const mapSpotsCacheKey = buildUserScopedCacheKey("map-spots", cacheUserId);
-      const profileCacheKey = cacheUserId ? `profile:${cacheUserId}:v2` : null;
-      const settingsCacheKey = buildUserScopedCacheKey("settings:profile-security", cacheUserId);
-      const galleryCacheKey = buildUserScopedCacheKey("gallery-items", cacheUserId);
-      const headers: HeadersInit = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
+        const accessToken = session?.access_token;
+        const headers: HeadersInit = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
 
-      const warmupTargets: Array<{ url: string; cacheKey: string | null; valuePath: "identity" | "spots" | "items" }> = [
-        { url: "/api/homefeed", cacheKey: homeFeedCacheKey, valuePath: "identity" },
-        { url: "/api/map-spots", cacheKey: mapSpotsCacheKey, valuePath: "spots" },
-        { url: "/api/profile/snapshot", cacheKey: profileCacheKey, valuePath: "identity" },
-        { url: "/api/settings/snapshot", cacheKey: settingsCacheKey, valuePath: "identity" },
-        { url: "/api/gallery/snapshot", cacheKey: galleryCacheKey, valuePath: "items" },
-      ];
-
-      await Promise.all(
-        warmupTargets.map(async (target) => {
-          if (!target.cacheKey) return;
-
+        for (const url of CORE_DATA_ENDPOINTS) {
           try {
-            const response = await fetch(target.url, { cache: "no-store", headers });
-            if (!response.ok) return;
-            const payload = (await response.json()) as { spots?: unknown[]; items?: unknown[] };
-
-            if (target.valuePath === "spots") {
-              writeCachedValue(target.cacheKey, payload.spots ?? []);
-              return;
-            }
-
-            if (target.valuePath === "items") {
-              writeCachedValue(target.cacheKey, payload.items ?? []);
-              return;
-            }
-
-            writeCachedValue(target.cacheKey, payload);
+            await fetch(url, { cache: "no-store", headers });
           } catch {
             // warmup failures should not block routing
           }
-        }),
-      );
-
-      if (options?.invalidateProfileCache) {
-        evictCachedValuesByPrefix(PROFILE_CACHE_KEY_PREFIX);
+        }
+        lastWarmupAtRef.current = Date.now();
+      } finally {
+        warmupInFlightRef.current = false;
       }
     };
 
+    APP_ROUTES_TO_PREFETCH.forEach((route) => {
+      void router.prefetch(route);
+    });
+
+    const elapsedSinceLastWarmup = Date.now() - lastWarmupAtRef.current;
+    if (elapsedSinceLastWarmup < WARMUP_MIN_INTERVAL_MS && !isHydratingApp) {
+      return;
+    }
+
     if (isHydratingApp) {
-      void prefetchCoreData({ invalidateProfileCache: true }).finally(() => {
+      void prefetchCoreData().finally(() => {
         completePostLoginHydration();
       });
     } else {
       void prefetchCoreData();
     }
-
-    const scheduleRefresh = (options?: { invalidateProfileCache?: boolean }) => {
-      if (refreshTimer) window.clearTimeout(refreshTimer);
-      refreshTimer = window.setTimeout(() => {
-        void prefetchCoreData(options);
-      }, 450);
-    };
 
     const liveUpdatesChannel = supabase.channel("client-cache-live-updates");
     LIVE_TABLES.forEach((table) => {
@@ -179,7 +171,11 @@ export function AuthGate({ children }: AuthGateProps) {
         "postgres_changes",
         { event: "*", schema: "public", table },
         () => {
-          scheduleRefresh({ invalidateProfileCache: true });
+          const elapsed = Date.now() - lastWarmupAtRef.current;
+          if (elapsed < WARMUP_MIN_INTERVAL_MS || warmupInFlightRef.current) {
+            return;
+          }
+          void prefetchCoreData();
         },
       );
     });
@@ -187,10 +183,9 @@ export function AuthGate({ children }: AuthGateProps) {
 
     return () => {
       isCancelled = true;
-      if (refreshTimer) window.clearTimeout(refreshTimer);
       void supabase.removeChannel(liveUpdatesChannel);
     };
-  }, [isAuthenticated, isHydratingApp]);
+  }, [isAuthenticated, isHydratingApp, router]);
 
   if (isHydratingApp || (!isReady && !isPublicPath)) {
     return (
