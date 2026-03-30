@@ -231,10 +231,9 @@ export function AuthGate({ children }: AuthGateProps) {
       if (isCancelled) return;
 
       await prefetchEndpoints([POST_LOGIN_PROFILE_ENDPOINT], { includeAuthToken: true });
-    };
+      if (isCancelled) return;
 
-    const prefetchPostLoginBackgroundData = async () => {
-      await prefetchEndpoints(POST_LOGIN_BACKGROUND_ENDPOINTS);
+      await prefetchHomeFeedUntilReady();
       if (isCancelled) return;
 
       BACKGROUND_ROUTES_TO_PREFETCH.forEach((route) => {

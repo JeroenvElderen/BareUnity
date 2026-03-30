@@ -213,7 +213,7 @@ export default function HomePage() {
       void supabase.removeChannel(liveFeedChannel);
     };
   }, [loadFeed]);
-  
+
   const publishPost = async () => {
     if (!canPublish || !composerKind) return;
 
