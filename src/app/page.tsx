@@ -122,16 +122,29 @@ export default function HomePage() {
       headers.Authorization = `Bearer ${accessToken}`;
     }
 
-    return headers;
+    return { headers, hasAuthToken: Boolean(accessToken) };
   };
 
   const loadFeed = useCallback(
-    async (options?: { showSpinner?: boolean }) => {
+    async (options?: { showSpinner?: boolean; attempt?: number }) => {
       if (options?.showSpinner) setLoadingFeed(true);
       try {
+        const attempt = options?.attempt ?? 0;
+        const { headers, hasAuthToken } = await getAuthHeaders();
+        if (!hasAuthToken) {
+          if (attempt < 6) {
+            window.setTimeout(() => {
+              void loadFeed({ ...options, attempt: attempt + 1 });
+            }, 150);
+          } else {
+            setLoadingFeed(false);
+          }
+          return;
+        }
+
         const response = await fetch("/api/homefeed", {
           cache: "no-store",
-          headers: await getAuthHeaders(),
+          headers,
         });
 
         if (!response.ok) {
@@ -206,7 +219,7 @@ export default function HomePage() {
 
     const response = await fetch("/api/homefeed", {
       method: "POST",
-      headers: await getAuthHeaders({ includeJsonContentType: true }),
+      headers: (await getAuthHeaders({ includeJsonContentType: true })).headers,
       body: JSON.stringify({ title: postTitle, content: postContent, mediaUrl: postImageDataUrl, kind: composerKind }),
     });
 
@@ -242,7 +255,7 @@ export default function HomePage() {
   const toggleLike = async (postId: string) => {
     const response = await fetch(`/api/homefeed/posts/${postId}/like`, {
       method: "POST",
-      headers: await getAuthHeaders(),
+      headers: (await getAuthHeaders()).headers,
     });
     if (!response.ok) return;
 
@@ -255,7 +268,7 @@ export default function HomePage() {
 
     const response = await fetch(`/api/homefeed/posts/${postId}/comments`, {
       method: "POST",
-      headers: await getAuthHeaders({ includeJsonContentType: true }),
+      headers: (await getAuthHeaders({ includeJsonContentType: true })).headers,
       body: JSON.stringify({ content: value }),
     });
 
@@ -278,7 +291,7 @@ export default function HomePage() {
 
     const response = await fetch(`/api/homefeed/posts/${editingPost.id}`, {
       method: "PATCH",
-      headers: await getAuthHeaders({ includeJsonContentType: true }),
+      headers: (await getAuthHeaders({ includeJsonContentType: true })).headers,
       body: JSON.stringify({ title: editTitle, content: editContent }),
     });
 
@@ -304,7 +317,7 @@ export default function HomePage() {
         : `/api/homefeed/posts/${deleteTarget.postId}`,
       {
         method: "DELETE",
-        headers: await getAuthHeaders(),
+        headers: (await getAuthHeaders()).headers,
       },
     );
     if (!response.ok) return;
