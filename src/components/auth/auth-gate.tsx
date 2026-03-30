@@ -22,8 +22,10 @@ const PUBLIC_PATHS = new Set(["/welcome", "/login", "/register"]);
 const PROFILE_CACHE_KEY_PREFIX = "profile:";
 const LIVE_TABLES = ["posts", "comments", "friendships", "profiles", "profile_settings", "map_spots"] as const;
 const POST_LOGIN_LOADER_FLAG = "bareunity_post_login_loading";
-const APP_ROUTES_TO_PREFETCH = [
+const CRITICAL_ROUTES_TO_PREFETCH = [
   "/",
+];
+const BACKGROUND_ROUTES_TO_PREFETCH = [
   "/explore",
   "/profile",
   "/gallery",
@@ -39,11 +41,12 @@ const APP_ROUTES_TO_PREFETCH = [
 ];
 const PRE_LOGIN_DATA_ENDPOINTS = [
   "/api/homefeed",
+];
+const POST_LOGIN_BACKGROUND_ENDPOINTS = [
   "/api/map-spots",
   "/api/settings/snapshot",
   "/api/gallery/snapshot",
 ];
-const POST_LOGIN_DATA_ENDPOINTS = ["/api/map-spots", "/api/settings/snapshot", "/api/gallery/snapshot"];
 const POST_LOGIN_HOMEFEED_ENDPOINT = "/api/homefeed";
 const POST_LOGIN_PROFILE_ENDPOINT = "/api/profile/snapshot";
 const WARMUP_MIN_INTERVAL_MS = 5 * 60_000;
@@ -204,7 +207,7 @@ export function AuthGate({ children }: AuthGateProps) {
     const shouldPrefetchOnEntry = pathname === "/" || pathname === "/welcome";
     if (!shouldPrefetchOnEntry) return;
 
-    APP_ROUTES_TO_PREFETCH.forEach((route) => {
+    CRITICAL_ROUTES_TO_PREFETCH.forEach((route) => {
       void router.prefetch(route);
     });
     void prefetchEndpoints(PRE_LOGIN_DATA_ENDPOINTS);
@@ -223,8 +226,8 @@ export function AuthGate({ children }: AuthGateProps) {
       }
     };
 
-    const prefetchPostLoginData = async () => {
-      await prefetchEndpoints(POST_LOGIN_DATA_ENDPOINTS);
+    const prefetchPostLoginCriticalData = async () => {
+      await prefetchHomeFeedUntilReady();
       if (isCancelled) return;
 
       await prefetchEndpoints([POST_LOGIN_PROFILE_ENDPOINT], { includeAuthToken: true });
@@ -232,9 +235,13 @@ export function AuthGate({ children }: AuthGateProps) {
 
       await prefetchHomeFeedUntilReady();
       if (isCancelled) return;
+
+      BACKGROUND_ROUTES_TO_PREFETCH.forEach((route) => {
+        void router.prefetch(route);
+      });
     };
 
-    APP_ROUTES_TO_PREFETCH.forEach((route) => {
+    CRITICAL_ROUTES_TO_PREFETCH.forEach((route) => {
       void router.prefetch(route);
     });
 
@@ -244,11 +251,15 @@ export function AuthGate({ children }: AuthGateProps) {
     }
 
     if (isHydratingApp) {
-      void prefetchPostLoginData().finally(() => {
+      void prefetchPostLoginCriticalData().finally(() => {
         completePostLoginHydration();
+        if (!isCancelled) {
+          void prefetchPostLoginBackgroundData();
+        }
       });
     } else {
-      void prefetchPostLoginData();
+      void prefetchPostLoginCriticalData();
+      void prefetchPostLoginBackgroundData();
     }
 
     const liveUpdatesChannel = supabase.channel("client-cache-live-updates");
@@ -261,7 +272,8 @@ export function AuthGate({ children }: AuthGateProps) {
           if (elapsed < WARMUP_MIN_INTERVAL_MS || warmupInFlightRef.current) {
             return;
           }
-          void prefetchPostLoginData();
+          void prefetchPostLoginCriticalData();
+          void prefetchPostLoginBackgroundData();
         },
       );
     });
