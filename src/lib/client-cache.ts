@@ -12,18 +12,8 @@ type ReadCachedValueOptions = {
 };
 
 function readCachedPayload<T>(key: string): ClientCachePayload<T> | null {
-  if (typeof window === "undefined") return null;
-
-  try {
-    const raw = window.localStorage.getItem(key);
-    if (!raw) return null;
-
-    const parsed = JSON.parse(raw) as ClientCachePayload<T>;
-    if (!parsed || typeof parsed.savedAt !== "number") return null;
-    return parsed;
-  } catch {
-    return null;
-  }
+  void key;
+  return null;
 }
 
 export function readCachedValue<T>(key: string, options: number | ReadCachedValueOptions): T | null {
@@ -44,9 +34,9 @@ export function readCachedValue<T>(key: string, options: number | ReadCachedValu
 }
 
 export function hasFreshCachedValue(key: string, maxAgeMs: number) {
-  const parsed = readCachedPayload<unknown>(key);
-  if (!parsed) return false;
-  return Date.now() - parsed.savedAt <= maxAgeMs;
+  void key;
+  void maxAgeMs;
+  return false;
 }
 
 export function setActiveCacheUser(userId: string | null) {
@@ -82,46 +72,16 @@ export function buildUserScopedCacheKey(scope: string, userId?: string | null) {
 }
 
 export function writeCachedValue<T>(key: string, data: T) {
-  if (typeof window === "undefined") return;
-
-  try {
-    const payload: ClientCachePayload<T> = {
-      data,
-      savedAt: Date.now(),
-    };
-
-    window.localStorage.setItem(key, JSON.stringify(payload));
-  } catch {
-    // localStorage may be unavailable in private mode / strict browser settings.
-  }
+  void key;
+  void data;
 }
 
 export function removeCachedValue(key: string) {
-  if (typeof window === "undefined") return;
-
-  try {
-    window.localStorage.removeItem(key);
-  } catch {
-    // localStorage may be unavailable in private mode / strict browser settings.
-  }
+  void key;
 }
 
 export function evictCachedValuesByPrefix(prefix: string) {
-  if (typeof window === "undefined") return;
-
-  try {
-    const keysToRemove: string[] = [];
-
-    for (let index = 0; index < window.localStorage.length; index += 1) {
-      const key = window.localStorage.key(index);
-      if (!key) continue;
-      if (key.startsWith(prefix)) keysToRemove.push(key);
-    }
-
-    keysToRemove.forEach((key) => window.localStorage.removeItem(key));
-  } catch {
-    // localStorage may be unavailable in private mode / strict browser settings.
-  }
+  void prefix;
 }
 
 export async function loadCachedThenRefresh<T>(options: {
