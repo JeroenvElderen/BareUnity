@@ -1,7 +1,6 @@
 "use client";
 
-import Image from "next/image";
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useState } from "react";
 
 import { AppSidebar } from "@/components/sidebar/sidebar";
 import { buildUserScopedCacheKey, loadCachedThenRefresh } from "@/lib/client-cache";
@@ -108,15 +107,13 @@ export default function GalleryPage() {
         ) : (
           <div className={styles.grid}>
             {items.map((item, index) => (
-              <figure key={item.id} className={styles.tile} style={{ "--index": index } as CSSProperties}>
-                <Image
+              <figure key={item.id} className={styles.tile}>
+                <img
                   src={item.src}
                   alt={`${item.title} — ${item.place}`}
                   className={styles.image}
-                  sizes="(max-width: 640px) 100vw, (max-width: 960px) 50vw, (max-width: 1240px) 33vw, 25vw"
-                  width={1200}
-                  height={1600}
                   loading={index < 6 ? "eager" : "lazy"}
+                  decoding="async"
                 />
               </figure>
             ))}

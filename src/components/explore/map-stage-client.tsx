@@ -229,6 +229,76 @@ function resolveSearchCoordinates(result: LocationSearchResult) {
   return { latitude, longitude };
 }
 
+function resolveResultTitle(result: LocationSearchResult) {
+  const rawTitle = result.display_name.split(",")[0]?.trim();
+  return rawTitle || result.display_name.trim();
+}
+
+type ReverseLookupResult = {
+  name?: string;
+  display_name?: string;
+  category?: string;
+  class?: string;
+  type?: string;
+  addresstype?: string;
+};
+
+function resolveTitleFromReverseResult(payload: ReverseLookupResult) {
+  const primaryName = payload.name?.trim();
+  if (primaryName) return primaryName;
+
+  const displayName = payload.display_name?.split(",")[0]?.trim();
+  return displayName || null;
+}
+
+async function reverseLookup(latitude: number, longitude: number, querySuffix = "") {
+  const response = await fetch(
+    `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&zoom=18${querySuffix}`,
+    {
+      headers: {
+        Accept: "application/json",
+      },
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`Reverse lookup failed (${response.status})`);
+  }
+
+  return (await response.json()) as ReverseLookupResult;
+}
+
+function isNatureLikeResult(payload: ReverseLookupResult) {
+  const combined = `${payload.category ?? ""} ${payload.class ?? ""} ${payload.type ?? ""} ${payload.addresstype ?? ""}`
+    .toLowerCase()
+    .trim();
+
+  return (
+    combined.includes("natural") ||
+    combined.includes("beach") ||
+    combined.includes("forest") ||
+    combined.includes("wood") ||
+    combined.includes("park") ||
+    combined.includes("lake") ||
+    combined.includes("water")
+  );
+}
+
+async function resolveTitleFromCoordinates(latitude: number, longitude: number) {
+  try {
+    const naturalResult = await reverseLookup(latitude, longitude, "&layer=natural");
+    const naturalTitle = resolveTitleFromReverseResult(naturalResult);
+    if (naturalTitle && isNatureLikeResult(naturalResult)) {
+      return naturalTitle;
+    }
+  } catch (error) {
+    console.warn("Natural reverse lookup unavailable, falling back to generic lookup", error);
+  }
+
+  const fallbackResult = await reverseLookup(latitude, longitude);
+  return resolveTitleFromReverseResult(fallbackResult);
+}
+
 const INITIAL_LOCATION_FORM: CreateLocationFormState = {
   name: "",
   shortDescription: "",
@@ -515,6 +585,11 @@ export function MapStageClient() {
     }
 
     setFormCoordinates(coordinates.latitude, coordinates.longitude);
+    const selectedTitle = resolveResultTitle(result);
+    setLocationForm((current) => ({
+      ...current,
+      name: selectedTitle,
+    }));
     placeSelectionMarker(coordinates.latitude, coordinates.longitude);
     mapRef.current?.flyTo?.({ center: [coordinates.longitude, coordinates.latitude], zoom: 11 });
     clearLocationSearch();
@@ -629,6 +704,18 @@ export function MapStageClient() {
       setFormCoordinates(latitude, longitude);
       placeSelectionMarker(latitude, longitude);
       setIsPickingFromMap(false);
+
+      void resolveTitleFromCoordinates(latitude, longitude)
+        .then((resolvedName) => {
+          if (!resolvedName) return;
+          setLocationForm((current) => ({
+            ...current,
+            name: resolvedName,
+          }));
+        })
+        .catch((error) => {
+          console.error("Failed to resolve location title from map click", error);
+        });
     };
 
     map.on("click", onClick);

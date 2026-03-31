@@ -1,6 +1,6 @@
 .wrapper {
   flex: 1;
-  padding: 0.95rem;
+  padding: 1rem;
 }
 
 .emptyState {
@@ -27,75 +27,24 @@
 }
 
 .tile {
-  --surface-glow: linear-gradient(160deg, rgb(255 255 255 / 0.34), rgb(255 255 255 / 0));
-
-  position: relative;
-  display: inline-block;
-  width: 100%;
   margin: 0 0 1rem;
   break-inside: avoid;
-  border-radius: 28px;
-  overflow: hidden;
-  background: rgb(var(--card));
-  border: 1px solid rgb(var(--border) / 0.55);
-  box-shadow:
-    0 14px 32px rgb(12 18 24 / 0.13),
-    0 3px 10px rgb(12 18 24 / 0.09);
-  opacity: 0;
-  transform: translateY(16px) scale(0.985);
-  animation: reveal 520ms ease forwards;
-  animation-delay: calc(var(--index, 0) * 60ms);
-  transition:
-    transform 200ms ease,
-    box-shadow 240ms ease,
-    filter 240ms ease;
-}
-
-.tile::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: var(--surface-glow);
-  pointer-events: none;
-}
-
-.tile:hover {
-  transform: translateY(-4px);
-  box-shadow:
-    0 24px 42px rgb(12 18 24 / 0.18),
-    0 8px 18px rgb(12 18 24 / 0.12);
-  filter: saturate(1.04);
 }
 
 .image {
   width: 100%;
   height: auto;
   display: block;
-  object-fit: cover;
-}
-
-@keyframes reveal {
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+  border-radius: 18px;
 }
 
 @media (min-width: 640px) {
-  .wrapper {
-    padding: 1.05rem;
-  }
-
   .grid {
     columns: 2;
   }
 }
 
 @media (min-width: 960px) {
-  .wrapper {
-    padding: 1.2rem;
-  }
-
   .grid {
     columns: 3;
     column-gap: 1.05rem;
