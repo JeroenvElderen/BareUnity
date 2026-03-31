@@ -10,7 +10,6 @@ import {
   ClipboardCheck,
   Compass,
   Flag,
-  Gavel,
   Home,
   Image,
   LogOut,
@@ -43,7 +42,6 @@ const primaryItems = [
   { icon: Home, label: "Home", href: "/" },
   { icon: Search, label: "Search", href: "#" },
   { icon: Compass, label: "Explore", href: "/explore" },
-  { icon: Gavel, label: "Legal Heatmap", href: "/legal-heatmap" },
   { icon: Image, label: "Gallery", href: "/gallery" },
   { icon: MessageCircle, label: "Messages", href: "#", badge: "4" },
 ] satisfies readonly NavItem[];
