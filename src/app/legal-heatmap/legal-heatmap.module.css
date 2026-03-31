@@ -1,0 +1,33 @@
+.page {
+  flex: 1;
+  padding: 1rem;
+  display: grid;
+  gap: 0.9rem;
+}
+
+.header {
+  border: 1px solid rgb(var(--border));
+  border-radius: 16px;
+  background: linear-gradient(130deg, rgb(var(--card) / 0.95), rgb(var(--bg-soft) / 0.68));
+  padding: 0.9rem;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: rgb(var(--text-strong));
+}
+
+.header p {
+  margin: 0.4rem 0 0;
+  color: rgb(var(--muted));
+  font-size: 0.88rem;
+}
+
+.panel {
+  border: 1px solid rgb(var(--border));
+  border-radius: 20px;
+  background: rgb(var(--card) / 0.92);
+  box-shadow: 0 16px 30px rgb(17 29 28 / 0.08);
+  padding: 0.75rem;
+}
