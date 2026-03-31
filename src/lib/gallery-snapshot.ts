@@ -27,7 +27,6 @@ export async function buildGallerySnapshotPayload(): Promise<GallerySnapshotItem
       OR: [{ post_type: null }, { post_type: { not: "story" } }],
     },
     orderBy: { created_at: "desc" },
-    take: 48,
     select: {
       id: true,
       title: true,

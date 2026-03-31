@@ -1,26 +1,150 @@
 import { NextResponse } from "next/server";
 
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase-admin";
-import { buildGallerySnapshotPayload, type GallerySnapshotItem } from "@/lib/gallery-snapshot";
+import { db } from "@/server/db";
 
-async function fetchGalleryViaRpc(): Promise<GallerySnapshotItem[] | null> {
-  if (!isSupabaseAdminConfigured) return null;
+type GalleryStorageItem = {
+  id: string;
+  title: string;
+  place: string;
+  src: string;
+  createdAt: string;
+};
 
-  try {
-    const supabaseAdmin = createSupabaseAdminClient();
-    const { data, error } = await supabaseAdmin.rpc("rpc_get_gallery_snapshot");
-    if (error || !Array.isArray(data)) return null;
+type SupabaseListEntry = {
+  name: string;
+  id?: string | null;
+  updated_at?: string | null;
+  created_at?: string | null;
+  metadata?: Record<string, unknown> | null;
+};
 
-    return data as GallerySnapshotItem[];
-  } catch {
-    return null;
+const IMAGE_EXTENSION_PATTERN = /\.(avif|webp|jpe?g|png|gif)$/i;
+
+function toStoragePath(pathOrUrl: string): string {
+  const value = pathOrUrl.trim();
+  if (!value) return "";
+
+  if (value.startsWith("http")) {
+    try {
+      const pathname = new URL(value).pathname;
+      const mediaPublicPrefix = "/storage/v1/object/public/media/";
+      const mediaPrivatePrefix = "/storage/v1/object/media/";
+
+      if (pathname.includes(mediaPublicPrefix)) {
+        return decodeURIComponent(pathname.split(mediaPublicPrefix)[1] ?? "");
+      }
+
+      if (pathname.includes(mediaPrivatePrefix)) {
+        return decodeURIComponent(pathname.split(mediaPrivatePrefix)[1] ?? "");
+      }
+    } catch {
+      return "";
+    }
   }
+
+  return value.startsWith("posts/") ? value : `posts/${value}`;
+}
+
+function humanizeFileName(path: string): string {
+  const fileName = path.split("/").pop() ?? "Untitled capture";
+  const withoutExtension = fileName.replace(/\.[^.]+$/, "");
+  return withoutExtension.replace(/[\-_]+/g, " ").trim() || "Untitled capture";
+}
+
+async function listAllMediaObjects(): Promise<SupabaseListEntry[]> {
+  const supabaseAdmin = createSupabaseAdminClient();
+  const queue = ["posts"];
+  const files: SupabaseListEntry[] = [];
+
+  while (queue.length > 0) {
+    const directory = queue.shift();
+    if (!directory) continue;
+
+    let offset = 0;
+
+    while (true) {
+      const { data, error } = await supabaseAdmin.storage.from("media").list(directory, {
+        limit: 100,
+        offset,
+        sortBy: { column: "name", order: "asc" },
+      });
+
+      if (error) {
+        throw new Error(`Unable to list media directory ${directory}: ${error.message}`);
+      }
+
+      if (!data?.length) break;
+
+      for (const entry of data as SupabaseListEntry[]) {
+        const fullPath = `${directory}/${entry.name}`;
+        if (entry.metadata === null) {
+          queue.push(fullPath);
+          continue;
+        }
+
+        files.push({ ...entry, name: fullPath });
+      }
+
+      if (data.length < 100) break;
+      offset += data.length;
+    }
+  }
+
+  return files;
+}
+
+async function buildGalleryFromStorage(): Promise<GalleryStorageItem[]> {
+  const [objects, storyRows] = await Promise.all([
+    listAllMediaObjects(),
+    db.posts.findMany({
+      where: { post_type: "story", media_url: { not: null } },
+      select: { media_url: true },
+    }),
+  ]);
+
+  const storyPaths = new Set(
+    storyRows
+      .map((row) => row.media_url)
+      .filter((value): value is string => Boolean(value))
+      .map((value) => toStoragePath(value))
+      .filter(Boolean),
+  );
+
+  const supabaseAdmin = createSupabaseAdminClient();
+
+  return objects
+    .map((entry) => ({
+      path: entry.name,
+      createdAt: entry.created_at ?? entry.updated_at ?? "1970-01-01T00:00:00.000Z",
+    }))
+    .filter((entry) => IMAGE_EXTENSION_PATTERN.test(entry.path))
+    .filter((entry) => !storyPaths.has(entry.path))
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .map((entry) => ({
+      id: `media-${entry.path}`,
+      title: humanizeFileName(entry.path),
+      place: "BareUnity Community",
+      src: supabaseAdmin.storage.from("media").getPublicUrl(entry.path).data.publicUrl,
+      createdAt: entry.createdAt,
+    }));
 }
 
 export async function GET() {
   try {
-    const payload = (await fetchGalleryViaRpc()) ?? (await buildGallerySnapshotPayload());
-    return NextResponse.json({ items: payload });
+    if (!isSupabaseAdminConfigured) {
+      return NextResponse.json({ items: [] });
+    }
+
+    const payload = await buildGalleryFromStorage();
+    return NextResponse.json({
+      items: payload.map((item) => ({
+        id: item.id,
+        title: item.title,
+        place: item.place,
+        src: item.src,
+      })),
+    });
   } catch (error) {
     console.error("Unable to load gallery snapshot", error);
     return NextResponse.json({ items: [] }, { status: 503 });

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState, type CSSProperties } from "react";
 
 import { AppSidebar } from "@/components/sidebar/sidebar";
@@ -18,13 +19,18 @@ type GalleryItem = {
 const GALLERY_CACHE_MAX_AGE_MS = 1000 * 60 * 15;
 
 function toPublicMediaUrl(pathOrUrl: string): string {
-  if (pathOrUrl.startsWith("http")) {
-    return pathOrUrl;
-  }
+  const baseUrl = pathOrUrl.startsWith("http")
+    ? pathOrUrl
+    : supabase.storage
+        .from("media")
+        .getPublicUrl(pathOrUrl.startsWith("posts/") ? pathOrUrl : `posts/${pathOrUrl}`).data
+        .publicUrl;
 
-  const normalizedPath = pathOrUrl.startsWith("posts/") ? pathOrUrl : `posts/${pathOrUrl}`;
-  const { data } = supabase.storage.from("media").getPublicUrl(normalizedPath);
-  return data.publicUrl;
+  const url = new URL(baseUrl);
+  url.searchParams.set("format", "webp");
+  url.searchParams.set("quality", "78");
+
+  return url.toString();
 }
 
 async function fetchGallerySnapshot(accessToken?: string | null): Promise<GalleryItem[]> {
@@ -94,10 +100,6 @@ export default function GalleryPage() {
       <AppSidebar />
 
       <section className={styles.wrapper}>
-        <header className={styles.hero}>
-          <h1>Discover moments in the wild</h1>
-        </header>
-
         {!isLoading && items.length === 0 ? (
           <div className={styles.emptyState}>
             <p>No gallery media found yet.</p>
@@ -106,14 +108,17 @@ export default function GalleryPage() {
         ) : (
           <div className={styles.grid}>
             {items.map((item, index) => (
-              <article key={item.id} className={styles.card} style={{ "--index": index } as CSSProperties}>
-                <img
+              <figure key={item.id} className={styles.tile} style={{ "--index": index } as CSSProperties}>
+                <Image
                   src={item.src}
-                  alt={`${item.title} by ${item.place}`}
+                  alt={`${item.title} — ${item.place}`}
                   className={styles.image}
-                  loading="lazy"
+                  sizes="(max-width: 640px) 100vw, (max-width: 960px) 50vw, (max-width: 1240px) 33vw, 25vw"
+                  width={1200}
+                  height={1600}
+                  loading={index < 6 ? "eager" : "lazy"}
                 />
-              </article>
+              </figure>
             ))}
           </div>
         )}
