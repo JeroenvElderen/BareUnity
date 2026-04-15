@@ -1,0 +1,7 @@
+.page {
+  flex: 1;
+  min-width: 0;
+  padding: 1rem;
+  display: grid;
+  align-content: start;
+}

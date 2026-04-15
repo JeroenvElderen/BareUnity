@@ -59,7 +59,12 @@ const workspaceItems = [
   { icon: Settings, label: "Settings", href: "/settings" },
 ] satisfies readonly NavItem[];
 
-const discussionRooms = ["General Room", "Events Room", "Wellness Room", "Photography Room"] as const;
+const discussionRooms = [
+  { name: "General Room", href: "/discussion" },
+  { name: "Events Room", href: "/discussion?room=events" },
+  { name: "Wellness Room", href: "/discussion?room=wellness" },
+  { name: "Photography Room", href: "/discussion?room=photography" },
+] as const;
 
 const adminItems = [
   { icon: ShieldCheck, label: "Overview", href: "/admin" },
@@ -195,9 +200,13 @@ export function AppSidebar() {
               {isRoomsOpen && (
                 <div className={styles.dropdownList}>
                   {discussionRooms.map((room) => (
-                    <a key={room} href="#" className={`${styles.navItem} ${styles.dropdownItem}`}>
-                      {room}
-                    </a>
+                    <Link
+                      key={room.name}
+                      href={room.href}
+                      className={`${styles.navItem} ${styles.dropdownItem} ${pathname === room.href ? styles.active : ""}`}
+                    >
+                      {room.name}
+                    </Link>
                   ))}
                 </div>
               )}
