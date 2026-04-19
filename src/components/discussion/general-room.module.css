@@ -79,12 +79,16 @@
   display: grid;
   grid-template-columns: 1fr 230px;
   gap: 0.9rem;
+  align-items: start;
 }
 
 .messagesPanel {
   display: grid;
   gap: 0.68rem;
   min-height: 280px;
+  max-height: min(58vh, 560px);
+  overflow-y: auto;
+  padding-right: 0.2rem;
 }
 
 .messageCard {
@@ -156,6 +160,8 @@
   border: 1px solid rgb(var(--border));
   background: rgb(var(--card) / 0.86);
   padding: 0.8rem;
+  max-height: min(58vh, 560px);
+  overflow-y: auto;
 }
 
 .onlineTitle {
@@ -251,4 +257,23 @@
   .roomMeta {
     justify-content: flex-start;
   }
+}
+
+.statusInfo {
+  margin: 0;
+  color: rgb(var(--muted));
+  font-size: 0.86rem;
+}
+
+.statusError {
+  margin: 0.55rem 0 0;
+  color: rgb(var(--danger));
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.composer button:disabled,
+.composer input:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
