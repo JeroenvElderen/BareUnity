@@ -60,6 +60,7 @@ function profileInitials(name: string) {
 }
 
 export function GeneralRoom() {
+  const quickEmojis = ["😀", "😂", "🔥", "👏", "🙏", "❤️"];
   const [channel, setChannel] = useState<ChannelRecord | null>(null);
   const [messages, setMessages] = useState<RoomMessage[]>([]);
   const [onlineMembers, setOnlineMembers] = useState<string[]>([]);
@@ -67,6 +68,8 @@ export function GeneralRoom() {
   const [draft, setDraft] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
+  const [isEmojiOpen, setIsEmojiOpen] = useState(false);
+  const [lastUpdatedLabel, setLastUpdatedLabel] = useState<string>("--:--");
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const loadRoomData = useCallback(async () => {
@@ -141,6 +144,7 @@ export function GeneralRoom() {
     const mergedMembers = Array.from(new Set([...uniqueFromMessages, ...profileNames]));
 
     setOnlineMembers(mergedMembers.slice(0, 12));
+    setLastUpdatedLabel(messageTimeFormatter.format(new Date()));
     setIsLoading(false);
   }, []);
 
@@ -204,6 +208,12 @@ export function GeneralRoom() {
     setIsSending(false);
   };
 
+  const addEmojiToDraft = (emoji: string) => {
+    if (!viewerId || isSending) return;
+    setDraft((current) => `${current}${emoji}`);
+    setIsEmojiOpen(false);
+  };
+
   const submitMessage = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     await sendMessage();
@@ -227,6 +237,7 @@ export function GeneralRoom() {
             <Users size={14} aria-hidden /> {onlineMembers.length} online
           </span>
           <span className={styles.liveDot}>Live</span>
+          <span>Updated {lastUpdatedLabel}</span>
         </div>
       </header>
 
@@ -261,29 +272,46 @@ export function GeneralRoom() {
         </aside>
       </div>
 
-      <form className={styles.composer} onSubmit={submitMessage}>
-        <button type="button" aria-label="Attach media" disabled>
-          <Paperclip size={16} aria-hidden />
-        </button>
-        <input
-          type="text"
-          placeholder={viewerId ? "Message #general" : "Sign in to chat"}
-          aria-label="Message general room"
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          maxLength={1200}
-          disabled={!viewerId || isSending}
-        />
-        <button type="button" aria-label="Add emoji" disabled>
-          <Smile size={16} aria-hidden />
-        </button>
-        <button type="button" aria-label="Voice note" disabled>
-          <Mic size={16} aria-hidden />
-        </button>
-        <button type="submit" className={styles.sendButton} aria-label="Send message" disabled={!canSend}>
-          <Send size={16} aria-hidden />
-        </button>
-      </form>
+      <div className={styles.composerWrap}>
+        {isEmojiOpen ? (
+          <div className={styles.emojiTray} role="listbox" aria-label="Emoji picker">
+            {quickEmojis.map((emoji) => (
+              <button key={emoji} type="button" onClick={() => addEmojiToDraft(emoji)} aria-label={`Add ${emoji}`}>
+                {emoji}
+              </button>
+            ))}
+          </div>
+        ) : null}
+        <form className={styles.composer} onSubmit={submitMessage}>
+          <button type="button" className={styles.attachButton} aria-label="Attach media" disabled>
+            <Paperclip size={16} aria-hidden />
+          </button>
+          <input
+            type="text"
+            placeholder={viewerId ? "Message #general" : "Sign in to chat"}
+            aria-label="Message general room"
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            maxLength={1200}
+            disabled={!viewerId || isSending}
+          />
+          <button
+            type="button"
+            className={styles.emojiButton}
+            aria-label="Add emoji"
+            onClick={() => setIsEmojiOpen((current) => !current)}
+            disabled={!viewerId || isSending}
+          >
+            <Smile size={16} aria-hidden />
+          </button>
+          <button type="button" className={styles.voiceButton} aria-label="Voice note" disabled>
+            <Mic size={16} aria-hidden />
+          </button>
+          <button type="submit" className={styles.sendButton} aria-label="Send message" disabled={!canSend}>
+            <Send size={16} aria-hidden />
+          </button>
+        </form>
+      </div>
     </section>
   );
 }
