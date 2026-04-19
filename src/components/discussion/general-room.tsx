@@ -39,6 +39,12 @@ type RoomMessage = {
   body: string;
 };
 
+type OnlineMember = {
+  userId: string;
+  name: string;
+  initials: string;
+};
+
 const messageTimeFormatter = new Intl.DateTimeFormat("en-US", {
   hour: "2-digit",
   minute: "2-digit",
@@ -63,8 +69,9 @@ export function GeneralRoom() {
   const quickEmojis = ["😀", "😂", "🔥", "👏", "🙏", "❤️"];
   const [channel, setChannel] = useState<ChannelRecord | null>(null);
   const [messages, setMessages] = useState<RoomMessage[]>([]);
-  const [onlineMembers, setOnlineMembers] = useState<string[]>([]);
+  const [onlineMembers, setOnlineMembers] = useState<OnlineMember[]>([]);
   const [viewerId, setViewerId] = useState<string | null>(null);
+  const [viewerPresenceName, setViewerPresenceName] = useState("member");
   const [draft, setDraft] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
@@ -79,6 +86,17 @@ export function GeneralRoom() {
       data: { user },
     } = await supabase.auth.getUser();
     setViewerId(user?.id ?? null);
+    if (user?.id) {
+      const { data: viewerProfile } = await supabase
+        .from("profiles")
+        .select("display_name,username")
+        .eq("id", user.id)
+        .maybeSingle<{ display_name: string | null; username: string | null }>();
+      const viewerName = viewerProfile?.display_name || viewerProfile?.username || "member";
+      setViewerPresenceName(viewerName);
+    } else {
+      setViewerPresenceName("member");
+    }
 
     const { data: channelData, error: channelError } = await supabase
       .from("channels")
@@ -131,22 +149,18 @@ export function GeneralRoom() {
 
     setMessages(parsedMessages);
 
-    const uniqueFromMessages = Array.from(new Set(parsedMessages.map((message) => message.author)));
-    const { data: profileRows } = await supabase
-      .from("profiles")
-      .select("display_name,username")
-      .order("created_at", { ascending: false })
-      .limit(25);
-
-    const profileNames = (profileRows ?? [])
-      .map((profile) => profile.display_name || profile.username || "member")
-      .filter(Boolean);
-    const mergedMembers = Array.from(new Set([...uniqueFromMessages, ...profileNames]));
-
-    setOnlineMembers(mergedMembers.slice(0, 12));
+    if (!onlineMembers.length) {
+      const uniqueFromMessages = Array.from(new Set(parsedMessages.map((message) => message.author)));
+      const bootstrappedMembers = uniqueFromMessages.map((name, index) => ({
+        userId: `bootstrap-${index}`,
+        name,
+        initials: profileInitials(name),
+      }));
+      setOnlineMembers(bootstrappedMembers);
+    }
     setLastUpdatedLabel(messageTimeFormatter.format(new Date()));
     setIsLoading(false);
-  }, []);
+  }, [onlineMembers.length]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -177,6 +191,56 @@ export function GeneralRoom() {
       void supabase.removeChannel(roomChannel);
     };
   }, [channel?.id, loadRoomData]);
+
+  useEffect(() => {
+    if (!channel?.id || !viewerId) return;
+
+    const presenceKey = viewerId;
+    const onlineChannel = supabase.channel(`discussion-room-online-${channel.id}`, {
+      config: {
+        presence: { key: presenceKey },
+      },
+    });
+
+    onlineChannel
+      .on("presence", { event: "sync" }, () => {
+        const presenceState = onlineChannel.presenceState<{
+          user_id?: string;
+          name?: string;
+          initials?: string;
+          online_at?: string;
+        }>();
+
+        const nextMembers = Object.entries(presenceState)
+          .map(([key, presences]) => {
+            const currentPresence = presences[presences.length - 1];
+            const name = currentPresence?.name?.trim() || "member";
+            return {
+              userId: currentPresence?.user_id || key,
+              name,
+              initials: currentPresence?.initials || profileInitials(name),
+            } satisfies OnlineMember;
+          })
+          .sort((left, right) => left.name.localeCompare(right.name));
+
+        setOnlineMembers(nextMembers);
+      })
+      .subscribe(async (status) => {
+        if (status !== "SUBSCRIBED") return;
+
+        await onlineChannel.track({
+          user_id: viewerId,
+          name: viewerPresenceName,
+          initials: profileInitials(viewerPresenceName),
+          online_at: new Date().toISOString(),
+        });
+      });
+
+    return () => {
+      void onlineChannel.untrack();
+      void supabase.removeChannel(onlineChannel);
+    };
+  }, [channel?.id, viewerId, viewerPresenceName]);
 
   const canSend = Boolean(channel?.id && viewerId && draft.trim()) && !isSending;
 
@@ -266,7 +330,12 @@ export function GeneralRoom() {
           <p className={styles.onlineTitle}>Online Now</p>
           <ul>
             {onlineMembers.map((member) => (
-              <li key={member}>{member}</li>
+              <li key={member.userId}>
+                <span className={styles.onlineInitials} aria-hidden>
+                  {member.initials}
+                </span>
+                <span className={styles.onlineName}>{member.name}</span>
+              </li>
             ))}
           </ul>
         </aside>

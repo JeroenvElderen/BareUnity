@@ -160,8 +160,9 @@
   border: 1px solid rgb(var(--border));
   background: rgb(var(--card) / 0.86);
   padding: 0.8rem;
-  max-height: min(58vh, 560px);
-  overflow-y: auto;
+  display: grid;
+  gap: 0.5rem;
+  align-content: start;
 }
 
 .onlineTitle {
@@ -179,15 +180,42 @@
   margin: 0;
   display: grid;
   gap: 0.42rem;
+  max-height: min(52vh, 480px);
+  overflow-y: auto;
+  padding-right: 0.15rem;
 }
 
 .onlinePanel li {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
   border-radius: 0.7rem;
   padding: 0.4rem 0.55rem;
   border: 1px solid rgb(var(--border));
   background: rgb(var(--bg-soft) / 0.8);
   color: rgb(var(--text));
   font-size: 0.84rem;
+}
+
+.onlineInitials {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  color: rgb(var(--brand-2));
+  background: rgb(var(--brand) / 0.18);
+  flex-shrink: 0;
+}
+
+.onlineName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .composer {
@@ -277,11 +305,39 @@
 
 @media (max-width: 900px) {
   .roomBody {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 76px;
+    gap: 0.65rem;
   }
 
   .onlinePanel {
-    order: -1;
+    padding: 0.5rem 0.38rem;
+  }
+
+  .onlineTitle {
+    margin: 0 0 0.35rem;
+    font-size: 0.62rem;
+    text-align: center;
+  }
+
+  .onlinePanel ul {
+    max-height: min(58vh, 430px);
+    gap: 0.35rem;
+    padding-right: 0;
+  }
+
+  .onlinePanel li {
+    justify-content: center;
+    padding: 0.3rem;
+  }
+
+  .onlineName {
+    display: none;
+  }
+
+  .onlineInitials {
+    width: 1.9rem;
+    height: 1.9rem;
+    font-size: 0.68rem;
   }
 }
 
