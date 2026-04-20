@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type MouseEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type MouseEvent, type PointerEvent } from "react";
 import { Ellipsis, Heart, MessageCircle, Pencil, Trash2, X } from "lucide-react";
 import { AppSidebar } from "@/components/sidebar/sidebar";
 import { Avatar } from "@/components/ui/avatar";
@@ -103,7 +103,11 @@ export default function HomePage() {
   const [editContent, setEditContent] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<{ postId: string; commentId?: string } | null>(null);
   const [activeStoryIndex, setActiveStoryIndex] = useState<number | null>(null);
+  const [activeStoryAuthorId, setActiveStoryAuthorId] = useState<string | null>(null);
   const [storyTimerCycle, setStoryTimerCycle] = useState(0);
+  const [storyTimeRemainingMs, setStoryTimeRemainingMs] = useState(STORY_VIEW_MS);
+  const [isStoryTimerPaused, setStoryTimerPaused] = useState(false);
+  const storyTimerStartedAtRef = useRef<number | null>(null);
 
   const canPublish =
     composerKind === "story"
@@ -218,19 +222,6 @@ export default function HomePage() {
       void supabase.removeChannel(liveFeedChannel);
     };
   }, [loadFeed]);
-
-  useEffect(() => {
-    if (activeStoryIndex === null) return;
-
-    const timer = window.setTimeout(() => {
-      setActiveStoryIndex(null);
-      setStoryTimerCycle(0);
-    }, STORY_VIEW_MS);
-
-    return () => {
-      window.clearTimeout(timer);
-    };
-  }, [activeStoryIndex, storyTimerCycle]);
 
   const publishPost = async () => {
     if (!canPublish || !composerKind) return;
@@ -392,32 +383,121 @@ export default function HomePage() {
   const posts = feed.posts;
   const stories: HomeFeedStory[] = feed.stories;
   const friends: HomeFeedFriend[] = feed.friends;
-  const activeStory = activeStoryIndex !== null ? stories[activeStoryIndex] ?? null : null;
-  const openStory = (index: number) => {
-    if (!stories[index]) return;
-    setActiveStoryIndex(index);
-    setStoryTimerCycle(0);
-  };
-
-  const closeStory = () => {
-    setActiveStoryIndex(null);
-    setStoryTimerCycle(0);
-  };
-
-  const resetStoryTimer = () => {
+  const groupedStories = useMemo(() => {
+    const grouped = new Map<string, HomeFeedStory[]>();
+    stories.forEach((story) => {
+      const existing = grouped.get(story.authorId) ?? [];
+      existing.push(story);
+      grouped.set(story.authorId, existing);
+    });
+    return grouped;
+  }, [stories]);
+  const storyCards = useMemo(() => {
+    const seenAuthors = new Set<string>();
+    return stories.filter((story) => {
+      if (seenAuthors.has(story.authorId)) return false;
+      seenAuthors.add(story.authorId);
+      return true;
+    });
+  }, [stories]);
+  const activeStorySeries = useMemo(
+    () => (activeStoryAuthorId ? groupedStories.get(activeStoryAuthorId) ?? [] : []),
+    [activeStoryAuthorId, groupedStories],
+  );
+  const activeStory = activeStoryIndex !== null ? activeStorySeries[activeStoryIndex] ?? null : null;
+  const openStory = (authorId: string) => {
+    if (!groupedStories.get(authorId)?.length) return;
+    setActiveStoryAuthorId(authorId);
+    setActiveStoryIndex(0);
+    setStoryTimerPaused(false);
+    setStoryTimeRemainingMs(STORY_VIEW_MS);
     setStoryTimerCycle((current) => current + 1);
   };
 
+  const closeStory = () => {
+    setActiveStoryAuthorId(null);
+    setActiveStoryIndex(null);
+    setStoryTimerCycle(0);
+    setStoryTimerPaused(false);
+    setStoryTimeRemainingMs(STORY_VIEW_MS);
+    storyTimerStartedAtRef.current = null;
+  };
+
+  const resetStoryTimer = () => {
+    setStoryTimerPaused(false);
+    setStoryTimeRemainingMs(STORY_VIEW_MS);
+    setStoryTimerCycle((current) => current + 1);
+  };
+
+  const goToPreviousStory = () => {
+    if (activeStoryIndex === null) return;
+    if (activeStoryIndex <= 0) {
+      resetStoryTimer();
+      return;
+    }
+    setActiveStoryIndex((current) => (current === null ? null : current - 1));
+    setStoryTimerPaused(false);
+    setStoryTimeRemainingMs(STORY_VIEW_MS);
+    setStoryTimerCycle((current) => current + 1);
+  };
+
+  const goToNextStory = useCallback(() => {
+    if (activeStoryIndex === null) return;
+    const nextIndex = activeStoryIndex + 1;
+    if (!activeStorySeries[nextIndex]) {
+      closeStory();
+      return;
+    }
+    setActiveStoryIndex(nextIndex);
+    setStoryTimerPaused(false);
+    setStoryTimeRemainingMs(STORY_VIEW_MS);
+    setStoryTimerCycle((current) => current + 1);
+  }, [activeStoryIndex, activeStorySeries]);
+
+  useEffect(() => {
+    if (!activeStory || isStoryTimerPaused) return;
+
+    storyTimerStartedAtRef.current = Date.now();
+    const timer = window.setTimeout(() => {
+      goToNextStory();
+    }, storyTimeRemainingMs);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [activeStory, goToNextStory, isStoryTimerPaused, storyTimeRemainingMs]);
+
+  const onStoryViewerPointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    if (isStoryTimerPaused || !activeStory) return;
+    const startedAt = storyTimerStartedAtRef.current ?? Date.now();
+    const elapsed = Date.now() - startedAt;
+    setStoryTimeRemainingMs((current) => Math.max(0, current - elapsed));
+    setStoryTimerPaused(true);
+    storyTimerStartedAtRef.current = null;
+  };
+
+  const onStoryViewerPointerUp = () => {
+    if (!activeStory) return;
+    setStoryTimerPaused(false);
+  };
+
+  const onStoryViewerPointerCancel = () => {
+    if (!activeStory) return;
+    setStoryTimerPaused(false);
+  };
+
   const onStoryViewerTap = (event: MouseEvent<HTMLDivElement>) => {
+    if (isStoryTimerPaused) return;
     const bounds = event.currentTarget.getBoundingClientRect();
     const tapX = event.clientX - bounds.left;
 
     if (tapX > bounds.width / 2) {
-      closeStory();
+      goToNextStory();
       return;
     }
 
-    resetStoryTimer();
+    goToPreviousStory();
   };
 
   const closeComposer = () => {
@@ -476,11 +556,11 @@ export default function HomePage() {
                   <CardTitle className="text-sm uppercase tracking-[0.12em] text-[rgb(var(--muted))]">Bare Moments</CardTitle>
                 </CardHeader>
                 <CardContent className="flex items-center gap-2 overflow-x-auto pb-1 min-[1100px]:grid min-[1100px]:gap-3 min-[1100px]:grid-cols-4">
-                  {stories.map((story, storyIndex) => (
+                  {storyCards.map((story) => (
                     <button
                       key={story.id}
                       type="button"
-                      onClick={() => openStory(storyIndex)}
+                      onClick={() => openStory(story.authorId)}
                       className="relative flex shrink-0 flex-col items-center gap-1 text-left min-[1100px]:items-stretch min-[1100px]:gap-0 min-[1100px]:overflow-hidden min-[1100px]:rounded-2xl min-[1100px]:border min-[1100px]:border-white/60 min-[1100px]:bg-white min-[1100px]:shadow-sm"
                     >
                       {story.imageUrl ? (
@@ -510,7 +590,7 @@ export default function HomePage() {
                       </p>
                     </button>
                   ))}
-                  {stories.length === 0 && <p className="text-sm text-[rgb(var(--muted))]">No Bare Moments yet.</p>}
+                  {storyCards.length === 0 && <p className="text-sm text-[rgb(var(--muted))]">No Bare Moments yet.</p>}
                 </CardContent>
               </Card>
 
@@ -788,13 +868,25 @@ export default function HomePage() {
       ) : null}
 
       {activeStory ? (
-        <div className="fixed inset-0 z-50 bg-black/85" role="dialog" aria-modal="true" aria-label={`${activeStory.name} story`} onClick={onStoryViewerTap}>
+        <div
+          className="fixed inset-0 z-50 bg-black/85"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${activeStory.name} story`}
+          onClick={onStoryViewerTap}
+          onPointerDown={onStoryViewerPointerDown}
+          onPointerUp={onStoryViewerPointerUp}
+          onPointerCancel={onStoryViewerPointerCancel}
+        >
           <div className="mx-auto flex h-full w-full max-w-3xl flex-col p-4 sm:p-6">
             <div className="mb-3 h-1.5 w-full overflow-hidden rounded-full bg-white/25">
               <div
                 key={storyTimerCycle}
                 className="h-full rounded-full bg-white"
-                style={{ animation: `story-progress ${STORY_VIEW_MS}ms linear forwards` }}
+                style={{
+                  animation: `story-progress ${STORY_VIEW_MS}ms linear forwards`,
+                  animationPlayState: isStoryTimerPaused ? "paused" : "running",
+                }}
               />
             </div>
             <div className="mb-3 flex items-center justify-between text-white">
@@ -824,7 +916,7 @@ export default function HomePage() {
                 <div className={`h-full w-full bg-gradient-to-br ${activeStory.tone}`} />
               )}
               <p className="absolute bottom-4 left-4 right-4 text-sm font-medium text-white drop-shadow">
-                Tap left to reset timer · tap right to close
+                Tap right for next · tap left for previous · press and hold to pause
               </p>
             </div>
           </div>

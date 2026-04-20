@@ -92,27 +92,20 @@ export async function buildHomeFeedPayload(viewerId: string | null): Promise<Hom
     }),
   ]);
 
-  const uniqueStoryAuthorIds = new Set<string>();
-
   const stories = storiesRaw
     .filter((post) => post.author_id)
-    .filter((post) => {
-      const authorId = post.author_id!;
-      if (uniqueStoryAuthorIds.has(authorId)) return false;
-      uniqueStoryAuthorIds.add(authorId);
-      return true;
-    })
-    .slice(0, 8)
     .map((post, index) => {
       const name = post.profiles?.display_name?.trim() || post.profiles?.username || "Community member";
       return {
         id: `${post.author_id!}-${post.id}`,
         postId: post.id,
+        authorId: post.author_id!,
         name,
         fallback: getInitials(name),
         tone: pickStoryTone(index),
         imageUrl: post.media_url ?? null,
         posted: relativeTime(post.created_at),
+        createdAt: post.created_at.toISOString(),
       };
     });
 

@@ -1,11 +1,13 @@
 export type HomeFeedStory = {
   id: string;
   postId: string;
+  authorId: string;
   name: string;
   fallback: string;
   tone: string;
   imageUrl: string | null;
   posted: string;
+  createdAt: string;
 };
 
 export type HomeFeedFriend = {
