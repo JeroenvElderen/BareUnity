@@ -60,7 +60,19 @@ export async function buildHomeFeedPayload(viewerId: string | null): Promise<Hom
           select: { username: true, display_name: true },
         },
         comments: {
-          select: { id: true, content: true, author_id: true },
+          select: {
+            id: true,
+            content: true,
+            author_id: true,
+            parent_id: true,
+            profiles: {
+              select: {
+                username: true,
+                display_name: true,
+                avatar_url: true,
+              },
+            },
+          },
           orderBy: { created_at: "asc" },
         },
         post_votes: {
@@ -129,11 +141,18 @@ export async function buildHomeFeedPayload(viewerId: string | null): Promise<Hom
       mediaUrl: post.media_url ?? null,
       postType: (post.post_type === "image" ? "image" : "text") as "image" | "text",
       likes,
-      comments: post.comments.map((comment) => ({
-        id: comment.id,
-        content: comment.content,
-        authorId: comment.author_id ?? null,
-      })),
+      comments: post.comments.map((comment) => {
+        const commentAuthorName = comment.profiles?.display_name?.trim() || comment.profiles?.username || "Community member";
+        return {
+          id: comment.id,
+          content: comment.content,
+          authorId: comment.author_id ?? null,
+          authorName: commentAuthorName,
+          authorFallback: getInitials(commentAuthorName),
+          authorAvatarUrl: comment.profiles?.avatar_url ?? null,
+          parentId: comment.parent_id ?? null,
+        };
+      }),
       likedByViewer: viewerId ? post.post_votes.some((vote) => vote.user_id === viewerId && vote.vote > 0) : false,
       tone: pickPostTone(index),
       authorId: post.author_id ?? null,

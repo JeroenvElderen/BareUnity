@@ -36,6 +36,10 @@ export type HomeFeedComment = {
   id: string;
   content: string;
   authorId: string | null;
+  authorName: string;
+  authorFallback: string;
+  authorAvatarUrl: string | null;
+  parentId: string | null;
 };
 
 export type HomeFeedPayload = {

@@ -1,15 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type MouseEvent, type PointerEvent } from "react";
-import { Ellipsis, Heart, MessageCircle, Pencil, Trash2, X } from "lucide-react";
+import { ChevronDown, Ellipsis, Heart, MessageCircle, Pencil, Trash2, X } from "lucide-react";
 import { AppSidebar } from "@/components/sidebar/sidebar";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buildUserScopedCacheKey, hasFreshCachedValue, readCachedValue, writeCachedValue } from "@/lib/client-cache";
-import type { HomeFeedFriend, HomeFeedPayload, HomeFeedPost, HomeFeedStory } from "@/lib/homefeed";
-import { sanitizeImageUpload } from "@/lib/image";
+import type { HomeFeedComment, HomeFeedFriend, HomeFeedPayload, HomeFeedPost, HomeFeedStory } from "@/lib/homefeed";import { sanitizeImageUpload } from "@/lib/image";
 import { supabase } from "@/lib/supabase";
 import styles from "./page.module.css";
 
@@ -74,6 +73,11 @@ const defaultFeed: HomeFeedPayload = {
 };
 const HOME_FEED_CACHE_MAX_AGE_MS = 1000 * 60 * 15;
 const STORY_VIEW_MS = 7000;
+type LikePreviewUser = {
+  userId: string;
+  name: string;
+  avatarUrl: string | null;
+};
 
 export default function HomePage() {
   const [homeFeedCacheKey] = useState(() => buildUserScopedCacheKey("home-feed"));
@@ -95,6 +99,8 @@ export default function HomePage() {
   const cameraImageInputRef = useRef<HTMLInputElement | null>(null);
   const [feed, setFeed] = useState<HomeFeedPayload>(() => cachedFeed ?? defaultFeed);
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
+  const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
+  const [activeReplyByPost, setActiveReplyByPost] = useState<Record<string, string | null>>({});
   const [activePostId, setActivePostId] = useState<string | null>(null);
   const [isLoadingFeed, setLoadingFeed] = useState(() => !cachedFeed);
   const [openPostMenuId, setOpenPostMenuId] = useState<string | null>(null);
@@ -102,6 +108,9 @@ export default function HomePage() {
   const [editTitle, setEditTitle] = useState("");
   const [editContent, setEditContent] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<{ postId: string; commentId?: string } | null>(null);
+  const [openLikesPostId, setOpenLikesPostId] = useState<string | null>(null);
+  const [likesByPost, setLikesByPost] = useState<Record<string, LikePreviewUser[]>>({});
+  const [likesLoadingPostId, setLikesLoadingPostId] = useState<string | null>(null);
   const [activeStoryIndex, setActiveStoryIndex] = useState<number | null>(null);
   const [activeStoryAuthorId, setActiveStoryAuthorId] = useState<string | null>(null);
   const [storyTimerCycle, setStoryTimerCycle] = useState(0);
@@ -292,14 +301,17 @@ export default function HomePage() {
     }));
   };
 
-  const addComment = async (postId: string) => {
-    const value = commentDrafts[postId]?.trim();
+  const addComment = async (postId: string, options?: { parentId?: string | null; draftKey?: string }) => {
+    const parentId = options?.parentId ?? null;
+    const draftKey = options?.draftKey ?? postId;
+    const draftSource = parentId ? replyDrafts : commentDrafts;
+    const value = draftSource[draftKey]?.trim();
     if (!value) return;
 
     const response = await fetch(`/api/homefeed/posts/${postId}/comments`, {
       method: "POST",
       headers: (await getAuthHeaders({ includeJsonContentType: true })).headers,
-      body: JSON.stringify({ content: value }),
+      body: JSON.stringify({ content: value, parentId }),
     });
 
     if (!response.ok) return;
@@ -309,12 +321,21 @@ export default function HomePage() {
         id: string;
         content: string;
         authorId: string | null;
+        authorName: string;
+        authorFallback: string;
+        authorAvatarUrl: string | null;
+        parentId: string | null;
       };
     };
     const newComment = payload.comment;
     if (!newComment) return;
 
-    setCommentDrafts((current) => ({ ...current, [postId]: "" }));
+    if (parentId) {
+      setReplyDrafts((current) => ({ ...current, [draftKey]: "" }));
+      setActiveReplyByPost((current) => ({ ...current, [postId]: null }));
+    } else {
+      setCommentDrafts((current) => ({ ...current, [postId]: "" }));
+    }
     setFeed((current) => ({
       ...current,
       posts: current.posts.map((post) =>
@@ -326,6 +347,29 @@ export default function HomePage() {
           : post,
       ),
     }));
+  };
+
+  const fetchPostLikes = async (postId: string) => {
+    setLikesLoadingPostId(postId);
+    const response = await fetch(`/api/homefeed/posts/${postId}/like`, {
+      method: "GET",
+      headers: (await getAuthHeaders()).headers,
+    });
+    setLikesLoadingPostId(null);
+    if (!response.ok) return;
+
+    const payload = (await response.json()) as { likes?: LikePreviewUser[] };
+    setLikesByPost((current) => ({ ...current, [postId]: payload.likes ?? [] }));
+  };
+
+  const toggleLikesDropdown = async (postId: string) => {
+    const opening = openLikesPostId !== postId;
+    setOpenLikesPostId(opening ? postId : null);
+    if (!opening) return;
+
+    if (!likesByPost[postId]) {
+      await fetchPostLikes(postId);
+    }
   };
 
   const openEditPostModal = (post: HomeFeedPost) => {
@@ -376,6 +420,12 @@ export default function HomePage() {
     setDeleteTarget(null);
     await loadFeed();
   };
+
+  const topLevelCommentsForPost = useCallback((post: HomeFeedPost) => post.comments.filter((comment) => !comment.parentId), []);
+  const getChildComments = useCallback(
+    (comments: HomeFeedComment[], parentId: string) => comments.filter((comment) => comment.parentId === parentId),
+    [],
+  );
 
   const activePost = activePostId ? feed.posts.find((post) => post.id === activePostId) ?? null : null;
   const [activePostRawTitle, ...activePostBodyLines] = (activePost?.text ?? "").split("\n");
@@ -692,10 +742,36 @@ export default function HomePage() {
                         <Heart className={`mr-1 h-4 w-4 ${post.likedByViewer ? "fill-current" : ""}`} />
                         Like ({post.likes})
                       </Button>
+                      {feed.viewerId && post.authorId === feed.viewerId ? (
+                        <div className="relative">
+                          <Button size="sm" variant="outline" onClick={() => void toggleLikesDropdown(post.id)}>
+                            Liked by
+                            <ChevronDown className="ml-1 h-4 w-4" />
+                          </Button>
+                          {openLikesPostId === post.id ? (
+                            <div className="absolute left-0 top-10 z-20 w-60 rounded-lg border border-[rgb(var(--border))] bg-white p-2 shadow-lg">
+                              {likesLoadingPostId === post.id ? (
+                                <p className="px-2 py-1 text-xs text-[rgb(var(--muted))]">Loading likes...</p>
+                              ) : likesByPost[post.id]?.length ? (
+                                <div className="max-h-48 space-y-1 overflow-y-auto">
+                                  {likesByPost[post.id].map((user) => (
+                                    <div key={user.userId} className="flex items-center gap-2 rounded-md px-2 py-1">
+                                      <Avatar src={user.avatarUrl ?? undefined} alt={user.name} fallback={user.name.slice(0, 2).toUpperCase()} className="h-7 w-7" />
+                                      <span className="text-xs font-medium text-[rgb(var(--text-strong))]">{user.name}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="px-2 py-1 text-xs text-[rgb(var(--muted))]">No likes yet.</p>
+                              )}
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : null}
                       <button type="button" onClick={() => setActivePostId(post.id)}>
                         <Badge variant="outline" className="px-3 py-1 text-xs hover:bg-[rgb(var(--bg-soft))]">
                           <MessageCircle className="mr-1 h-3.5 w-3.5" />
-                          {post.comments.length} comments
+                          {topLevelCommentsForPost(post).length} comments
                         </Badge>
                       </button>
                     </div>
@@ -995,29 +1071,124 @@ export default function HomePage() {
                   <Heart className={`mr-1 h-4 w-4 ${activePost.likedByViewer ? "fill-current" : ""}`} />
                   Like ({activePost.likes})
                 </Button>
+                {feed.viewerId && activePost.authorId === feed.viewerId ? (
+                  <div className="relative">
+                    <Button size="sm" variant="outline" onClick={() => void toggleLikesDropdown(activePost.id)}>
+                      Liked by
+                      <ChevronDown className="ml-1 h-4 w-4" />
+                    </Button>
+                    {openLikesPostId === activePost.id ? (
+                      <div className="absolute left-0 top-10 z-20 w-60 rounded-lg border border-[rgb(var(--border))] bg-white p-2 shadow-lg">
+                        {likesLoadingPostId === activePost.id ? (
+                          <p className="px-2 py-1 text-xs text-[rgb(var(--muted))]">Loading likes...</p>
+                        ) : likesByPost[activePost.id]?.length ? (
+                          <div className="max-h-48 space-y-1 overflow-y-auto">
+                            {likesByPost[activePost.id].map((user) => (
+                              <div key={user.userId} className="flex items-center gap-2 rounded-md px-2 py-1">
+                                <Avatar src={user.avatarUrl ?? undefined} alt={user.name} fallback={user.name.slice(0, 2).toUpperCase()} className="h-7 w-7" />
+                                <span className="text-xs font-medium text-[rgb(var(--text-strong))]">{user.name}</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="px-2 py-1 text-xs text-[rgb(var(--muted))]">No likes yet.</p>
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
                 <Badge variant="outline" className="px-3 py-1 text-xs">
                   <MessageCircle className="mr-1 h-3.5 w-3.5" />
-                  {activePost.comments.length} comments
+                  {topLevelCommentsForPost(activePost).length} comments
                 </Badge>
               </div>
               <div className="max-h-44 space-y-2 overflow-y-auto pr-1">
-                {activePost.comments.map((comment) => (
-                  <div
-                    key={comment.id}
-                    className="flex items-center justify-between gap-3 rounded-lg bg-[rgb(var(--bg-soft))] px-3 py-2 text-sm text-[rgb(var(--text))]"
-                  >
-                    <span className="break-words [overflow-wrap:anywhere]">{comment.content}</span>
-                    {feed.viewerId && comment.authorId === feed.viewerId ? (
-                      <button
-                        type="button"
-                        onClick={() => openDeleteModal(activePost.id, comment.id)}
-                        className="text-xs font-medium text-rose-600 hover:underline"
-                      >
-                        Delete
-                      </button>
-                    ) : null}
-                  </div>
-                ))}
+                {topLevelCommentsForPost(activePost).map((comment) => {
+                  const children = getChildComments(activePost.comments, comment.id);
+                  const commentAuthorName = comment.authorName || "Community member";
+                  const commentFallback = comment.authorFallback || "BU";
+                  return (
+                    <div key={comment.id} className="space-y-2">
+                      <div className="rounded-lg bg-[rgb(var(--bg-soft))] px-3 py-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-start gap-2">
+                            <Avatar src={comment.authorAvatarUrl ?? undefined} alt={commentAuthorName} fallback={commentFallback} className="h-8 w-8" />
+                            <div>
+                              <p className="text-xs font-semibold text-[rgb(var(--text-strong))]">{commentAuthorName}</p>
+                              <p className="text-sm text-[rgb(var(--text))] break-words [overflow-wrap:anywhere]">{comment.content}</p>
+                            </div>
+                          </div>
+                          {feed.viewerId && comment.authorId === feed.viewerId ? (
+                            <button type="button" onClick={() => openDeleteModal(activePost.id, comment.id)} className="text-xs font-medium text-rose-600 hover:underline">
+                              Delete
+                            </button>
+                          ) : null}
+                        </div>
+                        <div className="mt-1 pl-10">
+                          <button
+                            type="button"
+                            className="text-xs font-medium text-[rgb(var(--muted))] hover:text-[rgb(var(--text-strong))]"
+                            onClick={() =>
+                              setActiveReplyByPost((current) => ({
+                                ...current,
+                                [activePost.id]: current[activePost.id] === comment.id ? null : comment.id,
+                              }))
+                            }
+                          >
+                            Reply
+                          </button>
+                        </div>
+                      </div>
+                      {activeReplyByPost[activePost.id] === comment.id ? (
+                        <div className="ml-10 flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={replyDrafts[comment.id] ?? ""}
+                            onChange={(event) => setReplyDrafts((current) => ({ ...current, [comment.id]: event.target.value }))}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter") {
+                                event.preventDefault();
+                                void addComment(activePost.id, { parentId: comment.id, draftKey: comment.id });
+                              }
+                            }}
+                            placeholder={`Reply to ${commentAuthorName}...`}
+                            className="h-8 flex-1 rounded-lg border border-[rgb(var(--border))] px-3 text-xs outline-none focus:ring-2 focus:ring-[rgb(var(--ring))]"
+                          />
+                          <Button size="sm" onClick={() => addComment(activePost.id, { parentId: comment.id, draftKey: comment.id })}>
+                            Reply
+                          </Button>
+                        </div>
+                      ) : null}
+                      {children.length ? (
+                        <div className="ml-10 space-y-2 border-l border-[rgb(var(--border))] pl-3">
+                          {children.map((reply) => (
+                            <div key={reply.id} className="rounded-lg bg-[rgb(var(--bg-soft))] px-3 py-2">
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex items-start gap-2">
+                                  <Avatar
+                                    src={reply.authorAvatarUrl ?? undefined}
+                                    alt={reply.authorName || "Community member"}
+                                    fallback={reply.authorFallback || "BU"}
+                                    className="h-7 w-7"
+                                  />
+                                  <div>
+                                    <p className="text-xs font-semibold text-[rgb(var(--text-strong))]">{reply.authorName || "Community member"}</p>
+                                    <p className="text-sm text-[rgb(var(--text))] break-words [overflow-wrap:anywhere]">{reply.content}</p>
+                                  </div>
+                                </div>
+                                {feed.viewerId && reply.authorId === feed.viewerId ? (
+                                  <button type="button" onClick={() => openDeleteModal(activePost.id, reply.id)} className="text-xs font-medium text-rose-600 hover:underline">
+                                    Delete
+                                  </button>
+                                ) : null}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
               </div>
               <div className="flex items-center gap-2">
                 <input
