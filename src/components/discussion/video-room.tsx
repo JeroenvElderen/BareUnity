@@ -74,6 +74,7 @@ export function VideoRoom() {
   const peerConnectionsRef = useRef(new Map<string, RTCPeerConnection>());
   const pendingIceCandidatesRef = useRef(new Map<string, RTCIceCandidateInit[]>());
   const signalChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const makingOfferRef = useRef(new Map<string, boolean>());
 
   const [viewerId, setViewerId] = useState<string | null>(null);
   const [viewerPresenceName, setViewerPresenceName] = useState("member");
@@ -95,8 +96,11 @@ export function VideoRoom() {
 
   const clearRemoteStream = useCallback((userId: string) => {
     setRemoteStreamsByUser((current) => {
-      if (!current[userId]) return current;
-      current[userId]?.getTracks().forEach((track) => track.stop());
+      const existing = current[userId];
+      if (!existing) return current;
+
+      existing.getTracks().forEach((track) => track.stop());
+
       const rest = { ...current };
       delete rest[userId];
       return rest;
@@ -113,7 +117,10 @@ export function VideoRoom() {
         existing.onnegotiationneeded = null;
         existing.close();
       }
+
       peerConnectionsRef.current.delete(userId);
+      pendingIceCandidatesRef.current.delete(userId);
+      makingOfferRef.current.delete(userId);
       clearRemoteStream(userId);
     },
     [clearRemoteStream],
@@ -152,11 +159,19 @@ export function VideoRoom() {
       connection.ontrack = (event) => {
         const [stream] = event.streams;
         if (!stream) return;
+
+        console.log("[webrtc] ontrack from", peerId, stream);
         setRemoteStream(peerId, stream);
       };
 
       connection.onconnectionstatechange = () => {
-        if (connection.connectionState === "failed" || connection.connectionState === "disconnected" || connection.connectionState === "closed") {
+        console.log("[webrtc] connectionState", peerId, connection.connectionState);
+
+        if (
+          connection.connectionState === "failed" ||
+          connection.connectionState === "disconnected" ||
+          connection.connectionState === "closed"
+        ) {
           removePeerConnection(peerId);
         }
       };
@@ -165,35 +180,59 @@ export function VideoRoom() {
         const channel = signalChannelRef.current;
         if (!event.candidate || !channel || !viewerId) return;
 
-        await channel.send({
-          type: "broadcast",
-          event: "webrtc-signal",
-          payload: {
-            from: viewerId,
-            to: peerId,
-            type: "ice-candidate",
-            candidate: event.candidate.toJSON(),
-          } satisfies SignalPayload,
-        });
+        try {
+          await channel.send({
+            type: "broadcast",
+            event: "webrtc-signal",
+            payload: {
+              from: viewerId,
+              to: peerId,
+              type: "ice-candidate",
+              candidate: event.candidate.toJSON(),
+            } satisfies SignalPayload,
+          });
+        } catch (error) {
+          console.error("[webrtc] failed to send ICE candidate", error);
+        }
       };
 
       connection.onnegotiationneeded = async () => {
         const channel = signalChannelRef.current;
-        if (!channel || !viewerId || viewerId > peerId) return;
+        if (!channel || !viewerId) return;
+
+        // only one side should initiate to avoid glare
+        if (viewerId > peerId) return;
+        if (makingOfferRef.current.get(peerId)) return;
         if (connection.signalingState !== "stable") return;
 
-        const offer = await connection.createOffer();
-        await connection.setLocalDescription(offer);
-        await channel.send({
-          type: "broadcast",
-          event: "webrtc-signal",
-          payload: {
-            from: viewerId,
-            to: peerId,
-            type: "offer",
-            sdp: offer,
-          } satisfies SignalPayload,
-        });
+        try {
+          makingOfferRef.current.set(peerId, true);
+
+          console.log("[webrtc] creating offer for", peerId);
+          const offer = await connection.createOffer();
+
+          if (connection.signalingState !== "stable") {
+            console.warn("[webrtc] signaling state changed before setLocalDescription", peerId, connection.signalingState);
+            return;
+          }
+
+          await connection.setLocalDescription(offer);
+
+          await channel.send({
+            type: "broadcast",
+            event: "webrtc-signal",
+            payload: {
+              from: viewerId,
+              to: peerId,
+              type: "offer",
+              sdp: connection.localDescription ?? offer,
+            } satisfies SignalPayload,
+          });
+        } catch (error) {
+          console.error("[webrtc] negotiation failed", error);
+        } finally {
+          makingOfferRef.current.set(peerId, false);
+        }
       };
 
       peerConnectionsRef.current.set(peerId, connection);
@@ -211,10 +250,12 @@ export function VideoRoom() {
         video: true,
         audio: true,
       });
+
       setLocalStream(stream);
       setIsMicOn(true);
       setIsCameraOn(true);
-    } catch {
+    } catch (error) {
+      console.error("[media] getUserMedia failed", error);
       setLoadError("Could not access camera/microphone. Check browser permissions.");
       setLocalStream(null);
     } finally {
@@ -244,10 +285,12 @@ export function VideoRoom() {
       localStream?.getTracks().forEach((track) => {
         track.stop();
       });
+
       peerConnections.forEach((connection) => {
         connection.close();
       });
       peerConnections.clear();
+
       Object.values(remoteStreamsByUser).forEach((stream) => {
         stream.getTracks().forEach((track) => track.stop());
       });
@@ -267,6 +310,7 @@ export function VideoRoom() {
 
     void supabase.auth.getUser().then(async ({ data }) => {
       if (!isMounted) return;
+
       const user = data.user;
       setViewerId(user?.id ?? null);
 
@@ -293,7 +337,6 @@ export function VideoRoom() {
   useEffect(() => {
     if (!viewerId) return;
 
-    const peerConnections = peerConnectionsRef.current;
     const pendingIceCandidates = pendingIceCandidatesRef.current;
     const onlineChannel = supabase.channel("video-room-presence", {
       config: {
@@ -326,53 +369,74 @@ export function VideoRoom() {
         setLastUpdatedLabel(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
       })
       .on("broadcast", { event: "webrtc-signal" }, async ({ payload }) => {
-        const signal = payload as SignalPayload | null;
-        if (!signal || signal.to !== viewerId || signal.from === viewerId) return;
+        try {
+          const signal = payload as SignalPayload | null;
+          if (!signal || signal.to !== viewerId || signal.from === viewerId) return;
 
-        const peerConnection = upsertPeerConnection(signal.from);
+          console.log("[webrtc] received signal", signal.type, "from", signal.from);
 
-        if (signal.type === "offer" && signal.sdp) {
-          await peerConnection.setRemoteDescription(new RTCSessionDescription(signal.sdp));
-          const pending = pendingIceCandidatesRef.current.get(signal.from) ?? [];
-          for (const candidate of pending) {
-            await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+          const peerConnection = upsertPeerConnection(signal.from);
+
+          if (signal.type === "offer" && signal.sdp) {
+            if (peerConnection.signalingState !== "stable") {
+              console.warn("[webrtc] received offer while not stable", signal.from, peerConnection.signalingState);
+              return;
+            }
+
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+
+            const pending = pendingIceCandidates.get(signal.from) ?? [];
+            for (const candidate of pending) {
+              await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+            }
+            pendingIceCandidates.delete(signal.from);
+
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+
+            await onlineChannel.send({
+              type: "broadcast",
+              event: "webrtc-signal",
+              payload: {
+                from: viewerId,
+                to: signal.from,
+                type: "answer",
+                sdp: peerConnection.localDescription ?? answer,
+              } satisfies SignalPayload,
+            });
           }
-          pendingIceCandidatesRef.current.delete(signal.from);
-          const answer = await peerConnection.createAnswer();
-          await peerConnection.setLocalDescription(answer);
-          await onlineChannel.send({
-            type: "broadcast",
-            event: "webrtc-signal",
-            payload: {
-              from: viewerId,
-              to: signal.from,
-              type: "answer",
-              sdp: answer,
-            } satisfies SignalPayload,
-          });
-        }
 
-        if (signal.type === "answer" && signal.sdp) {
-          await peerConnection.setRemoteDescription(new RTCSessionDescription(signal.sdp));
-          const pending = pendingIceCandidatesRef.current.get(signal.from) ?? [];
-          for (const candidate of pending) {
-            await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-          }
-          pendingIceCandidatesRef.current.delete(signal.from);        
-        }
+          if (signal.type === "answer" && signal.sdp) {
+            if (peerConnection.signalingState !== "have-local-offer") {
+              console.warn("[webrtc] received answer in unexpected state", signal.from, peerConnection.signalingState);
+              return;
+            }
 
-        if (signal.type === "ice-candidate" && signal.candidate) {
-          if (peerConnection.remoteDescription) {
-            await peerConnection.addIceCandidate(new RTCIceCandidate(signal.candidate));
-          } else {
-            const queued = pendingIceCandidatesRef.current.get(signal.from) ?? [];
-            queued.push(signal.candidate);
-            pendingIceCandidatesRef.current.set(signal.from, queued);
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+
+            const pending = pendingIceCandidates.get(signal.from) ?? [];
+            for (const candidate of pending) {
+              await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+            }
+            pendingIceCandidates.delete(signal.from);
           }
+
+          if (signal.type === "ice-candidate" && signal.candidate) {
+            if (peerConnection.remoteDescription) {
+              await peerConnection.addIceCandidate(new RTCIceCandidate(signal.candidate));
+            } else {
+              const queued = pendingIceCandidates.get(signal.from) ?? [];
+              queued.push(signal.candidate);
+              pendingIceCandidates.set(signal.from, queued);
+            }
+          }
+        } catch (error) {
+          console.error("[webrtc] signal handling failed", error);
         }
       })
       .subscribe(async (status) => {
         if (status !== "SUBSCRIBED") return;
+
         signalChannelRef.current = onlineChannel;
 
         await onlineChannel.track({
@@ -383,9 +447,11 @@ export function VideoRoom() {
       });
 
     return () => {
-        signalChannelRef.current = null;
-        pendingIceCandidates.clear();
-      Array.from(peerConnections.keys()).forEach((peerId) => removePeerConnection(peerId));
+      signalChannelRef.current = null;
+      pendingIceCandidates.clear();
+
+      Array.from(peerConnectionsRef.current.keys()).forEach((peerId) => removePeerConnection(peerId));
+
       void onlineChannel.untrack();
       void supabase.removeChannel(onlineChannel);
     };
@@ -393,9 +459,6 @@ export function VideoRoom() {
 
   useEffect(() => {
     if (!viewerId || !localStream) return;
-
-    const onlineChannel = supabase.getChannels().find((channel) => channel.topic === "realtime:video-room-presence");
-    if (!onlineChannel) return;
 
     const others = onlineMembers.filter((member) => member.userId !== viewerId);
 
@@ -405,22 +468,9 @@ export function VideoRoom() {
       const shouldInitiate = viewerId < member.userId;
       if (!shouldInitiate) return;
 
-      const connection = upsertPeerConnection(member.userId);
-
-      void (async () => {
-        const offer = await connection.createOffer();
-        await connection.setLocalDescription(offer);
-        await onlineChannel.send({
-          type: "broadcast",
-          event: "webrtc-signal",
-          payload: {
-            from: viewerId,
-            to: member.userId,
-            type: "offer",
-            sdp: offer,
-          } satisfies SignalPayload,
-        });
-      })();
+      // Create the connection only.
+      // onnegotiationneeded will fire and handle the offer.
+      upsertPeerConnection(member.userId);
     });
 
     const onlineIds = new Set(others.map((member) => member.userId));
@@ -476,9 +526,12 @@ export function VideoRoom() {
     localStream?.getTracks().forEach((track) => {
       track.stop();
     });
+
     setLocalStream(null);
     setIsMicOn(false);
     setIsCameraOn(false);
+
+    Array.from(peerConnectionsRef.current.keys()).forEach((peerId) => removePeerConnection(peerId));
   };
 
   return (
@@ -532,14 +585,17 @@ export function VideoRoom() {
               {isMicOn ? <Mic size={18} aria-hidden /> : <MicOff size={18} aria-hidden />}
               <span>{isMicOn ? "Mute" : "Unmute"}</span>
             </button>
+
             <button type="button" className={styles.controlButton} onClick={toggleCamera} disabled={!localStream}>
               {isCameraOn ? <Camera size={18} aria-hidden /> : <CameraOff size={18} aria-hidden />}
               <span>{isCameraOn ? "Stop video" : "Start video"}</span>
             </button>
+
             <button type="button" className={styles.controlButton} onClick={() => setIsSharing((current) => !current)}>
               <ScreenShare size={18} aria-hidden />
               <span>{isSharing ? "Stop share" : "Share"}</span>
             </button>
+
             <button type="button" className={`${styles.controlButton} ${styles.leaveButton}`} onClick={leaveRoom}>
               <PhoneOff size={18} aria-hidden />
               <span>Leave</span>
