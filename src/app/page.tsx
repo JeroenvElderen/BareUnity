@@ -663,7 +663,17 @@ export default function HomePage() {
                 <label className="block text-sm text-[rgb(var(--muted))]">
                   {composerKind === "story" ? "Story image (required)" : "Post image (optional)"}
                 </label>
-                <input type="file" accept="image/*" onChange={(event) => void onPickImage(event)} />
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture={composerKind === "story" ? "environment" : undefined}
+                  onChange={(event) => void onPickImage(event)}
+                />
+                {composerKind === "story" ? (
+                  <p className="text-xs text-[rgb(var(--muted))]">
+                    On phones, this can open your camera so you can take a story photo instantly.
+                  </p>
+                ) : null}
                 {postImagePreview ? (
                   <img src={postImagePreview} alt="Selected upload preview" className="max-h-64 w-full rounded-xl object-cover" />
                 ) : null}
@@ -741,7 +751,7 @@ export default function HomePage() {
           `}</style>
         </div>
       ) : null}
-      
+
       {activePost ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 py-8" role="dialog" aria-modal="true">
           <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-[rgb(var(--border))] bg-white p-5 shadow-xl">
