@@ -100,7 +100,6 @@ export default function HomePage() {
   const cameraImageInputRef = useRef<HTMLInputElement | null>(null);
   const [feed, setFeed] = useState<HomeFeedPayload>(() => cachedFeed ?? defaultFeed);
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
-  const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
   const [activeReplyByPost, setActiveReplyByPost] = useState<Record<string, string | null>>({});
   const [activePostId, setActivePostId] = useState<string | null>(null);
   const [isLoadingFeed, setLoadingFeed] = useState(() => !cachedFeed);
@@ -305,11 +304,9 @@ export default function HomePage() {
     }));
   };
 
-  const addComment = async (postId: string, options?: { parentId?: string | null; draftKey?: string }) => {
+  const addComment = async (postId: string, options?: { parentId?: string | null }) => {
     const parentId = options?.parentId ?? null;
-    const draftKey = options?.draftKey ?? postId;
-    const draftSource = parentId ? replyDrafts : commentDrafts;
-    const value = draftSource[draftKey]?.trim();
+    const value = commentDrafts[postId]?.trim();
     if (!value) return;
 
     const response = await fetch(`/api/homefeed/posts/${postId}/comments`, {
@@ -334,12 +331,8 @@ export default function HomePage() {
     const newComment = payload.comment;
     if (!newComment) return;
 
-    if (parentId) {
-      setReplyDrafts((current) => ({ ...current, [draftKey]: "" }));
-      setActiveReplyByPost((current) => ({ ...current, [postId]: null }));
-    } else {
-      setCommentDrafts((current) => ({ ...current, [postId]: "" }));
-    }
+    setCommentDrafts((current) => ({ ...current, [postId]: "" }));
+    if (parentId) setActiveReplyByPost((current) => ({ ...current, [postId]: null }));
     setFeed((current) => ({
       ...current,
       posts: current.posts.map((post) =>
@@ -1138,26 +1131,6 @@ export default function HomePage() {
                             </button>
                           </div>
                         </div>
-                        {activeReplyByPost[activePost.id] === node.id ? (
-                          <div className="ml-4 flex flex-col items-stretch gap-2 sm:ml-10 sm:flex-row sm:items-center">
-                            <input
-                              type="text"
-                              value={replyDrafts[node.id] ?? ""}
-                              onChange={(event) => setReplyDrafts((current) => ({ ...current, [node.id]: event.target.value }))}
-                              onKeyDown={(event) => {
-                                if (event.key === "Enter") {
-                                  event.preventDefault();
-                                  void addComment(activePost.id, { parentId: node.id, draftKey: node.id });
-                                }
-                              }}
-                              placeholder={`Reply to ${commentAuthorName}...`}
-                              className="h-8 flex-1 rounded-lg border border-[rgb(var(--border))] px-3 text-xs outline-none focus:ring-2 focus:ring-[rgb(var(--ring))]"
-                            />
-                            <Button size="sm" onClick={() => addComment(activePost.id, { parentId: node.id, draftKey: node.id })}>
-                              Reply
-                            </Button>
-                          </div>
-                        ) : null}
                         {children.length ? (
                           <div className={`space-y-2 border-l border-[rgb(var(--border))] pl-3 ${depth === 0 ? "ml-10" : "ml-6"}`}>
                             {children.map((child) => renderComment(child, depth + 1, nextVisited))}
@@ -1170,7 +1143,30 @@ export default function HomePage() {
                   return renderComment(comment, 0, new Set());
                 })}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="space-y-2">
+                {activeReplyByPost[activePost.id] ? (
+                  <div className="flex items-center justify-between rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))] px-3 py-2">
+                    <p className="text-xs text-[rgb(var(--muted))]">
+                      Replying to{" "}
+                      <span className="font-semibold text-[rgb(var(--text-strong))]">
+                        {activePost.comments.find((comment) => comment.id === activeReplyByPost[activePost.id])?.authorName || "Community member"}
+                      </span>
+                    </p>
+                    <button
+                      type="button"
+                      className="text-xs font-medium text-[rgb(var(--muted))] hover:text-[rgb(var(--text-strong))]"
+                      onClick={() =>
+                        setActiveReplyByPost((current) => ({
+                          ...current,
+                          [activePost.id]: null,
+                        }))
+                      }
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : null}
+                <div className="flex items-center gap-2">
                 <input
                   type="text"
                   value={commentDrafts[activePost.id] ?? ""}
@@ -1178,15 +1174,16 @@ export default function HomePage() {
                   onKeyDown={(event) => {
                     if (event.key === "Enter") {
                       event.preventDefault();
-                      void addComment(activePost.id);
+                      void addComment(activePost.id, { parentId: activeReplyByPost[activePost.id] ?? null });
                     }
                   }}
-                  placeholder="Write a comment..."
+                  placeholder={activeReplyByPost[activePost.id] ? "Write a reply..." : "Write a comment..."}
                   className="h-9 flex-1 rounded-lg border border-[rgb(var(--border))] px-3 text-sm outline-none focus:ring-2 focus:ring-[rgb(var(--ring))]"
                 />
-                <Button size="sm" onClick={() => addComment(activePost.id)}>
-                  Post
-                </Button>
+                <Button size="sm" onClick={() => addComment(activePost.id, { parentId: activeReplyByPost[activePost.id] ?? null })}>
+                    {activeReplyByPost[activePost.id] ? "Reply" : "Post"}
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
