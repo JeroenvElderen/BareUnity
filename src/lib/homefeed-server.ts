@@ -82,7 +82,7 @@ export async function buildHomeFeedPayload(viewerId: string | null): Promise<Hom
         media_url: { not: null },
         expires_at: { gt: now },
       },
-      orderBy: { created_at: "desc" },
+      orderBy: { created_at: "asc" },
       take: 20,
       include: {
         profiles: {

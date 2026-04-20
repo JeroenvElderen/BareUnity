@@ -107,6 +107,7 @@ export default function HomePage() {
   const [storyTimerCycle, setStoryTimerCycle] = useState(0);
   const [storyTimeRemainingMs, setStoryTimeRemainingMs] = useState(STORY_VIEW_MS);
   const [isStoryTimerPaused, setStoryTimerPaused] = useState(false);
+  const [seenStoryIds, setSeenStoryIds] = useState<Set<string>>(() => new Set());
   const storyTimerStartedAtRef = useRef<number | null>(null);
 
   const canPublish =
@@ -390,25 +391,36 @@ export default function HomePage() {
       existing.push(story);
       grouped.set(story.authorId, existing);
     });
+    grouped.forEach((authorStories, authorId) => {
+      const orderedStories = [...authorStories].sort(
+        (firstStory, secondStory) =>
+          new Date(firstStory.createdAt).getTime() - new Date(secondStory.createdAt).getTime(),
+      );
+      grouped.set(authorId, orderedStories);
+    });
     return grouped;
   }, [stories]);
   const storyCards = useMemo(() => {
-    const seenAuthors = new Set<string>();
-    return stories.filter((story) => {
-      if (seenAuthors.has(story.authorId)) return false;
-      seenAuthors.add(story.authorId);
-      return true;
+    const cards: HomeFeedStory[] = [];
+    groupedStories.forEach((authorStories) => {
+      if (!authorStories.length) return;
+      const firstUnseenStory = authorStories.find((story) => !seenStoryIds.has(story.id));
+      cards.push(firstUnseenStory ?? authorStories[authorStories.length - 1]!);
     });
-  }, [stories]);
+    return cards;
+  }, [groupedStories, seenStoryIds]);
   const activeStorySeries = useMemo(
     () => (activeStoryAuthorId ? groupedStories.get(activeStoryAuthorId) ?? [] : []),
     [activeStoryAuthorId, groupedStories],
   );
   const activeStory = activeStoryIndex !== null ? activeStorySeries[activeStoryIndex] ?? null : null;
   const openStory = (authorId: string) => {
-    if (!groupedStories.get(authorId)?.length) return;
+    const authorStories = groupedStories.get(authorId) ?? [];
+    if (!authorStories.length) return;
+    const firstUnseenStoryIndex = authorStories.findIndex((story) => !seenStoryIds.has(story.id));
+    const startIndex = firstUnseenStoryIndex >= 0 ? firstUnseenStoryIndex : authorStories.length - 1;
     setActiveStoryAuthorId(authorId);
-    setActiveStoryIndex(0);
+    setActiveStoryIndex(startIndex);
     setStoryTimerPaused(false);
     setStoryTimeRemainingMs(STORY_VIEW_MS);
     setStoryTimerCycle((current) => current + 1);
@@ -467,6 +479,16 @@ export default function HomePage() {
     };
   }, [activeStory, goToNextStory, isStoryTimerPaused, storyTimeRemainingMs]);
 
+  useEffect(() => {
+    if (!activeStory?.id) return;
+    setSeenStoryIds((current) => {
+      if (current.has(activeStory.id)) return current;
+      const updated = new Set(current);
+      updated.add(activeStory.id);
+      return updated;
+    });
+  }, [activeStory]);
+  
   const onStoryViewerPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (event.pointerType === "mouse" && event.button !== 0) return;
     if (isStoryTimerPaused || !activeStory) return;
