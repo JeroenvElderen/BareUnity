@@ -107,6 +107,7 @@ export async function buildHomeFeedPayload(viewerId: string | null): Promise<Hom
   const stories = storiesRaw
     .filter((post) => post.author_id)
     .map((post, index) => {
+      const createdAt = post.created_at ?? now;
       const name = post.profiles?.display_name?.trim() || post.profiles?.username || "Community member";
       return {
         id: `${post.author_id!}-${post.id}`,
@@ -116,8 +117,8 @@ export async function buildHomeFeedPayload(viewerId: string | null): Promise<Hom
         fallback: getInitials(name),
         tone: pickStoryTone(index),
         imageUrl: post.media_url ?? null,
-        posted: relativeTime(post.created_at),
-        createdAt: post.created_at.toISOString(),
+        posted: relativeTime(createdAt),
+        createdAt: createdAt.toISOString(),
       };
     });
 

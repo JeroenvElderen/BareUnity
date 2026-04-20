@@ -73,6 +73,7 @@ const defaultFeed: HomeFeedPayload = {
 };
 const HOME_FEED_CACHE_MAX_AGE_MS = 1000 * 60 * 15;
 const STORY_VIEW_MS = 7000;
+const STORY_HOLD_MIN_MS = 180;
 type LikePreviewUser = {
   userId: string;
   name: string;
@@ -118,6 +119,8 @@ export default function HomePage() {
   const [isStoryTimerPaused, setStoryTimerPaused] = useState(false);
   const [seenStoryIds, setSeenStoryIds] = useState<Set<string>>(() => new Set());
   const storyTimerStartedAtRef = useRef<number | null>(null);
+  const storyHoldStartedAtRef = useRef<number | null>(null);
+  const suppressStoryTapRef = useRef(false);
 
   const canPublish =
     composerKind === "story"
@@ -545,6 +548,8 @@ export default function HomePage() {
   const onStoryViewerPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (event.pointerType === "mouse" && event.button !== 0) return;
     if (isStoryTimerPaused || !activeStory) return;
+    storyHoldStartedAtRef.current = Date.now();
+    suppressStoryTapRef.current = false;
     const startedAt = storyTimerStartedAtRef.current ?? Date.now();
     const elapsed = Date.now() - startedAt;
     setStoryTimeRemainingMs((current) => Math.max(0, current - elapsed));
@@ -554,15 +559,26 @@ export default function HomePage() {
 
   const onStoryViewerPointerUp = () => {
     if (!activeStory) return;
+    const holdStartedAt = storyHoldStartedAtRef.current;
+    if (holdStartedAt !== null && Date.now() - holdStartedAt >= STORY_HOLD_MIN_MS) {
+      suppressStoryTapRef.current = true;
+    }
+    storyHoldStartedAtRef.current = null;
     setStoryTimerPaused(false);
   };
 
   const onStoryViewerPointerCancel = () => {
     if (!activeStory) return;
+    storyHoldStartedAtRef.current = null;
+    suppressStoryTapRef.current = true;
     setStoryTimerPaused(false);
   };
 
   const onStoryViewerTap = (event: MouseEvent<HTMLDivElement>) => {
+    if (suppressStoryTapRef.current) {
+      suppressStoryTapRef.current = false;
+      return;
+    }
     if (isStoryTimerPaused) return;
     const bounds = event.currentTarget.getBoundingClientRect();
     const tapX = event.clientX - bounds.left;
