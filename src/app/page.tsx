@@ -768,7 +768,7 @@ export default function HomePage() {
                             <ChevronDown className="ml-1 h-4 w-4" />
                           </Button>
                           {openLikesPostId === post.id ? (
-                            <div className="absolute left-0 top-10 z-20 w-60 rounded-lg border border-[rgb(var(--border))] bg-white p-2 shadow-lg">
+                            <div className="absolute right-0 top-10 z-20 w-60 max-w-[calc(100vw-2.5rem)] rounded-lg border border-[rgb(var(--border))] bg-white p-2 shadow-lg sm:left-0 sm:right-auto sm:max-w-none">
                               {likesLoadingPostId === post.id ? (
                                 <p className="px-2 py-1 text-xs text-[rgb(var(--muted))]">Loading likes...</p>
                               ) : likesByPost[post.id]?.length ? (
@@ -1097,7 +1097,7 @@ export default function HomePage() {
                       <ChevronDown className="ml-1 h-4 w-4" />
                     </Button>
                     {openLikesPostId === activePost.id ? (
-                      <div className="absolute left-0 top-10 z-20 w-60 rounded-lg border border-[rgb(var(--border))] bg-white p-2 shadow-lg">
+                      <div className="absolute bottom-10 right-0 z-20 w-60 max-w-[calc(100vw-3rem)] rounded-lg border border-[rgb(var(--border))] bg-white p-2 shadow-lg sm:bottom-auto sm:left-0 sm:right-auto sm:top-10 sm:max-w-none">
                         {likesLoadingPostId === activePost.id ? (
                           <p className="px-2 py-1 text-xs text-[rgb(var(--muted))]">Loading likes...</p>
                         ) : likesByPost[activePost.id]?.length ? (
@@ -1121,7 +1121,7 @@ export default function HomePage() {
                   {activePost.comments.length} comments
                 </Badge>
               </div>
-              <div className="max-h-44 space-y-2 overflow-y-auto pr-1">
+              <div className="max-h-[min(45vh,24rem)] space-y-2 overflow-y-auto pr-1">
                 {rootCommentsForPost(activePost).map((comment) => {
                   const renderComment = (node: HomeFeedComment, depth: number, visited: Set<string>) => {
                     if (visited.has(node.id)) return null;
@@ -1164,7 +1164,7 @@ export default function HomePage() {
                           </div>
                         </div>
                         {activeReplyByPost[activePost.id] === node.id ? (
-                          <div className="ml-10 flex items-center gap-2">
+                          <div className="ml-4 flex flex-col items-stretch gap-2 sm:ml-10 sm:flex-row sm:items-center">
                             <input
                               type="text"
                               value={replyDrafts[node.id] ?? ""}
