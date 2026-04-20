@@ -72,6 +72,7 @@ function RemoteVideoTile({ member }: { member: RemoteVideoParticipant }) {
 export function VideoRoom() {
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const peerConnectionsRef = useRef(new Map<string, RTCPeerConnection>());
+  const pendingIceCandidatesRef = useRef(new Map<string, RTCIceCandidateInit[]>());
   const signalChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   const [viewerId, setViewerId] = useState<string | null>(null);
@@ -109,6 +110,7 @@ export function VideoRoom() {
         existing.ontrack = null;
         existing.onicecandidate = null;
         existing.onconnectionstatechange = null;
+        existing.onnegotiationneeded = null;
         existing.close();
       }
       peerConnectionsRef.current.delete(userId);
@@ -117,20 +119,35 @@ export function VideoRoom() {
     [clearRemoteStream],
   );
 
+  const ensureLocalTracks = useCallback((connection: RTCPeerConnection) => {
+    if (!localStream) return;
+
+    const senderTrackIds = new Set(
+      connection
+        .getSenders()
+        .map((sender) => sender.track?.id)
+        .filter((trackId): trackId is string => Boolean(trackId)),
+    );
+
+    localStream.getTracks().forEach((track) => {
+      if (senderTrackIds.has(track.id)) return;
+      connection.addTrack(track, localStream);
+    });
+  }, [localStream]);
+
   const upsertPeerConnection = useCallback(
     (peerId: string) => {
       const existing = peerConnectionsRef.current.get(peerId);
-      if (existing) return existing;
+      if (existing) {
+        ensureLocalTracks(existing);
+        return existing;
+      }
 
       const connection = new RTCPeerConnection({
         iceServers: [{ urls: ["stun:stun.l.google.com:19302"] }],
       });
 
-      if (localStream) {
-        localStream.getTracks().forEach((track) => {
-          connection.addTrack(track, localStream);
-        });
-      }
+      ensureLocalTracks(connection);
 
       connection.ontrack = (event) => {
         const [stream] = event.streams;
@@ -160,10 +177,29 @@ export function VideoRoom() {
         });
       };
 
+      connection.onnegotiationneeded = async () => {
+        const channel = signalChannelRef.current;
+        if (!channel || !viewerId || viewerId > peerId) return;
+        if (connection.signalingState !== "stable") return;
+
+        const offer = await connection.createOffer();
+        await connection.setLocalDescription(offer);
+        await channel.send({
+          type: "broadcast",
+          event: "webrtc-signal",
+          payload: {
+            from: viewerId,
+            to: peerId,
+            type: "offer",
+            sdp: offer,
+          } satisfies SignalPayload,
+        });
+      };
+
       peerConnectionsRef.current.set(peerId, connection);
       return connection;
     },
-    [localStream, removePeerConnection, setRemoteStream, viewerId],
+    [ensureLocalTracks, removePeerConnection, setRemoteStream, viewerId],
   );
 
   const startLocalMedia = useCallback(async () => {
@@ -219,6 +255,14 @@ export function VideoRoom() {
   }, [localStream, remoteStreamsByUser]);
 
   useEffect(() => {
+    if (!localStream) return;
+
+    peerConnectionsRef.current.forEach((connection) => {
+      ensureLocalTracks(connection);
+    });
+  }, [ensureLocalTracks, localStream]);
+
+  useEffect(() => {
     let isMounted = true;
 
     void supabase.auth.getUser().then(async ({ data }) => {
@@ -250,6 +294,7 @@ export function VideoRoom() {
     if (!viewerId) return;
 
     const peerConnections = peerConnectionsRef.current;
+    const pendingIceCandidates = pendingIceCandidatesRef.current;
     const onlineChannel = supabase.channel("video-room-presence", {
       config: {
         presence: { key: viewerId },
@@ -288,6 +333,11 @@ export function VideoRoom() {
 
         if (signal.type === "offer" && signal.sdp) {
           await peerConnection.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+          const pending = pendingIceCandidatesRef.current.get(signal.from) ?? [];
+          for (const candidate of pending) {
+            await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+          }
+          pendingIceCandidatesRef.current.delete(signal.from);
           const answer = await peerConnection.createAnswer();
           await peerConnection.setLocalDescription(answer);
           await onlineChannel.send({
@@ -304,10 +354,21 @@ export function VideoRoom() {
 
         if (signal.type === "answer" && signal.sdp) {
           await peerConnection.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+          const pending = pendingIceCandidatesRef.current.get(signal.from) ?? [];
+          for (const candidate of pending) {
+            await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+          }
+          pendingIceCandidatesRef.current.delete(signal.from);        
         }
 
         if (signal.type === "ice-candidate" && signal.candidate) {
-          await peerConnection.addIceCandidate(new RTCIceCandidate(signal.candidate));
+          if (peerConnection.remoteDescription) {
+            await peerConnection.addIceCandidate(new RTCIceCandidate(signal.candidate));
+          } else {
+            const queued = pendingIceCandidatesRef.current.get(signal.from) ?? [];
+            queued.push(signal.candidate);
+            pendingIceCandidatesRef.current.set(signal.from, queued);
+          }
         }
       })
       .subscribe(async (status) => {
@@ -323,6 +384,7 @@ export function VideoRoom() {
 
     return () => {
         signalChannelRef.current = null;
+        pendingIceCandidates.clear();
       Array.from(peerConnections.keys()).forEach((peerId) => removePeerConnection(peerId));
       void onlineChannel.untrack();
       void supabase.removeChannel(onlineChannel);
@@ -440,24 +502,22 @@ export function VideoRoom() {
 
       <div className={styles.meetingLayout}>
         <section className={styles.stageWrap}>
-          <article className={styles.localStage}>
-            {localStream && isCameraOn ? (
-              <video ref={localVideoRef} autoPlay muted playsInline className={styles.localVideo} />
-            ) : (
-              <div className={styles.videoFallback}>Camera is off</div>
-            )}
-            <div className={styles.stageBadge}>You</div>
-            {isConnectingMedia ? <p className={styles.statusInfo}>Connecting camera and microphone…</p> : null}
-          </article>
+          <div className={styles.videoGrid} aria-label="Participant videos">
+            <article className={styles.localStage}>
+              {localStream && isCameraOn ? (
+                <video ref={localVideoRef} autoPlay muted playsInline className={styles.localVideo} />
+              ) : (
+                <div className={styles.videoFallback}>Camera is off</div>
+              )}
+              <div className={styles.stageBadge}>You</div>
+              {isConnectingMedia ? <p className={styles.statusInfo}>Connecting camera and microphone…</p> : null}
+            </article>
 
-        {remoteParticipants.length ? (
-            <div className={styles.remoteGrid} aria-label="Remote participant videos">
-              {remoteParticipants.map((member) => (
-                <RemoteVideoTile key={member.userId} member={member} />
-              ))}
-            </div>
-          ) : null}
-          
+            {remoteParticipants.map((member) => (
+              <RemoteVideoTile key={member.userId} member={member} />
+            ))}
+          </div>
+
           <div className={styles.participantStrip}>
             {participantTiles.map((member) => (
               <article key={member.userId} className={styles.participantTile}>

@@ -78,8 +78,14 @@
   gap: 0.75rem;
 }
 
+.videoGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 0.7rem;
+}
+
 .localStage {
-  min-height: min(58vh, 560px);
+  min-height: clamp(220px, 32vh, 320px);
   border-radius: 1rem;
   border: 1px solid rgb(var(--border));
   background: linear-gradient(160deg, rgb(var(--bg-soft) / 0.74), rgb(var(--card) / 0.96));
@@ -119,14 +125,8 @@
   gap: 0.58rem;
 }
 
-.remoteGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 0.6rem;
-}
-
 .remoteTile {
-  min-height: 150px;
+  min-height: clamp(220px, 32vh, 320px);
   border-radius: 0.9rem;
   border: 1px solid rgb(var(--border));
   background: rgb(var(--bg-soft) / 0.66);
