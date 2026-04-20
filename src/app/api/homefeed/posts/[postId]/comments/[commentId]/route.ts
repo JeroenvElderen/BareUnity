@@ -12,7 +12,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ post
 
   const comment = await db.comments.findUnique({
     where: { id: commentId },
-    select: { id: true, post_id: true, author_id: true },
+    select: { id: true, post_id: true, author_id: true, parent_id: true },
   });
 
   if (!comment || comment.post_id !== postId) {
@@ -23,7 +23,13 @@ export async function DELETE(request: Request, context: { params: Promise<{ post
     return NextResponse.json({ error: "You can only delete your own comments." }, { status: 403 });
   }
 
-  await db.comments.delete({ where: { id: commentId } });
+  await db.$transaction([
+    db.comments.updateMany({
+      where: { parent_id: commentId, post_id: postId },
+      data: { parent_id: comment.parent_id ?? null },
+    }),
+    db.comments.delete({ where: { id: commentId } }),
+  ]);
 
   return NextResponse.json({ ok: true });
 }

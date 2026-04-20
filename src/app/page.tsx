@@ -421,7 +421,10 @@ export default function HomePage() {
     await loadFeed();
   };
 
-  const topLevelCommentsForPost = useCallback((post: HomeFeedPost) => post.comments.filter((comment) => !comment.parentId), []);
+  const rootCommentsForPost = useCallback((post: HomeFeedPost) => {
+    const knownIds = new Set(post.comments.map((comment) => comment.id));
+    return post.comments.filter((comment) => !comment.parentId || !knownIds.has(comment.parentId));
+  }, []);
   const getChildComments = useCallback(
     (comments: HomeFeedComment[], parentId: string) => comments.filter((comment) => comment.parentId === parentId),
     [],
@@ -771,7 +774,7 @@ export default function HomePage() {
                       <button type="button" onClick={() => setActivePostId(post.id)}>
                         <Badge variant="outline" className="px-3 py-1 text-xs hover:bg-[rgb(var(--bg-soft))]">
                           <MessageCircle className="mr-1 h-3.5 w-3.5" />
-                          {topLevelCommentsForPost(post).length} comments
+                          {post.comments.length} comments
                         </Badge>
                       </button>
                     </div>
@@ -1099,95 +1102,81 @@ export default function HomePage() {
                 ) : null}
                 <Badge variant="outline" className="px-3 py-1 text-xs">
                   <MessageCircle className="mr-1 h-3.5 w-3.5" />
-                  {topLevelCommentsForPost(activePost).length} comments
+                  {activePost.comments.length} comments
                 </Badge>
               </div>
               <div className="max-h-44 space-y-2 overflow-y-auto pr-1">
-                {topLevelCommentsForPost(activePost).map((comment) => {
-                  const children = getChildComments(activePost.comments, comment.id);
-                  const commentAuthorName = comment.authorName || "Community member";
-                  const commentFallback = comment.authorFallback || "BU";
-                  return (
-                    <div key={comment.id} className="space-y-2">
-                      <div className="rounded-lg bg-[rgb(var(--bg-soft))] px-3 py-2">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-start gap-2">
-                            <Avatar src={comment.authorAvatarUrl ?? undefined} alt={commentAuthorName} fallback={commentFallback} className="h-8 w-8" />
-                            <div>
-                              <p className="text-xs font-semibold text-[rgb(var(--text-strong))]">{commentAuthorName}</p>
-                              <p className="text-sm text-[rgb(var(--text))] break-words [overflow-wrap:anywhere]">{comment.content}</p>
-                            </div>
-                          </div>
-                          {feed.viewerId && comment.authorId === feed.viewerId ? (
-                            <button type="button" onClick={() => openDeleteModal(activePost.id, comment.id)} className="text-xs font-medium text-rose-600 hover:underline">
-                              Delete
-                            </button>
-                          ) : null}
-                        </div>
-                        <div className="mt-1 pl-10">
-                          <button
-                            type="button"
-                            className="text-xs font-medium text-[rgb(var(--muted))] hover:text-[rgb(var(--text-strong))]"
-                            onClick={() =>
-                              setActiveReplyByPost((current) => ({
-                                ...current,
-                                [activePost.id]: current[activePost.id] === comment.id ? null : comment.id,
-                              }))
-                            }
-                          >
-                            Reply
-                          </button>
-                        </div>
-                      </div>
-                      {activeReplyByPost[activePost.id] === comment.id ? (
-                        <div className="ml-10 flex items-center gap-2">
-                          <input
-                            type="text"
-                            value={replyDrafts[comment.id] ?? ""}
-                            onChange={(event) => setReplyDrafts((current) => ({ ...current, [comment.id]: event.target.value }))}
-                            onKeyDown={(event) => {
-                              if (event.key === "Enter") {
-                                event.preventDefault();
-                                void addComment(activePost.id, { parentId: comment.id, draftKey: comment.id });
-                              }
-                            }}
-                            placeholder={`Reply to ${commentAuthorName}...`}
-                            className="h-8 flex-1 rounded-lg border border-[rgb(var(--border))] px-3 text-xs outline-none focus:ring-2 focus:ring-[rgb(var(--ring))]"
-                          />
-                          <Button size="sm" onClick={() => addComment(activePost.id, { parentId: comment.id, draftKey: comment.id })}>
-                            Reply
-                          </Button>
-                        </div>
-                      ) : null}
-                      {children.length ? (
-                        <div className="ml-10 space-y-2 border-l border-[rgb(var(--border))] pl-3">
-                          {children.map((reply) => (
-                            <div key={reply.id} className="rounded-lg bg-[rgb(var(--bg-soft))] px-3 py-2">
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="flex items-start gap-2">
-                                  <Avatar
-                                    src={reply.authorAvatarUrl ?? undefined}
-                                    alt={reply.authorName || "Community member"}
-                                    fallback={reply.authorFallback || "BU"}
-                                    className="h-7 w-7"
-                                  />
-                                  <div>
-                                    <p className="text-xs font-semibold text-[rgb(var(--text-strong))]">{reply.authorName || "Community member"}</p>
-                                    <p className="text-sm text-[rgb(var(--text))] break-words [overflow-wrap:anywhere]">{reply.content}</p>
-                                  </div>
-                                </div>
-                                {feed.viewerId && reply.authorId === feed.viewerId ? (
-                                  <button type="button" onClick={() => openDeleteModal(activePost.id, reply.id)} className="text-xs font-medium text-rose-600 hover:underline">
-                                    Delete
-                                  </button>
-                                ) : null}
+                {rootCommentsForPost(activePost).map((comment) => {
+                  const renderComment = (node: HomeFeedComment, depth: number, visited: Set<string>) => {
+                    if (visited.has(node.id)) return null;
+                    const nextVisited = new Set(visited);
+                    nextVisited.add(node.id);
+                    const children = getChildComments(activePost.comments, node.id);
+                    const commentAuthorName = node.authorName || "Community member";
+                    const commentFallback = node.authorFallback || "BU";
+
+                    return (
+                      <div key={node.id} className="space-y-2">
+                        <div className="rounded-lg bg-[rgb(var(--bg-soft))] px-3 py-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-start gap-2">
+                              <Avatar src={node.authorAvatarUrl ?? undefined} alt={commentAuthorName} fallback={commentFallback} className="h-8 w-8" />
+                              <div>
+                                <p className="text-xs font-semibold text-[rgb(var(--text-strong))]">{commentAuthorName}</p>
+                                <p className="text-sm text-[rgb(var(--text))] break-words [overflow-wrap:anywhere]">{node.content}</p>
                               </div>
                             </div>
-                          ))}
+                            {feed.viewerId && node.authorId === feed.viewerId ? (
+                              <button type="button" onClick={() => openDeleteModal(activePost.id, node.id)} className="text-xs font-medium text-rose-600 hover:underline">
+                                Delete
+                              </button>
+                            ) : null}
+                          </div>
+                          <div className="mt-1 pl-10">
+                            <button
+                              type="button"
+                              className="text-xs font-medium text-[rgb(var(--muted))] hover:text-[rgb(var(--text-strong))]"
+                              onClick={() =>
+                                setActiveReplyByPost((current) => ({
+                                  ...current,
+                                  [activePost.id]: current[activePost.id] === node.id ? null : node.id,
+                                }))
+                              }
+                            >
+                              Reply
+                            </button>
+                          </div>
                         </div>
-                      ) : null}
-                    </div>
-                  );
+                        {activeReplyByPost[activePost.id] === node.id ? (
+                          <div className="ml-10 flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={replyDrafts[node.id] ?? ""}
+                              onChange={(event) => setReplyDrafts((current) => ({ ...current, [node.id]: event.target.value }))}
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter") {
+                                  event.preventDefault();
+                                  void addComment(activePost.id, { parentId: node.id, draftKey: node.id });
+                                }
+                              }}
+                              placeholder={`Reply to ${commentAuthorName}...`}
+                              className="h-8 flex-1 rounded-lg border border-[rgb(var(--border))] px-3 text-xs outline-none focus:ring-2 focus:ring-[rgb(var(--ring))]"
+                            />
+                            <Button size="sm" onClick={() => addComment(activePost.id, { parentId: node.id, draftKey: node.id })}>
+                              Reply
+                            </Button>
+                          </div>
+                        ) : null}
+                        {children.length ? (
+                          <div className={`space-y-2 border-l border-[rgb(var(--border))] pl-3 ${depth === 0 ? "ml-10" : "ml-6"}`}>
+                            {children.map((child) => renderComment(child, depth + 1, nextVisited))}
+                          </div>
+                        ) : null}
+                      </div>
+                      );
+                  };
+
+                  return renderComment(comment, 0, new Set());
                 })}
               </div>
               <div className="flex items-center gap-2">
