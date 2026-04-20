@@ -271,13 +271,33 @@ export default function HomePage() {
   };
 
   const toggleLike = async (postId: string) => {
+    const targetPost = feed.posts.find((post) => post.id === postId);
+    if (!targetPost) return;
+    
     const response = await fetch(`/api/homefeed/posts/${postId}/like`, {
       method: "POST",
       headers: (await getAuthHeaders()).headers,
     });
     if (!response.ok) return;
 
-    await loadFeed();
+    const payload = (await response.json()) as { liked?: boolean };
+    const liked = Boolean(payload.liked);
+    const likeDelta = liked ? (targetPost.likedByViewer ? 0 : 1) : targetPost.likedByViewer ? -1 : 0;
+
+    if (!likeDelta && targetPost.likedByViewer === liked) return;
+
+    setFeed((current) => ({
+      ...current,
+      posts: current.posts.map((post) =>
+        post.id === postId
+          ? {
+              ...post,
+              likedByViewer: liked,
+              likes: Math.max(0, post.likes + likeDelta),
+            }
+          : post,
+      ),
+    }));
   };
 
   const addComment = async (postId: string) => {
@@ -292,8 +312,28 @@ export default function HomePage() {
 
     if (!response.ok) return;
 
+    const payload = (await response.json()) as {
+      comment?: {
+        id: string;
+        content: string;
+        authorId: string | null;
+      };
+    };
+    const newComment = payload.comment;
+    if (!newComment) return;
+
     setCommentDrafts((current) => ({ ...current, [postId]: "" }));
-    await loadFeed();
+    setFeed((current) => ({
+      ...current,
+      posts: current.posts.map((post) =>
+        post.id === postId
+          ? {
+              ...post,
+              comments: [...post.comments, newComment],
+            }
+          : post,
+      ),
+    }));
   };
 
   const openEditPostModal = (post: HomeFeedPost) => {

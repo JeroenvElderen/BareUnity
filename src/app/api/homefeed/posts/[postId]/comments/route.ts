@@ -16,13 +16,24 @@ export async function POST(request: Request, context: { params: Promise<{ postId
     return NextResponse.json({ error: "Comment content is required." }, { status: 400 });
   }
 
-  await db.comments.create({
+  const comment = await db.comments.create({
     data: {
       post_id: postId,
       author_id: viewerId,
       content,
     },
+    select: {
+      id: true,
+      content: true,
+      author_id: true,
+    },
   });
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({
+    comment: {
+      id: comment.id,
+      content: comment.content,
+      authorId: comment.author_id,
+    },
+  });
 }

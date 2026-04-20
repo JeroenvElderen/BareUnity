@@ -139,7 +139,6 @@ async function buildGalleryFromStorage(): Promise<GalleryStorageItem[]> {
         .from("media")
         .createSignedUrl(entry.src, 60 * 60 * 24 * 7, {
           transform: {
-            format: "webp",
             quality: 78,
           },
         });
