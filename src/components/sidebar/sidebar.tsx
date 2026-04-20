@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   Bell,
@@ -60,10 +60,10 @@ const workspaceItems = [
 ] satisfies readonly NavItem[];
 
 const discussionRooms = [
-  { name: "General Room", href: "/discussion" },
-  { name: "Events Room", href: "/discussion?room=events" },
-  { name: "Wellness Room", href: "/discussion?room=wellness" },
-  { name: "Photography Room", href: "/discussion?room=photography" },
+{ name: "General Room", room: "general", href: "/discussion" },
+  { name: "Video Room", room: "video", href: "/discussion?room=video" },
+  { name: "Wellness Room", room: "wellness", href: "/discussion?room=wellness" },
+  { name: "Photography Room", room: "photography", href: "/discussion?room=photography" },
 ] as const;
 
 const adminItems = [
@@ -75,11 +75,14 @@ const adminItems = [
 export function AppSidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isRoomsOpen, setIsRoomsOpen] = useState(false);
+  const [isRoomsOpen, setIsRoomsOpen] = useState(pathname === "/discussion");
   const [isBookingsOpen, setIsBookingsOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const isAdminSection = pathname?.startsWith("/admin") ?? false;
+  const currentDiscussionRoom = searchParams.get("room") ?? "general";
+  const isDiscussionRoute = pathname === "/discussion";
   const [isAdminOpen, setIsAdminOpen] = useState(isAdminSection);
 
   const onLogout = async () => {
@@ -203,7 +206,7 @@ export function AppSidebar() {
                     <Link
                       key={room.name}
                       href={room.href}
-                      className={`${styles.navItem} ${styles.dropdownItem} ${pathname === room.href ? styles.active : ""}`}
+                      className={`${styles.navItem} ${styles.dropdownItem} ${isDiscussionRoute && currentDiscussionRoom === room.room ? styles.active : ""}`}
                     >
                       {room.name}
                     </Link>
