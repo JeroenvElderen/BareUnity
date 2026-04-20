@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   Bell,
@@ -61,7 +61,7 @@ const workspaceItems = [
 
 const discussionRooms = [
   { name: "General Room", href: "/discussion" },
-  { name: "Events Room", href: "/discussion?room=events" },
+  { name: "Video Room", href: "/video-room" },
   { name: "Wellness Room", href: "/discussion?room=wellness" },
   { name: "Photography Room", href: "/discussion?room=photography" },
 ] as const;
@@ -76,7 +76,7 @@ export function AppSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isRoomsOpen, setIsRoomsOpen] = useState(false);
+  const [isRoomsOpen, setIsRoomsOpen] = useState(pathname === "/discussion" || pathname === "/video-room");
   const [isBookingsOpen, setIsBookingsOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const isAdminSection = pathname?.startsWith("/admin") ?? false;

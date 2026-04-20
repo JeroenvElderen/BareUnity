@@ -21,38 +21,90 @@
   color: rgb(var(--muted));
 }
 
-.grid {
+.galleryFlow {
   columns: 1;
-  column-gap: 1rem;
+  column-gap: 0;
 }
 
 .tile {
-  margin: 0 0 1rem;
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border-radius: 18px;
+  margin: 0;
   break-inside: avoid;
+  box-shadow: 0 10px 24px rgb(4 8 20 / 0.2);
+  isolation: isolate;
 }
 
 .image {
   width: 100%;
-  height: auto;
+  height: 100%;
   display: block;
-  border-radius: 18px;
+  object-fit: cover;
+  transition: transform 280ms ease;
+}
+
+.tile:hover .image {
+  transform: scale(1.04);
+}
+
+.caption {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: 0;
+  padding: 0.95rem 1rem 0.85rem;
+  color: white;
+  background: linear-gradient(to top, rgb(10 11 17 / 0.72), transparent);
+  display: grid;
+  gap: 0.1rem;
+}
+
+.caption strong {
+  font-size: 0.95rem;
+  line-height: 1.2;
+}
+
+.caption span {
+  font-size: 0.75rem;
+  letter-spacing: 0.01em;
+  opacity: 0.85;
+}
+
+.sizeTall {
+  aspect-ratio: 3 / 5;
+}
+
+.sizePortrait {
+  aspect-ratio: 4 / 5;
+}
+
+.sizeSquare {
+  aspect-ratio: 1 / 1;
+}
+
+.sizeLandscape {
+  aspect-ratio: 5 / 4;
+}
+
+.sizeWide {
+  aspect-ratio: 16 / 9;
 }
 
 @media (min-width: 640px) {
-  .grid {
+  .galleryFlow {
     columns: 2;
   }
 }
 
 @media (min-width: 960px) {
-  .grid {
+  .galleryFlow {
     columns: 3;
-    column-gap: 1.05rem;
   }
 }
 
 @media (min-width: 1240px) {
-  .grid {
+  .galleryFlow {
     columns: 4;
   }
 }

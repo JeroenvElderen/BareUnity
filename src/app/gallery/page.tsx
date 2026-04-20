@@ -16,6 +16,24 @@ type GalleryItem = {
 };
 
 const GALLERY_CACHE_MAX_AGE_MS = 1000 * 60 * 15;
+const TILE_SIZE_VARIANTS = [
+  "sizeTall",
+  "sizePortrait",
+  "sizeSquare",
+  "sizeLandscape",
+  "sizeWide",
+] as const;
+
+function hashString(input: string): number {
+  let hash = 0;
+
+  for (let index = 0; index < input.length; index += 1) {
+    hash = (hash << 5) - hash + input.charCodeAt(index);
+    hash |= 0;
+  }
+
+  return Math.abs(hash);
+}
 
 async function fetchGallerySnapshot(accessToken?: string | null): Promise<GalleryItem[]> {
   const headers: HeadersInit = {};
@@ -87,9 +105,12 @@ export default function GalleryPage() {
             <small>Upload a post with media or add files to media/posts in Supabase Storage.</small>
           </div>
         ) : (
-          <div className={styles.grid}>
+          <div className={styles.galleryFlow}>
             {items.map((item, index) => (
-              <figure key={item.id} className={styles.tile}>
+              <figure
+                key={item.id}
+                className={`${styles.tile} ${styles[TILE_SIZE_VARIANTS[hashString(item.id) % TILE_SIZE_VARIANTS.length]]}`}
+              >
                 <img
                   src={item.src}
                   alt={`${item.title} — ${item.place}`}
