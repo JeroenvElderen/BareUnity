@@ -15,6 +15,55 @@
   color: rgb(var(--text));
 }
 
+.feedHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.feedHeaderTitleBlock {
+  min-width: 0;
+}
+
+.feedHeaderControls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.5rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(var(--border));
+  background: rgb(var(--bg-soft));
+  padding: 0.5rem;
+}
+
+.feedHeaderControls > :global(button) {
+  width: 100%;
+  justify-content: center;
+}
+
+.feedCreateButton {
+  grid-column: 1 / -1;
+}
+
+@media (min-width: 640px) {
+  .feedHeader {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .feedHeaderControls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem;
+  }
+
+  .feedCreateButton {
+    grid-column: auto;
+  }
+}
+
 @media (min-width: 1100px) {
   .main {
     flex-direction: row;

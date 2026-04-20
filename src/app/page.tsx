@@ -590,12 +590,12 @@ export default function HomePage() {
       
       <section className={styles.feedLayout}>
         <div className="w-full rounded-4xl border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))] p-4 shadow-sm md:p-6">
-          <header className="mb-4 flex items-center justify-between rounded-2xl border border-[rgb(var(--border))] bg-white px-4 py-3">
-            <div>
+          <header className={`${styles.feedHeader} mb-4 rounded-2xl border border-[rgb(var(--border))] bg-white px-4 py-3`}>
+            <div className={styles.feedHeaderTitleBlock}>
               <p className="text-xs uppercase tracking-[0.16em] text-[rgb(var(--muted))]">Home feed</p>
               <h1 className="text-lg font-semibold text-[rgb(var(--text-strong))]">Social dashboard</h1>
             </div>
-            <div className="flex items-center gap-2 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))] p-1">
+            <div className={styles.feedHeaderControls}>
               <button
                 type="button"
                 onClick={() => setActiveFeedTab("following")}
@@ -618,7 +618,7 @@ export default function HomePage() {
               >
                 For you
               </button>
-              <Button size="sm" onClick={() => setComposerOpen(true)}>
+              <Button size="sm" onClick={() => setComposerOpen(true)} className={styles.feedCreateButton}>
                 Create
               </Button>
             </div>
