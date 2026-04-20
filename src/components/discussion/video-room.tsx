@@ -34,6 +34,14 @@ type SignalPayload = {
   candidate?: RTCIceCandidateInit;
 };
 
+type PeerState = {
+  pc: RTCPeerConnection;
+  makingOffer: boolean;
+  ignoreOffer: boolean;
+  isSettingRemoteAnswerPending: boolean;
+  polite: boolean;
+};
+
 function profileInitials(name: string) {
   const trimmed = name.trim();
   if (!trimmed) return "ME";
@@ -71,10 +79,10 @@ function RemoteVideoTile({ member }: { member: RemoteVideoParticipant }) {
 
 export function VideoRoom() {
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
-  const peerConnectionsRef = useRef(new Map<string, RTCPeerConnection>());
+
+  const peerStatesRef = useRef(new Map<string, PeerState>());
   const pendingIceCandidatesRef = useRef(new Map<string, RTCIceCandidateInit[]>());
   const signalChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
-  const makingOfferRef = useRef(new Map<string, boolean>());
 
   const [viewerId, setViewerId] = useState<string | null>(null);
   const [viewerPresenceName, setViewerPresenceName] = useState("member");
@@ -96,87 +104,95 @@ export function VideoRoom() {
 
   const clearRemoteStream = useCallback((userId: string) => {
     setRemoteStreamsByUser((current) => {
-      const existing = current[userId];
-      if (!existing) return current;
-
-      existing.getTracks().forEach((track) => track.stop());
-
+      if (!current[userId]) return current;
       const rest = { ...current };
       delete rest[userId];
       return rest;
     });
   }, []);
 
+  const ensureLocalTracks = useCallback(
+    (connection: RTCPeerConnection) => {
+      if (!localStream) return;
+
+      const senderTrackIds = new Set(
+        connection
+          .getSenders()
+          .map((sender) => sender.track?.id)
+          .filter((trackId): trackId is string => Boolean(trackId)),
+      );
+
+      localStream.getTracks().forEach((track) => {
+        if (senderTrackIds.has(track.id)) return;
+        connection.addTrack(track, localStream);
+      });
+    },
+    [localStream],
+  );
+
   const removePeerConnection = useCallback(
     (userId: string) => {
-      const existing = peerConnectionsRef.current.get(userId);
-      if (existing) {
-        existing.ontrack = null;
-        existing.onicecandidate = null;
-        existing.onconnectionstatechange = null;
-        existing.onnegotiationneeded = null;
-        existing.close();
+      const peerState = peerStatesRef.current.get(userId);
+      if (peerState) {
+        const { pc } = peerState;
+        pc.ontrack = null;
+        pc.onicecandidate = null;
+        pc.onconnectionstatechange = null;
+        pc.oniceconnectionstatechange = null;
+        pc.onicegatheringstatechange = null;
+        pc.onsignalingstatechange = null;
+        pc.onnegotiationneeded = null;
+        pc.close();
       }
 
-      peerConnectionsRef.current.delete(userId);
+      peerStatesRef.current.delete(userId);
       pendingIceCandidatesRef.current.delete(userId);
-      makingOfferRef.current.delete(userId);
       clearRemoteStream(userId);
     },
     [clearRemoteStream],
   );
 
-  const ensureLocalTracks = useCallback((connection: RTCPeerConnection) => {
-    if (!localStream) return;
-
-    const senderTrackIds = new Set(
-      connection
-        .getSenders()
-        .map((sender) => sender.track?.id)
-        .filter((trackId): trackId is string => Boolean(trackId)),
-    );
-
-    localStream.getTracks().forEach((track) => {
-      if (senderTrackIds.has(track.id)) return;
-      connection.addTrack(track, localStream);
-    });
-  }, [localStream]);
-
-  const upsertPeerConnection = useCallback(
+  const createPeerConnection = useCallback(
     (peerId: string) => {
-      const existing = peerConnectionsRef.current.get(peerId);
+      const existing = peerStatesRef.current.get(peerId);
       if (existing) {
-        ensureLocalTracks(existing);
+        ensureLocalTracks(existing.pc);
         return existing;
       }
 
-      const connection = new RTCPeerConnection({
-        iceServers: [{ urls: ["stun:stun.l.google.com:19302"] }],
+      const pc = new RTCPeerConnection({
+        iceServers: [
+          { urls: "stun:stun.l.google.com:19302" },
+
+          // Add your TURN server here for real-world connectivity:
+          // {
+          //   urls: "turn:YOUR_TURN_HOST:3478",
+          //   username: "YOUR_TURN_USERNAME",
+          //   credential: "YOUR_TURN_PASSWORD",
+          // },
+        ],
       });
 
-      ensureLocalTracks(connection);
+      const polite = viewerId ? viewerId > peerId : false;
 
-      connection.ontrack = (event) => {
+      const peerState: PeerState = {
+        pc,
+        makingOffer: false,
+        ignoreOffer: false,
+        isSettingRemoteAnswerPending: false,
+        polite,
+      };
+
+      ensureLocalTracks(pc);
+
+      pc.ontrack = (event) => {
         const [stream] = event.streams;
         if (!stream) return;
-
         console.log("[webrtc] ontrack from", peerId, stream);
         setRemoteStream(peerId, stream);
       };
 
-      connection.onconnectionstatechange = () => {
-        console.log("[webrtc] connectionState", peerId, connection.connectionState);
-
-        if (
-          connection.connectionState === "failed" ||
-          connection.connectionState === "disconnected" ||
-          connection.connectionState === "closed"
-        ) {
-          removePeerConnection(peerId);
-        }
-      };
-
-      connection.onicecandidate = async (event) => {
+      pc.onicecandidate = async (event) => {
         const channel = signalChannelRef.current;
         if (!event.candidate || !channel || !viewerId) return;
 
@@ -196,27 +212,16 @@ export function VideoRoom() {
         }
       };
 
-      connection.onnegotiationneeded = async () => {
+      pc.onnegotiationneeded = async () => {
         const channel = signalChannelRef.current;
         if (!channel || !viewerId) return;
 
-        // only one side should initiate to avoid glare
-        if (viewerId > peerId) return;
-        if (makingOfferRef.current.get(peerId)) return;
-        if (connection.signalingState !== "stable") return;
-
         try {
-          makingOfferRef.current.set(peerId, true);
+          peerState.makingOffer = true;
+          console.log("[webrtc] negotiationneeded -> create offer for", peerId);
 
-          console.log("[webrtc] creating offer for", peerId);
-          const offer = await connection.createOffer();
-
-          if (connection.signalingState !== "stable") {
-            console.warn("[webrtc] signaling state changed before setLocalDescription", peerId, connection.signalingState);
-            return;
-          }
-
-          await connection.setLocalDescription(offer);
+          await pc.setLocalDescription();
+          if (!pc.localDescription) return;
 
           await channel.send({
             type: "broadcast",
@@ -225,18 +230,38 @@ export function VideoRoom() {
               from: viewerId,
               to: peerId,
               type: "offer",
-              sdp: connection.localDescription ?? offer,
+              sdp: pc.localDescription,
             } satisfies SignalPayload,
           });
         } catch (error) {
-          console.error("[webrtc] negotiation failed", error);
+          console.error("[webrtc] negotiationneeded failed", error);
         } finally {
-          makingOfferRef.current.set(peerId, false);
+          peerState.makingOffer = false;
         }
       };
 
-      peerConnectionsRef.current.set(peerId, connection);
-      return connection;
+      pc.onconnectionstatechange = () => {
+        console.log("[webrtc] connectionState", peerId, pc.connectionState);
+
+        if (pc.connectionState === "failed" || pc.connectionState === "closed") {
+          removePeerConnection(peerId);
+        }
+      };
+
+      pc.oniceconnectionstatechange = () => {
+        console.log("[webrtc] iceConnectionState", peerId, pc.iceConnectionState);
+      };
+
+      pc.onicegatheringstatechange = () => {
+        console.log("[webrtc] iceGatheringState", peerId, pc.iceGatheringState);
+      };
+
+      pc.onsignalingstatechange = () => {
+        console.log("[webrtc] signalingState", peerId, pc.signalingState);
+      };
+
+      peerStatesRef.current.set(peerId, peerState);
+      return peerState;
     },
     [ensureLocalTracks, removePeerConnection, setRemoteStream, viewerId],
   );
@@ -268,7 +293,6 @@ export function VideoRoom() {
     if (!videoElement || !localStream) return;
 
     videoElement.srcObject = localStream;
-
     return () => {
       videoElement.srcObject = null;
     };
@@ -279,29 +303,21 @@ export function VideoRoom() {
   }, [startLocalMedia]);
 
   useEffect(() => {
-    const peerConnections = peerConnectionsRef.current;
-
     return () => {
-      localStream?.getTracks().forEach((track) => {
-        track.stop();
-      });
+      localStream?.getTracks().forEach((track) => track.stop());
 
-      peerConnections.forEach((connection) => {
-        connection.close();
-      });
-      peerConnections.clear();
+      peerStatesRef.current.forEach(({ pc }) => pc.close());
+      peerStatesRef.current.clear();
 
-      Object.values(remoteStreamsByUser).forEach((stream) => {
-        stream.getTracks().forEach((track) => track.stop());
-      });
+      pendingIceCandidatesRef.current.clear();
     };
-  }, [localStream, remoteStreamsByUser]);
+  }, [localStream]);
 
   useEffect(() => {
     if (!localStream) return;
 
-    peerConnectionsRef.current.forEach((connection) => {
-      ensureLocalTracks(connection);
+    peerStatesRef.current.forEach(({ pc }) => {
+      ensureLocalTracks(pc);
     });
   }, [ensureLocalTracks, localStream]);
 
@@ -337,7 +353,6 @@ export function VideoRoom() {
   useEffect(() => {
     if (!viewerId) return;
 
-    const pendingIceCandidates = pendingIceCandidatesRef.current;
     const onlineChannel = supabase.channel("video-room-presence", {
       config: {
         presence: { key: viewerId },
@@ -373,26 +388,38 @@ export function VideoRoom() {
           const signal = payload as SignalPayload | null;
           if (!signal || signal.to !== viewerId || signal.from === viewerId) return;
 
-          console.log("[webrtc] received signal", signal.type, "from", signal.from);
+          const peerState = createPeerConnection(signal.from);
+          const { pc } = peerState;
 
-          const peerConnection = upsertPeerConnection(signal.from);
+          console.log("[webrtc] received", signal.type, "from", signal.from);
 
           if (signal.type === "offer" && signal.sdp) {
-            if (peerConnection.signalingState !== "stable") {
-              console.warn("[webrtc] received offer while not stable", signal.from, peerConnection.signalingState);
+            const readyForOffer =
+              !peerState.makingOffer &&
+              (pc.signalingState === "stable" || peerState.isSettingRemoteAnswerPending);
+
+            const offerCollision = !readyForOffer;
+            peerState.ignoreOffer = !peerState.polite && offerCollision;
+
+            if (peerState.ignoreOffer) {
+              console.warn("[webrtc] ignoring offer due to collision from", signal.from);
               return;
             }
 
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+            await pc.setRemoteDescription(signal.sdp);
 
-            const pending = pendingIceCandidates.get(signal.from) ?? [];
+            const pending = pendingIceCandidatesRef.current.get(signal.from) ?? [];
             for (const candidate of pending) {
-              await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+              try {
+                await pc.addIceCandidate(candidate);
+              } catch (error) {
+                console.error("[webrtc] failed to add queued ICE candidate", error);
+              }
             }
-            pendingIceCandidates.delete(signal.from);
+            pendingIceCandidatesRef.current.delete(signal.from);
 
-            const answer = await peerConnection.createAnswer();
-            await peerConnection.setLocalDescription(answer);
+            await pc.setLocalDescription();
+            if (!pc.localDescription) return;
 
             await onlineChannel.send({
               type: "broadcast",
@@ -401,33 +428,47 @@ export function VideoRoom() {
                 from: viewerId,
                 to: signal.from,
                 type: "answer",
-                sdp: peerConnection.localDescription ?? answer,
+                sdp: pc.localDescription,
               } satisfies SignalPayload,
             });
+
+            return;
           }
 
           if (signal.type === "answer" && signal.sdp) {
-            if (peerConnection.signalingState !== "have-local-offer") {
-              console.warn("[webrtc] received answer in unexpected state", signal.from, peerConnection.signalingState);
-              return;
+            peerState.isSettingRemoteAnswerPending = true;
+            try {
+              await pc.setRemoteDescription(signal.sdp);
+            } finally {
+              peerState.isSettingRemoteAnswerPending = false;
             }
 
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(signal.sdp));
-
-            const pending = pendingIceCandidates.get(signal.from) ?? [];
+            const pending = pendingIceCandidatesRef.current.get(signal.from) ?? [];
             for (const candidate of pending) {
-              await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+              try {
+                await pc.addIceCandidate(candidate);
+              } catch (error) {
+                console.error("[webrtc] failed to add queued ICE candidate", error);
+              }
             }
-            pendingIceCandidates.delete(signal.from);
+            pendingIceCandidatesRef.current.delete(signal.from);
+
+            return;
           }
 
           if (signal.type === "ice-candidate" && signal.candidate) {
-            if (peerConnection.remoteDescription) {
-              await peerConnection.addIceCandidate(new RTCIceCandidate(signal.candidate));
-            } else {
-              const queued = pendingIceCandidates.get(signal.from) ?? [];
-              queued.push(signal.candidate);
-              pendingIceCandidates.set(signal.from, queued);
+            try {
+              if (pc.remoteDescription) {
+                await pc.addIceCandidate(signal.candidate);
+              } else {
+                const queued = pendingIceCandidatesRef.current.get(signal.from) ?? [];
+                queued.push(signal.candidate);
+                pendingIceCandidatesRef.current.set(signal.from, queued);
+              }
+            } catch (error) {
+              if (!peerState.ignoreOffer) {
+                console.error("[webrtc] addIceCandidate failed", error);
+              }
             }
           }
         } catch (error) {
@@ -448,14 +489,15 @@ export function VideoRoom() {
 
     return () => {
       signalChannelRef.current = null;
-      pendingIceCandidates.clear();
 
-      Array.from(peerConnectionsRef.current.keys()).forEach((peerId) => removePeerConnection(peerId));
+      Array.from(peerStatesRef.current.keys()).forEach((peerId) => {
+        removePeerConnection(peerId);
+      });
 
       void onlineChannel.untrack();
       void supabase.removeChannel(onlineChannel);
     };
-  }, [removePeerConnection, upsertPeerConnection, viewerId, viewerPresenceName]);
+  }, [createPeerConnection, removePeerConnection, viewerId, viewerPresenceName]);
 
   useEffect(() => {
     if (!viewerId || !localStream) return;
@@ -463,23 +505,16 @@ export function VideoRoom() {
     const others = onlineMembers.filter((member) => member.userId !== viewerId);
 
     others.forEach((member) => {
-      if (peerConnectionsRef.current.has(member.userId)) return;
-
-      const shouldInitiate = viewerId < member.userId;
-      if (!shouldInitiate) return;
-
-      // Create the connection only.
-      // onnegotiationneeded will fire and handle the offer.
-      upsertPeerConnection(member.userId);
+      createPeerConnection(member.userId);
     });
 
     const onlineIds = new Set(others.map((member) => member.userId));
-    Array.from(peerConnectionsRef.current.keys()).forEach((peerId) => {
+    Array.from(peerStatesRef.current.keys()).forEach((peerId) => {
       if (!onlineIds.has(peerId)) {
         removePeerConnection(peerId);
       }
     });
-  }, [localStream, onlineMembers, removePeerConnection, upsertPeerConnection, viewerId]);
+  }, [createPeerConnection, localStream, onlineMembers, removePeerConnection, viewerId]);
 
   const participantTiles = useMemo(() => {
     if (onlineMembers.length) return onlineMembers;
@@ -523,15 +558,12 @@ export function VideoRoom() {
   };
 
   const leaveRoom = () => {
-    localStream?.getTracks().forEach((track) => {
-      track.stop();
-    });
-
+    localStream?.getTracks().forEach((track) => track.stop());
     setLocalStream(null);
     setIsMicOn(false);
     setIsCameraOn(false);
 
-    Array.from(peerConnectionsRef.current.keys()).forEach((peerId) => removePeerConnection(peerId));
+    Array.from(peerStatesRef.current.keys()).forEach((peerId) => removePeerConnection(peerId));
   };
 
   return (
