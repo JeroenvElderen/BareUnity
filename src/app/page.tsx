@@ -112,6 +112,7 @@ export default function HomePage() {
   const [openLikesPostId, setOpenLikesPostId] = useState<string | null>(null);
   const [likesByPost, setLikesByPost] = useState<Record<string, LikePreviewUser[]>>({});
   const [likesLoadingPostId, setLikesLoadingPostId] = useState<string | null>(null);
+  const [expandedCaptionsByPost, setExpandedCaptionsByPost] = useState<Record<string, boolean>>({});
   const [activeStoryIndex, setActiveStoryIndex] = useState<number | null>(null);
   const [activeStoryAuthorId, setActiveStoryAuthorId] = useState<string | null>(null);
   const [storyTimerCycle, setStoryTimerCycle] = useState(0);
@@ -434,9 +435,6 @@ export default function HomePage() {
   );
 
   const activePost = activePostId ? feed.posts.find((post) => post.id === activePostId) ?? null : null;
-  const [activePostRawTitle, ...activePostBodyLines] = (activePost?.text ?? "").split("\n");
-  const activePostTitle = activePostRawTitle?.trim() || "Untitled post";
-  const activePostBody = activePostBodyLines.join("\n").trim();
   const posts = feed.posts;
   const stories: HomeFeedStory[] = feed.stories;
   const friends: HomeFeedFriend[] = feed.friends;
@@ -692,8 +690,9 @@ export default function HomePage() {
               ) : null}
 
               {posts.map((post: HomeFeedPost) => {
-                const [rawTitle] = post.text.split("\n");
-                const title = rawTitle?.trim() || "Untitled post";
+                const caption = post.text.trim();
+                const isCaptionExpanded = Boolean(expandedCaptionsByPost[post.id]);
+                const shouldClampCaption = caption.length > 160 || caption.includes("\n");
 
                 return (
                 <Card key={post.id} className="border-0 bg-white">
@@ -739,10 +738,7 @@ export default function HomePage() {
                         </div>
                       ) : null}
                       </div>
-                    <button type="button" onClick={() => setActivePostId(post.id)} className="mb-3 w-full text-left">
-                      <h3 className="break-words text-2xl font-bold leading-tight text-[rgb(var(--text-strong))] [overflow-wrap:anywhere]">{title}</h3>
-                    </button>
-                    <button type="button" onClick={() => setActivePostId(post.id)} className="mb-4 block w-full text-left">
+                    <div className="mb-4 block w-full text-left">
                       {post.mediaUrl ? (
                         <img
                           src={post.mediaUrl}
@@ -755,7 +751,40 @@ export default function HomePage() {
                           aria-label={`Open full post from ${post.author}`}
                         />
                       )}
-                    </button>
+                    </div>
+                    {caption ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setExpandedCaptionsByPost((current) => ({ ...current, [post.id]: !current[post.id] }))
+                        }
+                        className="mb-3 block w-full text-left"
+                        aria-expanded={isCaptionExpanded}
+                        aria-label={isCaptionExpanded ? "Collapse caption" : "Expand caption"}
+                      >
+                        <p
+                          className="whitespace-pre-line break-words text-sm text-[rgb(var(--text))] [overflow-wrap:anywhere]"
+                          style={
+                            !isCaptionExpanded && shouldClampCaption
+                              ? {
+                                  display: "-webkit-box",
+                                  WebkitLineClamp: 3,
+                                  WebkitBoxOrient: "vertical",
+                                  overflow: "hidden",
+                                }
+                              : undefined
+                          }
+                        >
+                          <span className="mr-1 font-semibold text-[rgb(var(--text-strong))]">{post.author}</span>
+                          {caption}
+                        </p>
+                        {shouldClampCaption ? (
+                          <span className="mt-1 inline-block text-xs font-medium text-[rgb(var(--muted))]">
+                            {isCaptionExpanded ? "Show less" : "Show more"}
+                          </span>
+                        ) : null}
+                      </button>
+                    ) : null}
                     <div className="mb-3 flex flex-wrap items-center gap-2 border-t border-[rgb(var(--border))] pt-3">
                       <Button size="sm" variant={post.likedByViewer ? "default" : "outline"} onClick={() => toggleLike(post.id)}>
                         <Heart className={`mr-1 h-4 w-4 ${post.likedByViewer ? "fill-current" : ""}`} />
@@ -1051,10 +1080,9 @@ export default function HomePage() {
           <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-[rgb(var(--border))] bg-white p-5 shadow-xl">
             <div className="mb-4 flex items-start justify-between gap-4">
               <div className="flex items-center gap-3">
-                <Avatar alt={activePost.author} fallback={activePost.fallback} className="h-11 w-11" />
                 <div>
-                  <p className="text-sm font-semibold text-[rgb(var(--text-strong))]">{activePost.author}</p>
-                  <p className="text-xs text-[rgb(var(--muted))]">{activePost.posted}</p>
+                  <p className="text-base font-semibold text-[rgb(var(--text-strong))]">Comments</p>
+                  <p className="text-xs text-[rgb(var(--muted))]">{activePost.comments.length} total</p>
                 </div>
               </div>
               <button
@@ -1067,24 +1095,7 @@ export default function HomePage() {
               </button>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto pb-4 pr-1">
-              <h2 className="mb-3 break-words text-2xl font-bold leading-tight text-[rgb(var(--text-strong))] [overflow-wrap:anywhere]">{activePostTitle}</h2>
-              {activePost.mediaUrl ? (
-                <img
-                  src={activePost.mediaUrl}
-                  alt={`${activePost.author}'s full post`}
-                  className="mb-4 h-[32.5rem] w-full rounded-2xl bg-[rgb(var(--bg-soft))] object-contain"
-                />
-              ) : (
-                <div className={`mb-4 h-[32.5rem] rounded-2xl bg-gradient-to-r ${activePost.tone}`} />
-              )}
-              {activePostBody ? (
-                <p className="mb-4 whitespace-pre-line break-words [overflow-wrap:anywhere] text-sm text-[rgb(var(--text))]">{activePostBody}</p>
-              ) : null}
-
-            </div>
-
-            <div className="mt-2 space-y-2 border-t border-[rgb(var(--border))] bg-white pt-3">
+            <div className="mt-2 min-h-0 flex-1 space-y-2 border-t border-[rgb(var(--border))] bg-white pt-3">
               <div className="flex flex-wrap items-center gap-2">
                 <Button size="sm" variant={activePost.likedByViewer ? "default" : "outline"} onClick={() => toggleLike(activePost.id)}>
                   <Heart className={`mr-1 h-4 w-4 ${activePost.likedByViewer ? "fill-current" : ""}`} />

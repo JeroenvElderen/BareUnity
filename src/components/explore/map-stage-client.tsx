@@ -345,6 +345,9 @@ export function MapStageClient() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isSubmittingLocation, setIsSubmittingLocation] = useState(false);
   const [submitFeedback, setSubmitFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [showLocationPrompt, setShowLocationPrompt] = useState(true);
+  const [isLocatingUser, setIsLocatingUser] = useState(false);
+  const [locationPromptError, setLocationPromptError] = useState<string | null>(null);
 
   const canCreateLocation = useMemo(() => isLoggedIn, [isLoggedIn]);
 
@@ -474,6 +477,44 @@ export function MapStageClient() {
       }
     }
   }, [isPickingFromMap, open, selectedSpot]);
+
+  function dismissLocationPrompt() {
+    setShowLocationPrompt(false);
+    setLocationPromptError(null);
+  }
+
+  function focusMapOnUserLocation() {
+    if (!navigator.geolocation) {
+      setLocationPromptError("Geolocation is not supported in this browser.");
+      return;
+    }
+
+    setIsLocatingUser(true);
+    setLocationPromptError(null);
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const latitude = position.coords.latitude;
+        const longitude = position.coords.longitude;
+        mapRef.current?.flyTo?.({ center: [longitude, latitude], zoom: 11 });
+        dismissLocationPrompt();
+        setIsLocatingUser(false);
+      },
+      (error) => {
+        console.error("Failed to retrieve user location", error);
+        const message =
+          error.code === error.PERMISSION_DENIED
+            ? "Location access was denied. You can continue with the default map view."
+            : "We couldn't fetch your location. Please try again or continue with the default view.";
+        setLocationPromptError(message);
+        setIsLocatingUser(false);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+      },
+    );
+  }
 
   function updateLocationField<K extends keyof CreateLocationFormState>(field: K, value: CreateLocationFormState[K]) {
     setLocationForm((current) => ({ ...current, [field]: value }));
@@ -728,6 +769,30 @@ export function MapStageClient() {
     <>
       <div ref={mapContainerRef} className="h-full w-full rounded-[14px]" aria-label="Explore map canvas" />
 
+      {showLocationPrompt ? (
+        <div className="absolute inset-0 z-30 grid place-items-center bg-black/30 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-4 shadow-2xl">
+            <h3 className="m-0 text-base font-semibold text-[rgb(var(--text-strong))]">Use your location?</h3>
+            <p className="mt-2 text-sm text-[rgb(var(--muted))]">
+              Share your location and we’ll fly the map to where you are now.
+            </p>
+            {locationPromptError ? (
+              <p className="mt-2 rounded-lg bg-[rgb(190,68,68)/0.12] px-3 py-2 text-xs text-[rgb(190,68,68)]">
+                {locationPromptError}
+              </p>
+            ) : null}
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Button type="button" onClick={focusMapOnUserLocation} disabled={isLocatingUser}>
+                {isLocatingUser ? "Locating..." : "Yes, use my location"}
+              </Button>
+              <Button type="button" variant="outline" onClick={dismissLocationPrompt} disabled={isLocatingUser}>
+                No thanks
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      
       {selectedSpot ? (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
           <MapSpotPopup
