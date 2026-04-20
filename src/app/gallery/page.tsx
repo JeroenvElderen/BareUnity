@@ -4,9 +4,9 @@ import { useEffect, useState } from "react";
 
 import { AppSidebar } from "@/components/sidebar/sidebar";
 import { buildUserScopedCacheKey, loadCachedThenRefresh } from "@/lib/client-cache";
-import { supabase } from "@/lib/supabase";
 import layoutStyles from "../page.module.css";
 import styles from "./gallery.module.css";
+import { supabase } from "@/lib/supabase";
 
 type GalleryItem = {
   id: string;
@@ -16,21 +16,6 @@ type GalleryItem = {
 };
 
 const GALLERY_CACHE_MAX_AGE_MS = 1000 * 60 * 15;
-
-function toPublicMediaUrl(pathOrUrl: string): string {
-  const baseUrl = pathOrUrl.startsWith("http")
-    ? pathOrUrl
-    : supabase.storage
-        .from("media")
-        .getPublicUrl(pathOrUrl.startsWith("posts/") ? pathOrUrl : `posts/${pathOrUrl}`).data
-        .publicUrl;
-
-  const url = new URL(baseUrl);
-  url.searchParams.set("format", "webp");
-  url.searchParams.set("quality", "78");
-
-  return url.toString();
-}
 
 async function fetchGallerySnapshot(accessToken?: string | null): Promise<GalleryItem[]> {
   const headers: HeadersInit = {};
@@ -47,10 +32,7 @@ async function fetchGallerySnapshot(accessToken?: string | null): Promise<Galler
 
   const payload = (await response.json()) as { items?: GalleryItem[] };
 
-  return (payload.items ?? []).map((item) => ({
-    ...item,
-    src: toPublicMediaUrl(item.src),
-  }));
+  return payload.items ?? [];
 }
 
 export default function GalleryPage() {

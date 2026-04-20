@@ -433,7 +433,7 @@ export default function HomePage() {
             <div className="space-y-4">
               <Card className="border-0 bg-[#edf4ff]">
                 <CardHeader className="pb-4">
-                  <CardTitle className="text-sm uppercase tracking-[0.12em] text-[rgb(var(--muted))]">Stories</CardTitle>
+                  <CardTitle className="text-sm uppercase tracking-[0.12em] text-[rgb(var(--muted))]">Bare Moments</CardTitle>
                 </CardHeader>
                 <CardContent className="flex items-center gap-2 overflow-x-auto pb-1 min-[1100px]:grid min-[1100px]:gap-3 min-[1100px]:grid-cols-4">
                   {stories.map((story, storyIndex) => (
@@ -470,7 +470,7 @@ export default function HomePage() {
                       </p>
                     </button>
                   ))}
-                  {stories.length === 0 && <p className="text-sm text-[rgb(var(--muted))]">No stories yet.</p>}
+                  {stories.length === 0 && <p className="text-sm text-[rgb(var(--muted))]">No Bare Moments yet.</p>}
                 </CardContent>
               </Card>
 
@@ -599,7 +599,7 @@ export default function HomePage() {
                 </h2>
                 <p className="text-sm text-[rgb(var(--muted))]">
                   {composerKind === "story"
-                    ? "Stories expire after 24 hours and the image is removed automatically."
+                    ? "Bare Moments expire after 24 hours and the image is removed automatically."
                     : "Use markdown: # heading, ## subheading, - bullet, **bold**, *italic*."}
                 </p>
               </div>

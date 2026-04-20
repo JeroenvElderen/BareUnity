@@ -30,6 +30,7 @@ function toStoragePath(pathOrUrl: string): string {
       const pathname = new URL(value).pathname;
       const mediaPublicPrefix = "/storage/v1/object/public/media/";
       const mediaPrivatePrefix = "/storage/v1/object/media/";
+      const mediaSignPrefix = "/storage/v1/object/sign/media/";
 
       if (pathname.includes(mediaPublicPrefix)) {
         return decodeURIComponent(pathname.split(mediaPublicPrefix)[1] ?? "");
@@ -38,12 +39,16 @@ function toStoragePath(pathOrUrl: string): string {
       if (pathname.includes(mediaPrivatePrefix)) {
         return decodeURIComponent(pathname.split(mediaPrivatePrefix)[1] ?? "");
       }
+
+      if (pathname.includes(mediaSignPrefix)) {
+        return decodeURIComponent(pathname.split(mediaSignPrefix)[1] ?? "");
+      }
     } catch {
       return "";
     }
   }
 
-  return value.startsWith("posts/") ? value : `posts/${value}`;
+  return value.replace(/^\/+/, "");
 }
 
 function humanizeFileName(path: string): string {
@@ -54,12 +59,12 @@ function humanizeFileName(path: string): string {
 
 async function listAllMediaObjects(): Promise<SupabaseListEntry[]> {
   const supabaseAdmin = createSupabaseAdminClient();
-  const queue = ["posts"];
+  const queue = [""];
   const files: SupabaseListEntry[] = [];
 
   while (queue.length > 0) {
     const directory = queue.shift();
-    if (!directory) continue;
+    if (directory === undefined) continue;
 
     let offset = 0;
 
@@ -77,7 +82,7 @@ async function listAllMediaObjects(): Promise<SupabaseListEntry[]> {
       if (!data?.length) break;
 
       for (const entry of data as SupabaseListEntry[]) {
-        const fullPath = `${directory}/${entry.name}`;
+        const fullPath = directory ? `${directory}/${entry.name}` : entry.name;
         if (entry.metadata === null) {
           queue.push(fullPath);
           continue;
@@ -112,8 +117,7 @@ async function buildGalleryFromStorage(): Promise<GalleryStorageItem[]> {
   );
 
   const supabaseAdmin = createSupabaseAdminClient();
-
-  return objects
+  const entries = objects
     .map((entry) => ({
       path: entry.name,
       createdAt: entry.created_at ?? entry.updated_at ?? "1970-01-01T00:00:00.000Z",
@@ -125,9 +129,33 @@ async function buildGalleryFromStorage(): Promise<GalleryStorageItem[]> {
       id: `media-${entry.path}`,
       title: humanizeFileName(entry.path),
       place: "BareUnity Community",
-      src: supabaseAdmin.storage.from("media").getPublicUrl(entry.path).data.publicUrl,
+      src: entry.path,
       createdAt: entry.createdAt,
     }));
+
+  const signedItems = await Promise.all(
+    entries.map(async (entry) => {
+      const { data, error } = await supabaseAdmin.storage
+        .from("media")
+        .createSignedUrl(entry.src, 60 * 60 * 24 * 7, {
+          transform: {
+            format: "webp",
+            quality: 78,
+          },
+        });
+
+      if (error || !data?.signedUrl) {
+        return null;
+      }
+
+      return {
+        ...entry,
+        src: data.signedUrl,
+      };
+    }),
+  );
+
+  return signedItems.filter((item): item is GalleryStorageItem => Boolean(item));
 }
 
 export async function GET() {
