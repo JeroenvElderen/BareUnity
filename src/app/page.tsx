@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type MouseEvent } from "react";
 import { Ellipsis, Heart, MessageCircle, Pencil, Trash2, X } from "lucide-react";
 import { AppSidebar } from "@/components/sidebar/sidebar";
 import { Avatar } from "@/components/ui/avatar";
@@ -73,6 +73,7 @@ const defaultFeed: HomeFeedPayload = {
   viewerId: null,
 };
 const HOME_FEED_CACHE_MAX_AGE_MS = 1000 * 60 * 15;
+const STORY_VIEW_MS = 7000;
 
 export default function HomePage() {
   const [homeFeedCacheKey] = useState(() => buildUserScopedCacheKey("home-feed"));
@@ -99,6 +100,8 @@ export default function HomePage() {
   const [editTitle, setEditTitle] = useState("");
   const [editContent, setEditContent] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<{ postId: string; commentId?: string } | null>(null);
+  const [activeStoryIndex, setActiveStoryIndex] = useState<number | null>(null);
+  const [storyTimerCycle, setStoryTimerCycle] = useState(0);
 
   const canPublish =
     composerKind === "story"
@@ -213,6 +216,19 @@ export default function HomePage() {
       void supabase.removeChannel(liveFeedChannel);
     };
   }, [loadFeed]);
+
+  useEffect(() => {
+    if (activeStoryIndex === null) return;
+
+    const timer = window.setTimeout(() => {
+      setActiveStoryIndex(null);
+      setStoryTimerCycle(0);
+    }, STORY_VIEW_MS);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [activeStoryIndex, storyTimerCycle]);
 
   const publishPost = async () => {
     if (!canPublish || !composerKind) return;
@@ -334,6 +350,34 @@ export default function HomePage() {
   const posts = feed.posts;
   const stories: HomeFeedStory[] = feed.stories;
   const friends: HomeFeedFriend[] = feed.friends;
+  const activeStory = activeStoryIndex !== null ? stories[activeStoryIndex] ?? null : null;
+  const openStory = (index: number) => {
+    if (!stories[index]) return;
+    setActiveStoryIndex(index);
+    setStoryTimerCycle(0);
+  };
+
+  const closeStory = () => {
+    setActiveStoryIndex(null);
+    setStoryTimerCycle(0);
+  };
+
+  const resetStoryTimer = () => {
+    setStoryTimerCycle((current) => current + 1);
+  };
+
+  const onStoryViewerTap = (event: MouseEvent<HTMLDivElement>) => {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const tapX = event.clientX - bounds.left;
+
+    if (tapX > bounds.width / 2) {
+      closeStory();
+      return;
+    }
+
+    resetStoryTimer();
+  };
+
   const closeComposer = () => {
     setComposerOpen(false);
     setComposerKind(null);
@@ -390,10 +434,12 @@ export default function HomePage() {
                   <CardTitle className="text-sm uppercase tracking-[0.12em] text-[rgb(var(--muted))]">Stories</CardTitle>
                 </CardHeader>
                 <CardContent className="flex items-center gap-2 overflow-x-auto pb-1 min-[1100px]:grid min-[1100px]:gap-3 min-[1100px]:grid-cols-4">
-                  {stories.map((story) => (
-                    <article
+                  {stories.map((story, storyIndex) => (
+                    <button
                       key={story.id}
-                      className="relative flex shrink-0 flex-col items-center gap-1 min-[1100px]:items-stretch min-[1100px]:gap-0 min-[1100px]:overflow-hidden min-[1100px]:rounded-2xl min-[1100px]:border min-[1100px]:border-white/60 min-[1100px]:bg-white min-[1100px]:shadow-sm"
+                      type="button"
+                      onClick={() => openStory(storyIndex)}
+                      className="relative flex shrink-0 flex-col items-center gap-1 text-left min-[1100px]:items-stretch min-[1100px]:gap-0 min-[1100px]:overflow-hidden min-[1100px]:rounded-2xl min-[1100px]:border min-[1100px]:border-white/60 min-[1100px]:bg-white min-[1100px]:shadow-sm"
                     >
                       {story.imageUrl ? (
                         <img
@@ -420,7 +466,7 @@ export default function HomePage() {
                       <p className="hidden min-[1100px]:absolute min-[1100px]:bottom-0 min-[1100px]:right-3 min-[1100px]:block min-[1100px]:text-[11px] min-[1100px]:text-white/90">
                         {story.posted}
                       </p>
-                    </article>
+                    </button>
                   ))}
                   {stories.length === 0 && <p className="text-sm text-[rgb(var(--muted))]">No stories yet.</p>}
                 </CardContent>
@@ -646,6 +692,56 @@ export default function HomePage() {
         </div>
       ) : null}
 
+      {activeStory ? (
+        <div className="fixed inset-0 z-50 bg-black/85" role="dialog" aria-modal="true" aria-label={`${activeStory.name} story`} onClick={onStoryViewerTap}>
+          <div className="mx-auto flex h-full w-full max-w-3xl flex-col p-4 sm:p-6">
+            <div className="mb-3 h-1.5 w-full overflow-hidden rounded-full bg-white/25">
+              <div
+                key={storyTimerCycle}
+                className="h-full rounded-full bg-white"
+                style={{ animation: `story-progress ${STORY_VIEW_MS}ms linear forwards` }}
+              />
+            </div>
+            <div className="mb-3 flex items-center justify-between text-white">
+              <div className="flex items-center gap-3">
+                <Avatar alt={activeStory.name} fallback={activeStory.fallback} className="h-10 w-10 border border-white/70" />
+                <div>
+                  <p className="text-sm font-semibold">{activeStory.name}</p>
+                  <p className="text-xs text-white/80">{activeStory.posted}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  closeStory();
+                }}
+                aria-label="Close story"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-white/50 text-white hover:bg-white/15"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="relative min-h-0 flex-1 overflow-hidden rounded-2xl bg-black/40">
+              {activeStory.imageUrl ? (
+                <img src={activeStory.imageUrl} alt={`${activeStory.name} story`} className="h-full w-full object-contain" />
+              ) : (
+                <div className={`h-full w-full bg-gradient-to-br ${activeStory.tone}`} />
+              )}
+              <p className="absolute bottom-4 left-4 right-4 text-sm font-medium text-white drop-shadow">
+                Tap left to reset timer · tap right to close
+              </p>
+            </div>
+          </div>
+          <style jsx global>{`
+            @keyframes story-progress {
+              from { width: 0%; }
+              to { width: 100%; }
+            }
+          `}</style>
+        </div>
+      ) : null}
+      
       {activePost ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 py-8" role="dialog" aria-modal="true">
           <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-[rgb(var(--border))] bg-white p-5 shadow-xl">
