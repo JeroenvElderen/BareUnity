@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type MouseEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type MouseEvent } from "react";
 import { Ellipsis, Heart, MessageCircle, Pencil, Trash2, X } from "lucide-react";
 import { AppSidebar } from "@/components/sidebar/sidebar";
 import { Avatar } from "@/components/ui/avatar";
@@ -91,6 +91,8 @@ export default function HomePage() {
   const [postContent, setPostContent] = useState("");
   const [postImagePreview, setPostImagePreview] = useState<string>("");
   const [postImageDataUrl, setPostImageDataUrl] = useState<string>("");
+  const galleryImageInputRef = useRef<HTMLInputElement | null>(null);
+  const cameraImageInputRef = useRef<HTMLInputElement | null>(null);
   const [feed, setFeed] = useState<HomeFeedPayload>(() => cachedFeed ?? defaultFeed);
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
   const [activePostId, setActivePostId] = useState<string | null>(null);
@@ -663,17 +665,60 @@ export default function HomePage() {
                 <label className="block text-sm text-[rgb(var(--muted))]">
                   {composerKind === "story" ? "Story image (required)" : "Post image (optional)"}
                 </label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture={composerKind === "story" ? "environment" : undefined}
-                  onChange={(event) => void onPickImage(event)}
-                />
                 {composerKind === "story" ? (
-                  <p className="text-xs text-[rgb(var(--muted))]">
-                    On phones, this can open your camera so you can take a story photo instantly.
-                  </p>
-                ) : null}
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          if (galleryImageInputRef.current) {
+                            galleryImageInputRef.current.value = "";
+                            galleryImageInputRef.current.click();
+                          }
+                        }}
+                      >
+                        Choose from gallery
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          if (cameraImageInputRef.current) {
+                            cameraImageInputRef.current.value = "";
+                            cameraImageInputRef.current.click();
+                          }
+                        }}
+                      >
+                        Use camera
+                      </Button>
+                    </div>
+                    <input
+                      ref={galleryImageInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={(event) => void onPickImage(event)}
+                      className="hidden"
+                    />
+                    <input
+                      ref={cameraImageInputRef}
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={(event) => void onPickImage(event)}
+                      className="hidden"
+                    />
+                    <p className="text-xs text-[rgb(var(--muted))]">
+                      Pick an existing photo or open your camera to take a new story image.
+                    </p>
+                  </div>
+                ) : (
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(event) => void onPickImage(event)}
+                  />
+                )}
                 {postImagePreview ? (
                   <img src={postImagePreview} alt="Selected upload preview" className="max-h-64 w-full rounded-xl object-cover" />
                 ) : null}
