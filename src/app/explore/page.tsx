@@ -1,16 +1,34 @@
 import { MapStageClient } from "@/components/explore/map-stage-client";
 import { AppSidebar } from "@/components/sidebar/sidebar";
+import { db } from "@/server/db";
 import layoutStyles from "../page.module.css";
 import styles from "./explore.module.css";
 
-const liveUpdates = [
-  { title: "Sunset Meadow", detail: "14 active nearby • calm weather", time: "2m" },
-  { title: "Lakeside Gathering", detail: "Event starts in 35 minutes", time: "7m" },
-  { title: "Pine Trail Circle", detail: "Trail density currently low", time: "12m" },
-  { title: "River Bend", detail: "New check-in from the community", time: "18m" },
-] as const;
+function formatRelativeUpdateTime(createdAt: Date) {
+  const diffMs = Date.now() - createdAt.getTime();
+  const diffMinutes = Math.max(1, Math.floor(diffMs / (1000 * 60)));
+
+  if (diffMinutes < 60) return `${diffMinutes}m`;
+
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours}h`;
+
+  const diffDays = Math.floor(diffHours / 24);
+  return `${diffDays}d`;
+}
 
 export default async function ExplorePage() {
+  const latestMapSpots = await db.naturist_map_spots.findMany({
+    orderBy: { created_at: "desc" },
+    take: 8,
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      created_at: true,
+    },
+  });
+
   return (
     <main className={layoutStyles.main}>
       <AppSidebar />
@@ -52,15 +70,24 @@ export default async function ExplorePage() {
             </header>
 
             <ul>
-              {liveUpdates.map((item) => (
-                <li key={item.title}>
+              {latestMapSpots.length ? (
+                latestMapSpots.map((spot) => (
+                  <li key={spot.id}>
+                    <div>
+                      <p>{spot.name}</p>
+                    </div>
+                    <span>{formatRelativeUpdateTime(spot.created_at)}</span>
+                  </li>
+                ))
+              ) : (
+                <li>
                   <div>
-                    <p>{item.title}</p>
-                    <small>{item.detail}</small>
+                    <p>No updates yet</p>
+                    <small>Newly submitted locations will appear here in the order they were added.</small>
                   </div>
-                  <span>{item.time}</span>
+                  <span>—</span>
                 </li>
-              ))}
+              )}
             </ul>
           </aside>
         </section>

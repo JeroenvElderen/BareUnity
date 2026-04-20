@@ -1096,42 +1096,6 @@ export default function HomePage() {
             </div>
 
             <div className="mt-2 min-h-0 flex-1 space-y-2 border-t border-[rgb(var(--border))] bg-white pt-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <Button size="sm" variant={activePost.likedByViewer ? "default" : "outline"} onClick={() => toggleLike(activePost.id)}>
-                  <Heart className={`mr-1 h-4 w-4 ${activePost.likedByViewer ? "fill-current" : ""}`} />
-                  Like ({activePost.likes})
-                </Button>
-                {feed.viewerId && activePost.authorId === feed.viewerId ? (
-                  <div className="relative">
-                    <Button size="sm" variant="outline" onClick={() => void toggleLikesDropdown(activePost.id)}>
-                      Liked by
-                      <ChevronDown className="ml-1 h-4 w-4" />
-                    </Button>
-                    {openLikesPostId === activePost.id ? (
-                      <div className="absolute bottom-10 right-0 z-20 w-60 max-w-[calc(100vw-3rem)] rounded-lg border border-[rgb(var(--border))] bg-white p-2 shadow-lg sm:bottom-auto sm:left-0 sm:right-auto sm:top-10 sm:max-w-none">
-                        {likesLoadingPostId === activePost.id ? (
-                          <p className="px-2 py-1 text-xs text-[rgb(var(--muted))]">Loading likes...</p>
-                        ) : likesByPost[activePost.id]?.length ? (
-                          <div className="max-h-48 space-y-1 overflow-y-auto">
-                            {likesByPost[activePost.id].map((user) => (
-                              <div key={user.userId} className="flex items-center gap-2 rounded-md px-2 py-1">
-                                <Avatar src={user.avatarUrl ?? undefined} alt={user.name} fallback={user.name.slice(0, 2).toUpperCase()} className="h-7 w-7" />
-                                <span className="text-xs font-medium text-[rgb(var(--text-strong))]">{user.name}</span>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="px-2 py-1 text-xs text-[rgb(var(--muted))]">No likes yet.</p>
-                        )}
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
-                <Badge variant="outline" className="px-3 py-1 text-xs">
-                  <MessageCircle className="mr-1 h-3.5 w-3.5" />
-                  {activePost.comments.length} comments
-                </Badge>
-              </div>
               <div className="max-h-[min(45vh,24rem)] space-y-2 overflow-y-auto pr-1">
                 {rootCommentsForPost(activePost).map((comment) => {
                   const renderComment = (node: HomeFeedComment, depth: number, visited: Set<string>) => {
