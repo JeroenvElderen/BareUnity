@@ -108,6 +108,7 @@ async function convertImageToWebp(file: File): Promise<File> {
 
 export default function GalleryPage() {
   const [items, setItems] = useState<GalleryItem[]>([]);
+  const [activeItem, setActiveItem] = useState<GalleryItem | null>(null);
   const [pendingLikeIds, setPendingLikeIds] = useState<Set<string>>(() => new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
@@ -163,6 +164,21 @@ export default function GalleryPage() {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!activeItem) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setActiveItem(null);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [activeItem]);
 
   const handleUpload: ChangeEventHandler<HTMLInputElement> = async (event) => {
     const selectedFile = event.target.files?.[0];
@@ -341,7 +357,12 @@ export default function GalleryPage() {
                   styles[TILE_SIZE_VARIANTS[hashString(item.id) % TILE_SIZE_VARIANTS.length]]
                 }`}
               >
-                <div className={styles.media}>
+                <button
+                  type="button"
+                  className={styles.media}
+                  onClick={() => setActiveItem(item)}
+                  aria-label={`View ${item.title} in full screen`}
+                >
                   <img
                     src={item.src}
                     alt={`${item.title} — ${item.place}`}
@@ -351,7 +372,7 @@ export default function GalleryPage() {
                     draggable={false}
                     onTouchEnd={() => handleImageTouchEnd(item.id)}
                   />
-                </div>
+                </button>
                 <figcaption className={styles.metaBar}>
                   <button
                     type="button"
@@ -371,6 +392,30 @@ export default function GalleryPage() {
           </div>
         )}
       </section>
+      {activeItem ? (
+        <div
+          className={styles.fullscreenOverlay}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${activeItem.title} full screen preview`}
+          onClick={() => setActiveItem(null)}
+        >
+          <button
+            type="button"
+            className={styles.fullscreenClose}
+            onClick={() => setActiveItem(null)}
+            aria-label="Close full screen image"
+          >
+            ×
+          </button>
+          <img
+            src={activeItem.src}
+            alt={`${activeItem.title} — ${activeItem.place}`}
+            className={styles.fullscreenImage}
+            onClick={(event) => event.stopPropagation()}
+          />
+        </div>
+      ) : null}
     </main>
   );
 }
