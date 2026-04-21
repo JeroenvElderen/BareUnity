@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ChangeEventHandler } from "react";
 
 import { AppSidebar } from "@/components/sidebar/sidebar";
 import { buildUserScopedCacheKey, loadCachedThenRefresh } from "@/lib/client-cache";
@@ -53,9 +53,71 @@ async function fetchGallerySnapshot(accessToken?: string | null): Promise<Galler
   return payload.items ?? [];
 }
 
+async function convertImageToWebp(file: File): Promise<File> {
+  const objectUrl = URL.createObjectURL(file);
+
+  try {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const nextImage = new Image();
+      nextImage.onload = () => resolve(nextImage);
+      nextImage.onerror = () => reject(new Error("Could not process this image."));
+      nextImage.src = objectUrl;
+    });
+
+    const canvas = document.createElement("canvas");
+    canvas.width = image.naturalWidth || image.width;
+    canvas.height = image.naturalHeight || image.height;
+
+    const context = canvas.getContext("2d");
+    if (!context) {
+      throw new Error("Image conversion is unavailable in this browser.");
+    }
+
+    context.drawImage(image, 0, 0);
+
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(
+        (generatedBlob) => {
+          if (!generatedBlob) {
+            reject(new Error("Could not convert image to WEBP."));
+            return;
+          }
+
+          resolve(generatedBlob);
+        },
+        "image/webp",
+        0.9,
+      );
+    });
+
+    const webpName = file.name.replace(/\.[^.]+$/, "") || "gallery-image";
+    return new File([blob], `${webpName}.webp`, {
+      type: "image/webp",
+      lastModified: Date.now(),
+    });
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
 export default function GalleryPage() {
   const [items, setItems] = useState<GalleryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  const refreshGallery = async () => {
+    const { data } = await supabase.auth.getSession();
+    const userId = data.session?.user?.id ?? null;
+    const accessToken = data.session?.access_token ?? null;
+    const cacheKey = buildUserScopedCacheKey("gallery-items", userId);
+
+    return loadCachedThenRefresh<GalleryItem[]>({
+      key: cacheKey,
+      maxAgeMs: GALLERY_CACHE_MAX_AGE_MS,
+      fetchFresh: () => fetchGallerySnapshot(accessToken),
+    });
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -94,15 +156,69 @@ export default function GalleryPage() {
     };
   }, []);
 
+  const handleUpload: ChangeEventHandler<HTMLInputElement> = async (event) => {
+    const selectedFile = event.target.files?.[0];
+    event.target.value = "";
+    if (!selectedFile || isUploading) return;
+
+    setIsUploading(true);
+    setUploadError(null);
+
+    try {
+      const { data } = await supabase.auth.getSession();
+      const accessToken = data.session?.access_token;
+      if (!accessToken) {
+        throw new Error("Please sign in before uploading.");
+      }
+
+      const convertedFile = await convertImageToWebp(selectedFile);
+      const payload = new FormData();
+      payload.append("image", convertedFile);
+
+      const response = await fetch("/api/gallery/upload", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: payload,
+      });
+
+      if (!response.ok) {
+        const body = (await response.json().catch(() => ({}))) as { error?: string };
+        throw new Error(body.error ?? "Upload failed.");
+      }
+
+      const nextItems = await refreshGallery();
+      setItems(nextItems);
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : "Upload failed.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   return (
     <main className={layoutStyles.main}>
       <AppSidebar />
 
       <section className={styles.wrapper}>
+      <div className={styles.uploadAction}>
+          <label className={styles.uploadButton} aria-disabled={isUploading}>
+            <input
+              type="file"
+              accept="image/*"
+              className={styles.uploadInput}
+              onChange={handleUpload}
+              disabled={isUploading}
+            />
+            {isUploading ? "Uploading…" : "+"}
+          </label>
+        </div>
+        {uploadError ? <p className={styles.uploadError}>{uploadError}</p> : null}
         {!isLoading && items.length === 0 ? (
           <div className={styles.emptyState}>
             <p>No gallery media found yet.</p>
-            <small>Upload a post with media or add files to media/posts in Supabase Storage.</small>
+            <small>Upload an image with + (automatically converted to WEBP) or add files to media storage.</small>
           </div>
         ) : (
           <div className={styles.galleryFlow}>
