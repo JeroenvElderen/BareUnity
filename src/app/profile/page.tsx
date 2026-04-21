@@ -76,19 +76,57 @@ function toReadableDate(value: string | null): string {
   });
 }
 
-async function getProfileDataForUser(accessToken: string): Promise<ProfileData> {
-  const response = await fetch("/api/profile/snapshot", {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
+async function getProfileDataForUser(userId: string): Promise<ProfileData> {
+  const [profileResult, postsResult, settingsResult, postsCountResult, friendsCountResult, commentsCountResult] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("id, username, display_name, bio, avatar_url, location")
+      .eq("id", userId)
+      .maybeSingle<ProfileRow>(),
+    supabase
+      .from("posts")
+      .select("id, title, content, media_url, created_at, post_type")
+      .eq("author_id", userId)
+      .or("post_type.is.null,post_type.neq.story")
+      .order("created_at", { ascending: false })
+      .limit(30),
+    supabase
+      .from("profile_settings")
+      .select("interests")
+      .eq("user_id", userId)
+      .maybeSingle<{ interests: string[] | null }>(),
+    supabase
+      .from("posts")
+      .select("id", { count: "exact", head: true })
+      .eq("author_id", userId)
+      .or("post_type.is.null,post_type.neq.story"),
+    supabase
+      .from("friendships")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId),
+    supabase
+      .from("comments")
+      .select("id", { count: "exact", head: true })
+      .eq("author_id", userId),
+  ]);
+
+  if (profileResult.error) throw profileResult.error;
+  if (postsResult.error) throw postsResult.error;
+  if (settingsResult.error) throw settingsResult.error;
+  if (postsCountResult.error) throw postsCountResult.error;
+  if (friendsCountResult.error) throw friendsCountResult.error;
+  if (commentsCountResult.error) throw commentsCountResult.error;
+
+  return {
+    profile: profileResult.data ?? null,
+    posts: (postsResult.data ?? []) as PostRow[],
+    interests: (settingsResult.data?.interests ?? []).slice(0, 8),
+    stats: {
+      posts: postsCountResult.count ?? 0,
+      friends: friendsCountResult.count ?? 0,
+      comments: commentsCountResult.count ?? 0,
     },
-    cache: "no-store",
-  });
-
-  if (!response.ok) {
-    throw new Error(`Profile snapshot request failed (${response.status})`);
-  }
-
-  return (await response.json()) as ProfileData;
+  };
 }
 
 export default function ProfilePage() {
@@ -99,8 +137,8 @@ export default function ProfilePage() {
     accessToken: null,
   });
 
-  const loadProfileForUser = useCallback(async (sessionUser: User | null, accessToken: string | null, options?: { background?: boolean }) => {
-    if (!isSupabaseConfigured || !sessionUser || !accessToken) {
+  const loadProfileForUser = useCallback(async (sessionUser: User | null) => {
+    if (!isSupabaseConfigured || !sessionUser) {
       setProfileData(EMPTY_PROFILE_DATA);
       setIsLoading(false);
       return;
@@ -117,7 +155,7 @@ export default function ProfilePage() {
           setProfileData(cached);
           setIsLoading(false);
         },
-        fetchFresh: () => getProfileDataForUser(accessToken),
+        fetchFresh: () => getProfileDataForUser(sessionUser.id),
       });
       setProfileData(data);
     } finally {
@@ -132,19 +170,13 @@ export default function ProfilePage() {
 
     void supabase.auth.getSession().then(({ data }) => {
       if (!isMounted) return;
-      const user = data.session?.user ?? null;
-      const accessToken = data.session?.access_token ?? null;
-      setSessionContext({ user, accessToken });
-      void loadProfileForUser(user, accessToken);
+      void loadProfileForUser(data.session?.user ?? null);
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      const user = session?.user ?? null;
-      const accessToken = session?.access_token ?? null;
-      setSessionContext({ user, accessToken });
-      void loadProfileForUser(user, accessToken);
+      void loadProfileForUser(session?.user ?? null);
     });
 
     return () => {

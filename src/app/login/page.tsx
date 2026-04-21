@@ -4,6 +4,9 @@ import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "@/app/auth.module.css";
+import { buildUserScopedCacheKey, writeCachedValue } from "@/lib/client-cache";
+import type { HomeFeedPayload } from "@/lib/homefeed";
+import { setPrefetchedRouteData } from "@/lib/prefetched-route-data";
 import { supabase } from "@/lib/supabase";
 
 export default function LoginPage() {
@@ -17,6 +20,31 @@ export default function LoginPage() {
 
   const markPostLoginHydration = () => {
     window.sessionStorage.setItem("bareunity_post_login_loading", "true");
+  };
+
+  const warmHomeFeedBeforeRedirect = async () => {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const accessToken = session?.access_token;
+      const userId = session?.user?.id ?? null;
+      if (!accessToken) return;
+
+      const response = await fetch("/api/homefeed", {
+        cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+      if (!response.ok) return;
+
+      const payload = (await response.json()) as HomeFeedPayload;
+      writeCachedValue(buildUserScopedCacheKey("home-feed", userId), payload);
+      setPrefetchedRouteData("homefeed", payload);
+    } catch {
+      // warmup is best-effort and should never block login navigation
+    }
   };
 
   useEffect(() => {
@@ -52,6 +80,8 @@ export default function LoginPage() {
 
     setIsLoading(false);
     markPostLoginHydration();
+    await warmHomeFeedBeforeRedirect();
+    void router.prefetch("/");
     router.push("/");
     router.refresh();
   }
@@ -97,6 +127,8 @@ export default function LoginPage() {
     setStatus("Signed in with passkey.");
     setIsLoading(false);
     markPostLoginHydration();
+    await warmHomeFeedBeforeRedirect();
+    void router.prefetch("/");
     router.push("/");
     router.refresh();
   }

@@ -7,6 +7,7 @@ import { Building2, Flame, Hotel, MapPin, TentTree, Trees, Umbrella } from "luci
 import { MapSpotPopup } from "@/components/explore/map-spot-popup";
 import { Button } from "@/components/ui/button";
 import { buildUserScopedCacheKey, loadCachedThenRefresh } from "@/lib/client-cache";
+import { takePrefetchedRouteData } from "@/lib/prefetched-route-data";
 import { supabase } from "@/lib/supabase";
 
 type Spot = {
@@ -329,6 +330,7 @@ function formatCoordinate(value: string) {
 
 export function MapStageClient() {
   const [mapSpotsCacheKey] = useState(() => buildUserScopedCacheKey("map-spots"));
+  const prefetchedMapSpotsRef = useRef<Spot[] | null>(takePrefetchedRouteData<Spot[]>("map-spots"));
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMapInstance | null>(null);
   const renderedSpotIdsRef = useRef<Set<string>>(new Set());
@@ -421,6 +423,12 @@ export function MapStageClient() {
               }
             },
             fetchFresh: async () => {
+              if (prefetchedMapSpotsRef.current) {
+                const prefetchedSpots = prefetchedMapSpotsRef.current;
+                prefetchedMapSpotsRef.current = null;
+                return prefetchedSpots;
+              }
+
               const mapSpotsResponse = await fetch("/api/map-spots", { cache: "no-store" });
               if (!mapSpotsResponse.ok) {
                 throw new Error(`Map spots request failed (${mapSpotsResponse.status})`);
