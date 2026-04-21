@@ -417,8 +417,8 @@ export default function GalleryPage() {
     const deltaX = touch.clientX - start.x;
     const deltaY = touch.clientY - start.y;
     const isHorizontalSwipe = Math.abs(deltaX) > Math.abs(deltaY);
-    const isLeftSwipe = deltaX < -90;
-    const isRightSwipe = deltaX > 90;
+    const isLeftSwipe = deltaX > 90;
+    const isRightSwipe = deltaX < -90;
 
     if (isHorizontalSwipe && (isLeftSwipe || isRightSwipe)) {
       fullscreenSwipeHandledRef.current = true;
