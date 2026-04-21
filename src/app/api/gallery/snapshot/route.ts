@@ -10,6 +10,7 @@ type GalleryStorageItem = {
   title: string;
   place: string;
   username: string;
+  ownerId: string;
   path: string;
   src: string;
   createdAt: string;
