@@ -111,7 +111,10 @@ export function AppSidebar() {
   const isAdminSection = pathname?.startsWith("/admin") ?? false;
   const [isAdminOpen, setIsAdminOpen] = useState(isAdminSection);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [activeToasts, setActiveToasts] = useState<AppNotification[]>([]);
   const notificationsRef = useRef<HTMLDivElement | null>(null);
+  const seenNotificationIdsRef = useRef(new Set<string>());
+  const hasSeenInitialNotificationsRef = useRef(false);
   const [viewerId, setViewerId] = useState<string | null>(null);
   const [generalChannelId, setGeneralChannelId] = useState<string | null>(null);
   const videoVisitorsRef = useRef(new Set<string>());
@@ -173,6 +176,43 @@ export function AppSidebar() {
       createNotification("Realtime notifications enabled", "You'll now get live activity updates.", "general-message"),
     ]);
   }, [bootstrapNotifications, notificationsBootstrapped, viewerId]);
+
+  useEffect(() => {
+    if (!hasSeenInitialNotificationsRef.current) {
+      notifications.forEach((notification) => {
+        seenNotificationIdsRef.current.add(notification.id);
+      });
+      hasSeenInitialNotificationsRef.current = true;
+      return;
+    }
+
+    const freshNotifications = notifications.filter((notification) => !seenNotificationIdsRef.current.has(notification.id));
+    if (!freshNotifications.length) return;
+
+    freshNotifications.forEach((notification) => {
+      seenNotificationIdsRef.current.add(notification.id);
+    });
+
+    const unreadFreshNotifications = freshNotifications.filter((notification) => notification.unread);
+    if (!unreadFreshNotifications.length) return;
+
+    setActiveToasts((current) => {
+      const dedupedCurrent = current.filter(
+        (existingToast) => !unreadFreshNotifications.some((freshToast) => freshToast.id === existingToast.id),
+      );
+      return [...unreadFreshNotifications, ...dedupedCurrent].slice(0, 3);
+    });
+
+    const timers = unreadFreshNotifications.map((notification) =>
+      window.setTimeout(() => {
+        setActiveToasts((current) => current.filter((toast) => toast.id !== notification.id));
+      }, 6500),
+    );
+
+    return () => {
+      timers.forEach((timer) => window.clearTimeout(timer));
+    };
+  }, [notifications]);
 
   useEffect(() => {
     if (!viewerId) return;
@@ -542,6 +582,36 @@ export function AppSidebar() {
         </section>
         <SidebarProfileLink className={styles.mobileProfileCard} />
       </div>
+
+      {activeToasts.length ? (
+        <div className={styles.toastStack} aria-live="polite" aria-label="Notification toasts">
+          {activeToasts.map((notification) => (
+            <article key={notification.id} className={styles.toastCard}>
+              <button
+                type="button"
+                className={styles.toastContentButton}
+                onClick={() => {
+                  markNotificationAsRead(notification.id);
+                  setActiveToasts((current) => current.filter((toast) => toast.id !== notification.id));
+                  void router.push("/notifications");
+                }}
+              >
+                <strong>{notification.title}</strong>
+                <p>{notification.detail}</p>
+                <small>{formatRelativeTime(notification.timestamp)}</small>
+              </button>
+              <button
+                type="button"
+                className={styles.toastCloseButton}
+                onClick={() => setActiveToasts((current) => current.filter((toast) => toast.id !== notification.id))}
+                aria-label="Dismiss notification"
+              >
+                <X size={14} aria-hidden />
+              </button>
+            </article>
+          ))}
+        </div>
+      ) : null}
     </aside>
   );
 }
