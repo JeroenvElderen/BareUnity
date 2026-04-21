@@ -108,6 +108,8 @@ export default function HomePage() {
   const [editingPost, setEditingPost] = useState<HomeFeedPost | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editContent, setEditContent] = useState("");
+  const [editImagePreview, setEditImagePreview] = useState<string>("");
+  const [editImageDataUrl, setEditImageDataUrl] = useState<string>("");
   const [deleteTarget, setDeleteTarget] = useState<{ postId: string; commentId?: string } | null>(null);
   const [openLikesPostId, setOpenLikesPostId] = useState<string | null>(null);
   const [likesByPost, setLikesByPost] = useState<Record<string, LikePreviewUser[]>>({});
@@ -375,7 +377,27 @@ export default function HomePage() {
     setEditingPost(post);
     setEditTitle(existingTitle ?? "");
     setEditContent(existingContentLines.join("\n"));
+    setEditImagePreview(post.mediaUrl ?? "");
+    setEditImageDataUrl("");
     setOpenPostMenuId(null);
+  };
+
+  const onPickEditImage = async (event: ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = event.target.files?.[0];
+    if (!selectedFile) return;
+
+    const sanitized = await sanitizeImageUpload(selectedFile, 1920);
+    if (editImagePreview.startsWith("blob:")) URL.revokeObjectURL(editImagePreview);
+    const preview = URL.createObjectURL(sanitized);
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result ?? ""));
+      reader.onerror = () => reject(new Error("Could not read image file"));
+      reader.readAsDataURL(sanitized);
+    });
+
+    setEditImagePreview(preview);
+    setEditImageDataUrl(dataUrl);
   };
 
   const editPost = async () => {
@@ -384,13 +406,16 @@ export default function HomePage() {
     const response = await fetch(`/api/homefeed/posts/${editingPost.id}`, {
       method: "PATCH",
       headers: (await getAuthHeaders({ includeJsonContentType: true })).headers,
-      body: JSON.stringify({ title: editTitle, content: editContent }),
+      body: JSON.stringify({ title: editTitle, content: editContent, mediaUrl: editImageDataUrl }),
     });
 
     if (!response.ok) return;
+    if (editImagePreview.startsWith("blob:")) URL.revokeObjectURL(editImagePreview);
     setEditingPost(null);
     setEditTitle("");
     setEditContent("");
+    setEditImagePreview("");
+    setEditImageDataUrl("");
     setOpenPostMenuId(null);
     await loadFeed();
   };
@@ -739,12 +764,7 @@ export default function HomePage() {
                           alt={`${post.author}'s post`}
                           className="h-130 w-full rounded-2xl bg-[rgb(var(--bg-soft))] object-contain"
                         />
-                      ) : (
-                        <span
-                          className={`block h-130 w-full rounded-2xl bg-gradient-to-r ${post.tone}`}
-                          aria-label={`Open full post from ${post.author}`}
-                        />
-                      )}
+                      ) : null}
                     </div>
                     {caption ? (
                       <button
@@ -1225,13 +1245,16 @@ export default function HomePage() {
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-lg font-semibold text-[rgb(var(--text-strong))]">Edit post</h2>
-                <p className="text-sm text-[rgb(var(--muted))]">Adjust your post title and body text. Image changes are not available.</p>
+                <p className="text-sm text-[rgb(var(--muted))]">Adjust your post title, body text, and optional image.</p>
               </div>
               <button
                 type="button"
                 onClick={() => {
+                  if (editImagePreview.startsWith("blob:")) URL.revokeObjectURL(editImagePreview);
                   setEditingPost(null);
                   setEditTitle("");
+                  setEditImagePreview("");
+                  setEditImageDataUrl("");
                   setEditContent("");
                 }}
                 aria-label="Close edit post dialog"
@@ -1254,13 +1277,23 @@ export default function HomePage() {
                 className="min-h-40 w-full rounded-lg border border-[rgb(var(--border))] px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[rgb(var(--ring))]"
                 placeholder="Write your post content here..."
               />
+              <div className="space-y-2">
+                <label className="block text-sm text-[rgb(var(--muted))]">Post image (optional)</label>
+                <input type="file" accept="image/*" onChange={(event) => void onPickEditImage(event)} />
+                {editImagePreview ? (
+                  <img src={editImagePreview} alt="Edited post image preview" className="max-h-64 w-full rounded-xl object-cover" />
+                ) : null}
+              </div>
               <div className="flex justify-end gap-2">
                 <Button
                   variant="outline"
                   onClick={() => {
+                    if (editImagePreview.startsWith("blob:")) URL.revokeObjectURL(editImagePreview);
                     setEditingPost(null);
                     setEditTitle("");
                     setEditContent("");
+                    setEditImagePreview("");
+                    setEditImageDataUrl("");
                   }}
                 >
                   Cancel
