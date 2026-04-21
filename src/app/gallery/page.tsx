@@ -193,11 +193,33 @@ export default function GalleryPage() {
   useEffect(() => {
     if (!activeItem) return;
 
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const { body, documentElement } = document;
+    const scrollY = window.scrollY;
+    const originalBodyOverflow = body.style.overflow;
+    const originalBodyPosition = body.style.position;
+    const originalBodyTop = body.style.top;
+    const originalBodyWidth = body.style.width;
+    const originalBodyLeft = body.style.left;
+    const originalBodyRight = body.style.right;
+    const originalHtmlOverflow = documentElement.style.overflow;
+
+    body.style.overflow = "hidden";
+    body.style.position = "fixed";
+    body.style.top = `-${scrollY}px`;
+    body.style.left = "0";
+    body.style.right = "0";
+    body.style.width = "100%";
+    documentElement.style.overflow = "hidden";
 
     return () => {
-      document.body.style.overflow = originalOverflow;
+      body.style.overflow = originalBodyOverflow;
+      body.style.position = originalBodyPosition;
+      body.style.top = originalBodyTop;
+      body.style.width = originalBodyWidth;
+      body.style.left = originalBodyLeft;
+      body.style.right = originalBodyRight;
+      documentElement.style.overflow = originalHtmlOverflow;
+      window.scrollTo(0, scrollY);
     };
   }, [activeItem]);
 
@@ -346,7 +368,7 @@ export default function GalleryPage() {
     const touch = event.changedTouches[0];
     if (!touch) return;
 
-    setIsFullscreenDragging(true)
+    setIsFullscreenDragging(true);
     fullscreenTouchStartRef.current = {
       x: touch.clientX,
       y: touch.clientY,
@@ -471,21 +493,13 @@ export default function GalleryPage() {
           onTouchMove={handleFullscreenTouchMove}
           onTouchEnd={handleFullscreenTouchEnd}
         >
-          <button
-            type="button"
-            className={styles.fullscreenClose}
-            onClick={() => setActiveItem(null)}
-            aria-label="Close full screen image"
-          >
-            ×
-          </button>
-          <p className={styles.fullscreenHint}>Swipe left to close</p>
+          <p className={styles.fullscreenHint}>Swipe left or click anywhere to close</p>
           <img
             src={activeItem.src}
             alt={`${activeItem.title} — ${activeItem.place}`}
             className={`${styles.fullscreenImage} ${isFullscreenDragging ? styles.fullscreenImageDragging : ""}`}
             style={{ transform: `translateX(${fullscreenSwipeOffset}px)` }}
-            onClick={(event) => event.stopPropagation()}
+            onClick={() => setActiveItem(null)}
           />
         </div>
       ) : null}
