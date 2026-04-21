@@ -9,6 +9,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { loadCachedThenRefresh } from "@/lib/client-cache";
+import { PROFILE_REALTIME_TABLES, subscribeToTables } from "@/lib/realtime";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import layoutStyles from "../page.module.css";
 
@@ -131,6 +132,10 @@ async function getProfileDataForUser(userId: string): Promise<ProfileData> {
 export default function ProfilePage() {
   const [profileData, setProfileData] = useState<ProfileData>(EMPTY_PROFILE_DATA);
   const [isLoading, setIsLoading] = useState(true);
+  const [sessionContext, setSessionContext] = useState<{ user: User | null; accessToken: string | null }>({
+    user: null,
+    accessToken: null,
+  });
 
   const loadProfileForUser = useCallback(async (sessionUser: User | null) => {
     if (!isSupabaseConfigured || !sessionUser) {
@@ -139,7 +144,9 @@ export default function ProfilePage() {
       return;
     }
 
-    setIsLoading(true);
+    if (!options?.background) {
+      setIsLoading(true);
+    }
     try {
       const data = await loadCachedThenRefresh<ProfileData>({
         key: `profile:${sessionUser.id}:v2`,
@@ -152,7 +159,9 @@ export default function ProfilePage() {
       });
       setProfileData(data);
     } finally {
-      setIsLoading(false);
+      if (!options?.background) {
+        setIsLoading(false);
+      }setIsLoading(false);
     }
   }, []);
 
@@ -176,6 +185,20 @@ export default function ProfilePage() {
     };
   }, [loadProfileForUser]);
 
+  useEffect(() => {
+    if (!sessionContext.user || !sessionContext.accessToken) return;
+
+    return subscribeToTables({
+      channelName: `profile-live-updates:${sessionContext.user.id}`,
+      client: supabase,
+      tables: PROFILE_REALTIME_TABLES,
+      onChange: () => {
+        void loadProfileForUser(sessionContext.user, sessionContext.accessToken, { background: true });
+      },
+      debounceMs: 500,
+    });
+  }, [loadProfileForUser, sessionContext.accessToken, sessionContext.user]);
+  
   const { profile, posts, interests, stats } = profileData;
 
   const displayName =
