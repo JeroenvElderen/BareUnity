@@ -9,28 +9,37 @@ export const fallbackFeed: HomeFeedPayload = {
 };
 
 export async function getHomeFeedSourceVersion(viewerId: string) {
-  const [latestPost, latestComment, latestVote, latestFriendship] = await Promise.all([
-    db.posts.findFirst({
-      where: {
-        OR: [{ channel_id: null }, { channels: { is: { is_enabled: true } } }],
-      },
-      orderBy: { created_at: "desc" },
-      select: { id: true, created_at: true },
-    }),
-    db.comments.findFirst({
-      orderBy: { created_at: "desc" },
-      select: { id: true, created_at: true },
-    }),
-    db.post_votes.findFirst({
-      orderBy: { updated_at: "desc" },
-      select: { id: true, updated_at: true },
-    }),
-    db.friendships.findFirst({
-      where: { user_id: viewerId },
-      orderBy: { created_at: "desc" },
-      select: { id: true, created_at: true },
-    }),
-  ]);
+  const [latestPost, latestComment, latestVote, latestFriendship, postCount, commentCount, voteCount, friendshipCount] =
+    await Promise.all([
+      db.posts.findFirst({
+        where: {
+          OR: [{ channel_id: null }, { channels: { is: { is_enabled: true } } }],
+        },
+        orderBy: { created_at: "desc" },
+        select: { id: true, created_at: true },
+      }),
+      db.comments.findFirst({
+        orderBy: { created_at: "desc" },
+        select: { id: true, created_at: true },
+      }),
+      db.post_votes.findFirst({
+        orderBy: { updated_at: "desc" },
+        select: { id: true, updated_at: true },
+      }),
+      db.friendships.findFirst({
+        where: { user_id: viewerId },
+        orderBy: { created_at: "desc" },
+        select: { id: true, created_at: true },
+      }),
+      db.posts.count({
+        where: {
+          OR: [{ channel_id: null }, { channels: { is: { is_enabled: true } } }],
+        },
+      }),
+      db.comments.count(),
+      db.post_votes.count(),
+      db.friendships.count({ where: { user_id: viewerId } }),
+    ]);
 
   return [
     latestPost?.id ?? "-",
@@ -41,6 +50,10 @@ export async function getHomeFeedSourceVersion(viewerId: string) {
     latestVote?.updated_at?.toISOString() ?? "-",
     latestFriendship?.id ?? "-",
     latestFriendship?.created_at?.toISOString() ?? "-",
+    postCount,
+    commentCount,
+    voteCount,
+    friendshipCount,
   ].join("|");
 }
 
