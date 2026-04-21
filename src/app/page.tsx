@@ -101,6 +101,7 @@ export default function HomePage() {
   const [feed, setFeed] = useState<HomeFeedPayload>(() => cachedFeed ?? defaultFeed);
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
   const [activeReplyByPost, setActiveReplyByPost] = useState<Record<string, string | null>>({});
+  const [expandedCommentThreadsByPost, setExpandedCommentThreadsByPost] = useState<Record<string, Record<string, boolean>>>({});
   const [activePostId, setActivePostId] = useState<string | null>(null);
   const [isLoadingFeed, setLoadingFeed] = useState(() => !cachedFeed);
   const [openPostMenuId, setOpenPostMenuId] = useState<string | null>(null);
@@ -1069,14 +1070,12 @@ export default function HomePage() {
       ) : null}
 
       {activePost ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 py-8" role="dialog" aria-modal="true">
-          <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-[rgb(var(--border))] bg-white p-5 shadow-xl">
-            <div className="mb-4 flex items-start justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div>
-                  <p className="text-base font-semibold text-[rgb(var(--text-strong))]">Comments</p>
-                  <p className="text-xs text-[rgb(var(--muted))]">{activePost.comments.length} total</p>
-                </div>
+        <div className="fixed inset-0 z-50 bg-white" role="dialog" aria-modal="true">
+          <div className="mx-auto flex h-full w-full max-w-3xl flex-col overflow-hidden border-x border-[rgb(var(--border))] bg-white">
+            <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-[rgb(var(--border))] bg-white px-4 py-3">
+              <div>
+                <p className="text-base font-semibold text-[rgb(var(--text-strong))]">Comments</p>
+                <p className="text-xs text-[rgb(var(--muted))]">{activePost.comments.length} total</p>
               </div>
               <button
                 type="button"
@@ -1088,20 +1087,27 @@ export default function HomePage() {
               </button>
             </div>
 
-            <div className="mt-2 min-h-0 flex-1 space-y-2 border-t border-[rgb(var(--border))] bg-white pt-3">
-              <div className="max-h-[min(45vh,24rem)] space-y-2 overflow-y-auto pr-1">
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
+              <div className="rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))] p-3">
+                <p className="text-sm font-semibold text-[rgb(var(--text-strong))]">{activePost.authorName}</p>
+                <p className="mt-1 text-sm text-[rgb(var(--text))]">{activePost.title}</p>
+                {activePost.content ? <p className="mt-2 text-sm text-[rgb(var(--muted))]">{activePost.content}</p> : null}
+              </div>
+              <div className="space-y-2 pb-4">
                 {rootCommentsForPost(activePost).map((comment) => {
                   const renderComment = (node: HomeFeedComment, depth: number, visited: Set<string>) => {
                     if (visited.has(node.id)) return null;
                     const nextVisited = new Set(visited);
                     nextVisited.add(node.id);
                     const children = getChildComments(activePost.comments, node.id);
+                    const areRepliesExpanded = Boolean(expandedCommentThreadsByPost[activePost.id]?.[node.id]);
+                    const visibleChildren = areRepliesExpanded ? children : [];
                     const commentAuthorName = node.authorName || "Community member";
                     const commentFallback = node.authorFallback || "BU";
 
                     return (
                       <div key={node.id} className="space-y-2">
-                        <div className="rounded-lg bg-[rgb(var(--bg-soft))] px-3 py-2">
+                        <div className="rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))] px-3 py-2">
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex items-start gap-2">
                               <Avatar src={node.authorAvatarUrl ?? undefined} alt={commentAuthorName} fallback={commentFallback} className="h-8 w-8" />
@@ -1132,8 +1138,25 @@ export default function HomePage() {
                           </div>
                         </div>
                         {children.length ? (
+                          <button
+                            type="button"
+                            className={`text-xs font-semibold text-blue-600 hover:underline ${depth === 0 ? "ml-10" : "ml-6"}`}
+                            onClick={() =>
+                              setExpandedCommentThreadsByPost((current) => ({
+                                ...current,
+                                [activePost.id]: {
+                                  ...(current[activePost.id] ?? {}),
+                                  [node.id]: !areRepliesExpanded,
+                                },
+                              }))
+                            }
+                          >
+                            {areRepliesExpanded ? "Hide replies" : `${children.length} more repl${children.length === 1 ? "y" : "ies"}`}
+                          </button>
+                        ) : null}
+                        {visibleChildren.length ? (
                           <div className={`space-y-2 border-l border-[rgb(var(--border))] pl-3 ${depth === 0 ? "ml-10" : "ml-6"}`}>
-                            {children.map((child) => renderComment(child, depth + 1, nextVisited))}
+                            {visibleChildren.map((child) => renderComment(child, depth + 1, nextVisited))}
                           </div>
                         ) : null}
                       </div>
@@ -1143,30 +1166,31 @@ export default function HomePage() {
                   return renderComment(comment, 0, new Set());
                 })}
               </div>
-              <div className="space-y-2">
-                {activeReplyByPost[activePost.id] ? (
-                  <div className="flex items-center justify-between rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))] px-3 py-2">
-                    <p className="text-xs text-[rgb(var(--muted))]">
-                      Replying to{" "}
-                      <span className="font-semibold text-[rgb(var(--text-strong))]">
-                        {activePost.comments.find((comment) => comment.id === activeReplyByPost[activePost.id])?.authorName || "Community member"}
-                      </span>
-                    </p>
-                    <button
-                      type="button"
-                      className="text-xs font-medium text-[rgb(var(--muted))] hover:text-[rgb(var(--text-strong))]"
-                      onClick={() =>
-                        setActiveReplyByPost((current) => ({
-                          ...current,
-                          [activePost.id]: null,
-                        }))
-                      }
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                ) : null}
-                <div className="flex items-center gap-2">
+              </div>
+            <div className="sticky bottom-0 z-10 space-y-2 border-t border-[rgb(var(--border))] bg-white px-4 py-3">
+              {activeReplyByPost[activePost.id] ? (
+                <div className="flex items-center justify-between rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))] px-3 py-2">
+                  <p className="text-xs text-[rgb(var(--muted))]">
+                    Replying to{" "}
+                    <span className="font-semibold text-[rgb(var(--text-strong))]">
+                      {activePost.comments.find((comment) => comment.id === activeReplyByPost[activePost.id])?.authorName || "Community member"}
+                    </span>
+                  </p>
+                  <button
+                    type="button"
+                    className="text-xs font-medium text-[rgb(var(--muted))] hover:text-[rgb(var(--text-strong))]"
+                    onClick={() =>
+                      setActiveReplyByPost((current) => ({
+                        ...current,
+                        [activePost.id]: null,
+                      }))
+                    }
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : null}
+              <div className="flex items-center gap-2">
                 <input
                   type="text"
                   value={commentDrafts[activePost.id] ?? ""}
@@ -1181,9 +1205,8 @@ export default function HomePage() {
                   className="h-9 flex-1 rounded-lg border border-[rgb(var(--border))] px-3 text-sm outline-none focus:ring-2 focus:ring-[rgb(var(--ring))]"
                 />
                 <Button size="sm" onClick={() => addComment(activePost.id, { parentId: activeReplyByPost[activePost.id] ?? null })}>
-                    {activeReplyByPost[activePost.id] ? "Reply" : "Post"}
-                  </Button>
-                </div>
+                  {activeReplyByPost[activePost.id] ? "Reply" : "Post"}
+                </Button>
               </div>
             </div>
           </div>
