@@ -9,37 +9,41 @@ export const fallbackFeed: HomeFeedPayload = {
 };
 
 export async function getHomeFeedSourceVersion(viewerId: string) {
-  const [latestPost, latestComment, latestVote, latestFriendship, postCount, commentCount, voteCount, friendshipCount] =
-    await Promise.all([
-      db.posts.findFirst({
-        where: {
-          OR: [{ channel_id: null }, { channels: { is: { is_enabled: true } } }],
-        },
-        orderBy: { created_at: "desc" },
-        select: { id: true, created_at: true },
-      }),
-      db.comments.findFirst({
-        orderBy: { created_at: "desc" },
-        select: { id: true, created_at: true },
-      }),
-      db.post_votes.findFirst({
-        orderBy: { updated_at: "desc" },
-        select: { id: true, updated_at: true },
-      }),
-      db.friendships.findFirst({
-        where: { user_id: viewerId },
-        orderBy: { created_at: "desc" },
-        select: { id: true, created_at: true },
-      }),
-      db.posts.count({
-        where: {
-          OR: [{ channel_id: null }, { channels: { is: { is_enabled: true } } }],
-        },
-      }),
-      db.comments.count(),
-      db.post_votes.count(),
-      db.friendships.count({ where: { user_id: viewerId } }),
-    ]);
+  // Keep these queries sequential so the endpoint remains stable in constrained
+  // environments (for example local dev databases configured with connection_limit=1).
+  const latestPost = await db.posts.findFirst({
+    where: {
+      OR: [{ channel_id: null }, { channels: { is: { is_enabled: true } } }],
+    },
+    orderBy: { created_at: "desc" },
+    select: { id: true, created_at: true },
+  });
+
+  const latestComment = await db.comments.findFirst({
+    orderBy: { created_at: "desc" },
+    select: { id: true, created_at: true },
+  });
+
+  const latestVote = await db.post_votes.findFirst({
+    orderBy: { updated_at: "desc" },
+    select: { id: true, updated_at: true },
+  });
+
+  const latestFriendship = await db.friendships.findFirst({
+    where: { user_id: viewerId },
+    orderBy: { created_at: "desc" },
+    select: { id: true, created_at: true },
+  });
+
+  const postCount = await db.posts.count({
+    where: {
+      OR: [{ channel_id: null }, { channels: { is: { is_enabled: true } } }],
+    },
+  });
+
+  const commentCount = await db.comments.count();
+  const voteCount = await db.post_votes.count();
+  const friendshipCount = await db.friendships.count({ where: { user_id: viewerId } });
 
   return [
     latestPost?.id ?? "-",
