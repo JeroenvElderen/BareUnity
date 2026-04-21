@@ -191,6 +191,19 @@
   fill: currentColor;
 }
 
+.likeButton:disabled,
+.likeButtonActive:disabled {
+  opacity: 1;
+  background: rgb(255 255 255 / 0.15);
+  color: rgb(255 255 255 / 0.92);
+  cursor: progress;
+}
+
+.likeButtonActive:disabled {
+  background: rgb(242 68 95 / 0.9);
+  color: rgb(255 255 255);
+}
+
 .likeCount {
   font-size: 0.75rem;
   line-height: 1;

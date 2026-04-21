@@ -21,7 +21,6 @@ type GalleryItem = {
 };
 
 const GALLERY_CACHE_MAX_AGE_MS = 1000 * 60 * 15;
-const DOUBLE_TAP_WINDOW_MS = 300;
 const TILE_SIZE_VARIANTS = [
   "sizeTall",
   "sizePortrait",
@@ -113,7 +112,6 @@ export default function GalleryPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const lastTapByItemIdRef = useRef<Record<string, number>>({});
   const fullscreenTouchStartRef = useRef<{ x: number; y: number } | null>(null);
   const fullscreenSwipeHandledRef = useRef(false);
   const [fullscreenSwipeOffset, setFullscreenSwipeOffset] = useState(0);
@@ -367,19 +365,6 @@ export default function GalleryPage() {
     }
   };
 
-  const handleImageTouchEnd = (itemId: string) => {
-    const now = Date.now();
-    const previousTap = lastTapByItemIdRef.current[itemId] ?? 0;
-    const isDoubleTap = now - previousTap <= DOUBLE_TAP_WINDOW_MS;
-
-    lastTapByItemIdRef.current[itemId] = now;
-
-    if (!isDoubleTap) return;
-    const target = items.find((item) => item.id === itemId);
-    if (!target || target.likedByViewer) return;
-    void toggleLike(itemId);
-  };
-
   const handleFullscreenTouchStart = (event: TouchEvent) => {
     const touch = event.changedTouches[0];
     if (!touch) return;
@@ -487,7 +472,6 @@ export default function GalleryPage() {
                     loading={index < 6 ? "eager" : "lazy"}
                     decoding="async"
                     draggable={false}
-                    onTouchEnd={() => handleImageTouchEnd(item.id)}
                   />
                 </button>
                 <figcaption className={styles.metaBar}>
