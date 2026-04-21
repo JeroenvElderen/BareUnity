@@ -28,52 +28,51 @@
 
 .tile {
   position: relative;
-  display: block;
+  display: inline-block;
+  width: 100%;
+  margin: 0 0 0.75rem;
+  vertical-align: top;
+  break-inside: avoid;
+  -webkit-column-break-inside: avoid;
+  page-break-inside: avoid;
   overflow: hidden;
   border-radius: 18px;
-  margin: 0 0 0.75rem;
-  break-inside: avoid;
+  background: rgb(var(--bg-soft));
   box-shadow: 0 10px 24px rgb(4 8 20 / 0.2);
-  isolation: isolate;
+  line-height: 0;
+}
+
+.media {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: inherit;
+  transform: translateZ(0);
+  transition: transform 280ms ease;
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.tile:hover .media {
+  transform: translateZ(0) scale(1.04);
 }
 
 .image {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   display: block;
   object-fit: cover;
-  transition: transform 280ms ease;
-  will-change: transform;
-  transform: translateZ(0);
+  user-select: none;
+  -webkit-user-drag: none;
   backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
 
-.tile:hover .image {
-  transform: scale(1.04);
-}
-
-.caption {
-  position: absolute;
-  inset-inline: 0;
-  inset-block-end: 0;
-  padding: 0.95rem 1rem 0.85rem;
-  color: white;
-  background: linear-gradient(to top, rgb(10 11 17 / 0.72), transparent);
-  display: grid;
-  gap: 0.1rem;
-}
-
-.caption strong {
-  font-size: 0.95rem;
-  line-height: 1.2;
-}
-
-.caption span {
-  font-size: 0.75rem;
-  letter-spacing: 0.01em;
-  opacity: 0.85;
-}
-
+/* keep mixed sizes */
 .sizeTall {
   aspect-ratio: 3 / 5;
 }

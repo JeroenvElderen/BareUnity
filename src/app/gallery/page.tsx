@@ -109,15 +109,20 @@ export default function GalleryPage() {
             {items.map((item, index) => (
               <figure
                 key={item.id}
-                className={`${styles.tile} ${styles[TILE_SIZE_VARIANTS[hashString(item.id) % TILE_SIZE_VARIANTS.length]]}`}
+                className={`${styles.tile} ${
+                  styles[TILE_SIZE_VARIANTS[hashString(item.id) % TILE_SIZE_VARIANTS.length]]
+                }`}
               >
-                <img
-                  src={item.src}
-                  alt={`${item.title} — ${item.place}`}
-                  className={styles.image}
-                  loading={index < 6 ? "eager" : "lazy"}
-                  decoding="async"
-                />
+                <div className={styles.media}>
+                  <img
+                    src={item.src}
+                    alt={`${item.title} — ${item.place}`}
+                    className={styles.image}
+                    loading={index < 6 ? "eager" : "lazy"}
+                    decoding="async"
+                    draggable={false}
+                  />
+                </div>
               </figure>
             ))}
           </div>
