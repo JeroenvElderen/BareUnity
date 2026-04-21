@@ -108,6 +108,7 @@ async function convertImageToWebp(file: File): Promise<File> {
 export default function GalleryPage() {
   const [items, setItems] = useState<GalleryItem[]>([]);
   const [activeItem, setActiveItem] = useState<GalleryItem | null>(null);
+  const [showSwipeInstructions, setShowSwipeInstructions] = useState(false);
   const [pendingLikeIds, setPendingLikeIds] = useState<Set<string>>(() => new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
@@ -130,6 +131,11 @@ export default function GalleryPage() {
 
     setActiveItem(items[nextIndex] ?? null);
     setFullscreenSwipeOffset(0);
+  };
+
+  const openFullscreen = (item: GalleryItem) => {
+    setActiveItem(item);
+    setShowSwipeInstructions(true);
   };
 
   const refreshGallery = async () => {
@@ -366,6 +372,8 @@ export default function GalleryPage() {
   };
 
   const handleFullscreenTouchStart = (event: TouchEvent) => {
+    if (showSwipeInstructions) return;
+
     const touch = event.changedTouches[0];
     if (!touch) return;
 
@@ -378,6 +386,8 @@ export default function GalleryPage() {
   };
 
   const handleFullscreenTouchMove = (event: TouchEvent) => {
+    if (showSwipeInstructions) return;
+
     const start = fullscreenTouchStartRef.current;
     const touch = event.changedTouches[0];
     if (!start || !touch) return;
@@ -391,6 +401,8 @@ export default function GalleryPage() {
   };
 
   const handleFullscreenTouchEnd = (event: TouchEvent) => {
+    if (showSwipeInstructions) return;
+
     const start = fullscreenTouchStartRef.current;
     if (!start) return;
 
@@ -415,6 +427,8 @@ export default function GalleryPage() {
   };
 
   const handleFullscreenClick = () => {
+    if (showSwipeInstructions) return;
+
     if (fullscreenSwipeHandledRef.current) {
       fullscreenSwipeHandledRef.current = false;
       return;
@@ -462,7 +476,7 @@ export default function GalleryPage() {
                 <button
                   type="button"
                   className={styles.media}
-                  onClick={() => setActiveItem(item)}
+                  onClick={() => openFullscreen(item)}
                   aria-label={`View ${item.title} in full screen`}
                 >
                   <img
@@ -508,11 +522,36 @@ export default function GalleryPage() {
             type="button"
             className={styles.fullscreenClose}
             aria-label="Close fullscreen preview"
-            onClick={() => setActiveItem(null)}
+            onClick={() => {
+              setShowSwipeInstructions(false);
+              setActiveItem(null);
+            }}
           >
             ×
           </button>
-          <p className={styles.fullscreenHint}>Swipe for next/prev, tap/click to close</p>
+          <p className={styles.fullscreenHint}>Swipe for next/prev, tap/click to close</p>{showSwipeInstructions ? (
+            <div
+              className={styles.swipeInstructionsPopup}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Fullscreen gallery controls"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <p className={styles.swipeInstructionsTitle}>Before you start</p>
+              <p className={styles.swipeInstructionsBody}>
+                Swipe left or right to move between photos. <br></br>Tap anywhere to close fullscreen.
+              </p>
+              <button
+                type="button"
+                className={styles.swipeInstructionsButton}
+                onClick={() => setShowSwipeInstructions(false)}
+              >
+                Got it
+              </button>
+            </div>
+          ) : (
+            <p className={styles.fullscreenHint}>Swipe for next/prev, tap/click to close</p>
+          )}
           <img
             src={activeItem.src}
             alt={`${activeItem.title} — ${activeItem.place}`}

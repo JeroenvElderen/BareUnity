@@ -8,7 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buildUserScopedCacheKey, hasFreshCachedValue, readCachedValue, writeCachedValue } from "@/lib/client-cache";
-import type { HomeFeedComment, HomeFeedFriend, HomeFeedPayload, HomeFeedPost, HomeFeedStory } from "@/lib/homefeed";import { sanitizeImageUpload } from "@/lib/image";
+import type { HomeFeedComment, HomeFeedFriend, HomeFeedPayload, HomeFeedPost, HomeFeedStory } from "@/lib/homefeed";
+import { sanitizeImageUpload } from "@/lib/image";
+import { HOME_FEED_REALTIME_TABLES, subscribeToTables } from "@/lib/realtime";
 import { supabase } from "@/lib/supabase";
 import styles from "./page.module.css";
 
@@ -206,37 +208,15 @@ export default function HomePage() {
   }, [postImagePreview]);
 
   useEffect(() => {
-    let refreshTimer: number | undefined;
-
-    const scheduleRefresh = () => {
-      if (refreshTimer) {
-        window.clearTimeout(refreshTimer);
-      }
-
-      refreshTimer = window.setTimeout(() => {
+    return subscribeToTables({
+      channelName: "homefeed-live-updates",
+      client: supabase,
+      tables: HOME_FEED_REALTIME_TABLES,
+      onChange: () => {
         void loadFeed();
-      }, 500);
-    };
-
-    const liveFeedChannel = supabase.channel("homefeed-live-updates");
-    ["posts", "comments", "friendships", "profiles"].forEach((table) => {
-      liveFeedChannel.on(
-        "postgres_changes",
-        { event: "*", schema: "public", table },
-        () => {
-          scheduleRefresh();
-        },
-      );
+      },
+      debounceMs: 500,
     });
-
-    void liveFeedChannel.subscribe();
-
-    return () => {
-      if (refreshTimer) {
-        window.clearTimeout(refreshTimer);
-      }
-      void supabase.removeChannel(liveFeedChannel);
-    };
   }, [loadFeed]);
 
   const publishPost = async () => {
