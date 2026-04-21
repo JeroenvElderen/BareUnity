@@ -1089,9 +1089,8 @@ export default function HomePage() {
 
             <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
               <div className="rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))] p-3">
-                <p className="text-sm font-semibold text-[rgb(var(--text-strong))]">{activePost.authorName}</p>
-                <p className="mt-1 text-sm text-[rgb(var(--text))]">{activePost.title}</p>
-                {activePost.content ? <p className="mt-2 text-sm text-[rgb(var(--muted))]">{activePost.content}</p> : null}
+                <p className="text-sm font-semibold text-[rgb(var(--text-strong))]">{activePost.author}</p>
+                {activePost.text ? <p className="mt-1 whitespace-pre-line text-sm text-[rgb(var(--text))]">{activePost.text}</p> : null}
               </div>
               <div className="space-y-2 pb-4">
                 {rootCommentsForPost(activePost).map((comment) => {
