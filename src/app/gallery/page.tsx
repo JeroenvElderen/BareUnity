@@ -512,7 +512,7 @@ export default function GalleryPage() {
           >
             ×
           </button>
-          <p className={styles.fullscreenHint}>Swipe left for previous, right for next, tap anywhere to close</p>
+          <p className={styles.fullscreenHint}>Swipe for next/prev, tap/click to close</p>
           <img
             src={activeItem.src}
             alt={`${activeItem.title} — ${activeItem.place}`}
