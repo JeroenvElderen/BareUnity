@@ -1,0 +1,99 @@
+.page {
+  min-height: 100vh;
+  padding: 2rem 1rem;
+  background: linear-gradient(180deg, #f4faf6 0%, #e7f0ec 100%);
+}
+
+.shell {
+  max-width: 1180px;
+  margin: 0 auto;
+  display: grid;
+  gap: 1rem;
+}
+
+.backLink {
+  width: max-content;
+  color: #12573d;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.backLink:hover {
+  text-decoration: underline;
+}
+
+.header {
+  border: 1px solid rgba(35, 62, 45, 0.14);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.92);
+  padding: 1rem;
+}
+
+.eyebrow {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #3f5f4a;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.header h1 {
+  margin: 0.3rem 0;
+  color: #153622;
+}
+
+.header p {
+  margin: 0;
+  color: #40634c;
+}
+
+.error,
+.loading {
+  margin: 0;
+  border-radius: 12px;
+  padding: 0.72rem 0.9rem;
+}
+
+.error {
+  border: 1px solid rgba(95, 39, 39, 0.22);
+  background: rgba(255, 240, 240, 0.92);
+  color: #783535;
+}
+
+.loading {
+  border: 1px solid rgba(35, 62, 45, 0.12);
+  background: rgba(255, 255, 255, 0.92);
+  color: #35533f;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 0.8rem;
+}
+
+.card {
+  border: 1px solid rgba(35, 62, 45, 0.14);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 0.8rem;
+}
+
+.card h2 {
+  margin: 0 0 0.5rem;
+  color: #163824;
+  font-size: 1rem;
+}
+
+.card pre {
+  margin: 0;
+  border-radius: 10px;
+  background: #f4faf6;
+  border: 1px solid rgba(35, 62, 45, 0.1);
+  padding: 0.65rem;
+  font-size: 0.78rem;
+  color: #2f4f3b;
+  overflow: auto;
+  max-height: 360px;
+}

@@ -14,6 +14,12 @@ const sections = [
     href: "/admin/reports",
     cta: "Open reports",
   },
+  {
+    title: "Manual user creation",
+    description: "Create new users directly in Supabase auth + profiles, restricted to your owner account.",
+    href: "/admin/users",
+    cta: "Create users",
+  },
 ];
 
 export default function AdminOverviewPage() {

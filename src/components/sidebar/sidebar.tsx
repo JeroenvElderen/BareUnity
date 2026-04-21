@@ -10,6 +10,7 @@ import {
   ClipboardCheck,
   Compass,
   Flag,
+  CircleUser,
   Home,
   Image,
   LogOut,
@@ -70,6 +71,7 @@ const adminItems = [
   { icon: ShieldCheck, label: "Overview", href: "/admin" },
   { icon: ClipboardCheck, label: "Applications", href: "/admin/applications" },
   { icon: Flag, label: "Reports", href: "/admin/reports" },
+  { icon: CircleUser, label: "Users", href: "/admin/users" },
 ] satisfies readonly NavItem[];
 
 export function AppSidebar() {
