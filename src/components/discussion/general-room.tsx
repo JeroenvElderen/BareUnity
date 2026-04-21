@@ -81,85 +81,90 @@ export function GeneralRoom() {
 
   const loadRoomData = useCallback(async () => {
     setLoadError(null);
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      setViewerId(user?.id ?? null);
+      if (user?.id) {
+        const { data: viewerProfile } = await supabase
+          .from("profiles")
+          .select("display_name,username")
+          .eq("id", user.id)
+          .maybeSingle<{ display_name: string | null; username: string | null }>();
+        const viewerName = viewerProfile?.display_name || viewerProfile?.username || "member";
+        setViewerPresenceName(viewerName);
+      } else {
+        setViewerPresenceName("member");
+      }
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    setViewerId(user?.id ?? null);
-    if (user?.id) {
-      const { data: viewerProfile } = await supabase
-        .from("profiles")
-        .select("display_name,username")
-        .eq("id", user.id)
-        .maybeSingle<{ display_name: string | null; username: string | null }>();
-      const viewerName = viewerProfile?.display_name || viewerProfile?.username || "member";
-      setViewerPresenceName(viewerName);
-    } else {
-      setViewerPresenceName("member");
-    }
+      const { data: channelData, error: channelError } = await supabase
+        .from("channels")
+        .select("id,name,slug,description,created_by")
+        .eq("slug", "general")
+        .maybeSingle<ChannelRecord>();
 
-    const { data: channelData, error: channelError } = await supabase
-      .from("channels")
-      .select("id,name,slug,description,created_by")
-      .eq("slug", "general")
-      .maybeSingle<ChannelRecord>();
+      if (channelError) {
+        setLoadError("Could not load discussion channel.");
+        setIsLoading(false);
+        return;
+      }
 
-    if (channelError) {
-      setLoadError("Could not load discussion channel.");
-      setIsLoading(false);
-      return;
-    }
+      if (!channelData) {
+        setLoadError("No #general channel exists yet.");
+        setIsLoading(false);
+        return;
+      }
 
-    if (!channelData) {
-      setLoadError("No #general channel exists yet.");
-      setIsLoading(false);
-      return;
-    }
+      setChannel(channelData);
 
-    setChannel(channelData);
+      const { data: messageRows, error: messagesError } = await supabase
+        .from("channel_messages")
+        .select("id,body,created_at,author_id,profiles:profiles(id,username,display_name,avatar_url)")
+        .eq("channel_id", channelData.id)
+        .order("created_at", { ascending: true })
+        .limit(120)
+        .returns<DbMessage[]>();
 
-    const { data: messageRows, error: messagesError } = await supabase
-      .from("channel_messages")
-      .select("id,body,created_at,author_id,profiles:profiles(id,username,display_name,avatar_url)")
-      .eq("channel_id", channelData.id)
-      .order("created_at", { ascending: true })
-      .limit(120)
-      .returns<DbMessage[]>();
+      if (messagesError) {
+        setLoadError("Could not load messages for #general.");
+        setIsLoading(false);
+        return;
+      }
 
-    if (messagesError) {
-      setLoadError("Could not load messages for #general.");
-      setIsLoading(false);
-      return;
-    }
+      const parsedMessages = (messageRows ?? []).map((message) => {
+        const profile = Array.isArray(message.profiles) ? message.profiles[0] : message.profiles;
+        const author = profileDisplayName(profile);
+        const isModerator = channelData.created_by ? message.author_id === channelData.created_by : false;
 
-    const parsedMessages = (messageRows ?? []).map((message) => {
-      const profile = Array.isArray(message.profiles) ? message.profiles[0] : message.profiles;
-      const author = profileDisplayName(profile);
-      const isModerator = channelData.created_by ? message.author_id === channelData.created_by : false;
-
-      return {
-        id: message.id,
-        author,
-        avatarSeed: profileInitials(author),
-        role: isModerator ? "moderator" : "member",
-        time: messageTimeFormatter.format(new Date(message.created_at)),
-        body: message.body,
-      } satisfies RoomMessage;
-    });
+        return {
+          id: message.id,
+          author,
+          avatarSeed: profileInitials(author),
+          role: isModerator ? "moderator" : "member",
+          time: messageTimeFormatter.format(new Date(message.created_at)),
+          body: message.body,
+        } satisfies RoomMessage;
+      });
 
     setMessages(parsedMessages);
 
-    if (!onlineMembers.length) {
-      const uniqueFromMessages = Array.from(new Set(parsedMessages.map((message) => message.author)));
-      const bootstrappedMembers = uniqueFromMessages.map((name, index) => ({
-        userId: `bootstrap-${index}`,
-        name,
-        initials: profileInitials(name),
-      }));
-      setOnlineMembers(bootstrappedMembers);
+      if (!onlineMembers.length) {
+        const uniqueFromMessages = Array.from(new Set(parsedMessages.map((message) => message.author)));
+        const bootstrappedMembers = uniqueFromMessages.map((name, index) => ({
+          userId: `bootstrap-${index}`,
+          name,
+          initials: profileInitials(name),
+        }));
+        setOnlineMembers(bootstrappedMembers);
+      }
+      setLastUpdatedLabel(messageTimeFormatter.format(new Date()));
+    } catch (error) {
+      console.error("Failed to load discussion room data", error);
+      setLoadError("Could not load discussion right now. Please retry.");
+    } finally {
+      setIsLoading(false);
     }
-    setLastUpdatedLabel(messageTimeFormatter.format(new Date()));
-    setIsLoading(false);
   }, [onlineMembers.length]);
 
   useEffect(() => {

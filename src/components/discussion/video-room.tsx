@@ -324,26 +324,35 @@ export function VideoRoom() {
   useEffect(() => {
     let isMounted = true;
 
-    void supabase.auth.getUser().then(async ({ data }) => {
-      if (!isMounted) return;
+    void supabase.auth
+      .getUser()
+      .then(async ({ data }) => {
+        if (!isMounted) return;
 
-      const user = data.user;
-      setViewerId(user?.id ?? null);
+        const user = data.user;
+        setViewerId(user?.id ?? null);
 
-      if (!user?.id) {
+        if (!user?.id) {
+            setViewerPresenceName("guest");
+            return;
+        }
+
+        const { data: viewerProfile } = await supabase
+            .from("profiles")
+            .select("display_name,username")
+            .eq("id", user.id)
+            .maybeSingle<DbProfile>();
+
+        const viewerName = viewerProfile?.display_name || viewerProfile?.username || "member";
+        setViewerPresenceName(viewerName);
+      })
+      .catch((error) => {
+        if (!isMounted) return;
+        console.error("Failed to load discussion video-room user", error);
+        setViewerId(null);
         setViewerPresenceName("guest");
-        return;
-      }
-
-      const { data: viewerProfile } = await supabase
-        .from("profiles")
-        .select("display_name,username")
-        .eq("id", user.id)
-        .maybeSingle<DbProfile>();
-
-      const viewerName = viewerProfile?.display_name || viewerProfile?.username || "member";
-      setViewerPresenceName(viewerName);
-    });
+        setLoadError("Could not confirm your session. Please reload and try again.");
+      });
 
     return () => {
       isMounted = false;
