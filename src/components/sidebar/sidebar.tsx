@@ -27,6 +27,7 @@ import {
 
 import { logoutUser } from "@/lib/logout";
 import { supabase } from "@/lib/supabase";
+import { AppNotification, useUIStore } from "@/stores/ui-store";
 import { SidebarProfileLink } from "./profile-link";
 import styles from "./sidebar.module.css";
 
@@ -37,14 +38,6 @@ type NavItem = {
   label: string;
   href?: string;
   badge?: string;
-};
-
-type PopupNotification = {
-  id: string;
-  title: string;
-  detail: string;
-  time: string;
-  unread: boolean;
 };
 
 const primaryItems = [
@@ -68,29 +61,31 @@ const workspaceItems = [
   { icon: Settings, label: "Settings", href: "/settings" },
 ] satisfies readonly NavItem[];
 
-const initialNotifications: PopupNotification[] = [
-  {
-    id: "n1",
-    title: "New login detected",
-    detail: "Sign in from a new browser in Austin, TX.",
-    time: "2m",
+const relativeTimeFormatter = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+
+function formatRelativeTime(timestamp: string) {
+  const diffMs = new Date(timestamp).getTime() - Date.now();
+  const diffMinutes = Math.round(diffMs / 60000);
+
+  if (Math.abs(diffMinutes) < 60) return relativeTimeFormatter.format(diffMinutes, "minute");
+
+  const diffHours = Math.round(diffMinutes / 60);
+  if (Math.abs(diffHours) < 48) return relativeTimeFormatter.format(diffHours, "hour");
+
+  const diffDays = Math.round(diffHours / 24);
+  return relativeTimeFormatter.format(diffDays, "day");
+}
+
+function createNotification(title: string, detail: string, type: AppNotification["type"]): AppNotification {
+  return {
+    id: crypto.randomUUID(),
+    title,
+    detail,
+    type,
     unread: true,
-  },
-  {
-    id: "n2",
-    title: "You were mentioned",
-    detail: "Lina mentioned you in Naturist Photography.",
-    time: "15m",
-    unread: true,
-  },
-  {
-    id: "n3",
-    title: "Retreat booking updated",
-    detail: "Check-in changed to 4:00 PM.",
-    time: "1h",
-    unread: false,
-  },
-];
+    timestamp: new Date().toISOString(),
+  };
+}
 
 const discussionRooms = [
   { name: "General Room", href: "/discussion" },
@@ -115,9 +110,17 @@ export function AppSidebar() {
   const [isAdmin, setIsAdmin] = useState(false);
   const isAdminSection = pathname?.startsWith("/admin") ?? false;
   const [isAdminOpen, setIsAdminOpen] = useState(isAdminSection);
-  const [notifications, setNotifications] = useState<PopupNotification[]>(initialNotifications);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const notificationsRef = useRef<HTMLDivElement | null>(null);
+  const [viewerId, setViewerId] = useState<string | null>(null);
+  const [generalChannelId, setGeneralChannelId] = useState<string | null>(null);
+  const videoVisitorsRef = useRef(new Set<string>());
+  const notifications = useUIStore((state) => state.notifications);
+  const notificationsBootstrapped = useUIStore((state) => state.notificationsBootstrapped);
+  const bootstrapNotifications = useUIStore((state) => state.bootstrapNotifications);
+  const pushNotification = useUIStore((state) => state.pushNotification);
+  const markNotificationAsRead = useUIStore((state) => state.markNotificationAsRead);
+  const markAllNotificationsAsRead = useUIStore((state) => state.markAllNotificationsAsRead);
   const unreadNotifications = notifications.filter((notification) => notification.unread).length;
 
   const onLogout = async () => {
@@ -132,6 +135,7 @@ export function AppSidebar() {
     void supabase.auth.getUser().then(({ data }) => {
       if (!isMounted) return;
       const email = data.user?.email?.toLowerCase() ?? "";
+      setViewerId(data.user?.id ?? null);
       setIsAdmin(email === ADMIN_EMAIL);
     });
 
@@ -139,6 +143,7 @@ export function AppSidebar() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       const email = session?.user.email?.toLowerCase() ?? "";
+      setViewerId(session?.user.id ?? null);
       setIsAdmin(email === ADMIN_EMAIL);
     });
 
@@ -161,17 +166,166 @@ export function AppSidebar() {
     return () => document.removeEventListener("mousedown", handleOutsideClick);
   }, [isNotificationsOpen]);
 
-  const markNotificationAsRead = (notificationId: string) => {
-    setNotifications((current) =>
-      current.map((notification) =>
-        notification.id === notificationId ? { ...notification, unread: false } : notification,
-      ),
-    );
-  };
+  useEffect(() => {
+    if (!viewerId || notificationsBootstrapped) return;
 
-  const markAllNotificationsAsRead = () => {
-    setNotifications((current) => current.map((notification) => ({ ...notification, unread: false })));
-  };
+  bootstrapNotifications([
+      createNotification("Realtime notifications enabled", "You'll now get live activity updates.", "general-message"),
+    ]);
+  }, [bootstrapNotifications, notificationsBootstrapped, viewerId]);
+
+  useEffect(() => {
+    if (!viewerId) return;
+
+    let isMounted = true;
+    void supabase
+      .from("channels")
+      .select("id")
+      .eq("slug", "general")
+      .maybeSingle<{ id: string }>()
+      .then(({ data }) => {
+        if (!isMounted) return;
+        setGeneralChannelId(data?.id ?? null);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [viewerId]);
+
+  useEffect(() => {
+    if (!viewerId) return;
+
+    const channels: ReturnType<typeof supabase.channel>[] = [];
+
+    const postVotesChannel = supabase
+      .channel(`notifications-post-votes-${viewerId}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "post_votes" }, ({ new: row }) => {
+        const payload = row as { user_id?: string; post_id?: string };
+        if (!payload.post_id || payload.user_id === viewerId) return;
+        pushNotification(createNotification("New like on a post", "Someone liked a post in the feed.", "post-like"));
+      });
+    channels.push(postVotesChannel);
+
+    const commentsChannel = supabase
+      .channel(`notifications-comments-${viewerId}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "comments" }, ({ new: row }) => {
+        const payload = row as { author_id?: string; post_id?: string };
+        if (!payload.post_id || payload.author_id === viewerId) return;
+        pushNotification(
+          createNotification("New comment", "A new comment was added to a feed post.", "post-comment"),
+        );
+      });
+    channels.push(commentsChannel);
+
+    const galleryLikesChannel = supabase
+      .channel(`notifications-gallery-likes-${viewerId}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "gallery_image_likes" }, ({ new: row }) => {
+        const payload = row as { image_path?: string; user_id?: string };
+        if (!payload.image_path || payload.user_id === viewerId) return;
+        if (!payload.image_path.includes(`/gallery/${viewerId}/`) && !payload.image_path.includes(`gallery/${viewerId}/`)) return;
+        pushNotification(
+          createNotification("New gallery like", "Someone liked one of your gallery uploads.", "gallery-like"),
+        );
+      });
+    channels.push(galleryLikesChannel);
+
+    const friendRequestsChannel = supabase
+      .channel(`notifications-friend-requests-${viewerId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "friend_requests", filter: `receiver_id=eq.${viewerId}` },
+        ({ new: row }) => {
+          const payload = row as { sender_username?: string };
+          pushNotification(
+            createNotification(
+              "New friend request",
+              `${payload.sender_username ?? "Someone"} sent you a friend request.`,
+              "friend-request",
+            ),
+          );
+        },
+      );
+    channels.push(friendRequestsChannel);
+
+    const mapSpotsChannel = supabase
+      .channel(`notifications-map-spots-${viewerId}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "naturist_map_spots" }, ({ new: row }) => {
+        const payload = row as { submitted_by?: string; name?: string };
+        if (payload.submitted_by === viewerId) return;
+        pushNotification(
+          createNotification("New map entry", `${payload.name ?? "A new location"} was added to the map.`, "map-entry"),
+        );
+      });
+    channels.push(mapSpotsChannel);
+
+    const videoPresenceChannel = supabase.channel(`notifications-video-presence-${viewerId}`);
+    videoPresenceChannel.on("presence", { event: "sync" }, () => {
+      const state = videoPresenceChannel.presenceState<{ user_id?: string; name?: string }>();
+      const currentUsers = new Set<string>();
+      Object.entries(state).forEach(([key, presences]) => {
+        const current = presences[presences.length - 1];
+        const userId = current?.user_id ?? key;
+        currentUsers.add(userId);
+        if (!videoVisitorsRef.current.has(userId) && userId !== viewerId) {
+          pushNotification(
+            createNotification(
+              "Video room visitor",
+              `${current?.name ?? "A member"} entered the video room.`,
+              "video-visitor",
+            ),
+          );
+        }
+      });
+      videoVisitorsRef.current = currentUsers;
+    });
+    channels.push(videoPresenceChannel);
+
+    if (generalChannelId) {
+      const generalMessagesChannel = supabase
+        .channel(`notifications-general-messages-${generalChannelId}`)
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "channel_messages", filter: `channel_id=eq.${generalChannelId}` },
+          ({ new: row }) => {
+            const payload = row as { author_id?: string };
+            if (payload.author_id === viewerId) return;
+            pushNotification(
+              createNotification("New message in #general", "A new message was posted in General Room.", "general-message"),
+            );
+          },
+        );
+      channels.push(generalMessagesChannel);
+    }
+
+    if (isAdmin) {
+      const reportsChannel = supabase
+        .channel("notifications-admin-reports")
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "reports" }, () => {
+          pushNotification(createNotification("New report", "A new moderation report needs review.", "admin-report"));
+        });
+      channels.push(reportsChannel);
+
+      const registrationsChannel = supabase
+        .channel("notifications-admin-registrations")
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "profiles" }, () => {
+          pushNotification(
+            createNotification("New registration", "A new member account has been created.", "admin-registration"),
+          );
+        });
+      channels.push(registrationsChannel);
+    }
+
+    channels.forEach((channel) => {
+      void channel.subscribe();
+    });
+
+    return () => {
+      channels.forEach((channel) => {
+        void supabase.removeChannel(channel);
+      });
+    };
+  }, [generalChannelId, isAdmin, pushNotification, viewerId]);
 
   return (
     <aside className={styles.sidebar} aria-label="Main sidebar navigation">
@@ -316,7 +470,7 @@ export function AppSidebar() {
                                 <strong>{notification.title}</strong>
                                 <small>{notification.detail}</small>
                               </span>
-                              <em>{notification.time}</em>
+                              <em>{formatRelativeTime(notification.timestamp)}</em>
                             </button>
                           ))}
                         </div>

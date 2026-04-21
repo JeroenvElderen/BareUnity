@@ -1,70 +1,55 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Bell, CalendarDays, CheckCheck, CircleAlert, MessageCircleMore, ShieldAlert } from "lucide-react";
+import {
+  Bell,
+  CheckCheck,
+  Heart,
+  MapPin,
+  MessageCircleMore,
+  MessagesSquare,
+  ShieldAlert,
+  UserPlus,
+  Users,
+} from "lucide-react";
 
 import { AppSidebar } from "@/components/sidebar/sidebar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AppNotificationType, useUIStore } from "@/stores/ui-store";
 import layoutStyles from "../page.module.css";
 import styles from "./notifications.module.css";
 
-type NotificationType = "security" | "message" | "booking" | "event";
+const relativeTimeFormatter = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
 
-type NotificationItem = {
-  id: string;
-  title: string;
-  detail: string;
-  when: string;
-  type: NotificationType;
-  unread: boolean;
-};
+function formatRelativeTime(timestamp: string) {
+  const diffMs = new Date(timestamp).getTime() - Date.now();
+  const diffMinutes = Math.round(diffMs / 60000);
 
-const seedNotifications: NotificationItem[] = [
-  {
-    id: "notif-1",
-    title: "New login detected",
-    detail: "We noticed a sign in from a new device in Austin, TX.",
-    when: "2 min ago",
-    type: "security",
-    unread: true,
-  },
-  {
-    id: "notif-2",
-    title: "You were mentioned in Naturist Photography",
-    detail: "@lina tagged you in a thread about beach sunrise settings.",
-    when: "15 min ago",
-    type: "message",
-    unread: true,
-  },
-  {
-    id: "notif-3",
-    title: "Retreat booking updated",
-    detail: "Your check-in for Calm Coast Retreat moved to 4:00 PM.",
-    when: "1 hour ago",
-    type: "booking",
-    unread: false,
-  },
-  {
-    id: "notif-4",
-    title: "Reminder: Community wellness circle",
-    detail: "Starts tomorrow at 8:30 AM. Bring your water bottle and mat.",
-    when: "3 hours ago",
-    type: "event",
-    unread: false,
-  },
-];
+  if (Math.abs(diffMinutes) < 60) return relativeTimeFormatter.format(diffMinutes, "minute");
 
-function getTypeIcon(type: NotificationType) {
-  if (type === "security") return <ShieldAlert size={16} aria-hidden />;
-  if (type === "message") return <MessageCircleMore size={16} aria-hidden />;
-  if (type === "booking") return <CircleAlert size={16} aria-hidden />;
-  return <CalendarDays size={16} aria-hidden />;
+  const diffHours = Math.round(diffMinutes / 60);
+  if (Math.abs(diffHours) < 48) return relativeTimeFormatter.format(diffHours, "hour");
+
+  const diffDays = Math.round(diffHours / 24);
+  return relativeTimeFormatter.format(diffDays, "day");
+}
+
+function getTypeIcon(type: AppNotificationType) {
+  if (type === "post-like" || type === "gallery-like") return <Heart size={16} aria-hidden />;
+  if (type === "post-comment" || type === "general-message") return <MessageCircleMore size={16} aria-hidden />;
+  if (type === "video-visitor") return <Users size={16} aria-hidden />;
+  if (type === "map-entry") return <MapPin size={16} aria-hidden />;
+  if (type === "friend-request") return <UserPlus size={16} aria-hidden />;
+  if (type === "admin-report" || type === "admin-registration") return <ShieldAlert size={16} aria-hidden />;
+  return <MessagesSquare size={16} aria-hidden />;
 }
 
 export default function NotificationsPage() {
-  const [notifications, setNotifications] = useState(seedNotifications);
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
+  const notifications = useUIStore((state) => state.notifications);
+  const markNotificationAsRead = useUIStore((state) => state.markNotificationAsRead);
+  const markAllNotificationsAsRead = useUIStore((state) => state.markAllNotificationsAsRead);
 
   const unreadCount = useMemo(
     () => notifications.filter((notification) => notification.unread).length,
@@ -76,18 +61,6 @@ export default function NotificationsPage() {
     [notifications, showUnreadOnly],
   );
 
-  const markAllAsRead = () => {
-    setNotifications((current) => current.map((notification) => ({ ...notification, unread: false })));
-  };
-
-  const toggleNotificationRead = (notificationId: string) => {
-    setNotifications((current) =>
-      current.map((notification) =>
-        notification.id === notificationId ? { ...notification, unread: !notification.unread } : notification,
-      ),
-    );
-  };
-
   return (
     <div className={layoutStyles.shell}>
       <AppSidebar />
@@ -96,7 +69,7 @@ export default function NotificationsPage() {
         <div className={styles.header}>
           <div>
             <h1 className={styles.title}>Notifications</h1>
-            <p className={styles.subtitle}>Security, mentions, bookings, and event reminders in one place.</p>
+            <p className={styles.subtitle}>Realtime updates for likes, comments, rooms, map entries, admin alerts, and friend requests.</p>
           </div>
 
           <div className={styles.actions}>
@@ -109,7 +82,7 @@ export default function NotificationsPage() {
               {showUnreadOnly ? "Show all" : "Unread only"}
             </button>
 
-            <button type="button" className={styles.markButton} onClick={markAllAsRead} disabled={unreadCount === 0}>
+            <button type="button" className={styles.markButton} onClick={markAllNotificationsAsRead} disabled={unreadCount === 0}>
               <CheckCheck size={16} aria-hidden />
               Mark all as read
             </button>
@@ -143,15 +116,15 @@ export default function NotificationsPage() {
                 <div className={styles.body}>
                   <div className={styles.topRow}>
                     <h2>{notification.title}</h2>
-                    <span>{notification.when}</span>
+                    <span>{formatRelativeTime(notification.timestamp)}</span>
                   </div>
                   <p>{notification.detail}</p>
                 </div>
 
                 <div className={styles.meta}>
                   {notification.unread ? <Badge className={styles.unreadBadge}>Unread</Badge> : <Badge>Read</Badge>}
-                  <button type="button" onClick={() => toggleNotificationRead(notification.id)} className={styles.toggleButton}>
-                    Mark as {notification.unread ? "read" : "unread"}
+                  <button type="button" onClick={() => markNotificationAsRead(notification.id)} className={styles.toggleButton}>
+                    Mark as read
                   </button>
                 </div>
               </article>
