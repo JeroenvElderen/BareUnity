@@ -115,9 +115,25 @@ export default function GalleryPage() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const lastTapByItemIdRef = useRef<Record<string, number>>({});
   const fullscreenTouchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const fullscreenSwipeHandledRef = useRef(false);
   const [fullscreenSwipeOffset, setFullscreenSwipeOffset] = useState(0);
   const [isFullscreenDragging, setIsFullscreenDragging] = useState(false);
   
+  const activeItemIndex = activeItem ? items.findIndex((item) => item.id === activeItem.id) : -1;
+
+  const moveFullscreenBy = (delta: number) => {
+    if (activeItemIndex < 0) return;
+
+    const nextIndex = activeItemIndex + delta;
+    if (nextIndex < 0 || nextIndex >= items.length) {
+      setFullscreenSwipeOffset(0);
+      return;
+    }
+
+    setActiveItem(items[nextIndex] ?? null);
+    setFullscreenSwipeOffset(0);
+  };
+
   const refreshGallery = async () => {
     const { data } = await supabase.auth.getSession();
     const userId = data.session?.user?.id ?? null;
@@ -368,6 +384,7 @@ export default function GalleryPage() {
     const touch = event.changedTouches[0];
     if (!touch) return;
 
+    fullscreenSwipeHandledRef.current = false;
     setIsFullscreenDragging(true);
     fullscreenTouchStartRef.current = {
       x: touch.clientX,
@@ -401,14 +418,24 @@ export default function GalleryPage() {
     const deltaY = touch.clientY - start.y;
     const isHorizontalSwipe = Math.abs(deltaX) > Math.abs(deltaY);
     const isLeftSwipe = deltaX < -90;
+    const isRightSwipe = deltaX > 90;
 
-    if (isHorizontalSwipe && isLeftSwipe) {
-      setActiveItem(null);
-      setFullscreenSwipeOffset(0);
+    if (isHorizontalSwipe && (isLeftSwipe || isRightSwipe)) {
+      fullscreenSwipeHandledRef.current = true;
+      moveFullscreenBy(isLeftSwipe ? -1 : 1);
       return;
     }
 
     setFullscreenSwipeOffset(0);
+  };
+
+  const handleFullscreenClick = () => {
+    if (fullscreenSwipeHandledRef.current) {
+      fullscreenSwipeHandledRef.current = false;
+      return;
+    }
+
+    setActiveItem(null);
   };
 
   return (
@@ -488,18 +515,25 @@ export default function GalleryPage() {
           role="dialog"
           aria-modal="true"
           aria-label={`${activeItem.title} full screen preview`}
-          onClick={() => setActiveItem(null)}
+          onClick={handleFullscreenClick}
           onTouchStart={handleFullscreenTouchStart}
           onTouchMove={handleFullscreenTouchMove}
           onTouchEnd={handleFullscreenTouchEnd}
         >
-          <p className={styles.fullscreenHint}>Swipe left or click anywhere to close</p>
+          <button
+            type="button"
+            className={styles.fullscreenClose}
+            aria-label="Close fullscreen preview"
+            onClick={() => setActiveItem(null)}
+          >
+            ×
+          </button>
+          <p className={styles.fullscreenHint}>Swipe left for previous, right for next, tap anywhere to close</p>
           <img
             src={activeItem.src}
             alt={`${activeItem.title} — ${activeItem.place}`}
             className={`${styles.fullscreenImage} ${isFullscreenDragging ? styles.fullscreenImageDragging : ""}`}
             style={{ transform: `translateX(${fullscreenSwipeOffset}px)` }}
-            onClick={() => setActiveItem(null)}
           />
         </div>
       ) : null}
