@@ -11,6 +11,7 @@ import {
   writeCachedValue,
 } from "@/lib/client-cache";
 import type { HomeFeedPayload } from "@/lib/homefeed";
+import { setPrefetchedRouteData } from "@/lib/prefetched-route-data";
 import { supabase } from "@/lib/supabase";
 
 import styles from "./auth-gate.module.css";
@@ -45,11 +46,11 @@ const PRE_LOGIN_DATA_ENDPOINTS = [
 ];
 const POST_LOGIN_BACKGROUND_ENDPOINTS = [
   "/api/map-spots",
-  "/api/settings/snapshot",
   "/api/gallery/snapshot",
 ];
 const POST_LOGIN_HOMEFEED_ENDPOINT = "/api/homefeed";
-const POST_LOGIN_PROFILE_ENDPOINT = "/api/profile/snapshot";
+const POST_LOGIN_MAP_SPOTS_ENDPOINT = "/api/map-spots";
+const POST_LOGIN_GALLERY_ENDPOINT = "/api/gallery/snapshot";
 const WARMUP_MIN_INTERVAL_MS = 5 * 60_000;
 
 export function AuthGate({ children }: AuthGateProps) {
@@ -135,13 +136,34 @@ export function AuthGate({ children }: AuthGateProps) {
 
   const cacheWarmupResponse = useCallback(async (url: string, response: Response) => {
     if (!response.ok) return;
-    if (url !== POST_LOGIN_HOMEFEED_ENDPOINT) return;
+    if (url === POST_LOGIN_HOMEFEED_ENDPOINT) {
+      try {
+        const payload = (await response.json()) as HomeFeedPayload;
+        writeCachedValue(buildUserScopedCacheKey("home-feed"), payload);
+        setPrefetchedRouteData("homefeed", payload);
+      } catch {
+        // warmup cache writes should not block routing
+      }
+      return;
+    }
 
-    try {
-      const payload = (await response.json()) as HomeFeedPayload;
-      writeCachedValue(buildUserScopedCacheKey("home-feed"), payload);
-    } catch {
-      // warmup cache writes should not block routing
+    if (url === POST_LOGIN_GALLERY_ENDPOINT) {
+      try {
+        const payload = (await response.json()) as { items?: unknown[] };
+        setPrefetchedRouteData("gallery-snapshot", payload.items ?? []);
+      } catch {
+        // best-effort prefetch should not block routing
+      }
+      return;
+    }
+
+    if (url === POST_LOGIN_MAP_SPOTS_ENDPOINT) {
+      try {
+        const payload = (await response.json()) as { spots?: unknown[] };
+        setPrefetchedRouteData("map-spots", payload.spots ?? []);
+      } catch {
+        // best-effort prefetch should not block routing
+      }
     }
   }, []);
 
@@ -250,11 +272,6 @@ export function AuthGate({ children }: AuthGateProps) {
     const prefetchPostLoginCriticalData = async () => {
       await prefetchHomeFeedUntilReady();
       if (isCancelled) return;
-
-      await prefetchEndpoints([POST_LOGIN_PROFILE_ENDPOINT], { includeAuthToken: true });
-      if (isCancelled) return;
-
-      await prefetchHomeFeedUntilReady();
     };
 
     const prefetchPostLoginBackgroundData = async () => {

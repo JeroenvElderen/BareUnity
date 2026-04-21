@@ -211,20 +211,26 @@ export default function SettingsPage() {
     let isMounted = true;
 
     const loadSnapshot = async () => {
-      const { data } = await supabase.auth.getSession();
-      const accessToken = data.session?.access_token;
-      if (!accessToken) return;
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
 
-      const response = await fetch("/api/settings/snapshot", {
-        cache: "no-store",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
+      const [profileResult] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("username")
+          .eq("id", user.id)
+          .maybeSingle<{ username: string | null }>(),
+      ]);
 
-      if (!response.ok) return;
+      if (profileResult.error) return;
 
-      const snapshot = (await response.json()) as ProfileSecurityCache;
+      const snapshot: ProfileSecurityCache = {
+        username: profileResult.data?.username?.trim() || "member",
+        email: user.email?.trim() || "member@example.com",
+        recoveryKeys: [],
+      };
 
       if (!isMounted) return;
 

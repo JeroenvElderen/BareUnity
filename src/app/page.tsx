@@ -8,7 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buildUserScopedCacheKey, hasFreshCachedValue, readCachedValue, writeCachedValue } from "@/lib/client-cache";
-import type { HomeFeedComment, HomeFeedFriend, HomeFeedPayload, HomeFeedPost, HomeFeedStory } from "@/lib/homefeed";import { sanitizeImageUpload } from "@/lib/image";
+import type { HomeFeedComment, HomeFeedFriend, HomeFeedPayload, HomeFeedPost, HomeFeedStory } from "@/lib/homefeed";
+import { sanitizeImageUpload } from "@/lib/image";
+import { takePrefetchedRouteData } from "@/lib/prefetched-route-data";
 import { supabase } from "@/lib/supabase";
 import styles from "./page.module.css";
 
@@ -88,6 +90,7 @@ export default function HomePage() {
       allowExpired: true,
     }),
   );
+  const [prefetchedFeed] = useState<HomeFeedPayload | null>(() => takePrefetchedRouteData<HomeFeedPayload>("homefeed"));
   const [hasFreshCacheOnMount] = useState(() => hasFreshCachedValue(homeFeedCacheKey, HOME_FEED_CACHE_MAX_AGE_MS));
   const [isComposerOpen, setComposerOpen] = useState(false);
   const [composerKind, setComposerKind] = useState<"post" | "story" | null>(null);
@@ -98,12 +101,12 @@ export default function HomePage() {
   const [postImageDataUrl, setPostImageDataUrl] = useState<string>("");
   const galleryImageInputRef = useRef<HTMLInputElement | null>(null);
   const cameraImageInputRef = useRef<HTMLInputElement | null>(null);
-  const [feed, setFeed] = useState<HomeFeedPayload>(() => cachedFeed ?? defaultFeed);
+  const [feed, setFeed] = useState<HomeFeedPayload>(() => prefetchedFeed ?? cachedFeed ?? defaultFeed);
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
   const [activeReplyByPost, setActiveReplyByPost] = useState<Record<string, string | null>>({});
   const [expandedCommentThreadsByPost, setExpandedCommentThreadsByPost] = useState<Record<string, Record<string, boolean>>>({});
   const [activePostId, setActivePostId] = useState<string | null>(null);
-  const [isLoadingFeed, setLoadingFeed] = useState(() => !cachedFeed);
+  const [isLoadingFeed, setLoadingFeed] = useState(() => !prefetchedFeed && !cachedFeed);
   const [openPostMenuId, setOpenPostMenuId] = useState<string | null>(null);
   const [editingPost, setEditingPost] = useState<HomeFeedPost | null>(null);
   const [editTitle, setEditTitle] = useState("");
@@ -190,14 +193,14 @@ export default function HomePage() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      const shouldRefresh = !cachedFeed || !hasFreshCacheOnMount;
+      const shouldRefresh = (!cachedFeed && !prefetchedFeed) || !hasFreshCacheOnMount;
       if (shouldRefresh) {
         void loadFeed();
       }
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, [cachedFeed, hasFreshCacheOnMount, loadFeed]);
+  }, [cachedFeed, hasFreshCacheOnMount, loadFeed, prefetchedFeed]);
 
   useEffect(() => {
     return () => {

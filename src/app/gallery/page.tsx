@@ -5,6 +5,7 @@ import { Heart } from "lucide-react";
 
 import { AppSidebar } from "@/components/sidebar/sidebar";
 import { buildUserScopedCacheKey, loadCachedThenRefresh } from "@/lib/client-cache";
+import { takePrefetchedRouteData } from "@/lib/prefetched-route-data";
 import layoutStyles from "../page.module.css";
 import styles from "./gallery.module.css";
 import { supabase } from "@/lib/supabase";
@@ -106,10 +107,11 @@ async function convertImageToWebp(file: File): Promise<File> {
 }
 
 export default function GalleryPage() {
-  const [items, setItems] = useState<GalleryItem[]>([]);
+  const [prefetchedItems] = useState<GalleryItem[]>(() => takePrefetchedRouteData<GalleryItem[]>("gallery-snapshot") ?? []);
+  const [items, setItems] = useState<GalleryItem[]>(() => prefetchedItems);
   const [activeItem, setActiveItem] = useState<GalleryItem | null>(null);
   const [pendingLikeIds, setPendingLikeIds] = useState<Set<string>>(() => new Set());
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(() => prefetchedItems.length === 0);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fullscreenTouchStartRef = useRef<{ x: number; y: number } | null>(null);
