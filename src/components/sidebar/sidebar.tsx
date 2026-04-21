@@ -115,9 +115,11 @@ export function AppSidebar() {
   const notificationsRef = useRef<HTMLDivElement | null>(null);
   const seenNotificationIdsRef = useRef(new Set<string>());
   const hasSeenInitialNotificationsRef = useRef(false);
+  const hasRequestedSystemNotificationPermissionRef = useRef(false);
   const [viewerId, setViewerId] = useState<string | null>(null);
   const [generalChannelId, setGeneralChannelId] = useState<string | null>(null);
   const videoVisitorsRef = useRef(new Set<string>());
+  const hasRealtimeFailureNoticeRef = useRef(false);
   const notifications = useUIStore((state) => state.notifications);
   const notificationsBootstrapped = useUIStore((state) => state.notificationsBootstrapped);
   const bootstrapNotifications = useUIStore((state) => state.bootstrapNotifications);
@@ -178,6 +180,17 @@ export function AppSidebar() {
   }, [bootstrapNotifications, notificationsBootstrapped, viewerId]);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!("Notification" in window)) return;
+    if (Notification.permission !== "default") return;
+    if (hasRequestedSystemNotificationPermissionRef.current) return;
+    if (!viewerId) return;
+
+    hasRequestedSystemNotificationPermissionRef.current = true;
+    void Notification.requestPermission();
+  }, [viewerId]);
+
+  useEffect(() => {
     if (!hasSeenInitialNotificationsRef.current) {
       notifications.forEach((notification) => {
         seenNotificationIdsRef.current.add(notification.id);
@@ -196,6 +209,20 @@ export function AppSidebar() {
     const unreadFreshNotifications = freshNotifications.filter((notification) => notification.unread);
     if (!unreadFreshNotifications.length) return;
 
+    if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+      unreadFreshNotifications.forEach((notification) => {
+        const browserNotification = new Notification(notification.title, {
+          body: notification.detail,
+          tag: notification.id,
+        });
+        browserNotification.onclick = () => {
+          window.focus();
+          void router.push("/notifications");
+          browserNotification.close();
+        };
+      });
+    }
+
     setActiveToasts((current) => {
       const dedupedCurrent = current.filter(
         (existingToast) => !unreadFreshNotifications.some((freshToast) => freshToast.id === existingToast.id),
@@ -212,7 +239,7 @@ export function AppSidebar() {
     return () => {
       timers.forEach((timer) => window.clearTimeout(timer));
     };
-  }, [notifications]);
+  }, [notifications, router]);
 
   useEffect(() => {
     if (!viewerId) return;
@@ -357,7 +384,30 @@ export function AppSidebar() {
     }
 
     channels.forEach((channel) => {
-      void channel.subscribe();
+      void channel.subscribe((status, error) => {
+        if (status === "SUBSCRIBED") {
+          hasRealtimeFailureNoticeRef.current = false;
+          return;
+        }
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          const detail = error?.message?.trim() || "Supabase Realtime channel failed to stay connected.";
+          console.error("Realtime notifications channel issue", {
+            status,
+            channel: channel.topic,
+            detail,
+          });
+          if (!hasRealtimeFailureNoticeRef.current) {
+            hasRealtimeFailureNoticeRef.current = true;
+            pushNotification(
+              createNotification(
+                "Notifications offline",
+                "Live alerts disconnected. Open DevTools for the exact realtime error.",
+                "general-message",
+              ),
+            );
+          }
+        }
+      });
     });
 
     return () => {
