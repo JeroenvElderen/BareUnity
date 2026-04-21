@@ -137,7 +137,13 @@ export default function ProfilePage() {
     accessToken: null,
   });
 
-  const loadProfileForUser = useCallback(async (sessionUser: User | null) => {
+  const loadProfileForUser = useCallback(async (
+    sessionUser: User | null,
+    accessToken: string | null = null,
+    options?: { background?: boolean },
+  ) => {
+    setSessionContext({ user: sessionUser, accessToken });
+
     if (!isSupabaseConfigured || !sessionUser) {
       setProfileData(EMPTY_PROFILE_DATA);
       setIsLoading(false);
@@ -161,7 +167,7 @@ export default function ProfilePage() {
     } finally {
       if (!options?.background) {
         setIsLoading(false);
-      }setIsLoading(false);
+      }
     }
   }, []);
 
@@ -170,13 +176,13 @@ export default function ProfilePage() {
 
     void supabase.auth.getSession().then(({ data }) => {
       if (!isMounted) return;
-      void loadProfileForUser(data.session?.user ?? null);
+      void loadProfileForUser(data.session?.user ?? null, data.session?.access_token ?? null);
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      void loadProfileForUser(session?.user ?? null);
+      void loadProfileForUser(session?.user ?? null, session?.access_token ?? null);
     });
 
     return () => {

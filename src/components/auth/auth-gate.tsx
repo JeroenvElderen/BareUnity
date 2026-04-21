@@ -58,8 +58,12 @@ export function AuthGate({ children }: AuthGateProps) {
   const router = useRouter();
   const [isReady, setIsReady] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isHydratingApp, setIsHydratingApp] = useState(false);
+  const [isHydratingApp, setIsHydratingApp] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.sessionStorage.getItem(POST_LOGIN_LOADER_FLAG) === "true";
+  });
   const [authInitError, setAuthInitError] = useState(false);
+  const hasConsumedPostLoginLoaderRef = useRef(false);
   const lastWarmupAtRef = useRef(0);
   const warmupInFlightRef = useRef(false);
   const hasPrefetchedBeforeLoginRef = useRef(false);
@@ -69,6 +73,16 @@ export function AuthGate({ children }: AuthGateProps) {
     if (PUBLIC_PATHS.has(pathname)) return true;
     return pathname.startsWith("/api") || pathname.startsWith("/_next");
   }, [pathname]);
+
+  const consumePostLoginLoaderFlag = useCallback(() => {
+    if (hasConsumedPostLoginLoaderRef.current) return false;
+    const shouldHydrate = window.sessionStorage.getItem(POST_LOGIN_LOADER_FLAG) === "true";
+    if (shouldHydrate) {
+      hasConsumedPostLoginLoaderRef.current = true;
+      window.sessionStorage.removeItem(POST_LOGIN_LOADER_FLAG);
+    }
+    return shouldHydrate;
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -90,7 +104,7 @@ export function AuthGate({ children }: AuthGateProps) {
 
       if (!mounted) return;
       setIsAuthenticated(authed);
-      setIsHydratingApp(authed && window.sessionStorage.getItem(POST_LOGIN_LOADER_FLAG) === "true");
+      setIsHydratingApp(authed && consumePostLoginLoaderFlag());
       setActiveCacheUser(sessionUserId);
       setIsReady(true);
 
@@ -111,7 +125,10 @@ export function AuthGate({ children }: AuthGateProps) {
       if (!mounted) return;
       const authed = Boolean(session?.user);
       setIsAuthenticated(authed);
-      setIsHydratingApp(authed && window.sessionStorage.getItem(POST_LOGIN_LOADER_FLAG) === "true");
+      const shouldStartHydrationLoader = authed && _event === "SIGNED_IN" && consumePostLoginLoaderFlag();
+      if (shouldStartHydrationLoader) {
+        setIsHydratingApp(true);
+      }
       setActiveCacheUser(session?.user?.id ?? null);
 
       if (!authed && !isPublicPath) {
@@ -132,7 +149,7 @@ export function AuthGate({ children }: AuthGateProps) {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [isPublicPath, pathname, router]);
+  }, [consumePostLoginLoaderFlag, isPublicPath, pathname, router]);
 
   const cacheWarmupResponse = useCallback(async (url: string, response: Response) => {
     if (!response.ok) return;
@@ -263,7 +280,6 @@ export function AuthGate({ children }: AuthGateProps) {
     let isCancelled = false;
 
     const completePostLoginHydration = () => {
-      window.sessionStorage.removeItem(POST_LOGIN_LOADER_FLAG);
       if (!isCancelled) {
         setIsHydratingApp(false);
       }
