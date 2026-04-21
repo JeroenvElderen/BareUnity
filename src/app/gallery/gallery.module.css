@@ -1,6 +1,61 @@
 .wrapper {
+  position: relative;
   flex: 1;
   padding: 1rem;
+}
+
+.uploadAction {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.75rem;
+}
+
+.uploadInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}
+
+.uploadButton {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 999px;
+  border: 1px solid rgb(var(--border));
+  background: rgb(var(--card) / 0.7);
+  color: rgb(var(--text-strong));
+  font-size: 1.5rem;
+  font-weight: 500;
+  cursor: pointer;
+  opacity: 0.6;
+  transform: translateY(0);
+  transition: opacity 180ms ease, transform 180ms ease, background 180ms ease;
+}
+
+.wrapper:hover .uploadButton,
+.uploadButton:focus-within {
+  opacity: 1;
+  transform: translateY(-1px);
+  background: rgb(var(--card));
+}
+
+.uploadButton[aria-disabled="true"] {
+  cursor: progress;
+  opacity: 1;
+}
+
+.uploadError {
+  margin: 0 0 0.75rem;
+  color: rgb(204 52 52);
+  font-size: 0.86rem;
 }
 
 .emptyState {
