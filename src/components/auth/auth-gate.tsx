@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { Button } from "@/components/ui/button";
 import {
   buildUserScopedCacheKey,
   evictCachedValuesByPrefix,
@@ -57,6 +58,7 @@ export function AuthGate({ children }: AuthGateProps) {
   const [isReady, setIsReady] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isHydratingApp, setIsHydratingApp] = useState(false);
+  const [authInitError, setAuthInitError] = useState(false);
   const lastWarmupAtRef = useRef(0);
   const warmupInFlightRef = useRef(false);
   const hasPrefetchedBeforeLoginRef = useRef(false);
@@ -71,15 +73,24 @@ export function AuthGate({ children }: AuthGateProps) {
     let mounted = true;
 
     const syncAuthState = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      let sessionUserId: string | null = null;
+      let authed = false;
+
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        authed = Boolean(session?.user);
+        sessionUserId = session?.user?.id ?? null;
+      } catch (error) {
+        console.error("Failed to initialize auth session", error);
+        setAuthInitError(true);
+      }
 
       if (!mounted) return;
-      const authed = Boolean(session?.user);
       setIsAuthenticated(authed);
       setIsHydratingApp(authed && window.sessionStorage.getItem(POST_LOGIN_LOADER_FLAG) === "true");
-      setActiveCacheUser(session?.user?.id ?? null);
+      setActiveCacheUser(sessionUserId);
       setIsReady(true);
 
       if (!authed && !isPublicPath) {
@@ -144,9 +155,14 @@ export function AuthGate({ children }: AuthGateProps) {
       const shouldIncludeAuthToken = options.includeAuthToken ?? false;
       let headers: HeadersInit = {};
       if (shouldIncludeAuthToken) {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
+        let session;
+        try {
+          const sessionResult = await supabase.auth.getSession();
+          session = sessionResult.data.session;
+        } catch (error) {
+          console.error("Failed to fetch auth session while warming cache", error);
+          return;
+        }
 
         const accessToken = session?.access_token;
         headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
@@ -172,9 +188,14 @@ export function AuthGate({ children }: AuthGateProps) {
     const retryDelayMs = options?.retryDelayMs ?? 200;
 
     for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      let session;
+      try {
+        const sessionResult = await supabase.auth.getSession();
+        session = sessionResult.data.session;
+      } catch (error) {
+        console.error("Failed to fetch auth session for homefeed warmup", error);
+        return false;
+      }
       const accessToken = session?.access_token;
 
       if (!accessToken) {
@@ -309,7 +330,21 @@ export function AuthGate({ children }: AuthGateProps) {
   }
 
   if (!isAuthenticated && !isPublicPath) {
-    return null;
+    return (
+      <div className={styles.loaderShell}>
+        <div className={styles.loaderCard} role="status" aria-live="polite">
+          <h2 className={styles.title}>Let&apos;s get you in</h2>
+          <p className={styles.message}>
+            {authInitError
+              ? "We couldn't check your sign-in status on this browser. You can still continue."
+              : "Redirecting you to the welcome page…"}
+          </p>
+          <Button type="button" onClick={() => router.replace("/welcome")}>
+            Open welcome page
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   return <>{children}</>;

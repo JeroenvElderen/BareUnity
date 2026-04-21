@@ -18,16 +18,27 @@ function formatRelativeUpdateTime(createdAt: Date) {
 }
 
 export default async function ExplorePage() {
-  const latestMapSpots = await db.naturist_map_spots.findMany({
-    orderBy: { created_at: "desc" },
-    take: 8,
-    select: {
-      id: true,
-      name: true,
-      description: true,
-      created_at: true,
-    },
-  });
+  let latestMapSpots: Array<{
+    id: string;
+    name: string;
+    description: string | null;
+    created_at: Date;
+  }> = [];
+
+  try {
+    latestMapSpots = await db.naturist_map_spots.findMany({
+      orderBy: { created_at: "desc" },
+      take: 8,
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        created_at: true,
+      },
+    });
+  } catch (error) {
+    console.error("Failed to load map spots for Explore page", error);
+  }
 
   return (
     <main className={layoutStyles.main}>
