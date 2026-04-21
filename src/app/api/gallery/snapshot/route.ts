@@ -1,14 +1,22 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase-admin";
+import { loadViewerIdFromRequest } from "@/lib/viewer";
 import { db } from "@/server/db";
 
 type GalleryStorageItem = {
   id: string;
   title: string;
   place: string;
+  path: string;
   src: string;
   createdAt: string;
+};
+
+type GalleryLikeStats = {
+  likeCount: number;
+  likedByViewer: boolean;
 };
 
 type SupabaseListEntry = {
@@ -129,6 +137,7 @@ async function buildGalleryFromStorage(): Promise<GalleryStorageItem[]> {
       id: `media-${entry.path}`,
       title: humanizeFileName(entry.path),
       place: "BareUnity Community",
+      path: entry.path,
       src: entry.path,
       createdAt: entry.createdAt,
     }));
@@ -157,19 +166,61 @@ async function buildGalleryFromStorage(): Promise<GalleryStorageItem[]> {
   return signedItems.filter((item): item is GalleryStorageItem => Boolean(item));
 }
 
-export async function GET() {
+async function loadLikeStats(paths: string[], viewerId: string | null): Promise<Map<string, GalleryLikeStats>> {
+  if (paths.length === 0) return new Map();
+
+  const likeRows = await db.$queryRaw<Array<{ image_path: string; like_count: number }>>(Prisma.sql`
+    select image_path, count(*)::int as like_count
+    from public.gallery_image_likes
+    where image_path in (${Prisma.join(paths)})
+    group by image_path
+  `);
+
+  const viewerLikedPaths = viewerId
+    ? await db.$queryRaw<Array<{ image_path: string }>>(Prisma.sql`
+        select image_path
+        from public.gallery_image_likes
+        where user_id = ${viewerId}::uuid
+          and image_path in (${Prisma.join(paths)})
+      `)
+    : [];
+
+  const likedByViewer = new Set(viewerLikedPaths.map((row) => row.image_path));
+  const likeCountByPath = new Map(likeRows.map((row) => [row.image_path, Number(row.like_count) || 0]));
+
+  return new Map(
+    paths.map((path) => [
+      path,
+      {
+        likeCount: likeCountByPath.get(path) ?? 0,
+        likedByViewer: likedByViewer.has(path),
+      },
+    ]),
+  );
+}
+
+export async function GET(request: Request) {
   try {
     if (!isSupabaseAdminConfigured) {
       return NextResponse.json({ items: [] });
     }
 
+    const viewerId = await loadViewerIdFromRequest(request);
     const payload = await buildGalleryFromStorage();
+    const likeStatsByPath = await loadLikeStats(
+      payload.map((item) => item.path),
+      viewerId,
+    );
+    
     return NextResponse.json({
       items: payload.map((item) => ({
         id: item.id,
         title: item.title,
         place: item.place,
+        path: item.path,
         src: item.src,
+        likeCount: likeStatsByPath.get(item.path)?.likeCount ?? 0,
+        likedByViewer: likeStatsByPath.get(item.path)?.likedByViewer ?? false,
       })),
     });
   } catch (error) {

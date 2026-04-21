@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ChangeEventHandler } from "react";
+import { Heart } from "lucide-react";
 
 import { AppSidebar } from "@/components/sidebar/sidebar";
 import { buildUserScopedCacheKey, loadCachedThenRefresh } from "@/lib/client-cache";
@@ -12,7 +13,10 @@ type GalleryItem = {
   id: string;
   title: string;
   place: string;
+  path: string;
   src: string;
+  likeCount: number;
+  likedByViewer: boolean;
 };
 
 const GALLERY_CACHE_MAX_AGE_MS = 1000 * 60 * 15;
@@ -102,6 +106,7 @@ async function convertImageToWebp(file: File): Promise<File> {
 
 export default function GalleryPage() {
   const [items, setItems] = useState<GalleryItem[]>([]);
+  const [pendingLikeIds, setPendingLikeIds] = useState<Set<string>>(() => new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -197,6 +202,93 @@ export default function GalleryPage() {
     }
   };
 
+  const setLikePending = (itemId: string, isPending: boolean) => {
+    setPendingLikeIds((current) => {
+      const next = new Set(current);
+      if (isPending) {
+        next.add(itemId);
+      } else {
+        next.delete(itemId);
+      }
+
+      return next;
+    });
+  };
+
+  const toggleLike = async (itemId: string) => {
+    const target = items.find((item) => item.id === itemId);
+    if (!target || pendingLikeIds.has(itemId)) return;
+
+    const nextLiked = !target.likedByViewer;
+    const optimisticCount = Math.max(0, target.likeCount + (nextLiked ? 1 : -1));
+
+    setItems((current) =>
+      current.map((item) =>
+        item.id === itemId
+          ? {
+              ...item,
+              likedByViewer: nextLiked,
+              likeCount: optimisticCount,
+            }
+          : item,
+      ),
+    );
+    setLikePending(itemId, true);
+
+    try {
+      const { data } = await supabase.auth.getSession();
+      const accessToken = data.session?.access_token;
+      if (!accessToken) {
+        throw new Error("Please sign in to like images.");
+      }
+
+      const response = await fetch("/api/gallery/like", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          imagePath: target.path,
+          liked: nextLiked,
+        }),
+      });
+
+      if (!response.ok) {
+        const body = (await response.json().catch(() => ({}))) as { error?: string };
+        throw new Error(body.error ?? "Could not update like.");
+      }
+
+      const body = (await response.json()) as { likeCount?: number; likedByViewer?: boolean };
+      setItems((current) =>
+        current.map((item) =>
+          item.id === itemId
+            ? {
+                ...item,
+                likeCount: Number(body.likeCount ?? optimisticCount),
+                likedByViewer: body.likedByViewer === true,
+              }
+            : item,
+        ),
+      );
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : "Could not update like.");
+      setItems((current) =>
+        current.map((item) =>
+          item.id === itemId
+            ? {
+                ...item,
+                likedByViewer: target.likedByViewer,
+                likeCount: target.likeCount,
+              }
+            : item,
+        ),
+      );
+    } finally {
+      setLikePending(itemId, false);
+    }
+  };
+
   return (
     <main className={layoutStyles.main}>
       <AppSidebar />
@@ -238,6 +330,17 @@ export default function GalleryPage() {
                     decoding="async"
                     draggable={false}
                   />
+                  <button
+                    type="button"
+                    className={`${styles.likeButton} ${item.likedByViewer ? styles.likeButtonActive : ""}`}
+                    aria-label={item.likedByViewer ? `Unlike ${item.title}` : `Like ${item.title}`}
+                    aria-pressed={item.likedByViewer}
+                    onClick={() => void toggleLike(item.id)}
+                    disabled={pendingLikeIds.has(item.id)}
+                  >
+                    <Heart className={styles.likeIcon} />
+                    <span className={styles.likeCount}>{item.likeCount}</span>
+                  </button>
                 </div>
               </figure>
             ))}

@@ -116,6 +116,62 @@
   transform: translateZ(0) scale(1.04);
 }
 
+.likeButton {
+  position: absolute;
+  top: 0.65rem;
+  right: 0.65rem;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 0.45rem;
+  gap: 0.2rem;
+  border: 0;
+  border-radius: 999px;
+  background: rgb(18 22 35 / 0.45);
+  color: rgb(255 255 255 / 0.92);
+  opacity: 0;
+  transform: translateY(-4px);
+  cursor: pointer;
+  transition: opacity 180ms ease, transform 180ms ease, background 180ms ease, color 180ms ease;
+}
+
+.tile:hover .likeButton,
+.tile:focus-within .likeButton {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.likeButton:hover,
+.likeButton:focus-visible {
+  background: rgb(18 22 35 / 0.72);
+  color: rgb(255 255 255);
+}
+
+.likeButtonActive {
+  opacity: 1;
+  transform: translateY(0);
+  background: rgb(242 68 95 / 0.9);
+  color: rgb(255 255 255);
+}
+
+.likeIcon {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.likeButtonActive .likeIcon {
+  fill: currentColor;
+}
+
+.likeCount {
+  font-size: 0.75rem;
+  line-height: 1;
+  font-weight: 600;
+}
+
 .image {
   position: absolute;
   inset: 0;
