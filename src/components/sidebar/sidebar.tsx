@@ -264,6 +264,7 @@ export function AppSidebar() {
     if (!viewerId) return;
 
     const channels: ReturnType<typeof supabase.channel>[] = [];
+    let isCleaningUp = false;
 
     const postVotesChannel = supabase
       .channel(`notifications-post-votes-${viewerId}`)
@@ -389,6 +390,9 @@ export function AppSidebar() {
           hasRealtimeFailureNoticeRef.current = false;
           return;
         }
+        if (status === "CLOSED" && isCleaningUp) {
+          return;
+        }
         if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
           const detail = error?.message?.trim() || "Supabase Realtime channel failed to stay connected.";
           console.error("Realtime notifications channel issue", {
@@ -411,6 +415,7 @@ export function AppSidebar() {
     });
 
     return () => {
+      isCleaningUp = true;
       channels.forEach((channel) => {
         void supabase.removeChannel(channel);
       });
