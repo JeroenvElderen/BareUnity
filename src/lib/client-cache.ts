@@ -5,6 +5,7 @@ export type ClientCachePayload<T> = {
 
 const ACTIVE_CACHE_USER_KEY = "cache:active-user:v1";
 const USER_SCOPED_CACHE_VERSION = "v2";
+const REALTIME_MODE_ENABLED = true;
 
 type ReadCachedValueOptions = {
   maxAgeMs: number;
@@ -12,6 +13,7 @@ type ReadCachedValueOptions = {
 };
 
 function readCachedPayload<T>(key: string): ClientCachePayload<T> | null {
+  if (REALTIME_MODE_ENABLED) return null;
   if (typeof window === "undefined") return null;
 
   try {
@@ -34,6 +36,11 @@ function readCachedPayload<T>(key: string): ClientCachePayload<T> | null {
 }
 
 export function readCachedValue<T>(key: string, options: number | ReadCachedValueOptions): T | null {
+  if (REALTIME_MODE_ENABLED) {
+    void key;
+    void options;
+    return null;
+  }
   const resolvedOptions: ReadCachedValueOptions =
     typeof options === "number" ? { maxAgeMs: options } : options;
   const parsed = readCachedPayload<T>(key);
@@ -51,6 +58,11 @@ export function readCachedValue<T>(key: string, options: number | ReadCachedValu
 }
 
 export function hasFreshCachedValue(key: string, maxAgeMs: number) {
+  if (REALTIME_MODE_ENABLED) {
+    void key;
+    void maxAgeMs;
+    return false;
+  }
   const parsed = readCachedPayload(key);
   if (!parsed) return false;
   return Date.now() - parsed.savedAt <= maxAgeMs;
@@ -89,6 +101,11 @@ export function buildUserScopedCacheKey(scope: string, userId?: string | null) {
 }
 
 export function writeCachedValue<T>(key: string, data: T) {
+  if (REALTIME_MODE_ENABLED) {
+    void key;
+    void data;
+    return;
+  }
   if (typeof window === "undefined") return;
 
   const payload: ClientCachePayload<T> = {
@@ -104,6 +121,10 @@ export function writeCachedValue<T>(key: string, data: T) {
 }
 
 export function removeCachedValue(key: string) {
+  if (REALTIME_MODE_ENABLED) {
+    void key;
+    return;
+  }
   if (typeof window === "undefined") return;
 
   try {
@@ -114,6 +135,10 @@ export function removeCachedValue(key: string) {
 }
 
 export function evictCachedValuesByPrefix(prefix: string) {
+  if (REALTIME_MODE_ENABLED) {
+    void prefix;
+    return;
+  }
   if (typeof window === "undefined") return;
 
   try {
@@ -133,6 +158,13 @@ export async function loadCachedThenRefresh<T>(options: {
   fetchFresh: () => Promise<T>;
   onCachedData?: (data: T) => void;
 }): Promise<T> {
+  if (REALTIME_MODE_ENABLED) {
+    void options.key;
+    void options.maxAgeMs;
+    void options.onCachedData;
+    return options.fetchFresh();
+  }
+  
   const cached = readCachedValue<T>(options.key, options.maxAgeMs);
 
   if (cached && options.onCachedData) {

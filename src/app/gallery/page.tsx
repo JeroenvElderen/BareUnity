@@ -13,6 +13,7 @@ type GalleryItem = {
   id: string;
   title: string;
   place: string;
+  username: string;
   path: string;
   src: string;
   likeCount: number;
@@ -309,18 +310,22 @@ export default function GalleryPage() {
       <AppSidebar />
 
       <section className={styles.wrapper}>
-      <div className={styles.uploadAction}>
-          <label className={styles.uploadButton} aria-disabled={isUploading}>
-            <input
-              type="file"
-              accept="image/*"
-              className={styles.uploadInput}
-              onChange={handleUpload}
-              disabled={isUploading}
-            />
-            {isUploading ? "Uploading…" : "+"}
-          </label>
-        </div>
+      <header className={styles.galleryHeader}>
+          <h1 className={styles.galleryTitle}>Gallery</h1>
+          <p className={styles.gallerySubtitle}>Fresh captures from the BareUnity community.</p>
+          <div className={styles.uploadAction}>
+            <label className={styles.uploadButton} aria-disabled={isUploading}>
+              <input
+                type="file"
+                accept="image/*"
+                className={styles.uploadInput}
+                onChange={handleUpload}
+                disabled={isUploading}
+              />
+              {isUploading ? "Uploading…" : "+"}
+            </label>
+          </div>
+        </header>
         {uploadError ? <p className={styles.uploadError}>{uploadError}</p> : null}
         {!isLoading && items.length === 0 ? (
           <div className={styles.emptyState}>
@@ -346,6 +351,8 @@ export default function GalleryPage() {
                     draggable={false}
                     onTouchEnd={() => handleImageTouchEnd(item.id)}
                   />
+                </div>
+                <figcaption className={styles.metaBar}>
                   <button
                     type="button"
                     className={`${styles.likeButton} ${item.likedByViewer ? styles.likeButtonActive : ""}`}
@@ -357,7 +364,8 @@ export default function GalleryPage() {
                     <Heart className={styles.likeIcon} />
                     <span className={styles.likeCount}>{item.likeCount}</span>
                   </button>
-                </div>
+                <span className={styles.username}>@{item.username}</span>
+                </figcaption>
               </figure>
             ))}
           </div>

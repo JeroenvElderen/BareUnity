@@ -9,6 +9,7 @@ type GalleryStorageItem = {
   id: string;
   title: string;
   place: string;
+  username: string;
   path: string;
   src: string;
   createdAt: string;
@@ -133,14 +134,31 @@ async function buildGalleryFromStorage(): Promise<GalleryStorageItem[]> {
     .filter((entry) => IMAGE_EXTENSION_PATTERN.test(entry.path))
     .filter((entry) => !storyPaths.has(entry.path))
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    .map((entry) => ({
-      id: `media-${entry.path}`,
-      title: humanizeFileName(entry.path),
-      place: "BareUnity Community",
-      path: entry.path,
-      src: entry.path,
-      createdAt: entry.createdAt,
-    }));
+    .map((entry) => {
+      const ownerIdSegment = entry.path.split("/")[1] ?? "";
+      const normalizedOwnerId = ownerIdSegment.match(/^[0-9a-fA-F-]{36}$/)?.[0] ?? "";
+
+      return {
+        id: `media-${entry.path}`,
+        title: humanizeFileName(entry.path),
+        place: "BareUnity Community",
+        ownerId: normalizedOwnerId,
+        path: entry.path,
+        src: entry.path,
+        createdAt: entry.createdAt,
+      };
+    });
+
+  const ownerIds = Array.from(
+    new Set(entries.map((entry) => entry.ownerId).filter((ownerId) => ownerId.length > 0)),
+  );
+  const profileRows = ownerIds.length
+    ? await db.profiles.findMany({
+        where: { id: { in: ownerIds } },
+        select: { id: true, username: true },
+      })
+    : [];
+  const usernameByOwnerId = new Map(profileRows.map((profile) => [profile.id, profile.username]));
 
   const signedItems = await Promise.all(
     entries.map(async (entry) => {
@@ -158,6 +176,7 @@ async function buildGalleryFromStorage(): Promise<GalleryStorageItem[]> {
 
       return {
         ...entry,
+        username: usernameByOwnerId.get(entry.ownerId) ?? "unknown",
         src: data.signedUrl,
       };
     }),
@@ -217,6 +236,7 @@ export async function GET(request: Request) {
         id: item.id,
         title: item.title,
         place: item.place,
+        username: item.username,
         path: item.path,
         src: item.src,
         likeCount: likeStatsByPath.get(item.path)?.likeCount ?? 0,
