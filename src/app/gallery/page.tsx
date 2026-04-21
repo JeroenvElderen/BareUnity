@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ChangeEventHandler } from "react";
+import { useEffect, useRef, useState, type ChangeEventHandler } from "react";
 import { Heart } from "lucide-react";
 
 import { AppSidebar } from "@/components/sidebar/sidebar";
@@ -20,6 +20,7 @@ type GalleryItem = {
 };
 
 const GALLERY_CACHE_MAX_AGE_MS = 1000 * 60 * 15;
+const DOUBLE_TAP_WINDOW_MS = 300;
 const TILE_SIZE_VARIANTS = [
   "sizeTall",
   "sizePortrait",
@@ -110,6 +111,7 @@ export default function GalleryPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const lastTapByItemIdRef = useRef<Record<string, number>>({});
 
   const refreshGallery = async () => {
     const { data } = await supabase.auth.getSession();
@@ -289,6 +291,19 @@ export default function GalleryPage() {
     }
   };
 
+  const handleImageTouchEnd = (itemId: string) => {
+    const now = Date.now();
+    const previousTap = lastTapByItemIdRef.current[itemId] ?? 0;
+    const isDoubleTap = now - previousTap <= DOUBLE_TAP_WINDOW_MS;
+
+    lastTapByItemIdRef.current[itemId] = now;
+
+    if (!isDoubleTap) return;
+    const target = items.find((item) => item.id === itemId);
+    if (!target || target.likedByViewer) return;
+    void toggleLike(itemId);
+  };
+
   return (
     <main className={layoutStyles.main}>
       <AppSidebar />
@@ -329,6 +344,7 @@ export default function GalleryPage() {
                     loading={index < 6 ? "eager" : "lazy"}
                     decoding="async"
                     draggable={false}
+                    onTouchEnd={() => handleImageTouchEnd(item.id)}
                   />
                   <button
                     type="button"
