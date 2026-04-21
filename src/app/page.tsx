@@ -1090,6 +1090,13 @@ export default function HomePage() {
             <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
               <div className="rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))] p-3">
                 <p className="text-sm font-semibold text-[rgb(var(--text-strong))]">{activePost.author}</p>
+                {activePost.mediaUrl ? (
+                  <img
+                    src={activePost.mediaUrl}
+                    alt={`${activePost.author}'s post`}
+                    className="mt-3 max-h-[28rem] w-full rounded-xl bg-white object-contain"
+                  />
+                ) : null}
                 {activePost.text ? <p className="mt-1 whitespace-pre-line text-sm text-[rgb(var(--text))]">{activePost.text}</p> : null}
               </div>
               <div className="space-y-2 pb-4">
