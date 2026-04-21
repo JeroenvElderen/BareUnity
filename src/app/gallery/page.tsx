@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ChangeEventHandler } from "react";
+import { useEffect, useRef, useState, type ChangeEventHandler, type TouchEvent } from "react";
 import { Heart } from "lucide-react";
 
 import { AppSidebar } from "@/components/sidebar/sidebar";
@@ -114,6 +114,7 @@ export default function GalleryPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const lastTapByItemIdRef = useRef<Record<string, number>>({});
+  const fullscreenTouchStartRef = useRef<{ x: number; y: number } | null>(null);
 
   const refreshGallery = async () => {
     const { data } = await supabase.auth.getSession();
@@ -177,6 +178,17 @@ export default function GalleryPage() {
     window.addEventListener("keydown", handleKeyDown);
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [activeItem]);
+
+  useEffect(() => {
+    if (!activeItem) return;
+
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
     };
   }, [activeItem]);
 
@@ -321,6 +333,34 @@ export default function GalleryPage() {
     void toggleLike(itemId);
   };
 
+  const handleFullscreenTouchStart = (event: TouchEvent) => {
+    const touch = event.changedTouches[0];
+    if (!touch) return;
+
+    fullscreenTouchStartRef.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+    };
+  };
+
+  const handleFullscreenTouchEnd = (event: TouchEvent) => {
+    const start = fullscreenTouchStartRef.current;
+    if (!start) return;
+
+    const touch = event.changedTouches[0];
+    fullscreenTouchStartRef.current = null;
+    if (!touch) return;
+
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+    const isHorizontalSwipe = Math.abs(deltaX) > Math.abs(deltaY);
+    const isLeftSwipe = deltaX < -70;
+
+    if (isHorizontalSwipe && isLeftSwipe) {
+      setActiveItem(null);
+    }
+  };
+
   return (
     <main className={layoutStyles.main}>
       <AppSidebar />
@@ -399,6 +439,8 @@ export default function GalleryPage() {
           aria-modal="true"
           aria-label={`${activeItem.title} full screen preview`}
           onClick={() => setActiveItem(null)}
+          onTouchStart={handleFullscreenTouchStart}
+          onTouchEnd={handleFullscreenTouchEnd}
         >
           <button
             type="button"

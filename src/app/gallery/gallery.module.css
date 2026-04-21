@@ -147,14 +147,6 @@
   border-radius: 999px;
   background: rgb(18 22 35 / 0.52);
   padding: 0.3rem 0.42rem;
-  opacity: 0;
-  transform: translateY(5px);
-  transition: opacity 180ms ease, transform 180ms ease, background 180ms ease;
-  pointer-events: none;
-}
-
-.tile:hover .metaBar,
-.tile:focus-within .metaBar {
   opacity: 1;
   transform: translateY(0);
   pointer-events: auto;
@@ -248,15 +240,25 @@
   position: fixed;
   top: 1rem;
   right: 1rem;
-  width: 2.4rem;
-  height: 2.4rem;
-  border: 0;
+  width: 2.8rem;
+  height: 2.8rem;
+  border: 1px solid rgb(255 255 255 / 0.45);
   border-radius: 999px;
-  background: rgb(255 255 255 / 0.14);
+  background: rgb(8 12 24 / 0.78);
   color: rgb(255 255 255);
-  font-size: 1.6rem;
+  font-size: 1.9rem;
+  font-weight: 700;
   line-height: 1;
   cursor: pointer;
+  box-shadow: 0 10px 24px rgb(0 0 0 / 0.45);
+  transition: background 180ms ease, transform 180ms ease, box-shadow 180ms ease;
+}
+
+.fullscreenClose:hover,
+.fullscreenClose:focus-visible {
+  background: rgb(8 12 24 / 0.95);
+  transform: scale(1.04);
+  box-shadow: 0 14px 30px rgb(0 0 0 / 0.58);
 }
 
 /* keep mixed sizes */
