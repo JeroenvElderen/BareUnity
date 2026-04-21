@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { db } from "@/server/db";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase-admin";
 import { loadViewerIdFromRequest } from "@/lib/viewer";
@@ -20,6 +21,48 @@ function getImageExtension(mimeType: string) {
     default:
       return "bin";
   }
+}
+
+function toStoragePath(pathOrUrl: string | null | undefined): string {
+  const value = pathOrUrl?.trim() ?? "";
+  if (!value) return "";
+
+  if (value.startsWith("http")) {
+    try {
+      const pathname = new URL(value).pathname;
+      const mediaPublicPrefix = "/storage/v1/object/public/media/";
+      const mediaPrivatePrefix = "/storage/v1/object/media/";
+      const mediaSignPrefix = "/storage/v1/object/sign/media/";
+
+      if (pathname.includes(mediaPublicPrefix)) {
+        return decodeURIComponent(pathname.split(mediaPublicPrefix)[1] ?? "");
+      }
+
+      if (pathname.includes(mediaPrivatePrefix)) {
+        return decodeURIComponent(pathname.split(mediaPrivatePrefix)[1] ?? "");
+      }
+
+      if (pathname.includes(mediaSignPrefix)) {
+        return decodeURIComponent(pathname.split(mediaSignPrefix)[1] ?? "");
+      }
+    } catch {
+      return "";
+    }
+  }
+
+  return value.replace(/^\/+/, "");
+}
+
+async function deleteMediaAsset(pathOrUrl: string | null | undefined) {
+  const storagePath = toStoragePath(pathOrUrl);
+  if (!storagePath || !isSupabaseAdminConfigured) return;
+
+  const supabaseAdmin = createSupabaseAdminClient();
+
+  await Promise.all([
+    supabaseAdmin.storage.from("media").remove([storagePath]),
+    db.$executeRaw(Prisma.sql`delete from public.gallery_image_likes where image_path = ${storagePath}`),
+  ]);
 }
 
 async function uploadMediaDataUrl(args: {
@@ -104,6 +147,10 @@ export async function PATCH(request: Request, context: { params: Promise<{ postI
       },
     });
 
+    if (persistedMediaUrl && post.media_url && post.media_url !== persistedMediaUrl) {
+      await deleteMediaAsset(post.media_url);
+    }
+
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("Unable to edit post", error);
@@ -121,7 +168,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ post
 
   const post = await db.posts.findUnique({
     where: { id: postId },
-    select: { id: true, author_id: true },
+    select: { id: true, author_id: true, media_url: true },
   });
 
   if (!post) {
@@ -133,6 +180,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ post
   }
 
   await db.posts.delete({ where: { id: postId } });
+  await deleteMediaAsset(post.media_url);
 
   return NextResponse.json({ ok: true });
 }

@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import {
   Bell,
   Building2,
@@ -39,6 +39,14 @@ type NavItem = {
   badge?: string;
 };
 
+type PopupNotification = {
+  id: string;
+  title: string;
+  detail: string;
+  time: string;
+  unread: boolean;
+};
+
 const primaryItems = [
   { icon: Home, label: "Home", href: "/" },
   { icon: Search, label: "Search", href: "#" },
@@ -59,6 +67,30 @@ const workspaceItems = [
   { icon: Users, label: "Members", href: "/members" },
   { icon: Settings, label: "Settings", href: "/settings" },
 ] satisfies readonly NavItem[];
+
+const initialNotifications: PopupNotification[] = [
+  {
+    id: "n1",
+    title: "New login detected",
+    detail: "Sign in from a new browser in Austin, TX.",
+    time: "2m",
+    unread: true,
+  },
+  {
+    id: "n2",
+    title: "You were mentioned",
+    detail: "Lina mentioned you in Naturist Photography.",
+    time: "15m",
+    unread: true,
+  },
+  {
+    id: "n3",
+    title: "Retreat booking updated",
+    detail: "Check-in changed to 4:00 PM.",
+    time: "1h",
+    unread: false,
+  },
+];
 
 const discussionRooms = [
   { name: "General Room", href: "/discussion" },
@@ -83,6 +115,10 @@ export function AppSidebar() {
   const [isAdmin, setIsAdmin] = useState(false);
   const isAdminSection = pathname?.startsWith("/admin") ?? false;
   const [isAdminOpen, setIsAdminOpen] = useState(isAdminSection);
+  const [notifications, setNotifications] = useState<PopupNotification[]>(initialNotifications);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const notificationsRef = useRef<HTMLDivElement | null>(null);
+  const unreadNotifications = notifications.filter((notification) => notification.unread).length;
 
   const onLogout = async () => {
     await logoutUser();
@@ -112,6 +148,30 @@ export function AppSidebar() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!isNotificationsOpen) return;
+
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (!notificationsRef.current) return;
+      if (notificationsRef.current.contains(event.target as Node)) return;
+      setIsNotificationsOpen(false);
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [isNotificationsOpen]);
+
+  const markNotificationAsRead = (notificationId: string) => {
+    setNotifications((current) =>
+      current.map((notification) =>
+        notification.id === notificationId ? { ...notification, unread: false } : notification,
+      ),
+    );
+  };
+
+  const markAllNotificationsAsRead = () => {
+    setNotifications((current) => current.map((notification) => ({ ...notification, unread: false })));
+  };
 
   return (
     <aside className={styles.sidebar} aria-label="Main sidebar navigation">
@@ -214,19 +274,75 @@ export function AppSidebar() {
               )}
             </div>
 
-            {workspaceItems.map(({ icon: Icon, label, href, badge }) => (
-              <Link
-                key={label}
-                href={href ?? "#"}
-                className={`${styles.navItem} ${href && pathname === href ? styles.active : ""}`}
-              >
-                <span className={styles.itemLeft}>
-                  <Icon size={18} aria-hidden />
-                  <span>{label}</span>
-                </span>
-                {badge ? <span className={styles.badge}>{badge}</span> : null}
-              </Link>
-            ))}
+            {workspaceItems.map(({ icon: Icon, label, href, badge }) => {
+              if (label === "Notifications") {
+                return (
+                  <div key={label} className={styles.notificationPopoverWrap} ref={notificationsRef}>
+                    <button
+                      type="button"
+                      className={`${styles.navItem} ${styles.dropdownTrigger}`}
+                      onClick={() => setIsNotificationsOpen((current) => !current)}
+                      aria-expanded={isNotificationsOpen}
+                    >
+                      <span className={styles.itemLeft}>
+                        <Icon size={18} aria-hidden />
+                        <span>{label}</span>
+                      </span>
+                      <span className={styles.badge}>{unreadNotifications > 0 ? unreadNotifications : badge}</span>
+                    </button>
+
+                    {isNotificationsOpen ? (
+                      <div className={styles.notificationsPopup} role="dialog" aria-label="Notifications popup">
+                        <div className={styles.notificationsHeader}>
+                          <strong>Notifications</strong>
+                          <button
+                            type="button"
+                            className={styles.notificationsClearButton}
+                            onClick={markAllNotificationsAsRead}
+                            disabled={unreadNotifications === 0}
+                          >
+                            Mark all read
+                          </button>
+                        </div>
+                        <div className={styles.notificationsList}>
+                          {notifications.map((notification) => (
+                            <button
+                              type="button"
+                              key={notification.id}
+                              onClick={() => markNotificationAsRead(notification.id)}
+                              className={`${styles.notificationItem} ${notification.unread ? styles.notificationUnread : ""}`}
+                            >
+                              <span>
+                                <strong>{notification.title}</strong>
+                                <small>{notification.detail}</small>
+                              </span>
+                              <em>{notification.time}</em>
+                            </button>
+                          ))}
+                        </div>
+                        <Link href="/notifications" className={styles.notificationsFooterLink}>
+                          Open full notifications page
+                        </Link>
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              }
+
+              return (
+                <Link
+                  key={label}
+                  href={href ?? "#"}
+                  className={`${styles.navItem} ${href && pathname === href ? styles.active : ""}`}
+                >
+                  <span className={styles.itemLeft}>
+                    <Icon size={18} aria-hidden />
+                    <span>{label}</span>
+                  </span>
+                  {badge ? <span className={styles.badge}>{badge}</span> : null}
+                </Link>
+              );
+            })}
 
             {isAdmin ? (
               <div className={styles.dropdown}>

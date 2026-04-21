@@ -141,6 +141,97 @@
   padding-block: 0.5rem;
 }
 
+.notificationPopoverWrap {
+  position: relative;
+}
+
+.notificationsPopup {
+  margin-top: 0.35rem;
+  border: 1px solid rgb(var(--border));
+  background: rgb(var(--bg) / 0.98);
+  border-radius: 14px;
+  box-shadow: 0 14px 30px rgb(0 0 0 / 0.35);
+  padding: 0.45rem;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.notificationsHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.84rem;
+  padding: 0.2rem 0.3rem 0.1rem;
+}
+
+.notificationsClearButton {
+  border: 1px solid rgb(var(--border));
+  background: rgb(var(--bg-soft));
+  color: rgb(var(--text));
+  border-radius: 999px;
+  font-size: 0.7rem;
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+}
+
+.notificationsClearButton:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.notificationsList {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.notificationItem {
+  border: 1px solid rgb(var(--border));
+  background: rgb(var(--card) / 0.75);
+  border-radius: 10px;
+  padding: 0.48rem 0.55rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.6rem;
+  text-align: left;
+  color: rgb(var(--text));
+  cursor: pointer;
+}
+
+.notificationItem strong {
+  display: block;
+  font-size: 0.78rem;
+}
+
+.notificationItem small {
+  display: block;
+  color: rgb(var(--muted));
+  font-size: 0.7rem;
+  margin-top: 0.16rem;
+}
+
+.notificationItem em {
+  font-style: normal;
+  color: rgb(var(--muted));
+  font-size: 0.68rem;
+}
+
+.notificationUnread {
+  border-color: rgb(var(--brand) / 0.45);
+  background: linear-gradient(135deg, rgb(var(--brand) / 0.12), rgb(var(--card) / 0.8));
+}
+
+.notificationsFooterLink {
+  text-align: center;
+  font-size: 0.72rem;
+  color: rgb(var(--brand-2));
+  text-decoration: none;
+  padding: 0.3rem 0.2rem 0.1rem;
+}
+
+.notificationsFooterLink:hover {
+  text-decoration: underline;
+}
+
 .chevronOpen {
   transform: rotate(180deg);
 }
@@ -187,5 +278,12 @@
 
   .sidebarFooter {
     display: block;
+  }
+
+  .notificationsPopup {
+    position: absolute;
+    inset: calc(100% + 0.2rem) auto auto 0;
+    width: min(26rem, 74vw);
+    z-index: 60;
   }
 }
