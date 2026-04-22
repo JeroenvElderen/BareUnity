@@ -16,7 +16,6 @@ import {
 import { AppSidebar } from "@/components/sidebar/sidebar";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AppNotificationType, useUIStore } from "@/stores/ui-store";
 import layoutStyles from "../page.module.css";
 import styles from "./notifications.module.css";
@@ -57,6 +56,8 @@ export default function NotificationsPage() {
     [notifications],
   );
 
+  const readCount = notifications.length - unreadCount;
+
   const visibleNotifications = useMemo(
     () => (showUnreadOnly ? notifications.filter((notification) => notification.unread) : notifications),
     [notifications, showUnreadOnly],
@@ -67,10 +68,13 @@ export default function NotificationsPage() {
       <AppSidebar />
 
       <main className={layoutStyles.content}>
-        <div className={styles.header}>
+        <section className={styles.hero}>
           <div>
+            <p className={styles.eyebrow}>Stay in sync</p>
             <h1 className={styles.title}>Notifications</h1>
-            <p className={styles.subtitle}>Realtime updates for likes, comments, rooms, map entries, admin alerts, and friend requests.</p>
+            <p className={styles.subtitle}>
+              A cleaner inbox designed to match the rest of your platform: likes, comments, messages, room activity, map entries, and admin alerts in one stream.
+            </p>
           </div>
 
           <div className={styles.actions}>
@@ -80,7 +84,7 @@ export default function NotificationsPage() {
               onClick={() => setShowUnreadOnly((current) => !current)}
               aria-pressed={showUnreadOnly}
             >
-              {showUnreadOnly ? "Show all" : "Unread only"}
+              {showUnreadOnly ? "Showing unread" : "All notifications"}
             </button>
 
             <button type="button" className={styles.markButton} onClick={markAllNotificationsAsRead} disabled={unreadCount === 0}>
@@ -88,21 +92,29 @@ export default function NotificationsPage() {
               Mark all as read
             </button>
           </div>
-        </div>
+        </section>
 
-        <Card className={styles.summaryCard}>
-          <CardHeader>
-            <CardTitle className={styles.summaryTitle}>
-              <Bell size={18} aria-hidden />
-              Inbox status
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className={styles.summaryText}>
-              You have <strong>{unreadCount}</strong> unread {unreadCount === 1 ? "notification" : "notifications"}.
-            </p>
-          </CardContent>
-        </Card>
+        <section className={styles.stats} aria-label="Notification statistics">
+          <article className={styles.statCard}>
+            <span>Total</span>
+            <strong>{notifications.length}</strong>
+          </article>
+          <article className={styles.statCard}>
+            <span>Unread</span>
+            <strong>{unreadCount}</strong>
+          </article>
+          <article className={styles.statCard}>
+            <span>Read</span>
+            <strong>{readCount}</strong>
+          </article>
+          <article className={styles.statCard}>
+            <span>Status</span>
+            <strong className={styles.statusText}>
+              <Bell size={16} aria-hidden />
+              {unreadCount === 0 ? "All caught up" : "Needs review"}
+            </strong>
+          </article>
+        </section>
 
         <section className={styles.list} aria-label="Notification list">
           {visibleNotifications.length ? (
@@ -124,23 +136,24 @@ export default function NotificationsPage() {
 
                 <div className={styles.meta}>
                   {notification.unread ? <Badge className={styles.unreadBadge}>Unread</Badge> : <Badge>Read</Badge>}
-                  {notification.targetHref ? (
-                    <Link href={notification.targetHref} className={styles.toggleButton}>
-                      Open
-                    </Link>
-                  ) : null}
-                  <button type="button" onClick={() => markNotificationAsRead(notification.id)} className={styles.toggleButton}>
-                    Mark as read
-                  </button>
+                  <div className={styles.ctaWrap}>
+                    {notification.targetHref ? (
+                      <Link href={notification.targetHref} className={styles.toggleButton}>
+                        Open
+                      </Link>
+                    ) : null}
+                    <button type="button" onClick={() => markNotificationAsRead(notification.id)} className={styles.toggleButton}>
+                      Mark as read
+                    </button>
+                  </div>
                 </div>
               </article>
             ))
           ) : (
-            <Card>
-              <CardContent className={styles.emptyState}>
-                You are all caught up. No unread notifications right now.
-              </CardContent>
-            </Card>
+            <article className={styles.emptyState}>
+              <h2>Inbox clear</h2>
+              <p>You are all caught up. No unread notifications right now.</p>
+            </article>
           )}
         </section>
       </main>
