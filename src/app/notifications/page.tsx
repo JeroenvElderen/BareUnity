@@ -64,10 +64,10 @@ export default function NotificationsPage() {
   );
 
   return (
-    <div className={layoutStyles.shell}>
+    <main className={layoutStyles.main}>
       <AppSidebar />
 
-      <main className={layoutStyles.content}>
+      <section className={styles.page}>
         <section className={styles.hero}>
           <div>
             <p className={styles.eyebrow}>Stay in sync</p>
@@ -156,7 +156,7 @@ export default function NotificationsPage() {
             </article>
           )}
         </section>
-      </main>
-    </div>
+      </section>
+    </main>
   );
 }
