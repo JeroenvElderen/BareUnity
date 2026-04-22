@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 
@@ -81,7 +82,7 @@ export function SidebarProfileLink({ className }: SidebarProfileLinkProps) {
   return (
     <Link href="/profile" className={`${styles.profileCard} ${className ?? ""}`.trim()}>
       {avatarUrl ? (
-        <img src={avatarUrl} alt={`${displayName} avatar`} className={styles.avatar} />
+        <Image src={avatarUrl} alt={`${displayName} avatar`} width={34} height={34} sizes="34px" className={styles.avatar} />
       ) : (
         <div className={styles.avatarFallback} aria-hidden>
           {initials}

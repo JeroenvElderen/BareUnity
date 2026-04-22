@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type MouseEvent, type PointerEvent } from "react";
 import { ChevronDown, Ellipsis, Heart, MessageCircle, Pencil, Trash2, X } from "lucide-react";
+import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { AppSidebar } from "@/components/sidebar/sidebar";
 import { Avatar } from "@/components/ui/avatar";
@@ -214,7 +215,7 @@ export default function HomePage() {
     setActivePostId(linkedPostId);
     hasOpenedLinkedPostRef.current = true;
   }, [feed.posts, searchParams]);
-  
+
   useEffect(() => {
     return () => {
       if (postImagePreview) URL.revokeObjectURL(postImagePreview);
@@ -666,9 +667,12 @@ export default function HomePage() {
                       className="relative flex shrink-0 flex-col items-center gap-1 text-left min-[1100px]:items-stretch min-[1100px]:gap-0 min-[1100px]:overflow-hidden min-[1100px]:rounded-2xl min-[1100px]:border min-[1100px]:border-white/60 min-[1100px]:bg-white min-[1100px]:shadow-sm"
                     >
                       {story.imageUrl ? (
-                        <img
+                        <Image
                           src={story.imageUrl}
                           alt={`${story.name}'s story`}
+                          width={720}
+                          height={960}
+                          sizes="(min-width: 1100px) 18vw, 0px"
                           className="hidden h-48 w-full object-cover min-[1100px]:block"
                         />
                       ) : (
@@ -753,9 +757,12 @@ export default function HomePage() {
                       </div>
                     <div className="mb-4 block w-full text-left">
                       {post.mediaUrl ? (
-                        <img
+                        <Image
                           src={post.mediaUrl}
                           alt={`${post.author}'s post`}
+                          width={1200}
+                          height={1200}
+                          sizes="(min-width: 1280px) 60vw, 100vw"
                           className="h-130 w-full rounded-2xl bg-[rgb(var(--bg-soft))] object-contain"
                         />
                       ) : null}

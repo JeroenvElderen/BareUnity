@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ChangeEventHandler, type TouchEvent } from "react";
 import { Heart } from "lucide-react";
+import NextImage from "next/image";
 import { useSearchParams } from "next/navigation";
 
 import { AppSidebar } from "@/components/sidebar/sidebar";
@@ -502,12 +503,13 @@ export default function GalleryPage() {
                   onClick={() => openFullscreen(item)}
                   aria-label={`View ${item.title} in full screen`}
                 >
-                  <img
+                  <NextImage
                     src={item.src}
                     alt={`${item.title} — ${item.place}`}
+                    fill
+                    sizes="(min-width: 1600px) 22vw, (min-width: 1200px) 28vw, (min-width: 768px) 45vw, 100vw"
                     className={styles.image}
-                    loading={index < 6 ? "eager" : "lazy"}
-                    decoding="async"
+                    priority={index < 3}
                     draggable={false}
                   />
                 </button>
