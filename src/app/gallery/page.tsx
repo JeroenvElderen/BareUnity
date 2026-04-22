@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ChangeEventHandler, type TouchEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type ChangeEventHandler, type TouchEvent } from "react";
 import { Heart } from "lucide-react";
 import NextImage from "next/image";
 import { useSearchParams } from "next/navigation";
@@ -8,6 +8,7 @@ import { useSearchParams } from "next/navigation";
 import { AppSidebar } from "@/components/sidebar/sidebar";
 import { buildUserScopedCacheKey, loadCachedThenRefresh } from "@/lib/client-cache";
 import { takePrefetchedRouteData } from "@/lib/prefetched-route-data";
+import { GALLERY_REALTIME_TABLES, subscribeToTables } from "@/lib/realtime";
 import layoutStyles from "../page.module.css";
 import styles from "./gallery.module.css";
 import { supabase } from "@/lib/supabase";
@@ -146,7 +147,7 @@ export default function GalleryPage() {
     setShowSwipeInstructions(!hasAcknowledgedSwipeInstructions);
   };
 
-  const refreshGallery = async () => {
+  const refreshGallery = useCallback(async () => {
     const { data } = await supabase.auth.getSession();
     const userId = data.session?.user?.id ?? null;
     const accessToken = data.session?.access_token ?? null;
@@ -157,7 +158,7 @@ export default function GalleryPage() {
       maxAgeMs: GALLERY_CACHE_MAX_AGE_MS,
       fetchFresh: () => fetchGallerySnapshot(accessToken),
     });
-  };
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -196,6 +197,20 @@ export default function GalleryPage() {
     };
   }, []);
 
+  useEffect(() => {
+    return subscribeToTables({
+      channelName: "gallery-live-updates",
+      client: supabase,
+      tables: GALLERY_REALTIME_TABLES,
+      onChange: () => {
+        void refreshGallery().then((nextItems) => {
+          setItems(nextItems);
+        });
+      },
+      debounceMs: 500,
+    });
+  }, [refreshGallery]);
+  
   useEffect(() => {
     const hasAcknowledged = window.localStorage.getItem(FULLSCREEN_INSTRUCTIONS_ACK_KEY) === "true";
     setHasAcknowledgedSwipeInstructions(hasAcknowledged);

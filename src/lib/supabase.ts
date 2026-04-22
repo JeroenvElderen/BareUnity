@@ -12,4 +12,14 @@ if (!isSupabaseConfigured) {
   );
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  realtime: {
+    worker: typeof window !== "undefined",
+    heartbeatCallback: (status) => {
+      if (status !== "disconnected") return;
+      if (typeof window === "undefined" || !window.navigator.onLine) return;
+      if (supabase.realtime.isConnected() || supabase.realtime.isConnecting()) return;
+      supabase.realtime.connect();
+    },
+  },
+});

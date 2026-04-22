@@ -83,8 +83,13 @@ function createNotification(
   type: AppNotification["type"],
   targetHref?: string,
 ): AppNotification {
+  const notificationId =
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
   return {
-    id: crypto.randomUUID(),
+    id: notificationId,
     title,
     detail,
     type,
@@ -277,6 +282,26 @@ export function AppSidebar() {
     };
   }, [viewerId]);
 
+  useEffect(() => {
+    if (!viewerId) return;
+
+    const reconnectRealtime = () => {
+      if (typeof window === "undefined") return;
+      if (!window.navigator.onLine) return;
+      if (document.visibilityState === "hidden") return;
+      if (supabase.realtime.isConnected() || supabase.realtime.isConnecting()) return;
+      supabase.realtime.connect();
+    };
+
+    window.addEventListener("online", reconnectRealtime);
+    document.addEventListener("visibilitychange", reconnectRealtime);
+
+    return () => {
+      window.removeEventListener("online", reconnectRealtime);
+      document.removeEventListener("visibilitychange", reconnectRealtime);
+    };
+  }, [viewerId]);
+  
   useEffect(() => {
     if (!viewerId) return;
 
