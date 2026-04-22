@@ -178,8 +178,8 @@
 .likeButtonActive {
   opacity: 1;
   transform: translateY(0);
-  background: rgb(242 68 95 / 0.9);
-  color: rgb(255 255 255);
+  background: rgb(255 255 255 / 0.92);
+  color: rgb(242 68 95);
 }
 
 .likeIcon {
@@ -189,6 +189,7 @@
 
 .likeButtonActive .likeIcon {
   fill: currentColor;
+  stroke: currentColor;
 }
 
 .likeButton:disabled,

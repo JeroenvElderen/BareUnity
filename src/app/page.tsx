@@ -801,8 +801,17 @@ export default function HomePage() {
                       </button>
                     ) : null}
                     <div className="mb-3 flex flex-wrap items-center gap-2 border-t border-[rgb(var(--border))] pt-3">
-                      <Button size="sm" variant={post.likedByViewer ? "default" : "outline"} onClick={() => toggleLike(post.id)}>
-                        <Heart className={`mr-1 h-4 w-4 ${post.likedByViewer ? "fill-current" : ""}`} />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className={
+                          post.likedByViewer
+                            ? "border-red-200 bg-red-50 text-red-600 hover:bg-red-100"
+                            : "text-[rgb(var(--text-strong))]"
+                        }
+                        onClick={() => toggleLike(post.id)}
+                      >
+                        <Heart className={`mr-1 h-4 w-4 ${post.likedByViewer ? "fill-current text-red-500" : ""}`} />
                         Like ({post.likes})
                       </Button>
                       {feed.viewerId && post.authorId === feed.viewerId ? (
