@@ -1,9 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  allowedDevOrigins: ["192.168.1.7"], // 👈 ADD THIS
+
   experimental: {
     proxyClientMaxBodySize: "12mb",
   },
+
   images: {
     remotePatterns: [
       {
@@ -16,7 +19,7 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: "https",
-        hostname: "images.unsplash.com", // 👈 ADD THIS
+        hostname: "images.unsplash.com",
       },
     ],
   },
