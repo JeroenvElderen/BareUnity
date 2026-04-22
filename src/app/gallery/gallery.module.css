@@ -374,25 +374,6 @@
 }
 
 @media (max-width: 639px) {
-  .sizeTall,
-  .sizePortrait,
-  .sizeSquare,
-  .sizeLandscape,
-  .sizeWide {
-    aspect-ratio: auto;
-  }
-
-  .media {
-    display: block;
-    height: auto;
-  }
-
-  .image {
-    position: relative;
-    height: auto;
-    object-fit: contain;
-  }
-
   .fullscreenOverlay {
     padding: 0.75rem;
   }
