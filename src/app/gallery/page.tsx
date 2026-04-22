@@ -23,6 +23,7 @@ type GalleryItem = {
 };
 
 const GALLERY_CACHE_MAX_AGE_MS = 1000 * 60 * 15;
+const FULLSCREEN_INSTRUCTIONS_ACK_KEY = "gallery-fullscreen-instructions-acknowledged";
 const TILE_SIZE_VARIANTS = [
   "sizeTall",
   "sizePortrait",
@@ -113,6 +114,7 @@ export default function GalleryPage() {
   const [items, setItems] = useState<GalleryItem[]>(() => prefetchedItems);
   const [activeItem, setActiveItem] = useState<GalleryItem | null>(null);
   const [showSwipeInstructions, setShowSwipeInstructions] = useState(false);
+  const [hasAcknowledgedSwipeInstructions, setHasAcknowledgedSwipeInstructions] = useState(false);
   const [pendingLikeIds, setPendingLikeIds] = useState<Set<string>>(() => new Set());
   const [isLoading, setIsLoading] = useState(() => prefetchedItems.length === 0);
   const [isUploading, setIsUploading] = useState(false);
@@ -140,7 +142,7 @@ export default function GalleryPage() {
 
   const openFullscreen = (item: GalleryItem) => {
     setActiveItem(item);
-    setShowSwipeInstructions(true);
+    setShowSwipeInstructions(!hasAcknowledgedSwipeInstructions);
   };
 
   const refreshGallery = async () => {
@@ -194,16 +196,21 @@ export default function GalleryPage() {
   }, []);
 
   useEffect(() => {
+    const hasAcknowledged = window.localStorage.getItem(FULLSCREEN_INSTRUCTIONS_ACK_KEY) === "true";
+    setHasAcknowledgedSwipeInstructions(hasAcknowledged);
+  }, []);
+
+  useEffect(() => {
     if (hasOpenedLinkedImageRef.current) return;
     const linkedImagePath = searchParams.get("imagePath");
     if (!linkedImagePath) return;
     const matchedItem = items.find((item) => item.path === linkedImagePath);
     if (!matchedItem) return;
     setActiveItem(matchedItem);
-    setShowSwipeInstructions(true);
+    setShowSwipeInstructions(!hasAcknowledgedSwipeInstructions);
     hasOpenedLinkedImageRef.current = true;
-  }, [items, searchParams]);
-  
+  }, [hasAcknowledgedSwipeInstructions, items, searchParams]);
+
   useEffect(() => {
     if (!activeItem) return;
 
@@ -545,7 +552,7 @@ export default function GalleryPage() {
           >
             ×
           </button>
-          <p className={styles.fullscreenHint}>Swipe for next/prev, tap/click to close</p>{showSwipeInstructions ? (
+          <p className={styles.fullscreenHint}></p>{showSwipeInstructions ? (
             <div
               className={styles.swipeInstructionsPopup}
               role="dialog"
@@ -560,13 +567,17 @@ export default function GalleryPage() {
               <button
                 type="button"
                 className={styles.swipeInstructionsButton}
-                onClick={() => setShowSwipeInstructions(false)}
+                onClick={() => {
+                  window.localStorage.setItem(FULLSCREEN_INSTRUCTIONS_ACK_KEY, "true");
+                  setHasAcknowledgedSwipeInstructions(true);
+                  setShowSwipeInstructions(false);
+                }}
               >
                 Got it
               </button>
             </div>
           ) : (
-            <p className={styles.fullscreenHint}>Swipe for next/prev, tap/click to close</p>
+            <p className={styles.fullscreenHint}></p>
           )}
           <img
             src={activeItem.src}
