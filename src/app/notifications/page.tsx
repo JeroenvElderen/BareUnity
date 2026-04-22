@@ -15,6 +15,7 @@ import {
 
 import { AppSidebar } from "@/components/sidebar/sidebar";
 import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AppNotificationType, useUIStore } from "@/stores/ui-store";
 import layoutStyles from "../page.module.css";
@@ -123,6 +124,11 @@ export default function NotificationsPage() {
 
                 <div className={styles.meta}>
                   {notification.unread ? <Badge className={styles.unreadBadge}>Unread</Badge> : <Badge>Read</Badge>}
+                  {notification.targetHref ? (
+                    <Link href={notification.targetHref} className={styles.toggleButton}>
+                      Open
+                    </Link>
+                  ) : null}
                   <button type="button" onClick={() => markNotificationAsRead(notification.id)} className={styles.toggleButton}>
                     Mark as read
                   </button>

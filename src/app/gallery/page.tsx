@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ChangeEventHandler, type TouchEvent } from "react";
 import { Heart } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 
 import { AppSidebar } from "@/components/sidebar/sidebar";
 import { buildUserScopedCacheKey, loadCachedThenRefresh } from "@/lib/client-cache";
@@ -107,6 +108,7 @@ async function convertImageToWebp(file: File): Promise<File> {
 }
 
 export default function GalleryPage() {
+  const searchParams = useSearchParams();
   const [prefetchedItems] = useState<GalleryItem[]>(() => takePrefetchedRouteData<GalleryItem[]>("gallery-snapshot") ?? []);
   const [items, setItems] = useState<GalleryItem[]>(() => prefetchedItems);
   const [activeItem, setActiveItem] = useState<GalleryItem | null>(null);
@@ -119,7 +121,8 @@ export default function GalleryPage() {
   const fullscreenSwipeHandledRef = useRef(false);
   const [fullscreenSwipeOffset, setFullscreenSwipeOffset] = useState(0);
   const [isFullscreenDragging, setIsFullscreenDragging] = useState(false);
-  
+  const hasOpenedLinkedImageRef = useRef(false);
+
   const activeItemIndex = activeItem ? items.findIndex((item) => item.id === activeItem.id) : -1;
 
   const moveFullscreenBy = (delta: number) => {
@@ -190,6 +193,17 @@ export default function GalleryPage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (hasOpenedLinkedImageRef.current) return;
+    const linkedImagePath = searchParams.get("imagePath");
+    if (!linkedImagePath) return;
+    const matchedItem = items.find((item) => item.path === linkedImagePath);
+    if (!matchedItem) return;
+    setActiveItem(matchedItem);
+    setShowSwipeInstructions(true);
+    hasOpenedLinkedImageRef.current = true;
+  }, [items, searchParams]);
+  
   useEffect(() => {
     if (!activeItem) return;
 

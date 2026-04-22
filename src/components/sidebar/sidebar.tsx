@@ -56,7 +56,7 @@ const bookingItems = [
 ] satisfies readonly NavItem[];
 
 const workspaceItems = [
-  { icon: Bell, label: "Notifications", badge: "9+" },
+  { icon: Bell, label: "Notifications", badge: "0" },
   { icon: Users, label: "Members", href: "/members" },
   { icon: Settings, label: "Settings", href: "/settings" },
 ] satisfies readonly NavItem[];
@@ -76,7 +76,12 @@ function formatRelativeTime(timestamp: string) {
   return relativeTimeFormatter.format(diffDays, "day");
 }
 
-function createNotification(title: string, detail: string, type: AppNotification["type"]): AppNotification {
+function createNotification(
+  title: string,
+  detail: string,
+  type: AppNotification["type"],
+  targetHref?: string,
+): AppNotification {
   return {
     id: crypto.randomUUID(),
     title,
@@ -84,6 +89,7 @@ function createNotification(title: string, detail: string, type: AppNotification
     type,
     unread: true,
     timestamp: new Date().toISOString(),
+    targetHref,
   };
 }
 
@@ -215,7 +221,7 @@ export function AppSidebar() {
         });
         browserNotification.onclick = () => {
           window.focus();
-          void router.push("/notifications");
+          void router.push(notification.targetHref ?? "/notifications");
           browserNotification.close();
         };
       });
@@ -269,7 +275,14 @@ export function AppSidebar() {
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "post_votes" }, ({ new: row }) => {
         const payload = row as { user_id?: string; post_id?: string };
         if (!payload.post_id || payload.user_id === viewerId) return;
-        pushNotification(createNotification("New like on a post", "Someone liked a post in the feed.", "post-like"));
+        pushNotification(
+          createNotification(
+            "New like on a post",
+            "Someone liked a post in the feed.",
+            "post-like",
+            `/?postId=${payload.post_id}`,
+          ),
+        );
       });
     channels.push(postVotesChannel);
 
@@ -279,7 +292,12 @@ export function AppSidebar() {
         const payload = row as { author_id?: string; post_id?: string };
         if (!payload.post_id || payload.author_id === viewerId) return;
         pushNotification(
-          createNotification("New comment", "A new comment was added to a feed post.", "post-comment"),
+          createNotification(
+            "New comment",
+            "A new comment was added to a feed post.",
+            "post-comment",
+            `/?postId=${payload.post_id}`,
+          ),
         );
       });
     channels.push(commentsChannel);
@@ -291,7 +309,12 @@ export function AppSidebar() {
         if (!payload.image_path || payload.user_id === viewerId) return;
         if (!payload.image_path.includes(`/gallery/${viewerId}/`) && !payload.image_path.includes(`gallery/${viewerId}/`)) return;
         pushNotification(
-          createNotification("New gallery like", "Someone liked one of your gallery uploads.", "gallery-like"),
+          createNotification(
+            "New gallery like",
+            "Someone liked one of your gallery uploads.",
+            "gallery-like",
+            `/gallery?imagePath=${encodeURIComponent(payload.image_path)}`,
+          ),
         );
       });
     channels.push(galleryLikesChannel);
@@ -308,6 +331,7 @@ export function AppSidebar() {
               "New friend request",
               `${payload.sender_username ?? "Someone"} sent you a friend request.`,
               "friend-request",
+              "/members",
             ),
           );
         },
@@ -320,7 +344,7 @@ export function AppSidebar() {
         const payload = row as { submitted_by?: string; name?: string };
         if (payload.submitted_by === viewerId) return;
         pushNotification(
-          createNotification("New map entry", `${payload.name ?? "A new location"} was added to the map.`, "map-entry"),
+          createNotification("New map entry", `${payload.name ?? "A new location"} was added to the map.`, "map-entry", "/explore"),
         );
       });
     channels.push(mapSpotsChannel);
@@ -339,6 +363,7 @@ export function AppSidebar() {
               "Video room visitor",
               `${current?.name ?? "A member"} entered the video room.`,
               "video-visitor",
+              "/video-room",
             ),
           );
         }
@@ -357,7 +382,12 @@ export function AppSidebar() {
             const payload = row as { author_id?: string };
             if (payload.author_id === viewerId) return;
             pushNotification(
-              createNotification("New message in #general", "A new message was posted in General Room.", "general-message"),
+              createNotification(
+                "New message in #general",
+                "A new message was posted in General Room.",
+                "general-message",
+                "/discussion",
+              ),
             );
           },
         );
@@ -368,7 +398,9 @@ export function AppSidebar() {
       const reportsChannel = supabase
         .channel("notifications-admin-reports")
         .on("postgres_changes", { event: "INSERT", schema: "public", table: "reports" }, () => {
-          pushNotification(createNotification("New report", "A new moderation report needs review.", "admin-report"));
+          pushNotification(
+            createNotification("New report", "A new moderation report needs review.", "admin-report", "/admin/reports"),
+          );
         });
       channels.push(reportsChannel);
 
@@ -376,7 +408,12 @@ export function AppSidebar() {
         .channel("notifications-admin-registrations")
         .on("postgres_changes", { event: "INSERT", schema: "public", table: "profiles" }, () => {
           pushNotification(
-            createNotification("New registration", "A new member account has been created.", "admin-registration"),
+            createNotification(
+              "New registration",
+              "A new member account has been created.",
+              "admin-registration",
+              "/admin/users",
+            ),
           );
         });
       channels.push(registrationsChannel);
@@ -556,7 +593,13 @@ export function AppSidebar() {
                             <button
                               type="button"
                               key={notification.id}
-                              onClick={() => markNotificationAsRead(notification.id)}
+                              onClick={() => {
+                                markNotificationAsRead(notification.id);
+                                if (notification.targetHref) {
+                                  setIsNotificationsOpen(false);
+                                  void router.push(notification.targetHref);
+                                }
+                              }}
                               className={`${styles.notificationItem} ${notification.unread ? styles.notificationUnread : ""}`}
                             >
                               <span>

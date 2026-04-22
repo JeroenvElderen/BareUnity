@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type MouseEvent, type PointerEvent } from "react";
 import { ChevronDown, Ellipsis, Heart, MessageCircle, Pencil, Trash2, X } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { AppSidebar } from "@/components/sidebar/sidebar";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -84,6 +85,7 @@ type LikePreviewUser = {
 };
 
 export default function HomePage() {
+  const searchParams = useSearchParams();
   const [homeFeedCacheKey] = useState(() => buildUserScopedCacheKey("home-feed"));
   const [cachedFeed] = useState<HomeFeedPayload | null>(() =>
     readCachedValue<HomeFeedPayload>(homeFeedCacheKey, {
@@ -128,6 +130,7 @@ export default function HomePage() {
   const storyTimerStartedAtRef = useRef<number | null>(null);
   const storyHoldStartedAtRef = useRef<number | null>(null);
   const suppressStoryTapRef = useRef(false);
+  const hasOpenedLinkedPostRef = useRef(false);
 
   const canPublish =
     composerKind === "story"
@@ -203,6 +206,15 @@ export default function HomePage() {
     return () => window.clearTimeout(timer);
   }, [cachedFeed, hasFreshCacheOnMount, loadFeed, prefetchedFeed]);
 
+  useEffect(() => {
+    if (hasOpenedLinkedPostRef.current) return;
+    const linkedPostId = searchParams.get("postId");
+    if (!linkedPostId) return;
+    if (!feed.posts.some((post) => post.id === linkedPostId)) return;
+    setActivePostId(linkedPostId);
+    hasOpenedLinkedPostRef.current = true;
+  }, [feed.posts, searchParams]);
+  
   useEffect(() => {
     return () => {
       if (postImagePreview) URL.revokeObjectURL(postImagePreview);

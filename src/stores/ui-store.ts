@@ -18,6 +18,7 @@ export type AppNotification = {
   timestamp: string;
   type: AppNotificationType;
   unread: boolean;
+  targetHref?: string;
 };
 
 type UIState = {
