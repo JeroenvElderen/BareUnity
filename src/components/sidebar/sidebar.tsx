@@ -179,8 +179,36 @@ export function AppSidebar() {
 
   useEffect(() => {
     if (!viewerId || notificationsBootstrapped) return;
+    let isMounted = true;
 
-  bootstrapNotifications([]);
+    void supabase.auth.getSession().then(async ({ data }) => {
+      if (!isMounted) return;
+
+      const accessToken = data.session?.access_token;
+      if (!accessToken) {
+        bootstrapNotifications([]);
+        return;
+      }
+
+      const response = await fetch("/api/notifications", {
+        cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }).catch(() => null);
+
+      if (!response?.ok) {
+        bootstrapNotifications([]);
+        return;
+      }
+
+      const payload = (await response.json().catch(() => ({}))) as { notifications?: AppNotification[] };
+      bootstrapNotifications(payload.notifications ?? []);
+    });
+
+    return () => {
+      isMounted = false;
+    };
   }, [bootstrapNotifications, notificationsBootstrapped, viewerId]);
 
   useEffect(() => {
