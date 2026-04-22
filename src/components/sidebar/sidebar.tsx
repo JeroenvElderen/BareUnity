@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Bell,
   Building2,
@@ -128,12 +128,20 @@ export function AppSidebar() {
   const videoVisitorsRef = useRef(new Set<string>());
   const hasRealtimeFailureNoticeRef = useRef(false);
   const notifications = useUIStore((state) => state.notifications);
-  const notificationsBootstrapped = useUIStore((state) => state.notificationsBootstrapped);
-  const bootstrapNotifications = useUIStore((state) => state.bootstrapNotifications);
+  const clearNotifications = useUIStore((state) => state.clearNotifications);
   const pushNotification = useUIStore((state) => state.pushNotification);
   const markNotificationAsRead = useUIStore((state) => state.markNotificationAsRead);
   const markAllNotificationsAsRead = useUIStore((state) => state.markAllNotificationsAsRead);
   const unreadNotifications = notifications.filter((notification) => notification.unread).length;
+  const isUserOnlineInPlatform = useCallback(() => {
+    if (typeof window === "undefined") return false;
+    return navigator.onLine && document.visibilityState === "visible" && document.hasFocus();
+  }, []);
+
+  const pushLiveNotification = useCallback((notification: AppNotification) => {
+    if (!isUserOnlineInPlatform()) return;
+    pushNotification(notification);
+  }, [isUserOnlineInPlatform, pushNotification]);
 
   const onLogout = async () => {
     await logoutUser();
@@ -147,6 +155,7 @@ export function AppSidebar() {
     void supabase.auth.getUser().then(({ data }) => {
       if (!isMounted) return;
       const email = data.user?.email?.toLowerCase() ?? "";
+      setActiveToasts([]);
       setViewerId(data.user?.id ?? null);
       setIsAdmin(email === ADMIN_EMAIL);
     });
@@ -155,6 +164,7 @@ export function AppSidebar() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       const email = session?.user.email?.toLowerCase() ?? "";
+      setActiveToasts([]);
       setViewerId(session?.user.id ?? null);
       setIsAdmin(email === ADMIN_EMAIL);
     });
@@ -179,38 +189,10 @@ export function AppSidebar() {
   }, [isNotificationsOpen]);
 
   useEffect(() => {
-    if (!viewerId || notificationsBootstrapped) return;
-    let isMounted = true;
-
-    void supabase.auth.getSession().then(async ({ data }) => {
-      if (!isMounted) return;
-
-      const accessToken = data.session?.access_token;
-      if (!accessToken) {
-        bootstrapNotifications([]);
-        return;
-      }
-
-      const response = await fetch("/api/notifications", {
-        cache: "no-store",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      }).catch(() => null);
-
-      if (!response?.ok) {
-        bootstrapNotifications([]);
-        return;
-      }
-
-      const payload = (await response.json().catch(() => ({}))) as { notifications?: AppNotification[] };
-      bootstrapNotifications(payload.notifications ?? []);
-    });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [bootstrapNotifications, notificationsBootstrapped, viewerId]);
+    seenNotificationIdsRef.current.clear();
+    hasSeenInitialNotificationsRef.current = false;
+    clearNotifications();
+  }, [clearNotifications, viewerId]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -226,8 +208,6 @@ export function AppSidebar() {
   }, [viewerId]);
 
   useEffect(() => {
-    if (!notificationsBootstrapped) return;
-
     if (!hasSeenInitialNotificationsRef.current) {
       notifications.forEach((notification) => {
         seenNotificationIdsRef.current.add(notification.id);
@@ -276,7 +256,7 @@ export function AppSidebar() {
     return () => {
       timers.forEach((timer) => window.clearTimeout(timer));
     };
-  }, [notifications, notificationsBootstrapped, router]);
+  }, [notifications, router]);
 
   useEffect(() => {
     if (!viewerId) return;
@@ -308,7 +288,7 @@ export function AppSidebar() {
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "post_votes" }, ({ new: row }) => {
         const payload = row as { user_id?: string; post_id?: string };
         if (!payload.post_id || payload.user_id === viewerId) return;
-        pushNotification(
+        pushLiveNotification(
           createNotification(
             "New like on a post",
             "Someone liked a post in the feed.",
@@ -324,7 +304,7 @@ export function AppSidebar() {
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "comments" }, ({ new: row }) => {
         const payload = row as { author_id?: string; post_id?: string };
         if (!payload.post_id || payload.author_id === viewerId) return;
-        pushNotification(
+        pushLiveNotification(
           createNotification(
             "New comment",
             "A new comment was added to a feed post.",
@@ -341,7 +321,7 @@ export function AppSidebar() {
         const payload = row as { image_path?: string; user_id?: string };
         if (!payload.image_path || payload.user_id === viewerId) return;
         if (!payload.image_path.includes(`/gallery/${viewerId}/`) && !payload.image_path.includes(`gallery/${viewerId}/`)) return;
-        pushNotification(
+        pushLiveNotification(
           createNotification(
             "New gallery like",
             "Someone liked one of your gallery uploads.",
@@ -359,7 +339,7 @@ export function AppSidebar() {
         { event: "INSERT", schema: "public", table: "friend_requests", filter: `receiver_id=eq.${viewerId}` },
         ({ new: row }) => {
           const payload = row as { sender_username?: string };
-          pushNotification(
+          pushLiveNotification(
             createNotification(
               "New friend request",
               `${payload.sender_username ?? "Someone"} sent you a friend request.`,
@@ -376,7 +356,7 @@ export function AppSidebar() {
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "naturist_map_spots" }, ({ new: row }) => {
         const payload = row as { submitted_by?: string; name?: string };
         if (payload.submitted_by === viewerId) return;
-        pushNotification(
+        pushLiveNotification(
           createNotification("New map entry", `${payload.name ?? "A new location"} was added to the map.`, "map-entry", "/explore"),
         );
       });
@@ -391,7 +371,7 @@ export function AppSidebar() {
         const userId = current?.user_id ?? key;
         currentUsers.add(userId);
         if (!videoVisitorsRef.current.has(userId) && userId !== viewerId) {
-          pushNotification(
+          pushLiveNotification(
             createNotification(
               "Video room visitor",
               `${current?.name ?? "A member"} entered the video room.`,
@@ -414,7 +394,7 @@ export function AppSidebar() {
           ({ new: row }) => {
             const payload = row as { author_id?: string };
             if (payload.author_id === viewerId) return;
-            pushNotification(
+            pushLiveNotification(
               createNotification(
                 "New message in #general",
                 "A new message was posted in General Room.",
@@ -431,7 +411,7 @@ export function AppSidebar() {
       const reportsChannel = supabase
         .channel("notifications-admin-reports")
         .on("postgres_changes", { event: "INSERT", schema: "public", table: "reports" }, () => {
-          pushNotification(
+          pushLiveNotification(
             createNotification("New report", "A new moderation report needs review.", "admin-report", "/admin/reports"),
           );
         });
@@ -440,7 +420,7 @@ export function AppSidebar() {
       const registrationsChannel = supabase
         .channel("notifications-admin-registrations")
         .on("postgres_changes", { event: "INSERT", schema: "public", table: "profiles" }, () => {
-          pushNotification(
+          pushLiveNotification(
             createNotification(
               "New registration",
               "A new member account has been created.",
@@ -470,7 +450,7 @@ export function AppSidebar() {
           });
           if (!hasRealtimeFailureNoticeRef.current) {
             hasRealtimeFailureNoticeRef.current = true;
-            pushNotification(
+            pushLiveNotification(
               createNotification(
                 "Notifications offline",
                 "Live alerts disconnected. Open DevTools for the exact realtime error.",
@@ -488,7 +468,7 @@ export function AppSidebar() {
         void supabase.removeChannel(channel);
       });
     };
-  }, [generalChannelId, isAdmin, pushNotification, viewerId]);
+  }, [generalChannelId, isAdmin, pushLiveNotification, viewerId]);
 
   return (
     <aside className={styles.sidebar} aria-label="Main sidebar navigation">
