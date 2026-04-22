@@ -24,9 +24,8 @@ export type AppNotification = {
 type UIState = {
   sidebarOpen: boolean;
   notifications: AppNotification[];
-  notificationsBootstrapped: boolean;
   toggleSidebar: () => void;
-  bootstrapNotifications: (notifications: AppNotification[]) => void;
+  clearNotifications: () => void;
   pushNotification: (notification: AppNotification) => void;
   markNotificationAsRead: (notificationId: string) => void;
   markAllNotificationsAsRead: () => void;
@@ -35,13 +34,8 @@ type UIState = {
 export const useUIStore = create<UIState>((set) => ({
   sidebarOpen: true,
   notifications: [],
-  notificationsBootstrapped: false,
   toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
-bootstrapNotifications: (notifications) =>
-    set((state) => {
-      if (state.notificationsBootstrapped) return state;
-      return { notifications, notificationsBootstrapped: true };
-    }),
+  clearNotifications: () => set({ notifications: [] }),
   pushNotification: (notification) =>
     set((state) => ({ notifications: [notification, ...state.notifications].slice(0, 100) })),
   markNotificationAsRead: (notificationId) =>
