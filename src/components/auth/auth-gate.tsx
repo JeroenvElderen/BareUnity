@@ -20,6 +20,10 @@ type AuthGateProps = {
   children: ReactNode;
 };
 
+type GallerySnapshotPayload = {
+  items?: Array<{ src?: unknown }>;
+};
+
 const PUBLIC_PATHS = new Set(["/welcome", "/login", "/register"]);
 const PROFILE_CACHE_KEY_PREFIX = "profile:";
 const LIVE_TABLES = ["posts", "comments", "friendships", "profiles", "profile_settings", "map_spots"] as const;
@@ -67,6 +71,25 @@ export function AuthGate({ children }: AuthGateProps) {
   const lastWarmupAtRef = useRef(0);
   const warmupInFlightRef = useRef(false);
   const hasPrefetchedBeforeLoginRef = useRef(false);
+  const prefetchedGalleryImageUrlsRef = useRef<Set<string>>(new Set());
+
+  const prefetchGalleryImages = useCallback((payload: GallerySnapshotPayload) => {
+    if (typeof window === "undefined") return;
+
+    const urls = (payload.items ?? [])
+      .map((item) => (typeof item?.src === "string" ? item.src.trim() : ""))
+      .filter(Boolean);
+
+    urls.forEach((src) => {
+      if (prefetchedGalleryImageUrlsRef.current.has(src)) return;
+      prefetchedGalleryImageUrlsRef.current.add(src);
+
+      const image = new window.Image();
+      image.decoding = "async";
+      image.loading = "eager";
+      image.src = src;
+    });
+  }, []);
 
   const isPublicPath = useMemo(() => {
     if (!pathname) return false;
@@ -166,8 +189,9 @@ export function AuthGate({ children }: AuthGateProps) {
 
     if (url === POST_LOGIN_GALLERY_ENDPOINT) {
       try {
-        const payload = (await response.json()) as { items?: unknown[] };
+        const payload = (await response.json()) as GallerySnapshotPayload;
         setPrefetchedRouteData("gallery-snapshot", payload.items ?? []);
+        prefetchGalleryImages(payload);
       } catch {
         // best-effort prefetch should not block routing
       }
@@ -182,7 +206,7 @@ export function AuthGate({ children }: AuthGateProps) {
         // best-effort prefetch should not block routing
       }
     }
-  }, []);
+  }, [prefetchGalleryImages]);
 
   const prefetchEndpoints = useCallback(async (
     urls: readonly string[],

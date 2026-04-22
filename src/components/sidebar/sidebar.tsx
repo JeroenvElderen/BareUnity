@@ -32,6 +32,7 @@ import { SidebarProfileLink } from "./profile-link";
 import styles from "./sidebar.module.css";
 
 const ADMIN_EMAIL = "jeroen.vanelderen@hotmail.com";
+const SYSTEM_NOTIFICATION_PERMISSION_REQUESTED_KEY = "bareunity_system_notification_permission_requested";
 
 type NavItem = {
   icon: typeof Home;
@@ -217,12 +218,16 @@ export function AppSidebar() {
     if (Notification.permission !== "default") return;
     if (hasRequestedSystemNotificationPermissionRef.current) return;
     if (!viewerId) return;
+    if (window.localStorage.getItem(SYSTEM_NOTIFICATION_PERMISSION_REQUESTED_KEY) === "true") return;
 
     hasRequestedSystemNotificationPermissionRef.current = true;
+    window.localStorage.setItem(SYSTEM_NOTIFICATION_PERMISSION_REQUESTED_KEY, "true");
     void Notification.requestPermission();
   }, [viewerId]);
 
   useEffect(() => {
+    if (!notificationsBootstrapped) return;
+
     if (!hasSeenInitialNotificationsRef.current) {
       notifications.forEach((notification) => {
         seenNotificationIdsRef.current.add(notification.id);
@@ -271,7 +276,7 @@ export function AppSidebar() {
     return () => {
       timers.forEach((timer) => window.clearTimeout(timer));
     };
-  }, [notifications, router]);
+  }, [notifications, notificationsBootstrapped, router]);
 
   useEffect(() => {
     if (!viewerId) return;
