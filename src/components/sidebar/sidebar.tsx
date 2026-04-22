@@ -174,9 +174,7 @@ export function AppSidebar() {
   useEffect(() => {
     if (!viewerId || notificationsBootstrapped) return;
 
-  bootstrapNotifications([
-      createNotification("Realtime notifications enabled", "You'll now get live activity updates.", "general-message"),
-    ]);
+  bootstrapNotifications([]);
   }, [bootstrapNotifications, notificationsBootstrapped, viewerId]);
 
   useEffect(() => {
