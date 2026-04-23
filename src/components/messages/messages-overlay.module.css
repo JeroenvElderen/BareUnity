@@ -73,13 +73,22 @@
 }
 
 .userList,
-.conversationList,
-.messageList {
+.conversationList {
   list-style: none;
   padding: 0;
   margin: 0;
   display: grid;
   gap: 0.5rem;
+}
+
+.messageList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  overflow-y: auto;
 }
 
 .rowButton {
@@ -117,15 +126,16 @@
   border-radius: 12px;
   padding: 0.65rem 0.75rem;
   max-width: 80%;
+  width: fit-content;
 }
 
 .mine {
-  margin-left: auto;
+  align-self: flex-end;
   background: rgb(var(--brand) / 0.16);
 }
 
 .theirs {
-  margin-right: auto;
+  align-self: flex-start;
   background: rgb(var(--card) / 0.6);
 }
 
