@@ -7,8 +7,10 @@ import type { User } from "@supabase/supabase-js";
 import { AppSidebar } from "@/components/sidebar/sidebar";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { loadCachedThenRefresh } from "@/lib/client-cache";
+import { acceptFriendRequest, declineFriendRequest, loadFriendRequests, type FriendRequest } from "@/lib/social";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import layoutStyles from "../page.module.css";
 
@@ -63,22 +65,35 @@ async function getMembers(accessToken: string): Promise<MemberListItem[]> {
 
 export default function MembersDirectoryPage() {
   const [members, setMembers] = useState<MemberListItem[]>(EMPTY_MEMBERS);
+  const [viewerId, setViewerId] = useState<string | null>(null);
+  const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([]);
+  const [requestActionMessage, setRequestActionMessage] = useState<string | null>(null);
+  const [pendingRequestIds, setPendingRequestIds] = useState<Set<string>>(() => new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  const refreshFriendRequests = useCallback(async (userId: string) => {
+    const requests = await loadFriendRequests(userId);
+    setFriendRequests(requests);
+  }, []);
 
   const loadMembers = useCallback(async (sessionUser: User | null, accessToken: string | null) => {
     if (!isSupabaseConfigured || !sessionUser || !accessToken) {
       setMembers(EMPTY_MEMBERS);
+      setViewerId(null);
+      setFriendRequests([]);
       setIsLoading(false);
       setLoadError("Members must be signed in to view the member directory.");
       return;
     }
 
+    setViewerId(sessionUser.id);
     setIsLoading(true);
     setLoadError(null);
 
     try {
-      const data = await loadCachedThenRefresh<MemberListItem[]>({
+      const [data] = await Promise.all([
+        loadCachedThenRefresh<MemberListItem[]>({
         key: `members-directory:${sessionUser.id}:v1`,
         maxAgeMs: MEMBERS_CACHE_MAX_AGE_MS,
         onCachedData: (cached) => {
@@ -86,7 +101,9 @@ export default function MembersDirectoryPage() {
           setIsLoading(false);
         },
         fetchFresh: () => getMembers(accessToken),
-      });
+        }),
+        refreshFriendRequests(sessionUser.id),
+      ]);
       setMembers(data);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to load members.";
@@ -95,7 +112,7 @@ export default function MembersDirectoryPage() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [refreshFriendRequests]);
 
   useEffect(() => {
     let isMounted = true;
@@ -118,6 +135,39 @@ export default function MembersDirectoryPage() {
   }, [loadMembers]);
 
   const memberCount = useMemo(() => members.length.toLocaleString(), [members.length]);
+
+  const handleFriendRequestAction = useCallback(async (request: FriendRequest, action: "accept" | "decline") => {
+    if (!viewerId) return;
+    setRequestActionMessage(null);
+    setPendingRequestIds((current) => {
+      const next = new Set(current);
+      next.add(request.id);
+      return next;
+    });
+
+    const ok =
+      action === "accept"
+        ? await acceptFriendRequest(viewerId, request)
+        : await declineFriendRequest(viewerId, request.id);
+
+    if (!ok) {
+      setRequestActionMessage(`Could not ${action} this friend request right now.`);
+      setPendingRequestIds((current) => {
+        const next = new Set(current);
+        next.delete(request.id);
+        return next;
+      });
+      return;
+    }
+
+    setRequestActionMessage(action === "accept" ? `You are now connected with @${request.username}.` : "Friend request declined.");
+    await refreshFriendRequests(viewerId);
+    setPendingRequestIds((current) => {
+      const next = new Set(current);
+      next.delete(request.id);
+      return next;
+    });
+  }, [refreshFriendRequests, viewerId]);
 
   return (
     <main className={`${layoutStyles.main} w-full max-w-full`}>
@@ -143,6 +193,50 @@ export default function MembersDirectoryPage() {
             {loadError ? (
               <section className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-4 text-sm text-[rgb(var(--muted))]">
                 {loadError}
+              </section>
+            ) : null}
+
+            {!isLoading ? (
+              <section className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-3.5 md:p-4 min-w-0">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h2 className="text-lg font-bold text-[rgb(var(--text-strong))]">Friend requests</h2>
+                  <Badge variant="outline">{friendRequests.length} pending</Badge>
+                </div>
+
+                {requestActionMessage ? <p className="mt-2 text-sm text-[rgb(var(--muted))]">{requestActionMessage}</p> : null}
+
+                {friendRequests.length === 0 ? (
+                  <p className="mt-3 text-sm text-[rgb(var(--muted))]">No pending requests.</p>
+                ) : (
+                  <ul className="mt-3 space-y-2">
+                    {friendRequests.map((request) => {
+                      const isPending = pendingRequestIds.has(request.id);
+                      return (
+                        <li key={request.id} className="rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))] p-3">
+                          <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-semibold text-[rgb(var(--text-strong))]">@{request.username}</p>
+                              <p className="text-xs text-[rgb(var(--muted))]">{request.mutualFriends} mutual friends</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button size="sm" onClick={() => void handleFriendRequestAction(request, "accept")} disabled={isPending}>
+                                {isPending ? "Updating..." : "Accept"}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => void handleFriendRequestAction(request, "decline")}
+                                disabled={isPending}
+                              >
+                                Decline
+                              </Button>
+                            </div>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
               </section>
             ) : null}
 
