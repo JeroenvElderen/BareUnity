@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 
 import { buildProfileSnapshotPayload } from "@/lib/profile-snapshot";
 import { normalizeUsername } from "@/lib/username";
@@ -23,11 +24,39 @@ export async function GET(request: Request, context: RouteContext) {
       return NextResponse.json({ error: "Invalid username" }, { status: 400 });
     }
 
-    const targetProfile = await db.profiles.findUnique({
-      where: { username },
+    let targetProfile = await db.profiles.findFirst({
+      where: {
+        username: {
+          equals: username,
+          mode: "insensitive",
+        },
+      },
       select: { id: true },
     });
 
+    if (!targetProfile) {
+      const [normalizedMatch] = await db.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+        select p.id
+        from public.profiles p
+        where regexp_replace(
+          regexp_replace(
+            regexp_replace(lower(trim(p.username)), '[^a-z0-9_]+', '-', 'g'),
+            '-{2,}',
+            '-',
+            'g'
+          ),
+          '^-+|-+$',
+          '',
+          'g'
+        ) = ${username}
+        limit 1
+      `);
+
+      if (normalizedMatch) {
+        targetProfile = normalizedMatch;
+      }
+    }
+    
     if (!targetProfile) {
       return NextResponse.json({ error: "Member not found" }, { status: 404 });
     }
