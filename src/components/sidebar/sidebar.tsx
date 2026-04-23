@@ -19,6 +19,7 @@ import {
   Search,
   Settings,
   ShieldCheck,
+  SunMoon,
   Sparkles,
   Users,
   Waves,
@@ -26,6 +27,7 @@ import {
 } from "lucide-react";
 
 import { logoutUser } from "@/lib/logout";
+import { applyColorMode, COLOR_MODE_STORAGE_KEY, ColorModePreference, isColorModePreference } from "@/lib/color-mode";
 import { supabase } from "@/lib/supabase";
 import { AppNotification, useUIStore } from "@/stores/ui-store";
 import { SidebarProfileLink } from "./profile-link";
@@ -129,6 +131,12 @@ export function AppSidebar() {
   const hasRequestedSystemNotificationPermissionRef = useRef(false);
   const [viewerId, setViewerId] = useState<string | null>(null);
   const [generalChannelId, setGeneralChannelId] = useState<string | null>(null);
+  const [colorMode, setColorMode] = useState<ColorModePreference>(() => {
+    if (typeof window === "undefined") return "system";
+
+    const stored = window.localStorage.getItem(COLOR_MODE_STORAGE_KEY);
+    return isColorModePreference(stored) ? stored : "system";
+  });
   const videoVisitorsRef = useRef(new Set<string>());
   const hasRealtimeFailureNoticeRef = useRef(false);
   const notifications = useUIStore((state) => state.notifications);
@@ -494,6 +502,26 @@ export function AppSidebar() {
     };
   }, [generalChannelId, isAdmin, pushLiveNotification, viewerId]);
 
+  useEffect(() => {
+    if (typeof document === "undefined" || typeof window === "undefined") return;
+
+    applyColorMode(colorMode);
+    window.localStorage.setItem(COLOR_MODE_STORAGE_KEY, colorMode);
+
+    if (colorMode !== "system") return;
+
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const onPreferenceChange = () => applyColorMode("system");
+    mediaQuery.addEventListener("change", onPreferenceChange);
+    return () => mediaQuery.removeEventListener("change", onPreferenceChange);
+  }, [colorMode]);
+
+  const nextColorModeLabel: Record<ColorModePreference, ColorModePreference> = {
+    dark: "light",
+    light: "system",
+    system: "dark",
+  };
+
   return (
     <aside className={styles.sidebar} aria-label="Main sidebar navigation">
       <header className={styles.header}>
@@ -709,6 +737,18 @@ export function AppSidebar() {
               <span className={styles.itemLeft}>
                 <LogOut size={18} aria-hidden />
                 <span>Log out</span>
+              </span>
+            </button>
+
+            <button
+              type="button"
+              className={`${styles.navItem} ${styles.themeToggleButton}`}
+              onClick={() => setColorMode((current) => nextColorModeLabel[current])}
+              aria-label={`Switch color mode to ${nextColorModeLabel[colorMode]}`}
+            >
+              <span className={styles.itemLeft}>
+                <SunMoon size={18} aria-hidden />
+                <span>Theme: {colorMode.charAt(0).toUpperCase() + colorMode.slice(1)}</span>
               </span>
             </button>
           </nav>

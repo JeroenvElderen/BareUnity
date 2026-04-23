@@ -85,6 +85,41 @@
   animation-delay: 0.28s;
 }
 
+.colorModeOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(0 0 0 / 0.5);
+}
+
+.colorModeCard {
+  width: min(26rem, 100%);
+  border-radius: 1rem;
+  padding: 1.25rem;
+  border: 1px solid rgb(var(--border));
+  background: linear-gradient(165deg, rgb(var(--card)), rgb(var(--bg-soft)));
+  box-shadow: 0 20px 50px rgb(0 0 0 / 0.35);
+}
+
+.colorModeTitle {
+  margin: 0;
+  color: rgb(var(--text-strong));
+}
+
+.colorModeDescription {
+  margin: 0.45rem 0 1rem;
+  color: rgb(var(--muted));
+}
+
+.colorModeActions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
 @keyframes spinClockwise {
   to {
     transform: rotate(360deg);

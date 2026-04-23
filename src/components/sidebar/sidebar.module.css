@@ -101,6 +101,10 @@
   border-color: rgb(var(--border));
 }
 
+.themeToggleButton {
+  margin-top: 0.2rem;
+}
+
 .active {
   background: linear-gradient(
     135deg,

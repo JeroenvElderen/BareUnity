@@ -25,6 +25,27 @@
   --error: 184 83 74;
 }
 
+:root[data-color-mode="dark"] {
+  --bg: 12 18 24;
+  --bg-soft: 20 28 36;
+  --bg-deep: 8 12 18;
+  --card: 24 34 45;
+  --card-2: 38 52 67;
+  --text: 228 235 241;
+  --text-strong: 243 248 252;
+  --text-inverse: 10 16 24;
+  --muted: 152 170 186;
+  --border: 54 70 85;
+  --ring: 91 164 162;
+  --brand: 91 164 162;
+  --brand-2: 131 204 191;
+  --accent: 234 189 98;
+  --accent-soft: 113 84 40;
+  --success: 117 177 128;
+  --warning: 226 173 79;
+  --error: 212 123 115;
+}
+
 html,
 body {
   margin: 0;

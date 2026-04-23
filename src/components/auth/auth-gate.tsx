@@ -10,6 +10,7 @@ import {
   setActiveCacheUser,
   writeCachedValue,
 } from "@/lib/client-cache";
+import { applyColorMode, COLOR_MODE_STORAGE_KEY, ColorModePreference, isColorModePreference } from "@/lib/color-mode";
 import type { HomeFeedPayload } from "@/lib/homefeed";
 import { setPrefetchedRouteData } from "@/lib/prefetched-route-data";
 import { supabase } from "@/lib/supabase";
@@ -67,6 +68,10 @@ export function AuthGate({ children }: AuthGateProps) {
     return window.sessionStorage.getItem(POST_LOGIN_LOADER_FLAG) === "true";
   });
   const [authInitError, setAuthInitError] = useState(false);
+  const [hasSelectedColorMode, setHasSelectedColorMode] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return isColorModePreference(window.localStorage.getItem(COLOR_MODE_STORAGE_KEY));
+  });
   const hasConsumedPostLoginLoaderRef = useRef(false);
   const lastWarmupAtRef = useRef(0);
   const warmupInFlightRef = useRef(false);
@@ -299,6 +304,20 @@ export function AuthGate({ children }: AuthGateProps) {
   }, [pathname, prefetchEndpoints, router]);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const stored = window.localStorage.getItem(COLOR_MODE_STORAGE_KEY);
+    if (!isColorModePreference(stored)) return;
+    applyColorMode(stored);
+
+    if (stored !== "system") return;
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const onPreferenceChange = () => applyColorMode("system");
+    mediaQuery.addEventListener("change", onPreferenceChange);
+    return () => mediaQuery.removeEventListener("change", onPreferenceChange);
+  }, []);
+
+  useEffect(() => {
     if (!isAuthenticated) return;
 
     let isCancelled = false;
@@ -404,5 +423,37 @@ export function AuthGate({ children }: AuthGateProps) {
     );
   }
 
-  return <>{children}</>;
+  const showColorModePicker = isAuthenticated && !isPublicPath && !hasSelectedColorMode;
+
+  const onColorModeSelected = (selection: ColorModePreference) => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(COLOR_MODE_STORAGE_KEY, selection);
+    applyColorMode(selection);
+    setHasSelectedColorMode(true);
+  };
+
+  return (
+    <>
+      {children}
+      {showColorModePicker ? (
+        <div className={styles.colorModeOverlay} role="dialog" aria-modal="true" aria-labelledby="color-mode-title">
+          <div className={styles.colorModeCard}>
+            <h2 id="color-mode-title" className={styles.colorModeTitle}>Choose your theme</h2>
+            <p className={styles.colorModeDescription}>Pick how BareUnity should look on this device.</p>
+            <div className={styles.colorModeActions}>
+              <Button type="button" onClick={() => onColorModeSelected("dark")}>
+                Dark
+              </Button>
+              <Button type="button" onClick={() => onColorModeSelected("light")}>
+                Light
+              </Button>
+              <Button type="button" onClick={() => onColorModeSelected("system")}>
+                System
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </>
+  );
 }
