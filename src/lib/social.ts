@@ -80,30 +80,24 @@ export async function saveProfileSocialSettings(userId: string, settings: Profil
 export async function loadFriends(userId: string) {
   const { data, error } = await supabase
     .from("friendships")
-    .select("id, user_id, friend_user_id, friend_username, status")
-    .or(`user_id.eq.${userId},friend_user_id.eq.${userId}`)
+    .select("id, friend_user_id, friend_username, status")
+    .eq("user_id", userId)
     .order("created_at", { ascending: false });
 
   if (error || !data) {
     return [] as Friend[];
   }
 
-  const friendsById = new Map<string, Friend>();
-
-  for (const row of data) {
-    const friendId = row.user_id === userId ? row.friend_user_id : row.user_id;
-    if (!friendId || friendsById.has(friendId)) {
-      continue;
-    }
-
-    friendsById.set(friendId, {
-      id: friendId,
-      username: row.friend_username,
-      status: (row.status as FriendStatus) || "offline",
-    });
-  }
-
-  return Array.from(friendsById.values());
+  return data
+    .map((row) => {
+      if (!row.friend_user_id) return null;
+      return {
+        id: row.friend_user_id,
+        username: row.friend_username ?? "member",
+        status: (row.status as FriendStatus) || "offline",
+      } satisfies Friend;
+    })
+    .filter((friend): friend is Friend => Boolean(friend));
 }
 
 export async function loadFriendRequests(userId: string) {

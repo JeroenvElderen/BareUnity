@@ -53,9 +53,8 @@ export async function sendFriendRequestToProfile(target: { id?: string | null; u
     supabase
       .from("friendships")
       .select("id")
-      .or(
-        `and(user_id.eq.${viewer.id},friend_user_id.eq.${receiverProfile.id}),and(user_id.eq.${receiverProfile.id},friend_user_id.eq.${viewer.id})`,
-      )
+      .eq("user_id", viewer.id)
+      .eq("friend_user_id", receiverProfile.id)
       .limit(1)
       .maybeSingle<{ id: string }>(),
     supabase
