@@ -42,19 +42,23 @@ type NavItem = {
   badge?: string;
 };
 
-const primaryItems = [
+type NavLinkItem = NavItem & {
+  href: string;
+};
+
+const primaryItems: readonly NavLinkItem[] = [
   { icon: Home, label: "Home", href: "/" },
   { icon: Compass, label: "Explore", href: "/explore" },
   { icon: Image, label: "Gallery", href: "/gallery" },
   { icon: MessageCircle, label: "Messages", href: "/messages" },
-] satisfies readonly NavItem[];
+];
 
-const bookingItems = [
+const bookingItems: readonly NavLinkItem[] = [
   { icon: Building2, label: "Hotels & Airbnbs", href: "/bookings/hotels-airbnbs" },
   { icon: Sparkles, label: "Resorts", href: "/bookings/resorts" },
   { icon: Waves, label: "Spas", href: "/bookings/spas" },
   { icon: Compass, label: "Activities", href: "/bookings/activities" },
-] satisfies readonly NavItem[];
+];
 
 const workspaceItems = [
   { icon: Bell, label: "Notifications", badge: "0" },
@@ -106,7 +110,7 @@ const discussionRooms = [
   { name: "Photography Room", href: "/discussion?room=photography" },
 ] as const;
 
-const adminItems: readonly NavItem[] = [
+const adminItems: readonly NavLinkItem[] = [
   { icon: ShieldCheck, label: "Overview", href: "/admin" },
   { icon: ClipboardCheck, label: "Applications", href: "/admin/applications" },
   { icon: Flag, label: "Reports", href: "/admin/reports" },

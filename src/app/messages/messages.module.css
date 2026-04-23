@@ -13,6 +13,10 @@
   min-height: calc(100vh - 8.5rem);
 }
 
+.desktopDock {
+  display: none;
+}
+
 .panel {
   background: var(--card, rgba(13, 17, 23, 0.7));
   border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
@@ -129,5 +133,60 @@
   .layout {
     grid-template-columns: 1fr;
     min-height: auto;
+  }
+}
+
+@media (min-width: 1200px) {
+  .layout {
+    display: none;
+  }
+
+  .desktopDock {
+    display: grid;
+    grid-template-columns: minmax(280px, 0.9fr) minmax(360px, 1.3fr);
+    position: fixed;
+    right: 1rem;
+    bottom: 1rem;
+    width: min(48rem, calc(100vw - 23rem));
+    height: min(34rem, calc(100vh - 7rem));
+    border-radius: 16px 16px 0 0;
+    overflow: hidden;
+    border: 1px solid var(--border, rgba(255, 255, 255, 0.14));
+    box-shadow: 0 20px 55px rgba(0, 0, 0, 0.44);
+    backdrop-filter: blur(8px);
+    background: rgba(10, 15, 22, 0.88);
+    z-index: 35;
+  }
+
+  .dockThreads,
+  .dockMessages {
+    min-height: 0;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+  }
+
+  .dockThreads {
+    border-right: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  }
+
+  .dockHeader {
+    padding: 0.9rem 1rem;
+    border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+    background: rgba(10, 15, 22, 0.95);
+  }
+
+  .dockTitle {
+    margin: 0;
+    font-size: 1rem;
+  }
+
+  .dockThreads .conversationList,
+  .dockMessages .messageList,
+  .dockMessages .composer {
+    padding: 0.8rem;
+  }
+
+  .dockMessages .composer {
+    border-top: 1px solid var(--border, rgba(255, 255, 255, 0.1));
   }
 }

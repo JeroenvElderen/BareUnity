@@ -369,6 +369,66 @@ export default function MessagesPage() {
             </form>
           </div>
         </div>
+
+        <section className={styles.desktopDock} aria-label="Desktop docked chats preview">
+          <div className={styles.dockThreads}>
+            <header className={styles.dockHeader}>
+              <h2 className={styles.dockTitle}>Chats</h2>
+            </header>
+            <ul className={styles.conversationList}>
+              {conversations.map((conversation) => (
+                <li key={`dock-${conversation.id}`}>
+                  <button
+                    className={`${styles.rowButton} ${conversation.id === activeConversationId ? styles.rowButtonActive : ""}`}
+                    type="button"
+                    onClick={() => openConversation(conversation.id)}
+                  >
+                    <strong>{conversation.otherUserName}</strong>
+                    <p className={styles.meta}>Updated {timeFormatter.format(new Date(conversation.updatedAt))}</p>
+                  </button>
+                </li>
+              ))}
+              {!conversations.length ? <li className={styles.empty}>No chats yet.</li> : null}
+            </ul>
+          </div>
+
+          <div className={styles.dockMessages}>
+            <header className={styles.dockHeader}>
+              <h2 className={styles.dockTitle}>{activeConversation ? activeConversation.otherUserName : "Pick a chat"}</h2>
+            </header>
+
+            <ul className={styles.messageList}>
+              {activeConversationId
+                ? messages.map((message) => (
+                    <li
+                      key={`dock-${message.id}`}
+                      className={`${styles.bubble} ${message.sender_id === viewerId ? styles.mine : styles.theirs}`}
+                      aria-label={message.sender_id === viewerId ? "Your message" : "Incoming message"}
+                    >
+                      <p>{message.body}</p>
+                      <p className={styles.meta}>{timeFormatter.format(new Date(message.created_at))}</p>
+                    </li>
+                  ))
+                : null}
+              {!messages.length && activeConversationId ? <li className={styles.empty}>No messages yet. Say hi 👋</li> : null}
+              {!activeConversationId ? <li className={styles.empty}>Choose a chat on the left.</li> : null}
+            </ul>
+
+            <form className={styles.composer} onSubmit={sendMessage}>
+              <input
+                type="text"
+                placeholder={activeConversationId ? "Write a message" : "Select conversation first"}
+                value={draft}
+                onChange={(event) => setDraft(event.target.value)}
+                maxLength={1200}
+                disabled={!activeConversationId}
+              />
+              <button type="submit" disabled={!activeConversationId || !draft.trim()}>
+                Send
+              </button>
+            </form>
+          </div>
+        </section>
       </section>
     </main>
   );
