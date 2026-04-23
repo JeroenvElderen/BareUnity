@@ -259,7 +259,7 @@ export function MessagesOverlay() {
           }
           void loadInbox(viewerId);
         },
-      )
+      ) 
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "profiles" },
