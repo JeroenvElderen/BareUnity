@@ -208,6 +208,46 @@ export function MessagesOverlay() {
     };
   }, [activeConversationId, isMessagesOpen, loadMessages]);
 
+  useEffect(() => {
+    if (!viewerId || !isMessagesOpen) return;
+
+    const inboxChannel = supabase
+      .channel(`dm-inbox-${viewerId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "friendships", filter: `user_id=eq.${viewerId}` },
+        () => {
+          void loadInbox(viewerId);
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "dm_conversations", filter: `user_a=eq.${viewerId}` },
+        () => {
+          void loadInbox(viewerId);
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "dm_conversations", filter: `user_b=eq.${viewerId}` },
+        () => {
+          void loadInbox(viewerId);
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "profiles" },
+        () => {
+          void loadInbox(viewerId);
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(inboxChannel);
+    };
+  }, [isMessagesOpen, loadInbox, viewerId]);
+
   const openConversation = (conversationId: string) => {
     setActiveConversationId(conversationId);
     void loadMessages(conversationId);

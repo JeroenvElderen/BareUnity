@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { loadCachedThenRefresh } from "@/lib/client-cache";
+import { MEMBERS_REALTIME_TABLES, subscribeToTables } from "@/lib/realtime";
 import { acceptFriendRequest, declineFriendRequest, loadFriendRequests, type FriendRequest } from "@/lib/social";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import layoutStyles from "../page.module.css";
@@ -71,6 +72,10 @@ export default function MembersDirectoryPage() {
   const [pendingRequestIds, setPendingRequestIds] = useState<Set<string>>(() => new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [sessionContext, setSessionContext] = useState<{ user: User | null; accessToken: string | null }>({
+    user: null,
+    accessToken: null,
+  });
 
   const refreshFriendRequests = useCallback(async (userId: string) => {
     const requests = await loadFriendRequests(userId);
@@ -78,6 +83,8 @@ export default function MembersDirectoryPage() {
   }, []);
 
   const loadMembers = useCallback(async (sessionUser: User | null, accessToken: string | null) => {
+    setSessionContext({ user: sessionUser, accessToken });
+
     if (!isSupabaseConfigured || !sessionUser || !accessToken) {
       setMembers(EMPTY_MEMBERS);
       setViewerId(null);
@@ -133,6 +140,20 @@ export default function MembersDirectoryPage() {
       subscription.unsubscribe();
     };
   }, [loadMembers]);
+
+  useEffect(() => {
+    if (!sessionContext.user || !sessionContext.accessToken) return;
+
+    return subscribeToTables({
+      channelName: `members-live-updates:${sessionContext.user.id}`,
+      client: supabase,
+      tables: MEMBERS_REALTIME_TABLES,
+      onChange: () => {
+        void loadMembers(sessionContext.user, sessionContext.accessToken);
+      },
+      debounceMs: 450,
+    });
+  }, [loadMembers, sessionContext.accessToken, sessionContext.user]);
 
   const memberCount = useMemo(() => members.length.toLocaleString(), [members.length]);
 
