@@ -93,6 +93,7 @@ export function VideoRoom() {
   const [isMicOn, setIsMicOn] = useState(true);
   const [isCameraOn, setIsCameraOn] = useState(true);
   const [isSharing, setIsSharing] = useState(false);
+  const [isJoinedRoom, setIsJoinedRoom] = useState(false);
   const [isConnectingMedia, setIsConnectingMedia] = useState(true);
 
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
@@ -299,8 +300,9 @@ export function VideoRoom() {
   }, [localStream]);
 
   useEffect(() => {
+    if (!isJoinedRoom) return;
     void startLocalMedia();
-  }, [startLocalMedia]);
+  }, [isJoinedRoom, startLocalMedia]);
 
   useEffect(() => {
     return () => {
@@ -360,7 +362,7 @@ export function VideoRoom() {
   }, []);
 
   useEffect(() => {
-    if (!viewerId) return;
+    if (!viewerId || !isJoinedRoom) return;
 
     const onlineChannel = supabase.channel("video-room-presence", {
       config: {
@@ -506,10 +508,10 @@ export function VideoRoom() {
       void onlineChannel.untrack();
       void supabase.removeChannel(onlineChannel);
     };
-  }, [createPeerConnection, removePeerConnection, viewerId, viewerPresenceName]);
+  }, [createPeerConnection, isJoinedRoom, removePeerConnection, viewerId, viewerPresenceName]);
 
   useEffect(() => {
-    if (!viewerId || !localStream) return;
+    if (!viewerId || !localStream || !isJoinedRoom) return;
 
     const others = onlineMembers.filter((member) => member.userId !== viewerId);
 
@@ -523,7 +525,7 @@ export function VideoRoom() {
         removePeerConnection(peerId);
       }
     });
-  }, [createPeerConnection, localStream, onlineMembers, removePeerConnection, viewerId]);
+  }, [createPeerConnection, isJoinedRoom, localStream, onlineMembers, removePeerConnection, viewerId]);
 
   const participantTiles = useMemo(() => {
     if (onlineMembers.length) return onlineMembers;
@@ -571,6 +573,9 @@ export function VideoRoom() {
     setLocalStream(null);
     setIsMicOn(false);
     setIsCameraOn(false);
+    setIsSharing(false);
+    setIsConnectingMedia(false);
+    setIsJoinedRoom(false);
 
     Array.from(peerStatesRef.current.keys()).forEach((peerId) => removePeerConnection(peerId));
   };
@@ -582,6 +587,11 @@ export function VideoRoom() {
           <p className={styles.roomLabel}>Video Room</p>
           <h1 className={styles.roomTitle}>Live Meeting Room</h1>
           <p className={styles.roomDescription}>Real camera + microphone room using your device media permissions.</p>
+          {!isJoinedRoom ? (
+            <button type="button" className={styles.joinButton} onClick={() => setIsJoinedRoom(true)}>
+              Join room
+            </button>
+          ) : null}
           {loadError ? <p className={styles.statusError}>{loadError}</p> : null}
         </div>
 
@@ -589,7 +599,7 @@ export function VideoRoom() {
           <span>
             <Users size={14} aria-hidden /> {participantTiles.length} in room
           </span>
-          <span className={styles.livePill}>{localStream ? "Connected" : "Disconnected"}</span>
+          <span className={styles.livePill}>{isJoinedRoom && localStream ? "Connected" : "Disconnected"}</span>
           <span>Updated {lastUpdatedLabel}</span>
         </div>
       </header>
@@ -601,10 +611,10 @@ export function VideoRoom() {
               {localStream && isCameraOn ? (
                 <video ref={localVideoRef} autoPlay muted playsInline className={styles.localVideo} />
               ) : (
-                <div className={styles.videoFallback}>Camera is off</div>
+                <div className={styles.videoFallback}>{isJoinedRoom ? "Camera is off" : "Click Join room to connect"}</div>
               )}
-              <div className={styles.stageBadge}>You</div>
-              {isConnectingMedia ? <p className={styles.statusInfo}>Connecting camera and microphone…</p> : null}
+              <div className={styles.stageBadge}>{isJoinedRoom ? "You" : "Not joined"}</div>
+              {isJoinedRoom && isConnectingMedia ? <p className={styles.statusInfo}>Connecting camera and microphone…</p> : null}
             </article>
 
             {remoteParticipants.map((member) => (
@@ -622,22 +632,32 @@ export function VideoRoom() {
           </div>
 
           <div className={styles.controlDock}>
-            <button type="button" className={styles.controlButton} onClick={toggleMic} disabled={!localStream}>
+            <button type="button" className={styles.controlButton} onClick={toggleMic} disabled={!isJoinedRoom || !localStream}>
               {isMicOn ? <Mic size={18} aria-hidden /> : <MicOff size={18} aria-hidden />}
               <span>{isMicOn ? "Mute" : "Unmute"}</span>
             </button>
 
-            <button type="button" className={styles.controlButton} onClick={toggleCamera} disabled={!localStream}>
+            <button type="button" className={styles.controlButton} onClick={toggleCamera} disabled={!isJoinedRoom || !localStream}>
               {isCameraOn ? <Camera size={18} aria-hidden /> : <CameraOff size={18} aria-hidden />}
               <span>{isCameraOn ? "Stop video" : "Start video"}</span>
             </button>
 
-            <button type="button" className={styles.controlButton} onClick={() => setIsSharing((current) => !current)}>
+            <button
+              type="button"
+              className={styles.controlButton}
+              onClick={() => setIsSharing((current) => !current)}
+              disabled={!isJoinedRoom}
+            >
               <ScreenShare size={18} aria-hidden />
               <span>{isSharing ? "Stop share" : "Share"}</span>
             </button>
 
-            <button type="button" className={`${styles.controlButton} ${styles.leaveButton}`} onClick={leaveRoom}>
+            <button
+              type="button"
+              className={`${styles.controlButton} ${styles.leaveButton}`}
+              onClick={leaveRoom}
+              disabled={!isJoinedRoom}
+            >
               <PhoneOff size={18} aria-hidden />
               <span>Leave</span>
             </button>
