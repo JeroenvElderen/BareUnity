@@ -3,6 +3,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
 import { supabase } from "@/lib/supabase";
+import { subscribeToSocialGraphUpdates } from "@/lib/social-graph-events";
 import { useUIStore } from "@/stores/ui-store";
 
 import styles from "./messages-overlay.module.css";
@@ -273,6 +274,14 @@ export function MessagesOverlay() {
       void supabase.removeChannel(inboxChannel);
     };
   }, [activeConversationId, loadInbox, loadMessages, viewerId]);
+
+  useEffect(() => {
+    if (!viewerId) return;
+
+    return subscribeToSocialGraphUpdates(() => {
+      void loadInbox(viewerId);
+    });
+  }, [loadInbox, viewerId]);
 
   const openConversation = (conversationId: string) => {
     setActiveConversationId(conversationId);

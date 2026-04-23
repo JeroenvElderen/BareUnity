@@ -13,6 +13,7 @@ import {
 import { applyColorMode, COLOR_MODE_STORAGE_KEY, ColorModePreference, isColorModePreference } from "@/lib/color-mode";
 import type { HomeFeedPayload } from "@/lib/homefeed";
 import { setPrefetchedRouteData } from "@/lib/prefetched-route-data";
+import { emitSocialGraphUpdatedEvent } from "@/lib/social-graph-events";
 import { supabase } from "@/lib/supabase";
 
 import styles from "./auth-gate.module.css";
@@ -63,6 +64,7 @@ export function AuthGate({ children }: AuthGateProps) {
   const router = useRouter();
   const [isReady, setIsReady] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [viewerId, setViewerId] = useState<string | null>(null);
   const [isHydratingApp, setIsHydratingApp] = useState(() => {
     if (typeof window === "undefined") return false;
     return window.sessionStorage.getItem(POST_LOGIN_LOADER_FLAG) === "true";
@@ -132,6 +134,7 @@ export function AuthGate({ children }: AuthGateProps) {
 
       if (!mounted) return;
       setIsAuthenticated(authed);
+      setViewerId(sessionUserId);
       setIsHydratingApp(authed && consumePostLoginLoaderFlag());
       setActiveCacheUser(sessionUserId);
       setIsReady(true);
@@ -153,6 +156,7 @@ export function AuthGate({ children }: AuthGateProps) {
       if (!mounted) return;
       const authed = Boolean(session?.user);
       setIsAuthenticated(authed);
+      setViewerId(session?.user?.id ?? null);
       const shouldStartHydrationLoader = authed && _event === "SIGNED_IN" && consumePostLoginLoaderFlag();
       if (shouldStartHydrationLoader) {
         setIsHydratingApp(true);
@@ -316,6 +320,38 @@ export function AuthGate({ children }: AuthGateProps) {
     mediaQuery.addEventListener("change", onPreferenceChange);
     return () => mediaQuery.removeEventListener("change", onPreferenceChange);
   }, []);
+
+  useEffect(() => {
+    if (!viewerId) return;
+
+    const socialGraphChannel = supabase
+      .channel(`social-graph-updates:${viewerId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "friendships", filter: `user_id=eq.${viewerId}` },
+        emitSocialGraphUpdatedEvent,
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "friendships", filter: `friend_user_id=eq.${viewerId}` },
+        emitSocialGraphUpdatedEvent,
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "friend_requests", filter: `receiver_id=eq.${viewerId}` },
+        emitSocialGraphUpdatedEvent,
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "friend_requests", filter: `sender_id=eq.${viewerId}` },
+        emitSocialGraphUpdatedEvent,
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(socialGraphChannel);
+    };
+  }, [viewerId]);
 
   useEffect(() => {
     if (!isAuthenticated) return;

@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { loadCachedThenRefresh } from "@/lib/client-cache";
 import { PROFILE_REALTIME_TABLES, subscribeToTables } from "@/lib/realtime";
+import { subscribeToSocialGraphUpdates } from "@/lib/social-graph-events";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import layoutStyles from "../page.module.css";
 
@@ -232,6 +233,14 @@ export default function ProfilePage() {
         void loadProfileForUser(sessionContext.user, sessionContext.accessToken, { background: true });
       },
       debounceMs: 500,
+    });
+  }, [loadProfileForUser, sessionContext.accessToken, sessionContext.user]);
+
+  useEffect(() => {
+    if (!sessionContext.user || !sessionContext.accessToken) return;
+
+    return subscribeToSocialGraphUpdates(() => {
+      void loadProfileForUser(sessionContext.user, sessionContext.accessToken, { background: true });
     });
   }, [loadProfileForUser, sessionContext.accessToken, sessionContext.user]);
   
