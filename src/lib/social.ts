@@ -11,6 +11,7 @@ export type Friend = {
 export type FriendRequest = {
   id: string;
   username: string;
+  senderId: string;
   mutualFriends: number;
 };
 
@@ -97,7 +98,7 @@ export async function loadFriends(userId: string) {
 export async function loadFriendRequests(userId: string) {
   const { data, error } = await supabase
     .from("friend_requests")
-    .select("id, sender_username, mutual_friends")
+    .select("id, sender_id, sender_username, mutual_friends")
     .eq("receiver_id", userId)
     .eq("status", "pending")
     .order("created_at", { ascending: false });
@@ -109,6 +110,7 @@ export async function loadFriendRequests(userId: string) {
   return data.map((row) => ({
     id: row.id,
     username: row.sender_username,
+    senderId: row.sender_id,
     mutualFriends: row.mutual_friends ?? 0,
   }));
 }
@@ -125,12 +127,28 @@ export async function acceptFriendRequest(userId: string, request: FriendRequest
     return false;
   }
 
-  const { error: friendshipError } = await supabase.from("friendships").insert({
-    user_id: userId,
-    friend_user_id: null,
-    friend_username: request.username,
-    status: "online",
-  });
+  const [receiverProfile, senderProfile] = await Promise.all([
+    supabase.from("profiles").select("username").eq("id", userId).maybeSingle<{ username: string | null }>(),
+    supabase.from("profiles").select("username").eq("id", request.senderId).maybeSingle<{ username: string | null }>(),
+  ]);
+
+  const receiverUsername = receiverProfile.data?.username?.trim() || "member";
+  const senderUsername = senderProfile.data?.username?.trim() || request.username || "member";
+
+  const { error: friendshipError } = await supabase.from("friendships").insert([
+    {
+      user_id: userId,
+      friend_user_id: request.senderId,
+      friend_username: senderUsername,
+      status: "online",
+    },
+    {
+      user_id: request.senderId,
+      friend_user_id: userId,
+      friend_username: receiverUsername,
+      status: "online",
+    },
+  ]);
 
   if (friendshipError) {
     console.warn("Failed to create friendship", friendshipError.message);
