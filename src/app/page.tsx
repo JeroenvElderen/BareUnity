@@ -618,7 +618,7 @@ export default function HomePage() {
       
       <section className={styles.feedLayout}>
         <div className="w-full rounded-4xl border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))] p-4 shadow-sm md:p-6">
-          <header className={`${styles.feedHeader} mb-4 rounded-2xl border border-[rgb(var(--border))] bg-white px-4 py-3`}>
+          <header className={`${styles.feedHeader} mb-4 rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] px-4 py-3`}>
             <div className={styles.feedHeaderTitleBlock}>
               <p className="text-xs uppercase tracking-[0.16em] text-[rgb(var(--muted))]">Home feed</p>
               <h1 className="text-lg font-semibold text-[rgb(var(--text-strong))]">Social dashboard</h1>
@@ -629,7 +629,7 @@ export default function HomePage() {
                 onClick={() => setActiveFeedTab("following")}
                 className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
                   activeFeedTab === "following"
-                    ? "bg-white text-[rgb(var(--text-strong))] shadow-sm"
+                    ? "bg-[rgb(var(--card))] text-[rgb(var(--text-strong))] shadow-sm"
                     : "text-[rgb(var(--muted))] hover:text-[rgb(var(--text-strong))]"
                 }`}
               >
@@ -640,7 +640,7 @@ export default function HomePage() {
                 onClick={() => setActiveFeedTab("forYou")}
                 className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
                   activeFeedTab === "forYou"
-                    ? "bg-white text-[rgb(var(--text-strong))] shadow-sm"
+                    ? "bg-[rgb(var(--card))] text-[rgb(var(--text-strong))] shadow-sm"
                     : "text-[rgb(var(--muted))] hover:text-[rgb(var(--text-strong))]"
                 }`}
               >
@@ -654,7 +654,7 @@ export default function HomePage() {
 
           <div className="grid gap-4 xl:grid-cols-[minmax(0,2.3fr)_minmax(280px,1fr)]">
             <div className="space-y-4">
-              <Card className="border-0 bg-[#edf4ff]">
+              <Card className="border-0 bg-[rgb(var(--bg-soft))]">
                 <CardHeader className="pb-4">
                   <CardTitle className="text-sm uppercase tracking-[0.12em] text-[rgb(var(--muted))]">Bare Moments</CardTitle>
                 </CardHeader>
@@ -664,7 +664,7 @@ export default function HomePage() {
                       key={story.id}
                       type="button"
                       onClick={() => openStory(story.authorId)}
-                      className="relative flex shrink-0 flex-col items-center gap-1 text-left min-[1100px]:items-stretch min-[1100px]:gap-0 min-[1100px]:overflow-hidden min-[1100px]:rounded-2xl min-[1100px]:border min-[1100px]:border-white/60 min-[1100px]:bg-white min-[1100px]:shadow-sm"
+                      className="relative flex shrink-0 flex-col items-center gap-1 text-left min-[1100px]:items-stretch min-[1100px]:gap-0 min-[1100px]:overflow-hidden min-[1100px]:rounded-2xl min-[1100px]:border min-[1100px]:border-white/60 min-[1100px]:bg-[rgb(var(--card))] min-[1100px]:shadow-sm"
                     >
                       {story.imageUrl ? (
                         <Image
@@ -701,7 +701,7 @@ export default function HomePage() {
               </Card>
 
               {isLoadingFeed && posts.length === 0 ? (
-                <Card className="border-0 bg-white">
+                <Card className="border-0 bg-[rgb(var(--card))]">
                   <CardContent className="p-4 text-sm text-[rgb(var(--muted))]">Loading your feed…</CardContent>
                 </Card>
               ) : null}
@@ -712,7 +712,7 @@ export default function HomePage() {
                 const shouldClampCaption = caption.length > 160 || caption.includes("\n");
 
                 return (
-                <Card key={post.id} className="border-0 bg-white">
+                <Card key={post.id} className="border-0 bg-[rgb(var(--card))]">
                   <CardContent className="p-4">
                     <div className="mb-3 flex items-center justify-between">
                       <div className="flex items-center gap-3">
@@ -733,7 +733,7 @@ export default function HomePage() {
                             <Ellipsis className="h-4 w-4" />
                           </button>
                           {openPostMenuId === post.id ? (
-                            <div className="absolute right-0 top-9 z-20 min-w-32 rounded-lg border border-[rgb(var(--border))] bg-white p-1 shadow-lg">
+                            <div className="absolute right-0 top-9 z-20 min-w-32 rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-1 shadow-lg">
                               <button
                                 type="button"
                                 onClick={() => openEditPostModal(post)}
@@ -821,7 +821,7 @@ export default function HomePage() {
                             <ChevronDown className="ml-1 h-4 w-4" />
                           </Button>
                           {openLikesPostId === post.id ? (
-                            <div className="absolute right-0 top-10 z-20 w-60 max-w-[calc(100vw-2.5rem)] rounded-lg border border-[rgb(var(--border))] bg-white p-2 shadow-lg sm:left-0 sm:right-auto sm:max-w-none">
+                            <div className="absolute right-0 top-10 z-20 w-60 max-w-[calc(100vw-2.5rem)] rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-2 shadow-lg sm:left-0 sm:right-auto sm:max-w-none">
                               {likesLoadingPostId === post.id ? (
                                 <p className="px-2 py-1 text-xs text-[rgb(var(--muted))]">Loading likes...</p>
                               ) : likesByPost[post.id]?.length ? (
@@ -853,13 +853,13 @@ export default function HomePage() {
             </div>
 
             <aside className="hidden space-y-4 min-[1100px]:block">
-              <Card className="border-0 bg-[#eaf3ff]">
+              <Card className="border-0 bg-[rgb(var(--bg-soft))]">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm uppercase tracking-[0.12em] text-[rgb(var(--muted))]">Friends</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {friends.map((friend) => (
-                    <div key={friend.id} className="flex items-center justify-between rounded-xl border border-[rgb(var(--border))] bg-white px-3 py-2">
+                    <div key={friend.id} className="flex items-center justify-between rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] px-3 py-2">
                       <div className="flex items-center gap-2">
                         <Avatar alt={friend.name} fallback={friend.fallback} className="h-10 w-10" />
                         <div>
@@ -881,7 +881,7 @@ export default function HomePage() {
 
       {isComposerOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 px-4 py-8" role="dialog" aria-modal="true">
-          <div className="w-full max-w-2xl rounded-2xl border border-[rgb(var(--border))] bg-white p-5 shadow-xl">
+          <div className="w-full max-w-2xl rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-5 shadow-xl">
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-lg font-semibold text-[rgb(var(--text-strong))]">
@@ -907,7 +907,7 @@ export default function HomePage() {
               <div className="grid gap-3 sm:grid-cols-2">
                 <button
                   type="button"
-                  className="rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))] p-4 text-left hover:bg-white"
+                  className="rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))] p-4 text-left hover:bg-[rgb(var(--card))]"
                   onClick={() => setComposerKind("post")}
                 >
                   <p className="font-semibold text-[rgb(var(--text-strong))]">New post</p>
@@ -915,7 +915,7 @@ export default function HomePage() {
                 </button>
                 <button
                   type="button"
-                  className="rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))] p-4 text-left hover:bg-white"
+                  className="rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))] p-4 text-left hover:bg-[rgb(var(--card))]"
                   onClick={() => setComposerKind("story")}
                 >
                   <p className="font-semibold text-[rgb(var(--text-strong))]">New story</p>
@@ -1049,10 +1049,10 @@ export default function HomePage() {
           onPointerCancel={onStoryViewerPointerCancel}
         >
           <div className="mx-auto flex h-full w-full max-w-3xl flex-col p-4 sm:p-6">
-            <div className="mb-3 h-1.5 w-full overflow-hidden rounded-full bg-white/25">
+            <div className="mb-3 h-1.5 w-full overflow-hidden rounded-full bg-[rgb(var(--card)/0.25)]">
               <div
                 key={storyTimerCycle}
-                className="h-full rounded-full bg-white"
+                className="h-full rounded-full bg-[rgb(var(--card))]"
                 style={{
                   animation: `story-progress ${STORY_VIEW_MS}ms linear forwards`,
                   animationPlayState: isStoryTimerPaused ? "paused" : "running",
@@ -1074,7 +1074,7 @@ export default function HomePage() {
                   closeStory();
                 }}
                 aria-label="Close story"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-white/50 text-white hover:bg-white/15"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-white/50 text-white hover:bg-[rgb(var(--card)/0.15)]"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -1100,9 +1100,9 @@ export default function HomePage() {
       ) : null}
 
       {activePost ? (
-        <div className="fixed inset-0 z-50 bg-white" role="dialog" aria-modal="true">
-          <div className="mx-auto flex h-full w-full max-w-3xl flex-col overflow-hidden border-x border-[rgb(var(--border))] bg-white">
-            <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-[rgb(var(--border))] bg-white px-4 py-3">
+        <div className="fixed inset-0 z-50 bg-[rgb(var(--card))]" role="dialog" aria-modal="true">
+          <div className="mx-auto flex h-full w-full max-w-3xl flex-col overflow-hidden border-x border-[rgb(var(--border))] bg-[rgb(var(--card))]">
+            <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-[rgb(var(--border))] bg-[rgb(var(--card))] px-4 py-3">
               <div>
                 <p className="text-base font-semibold text-[rgb(var(--text-strong))]">Comments</p>
                 <p className="text-xs text-[rgb(var(--muted))]">{activePost.comments.length} total</p>
@@ -1124,7 +1124,7 @@ export default function HomePage() {
                   <img
                     src={activePost.mediaUrl}
                     alt={`${activePost.author}'s post`}
-                    className="mt-3 max-h-[28rem] w-full rounded-xl bg-white object-contain"
+                    className="mt-3 max-h-[28rem] w-full rounded-xl bg-[rgb(var(--card))] object-contain"
                   />
                 ) : null}
                 {activePost.text ? <p className="mt-1 whitespace-pre-line text-sm text-[rgb(var(--text))]">{activePost.text}</p> : null}
@@ -1203,7 +1203,7 @@ export default function HomePage() {
                 })}
               </div>
               </div>
-            <div className="sticky bottom-0 z-10 space-y-2 border-t border-[rgb(var(--border))] bg-white px-4 py-3">
+            <div className="sticky bottom-0 z-10 space-y-2 border-t border-[rgb(var(--border))] bg-[rgb(var(--card))] px-4 py-3">
               {activeReplyByPost[activePost.id] ? (
                 <div className="flex items-center justify-between rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))] px-3 py-2">
                   <p className="text-xs text-[rgb(var(--muted))]">
@@ -1251,7 +1251,7 @@ export default function HomePage() {
 
       {editingPost ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 py-8" role="dialog" aria-modal="true">
-          <div className="w-full max-w-2xl rounded-2xl border border-[rgb(var(--border))] bg-white p-5 shadow-xl">
+          <div className="w-full max-w-2xl rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-5 shadow-xl">
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-lg font-semibold text-[rgb(var(--text-strong))]">Edit post</h2>
@@ -1317,7 +1317,7 @@ export default function HomePage() {
 
       {deleteTarget ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 py-8" role="dialog" aria-modal="true">
-          <div className="w-full max-w-md rounded-2xl border border-[rgb(var(--border))] bg-white p-5 shadow-xl">
+          <div className="w-full max-w-md rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-5 shadow-xl">
             <h2 className="text-lg font-semibold text-[rgb(var(--text-strong))]">Delete {deleteTarget.commentId ? "comment" : "post"}?</h2>
             <p className="mt-1 text-sm text-[rgb(var(--muted))]">
               {deleteTarget.commentId ? "Are you sure you want to delete this comment?" : "Are you sure you want to delete this post? This action cannot be undone."}

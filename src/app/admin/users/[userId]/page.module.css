@@ -1,7 +1,7 @@
 .page {
   min-height: 100vh;
   padding: 2rem 1rem;
-  background: linear-gradient(180deg, #f4faf6 0%, #e7f0ec 100%);
+  background: linear-gradient(180deg, rgb(var(--bg)) 0%, rgb(var(--bg-soft)) 100%);
 }
 
 .shell {
@@ -13,7 +13,7 @@
 
 .backLink {
   width: max-content;
-  color: #12573d;
+  color: rgb(var(--brand-2));
   font-weight: 700;
   text-decoration: none;
 }
@@ -23,9 +23,9 @@
 }
 
 .header {
-  border: 1px solid rgba(35, 62, 45, 0.14);
+  border: 1px solid rgb(var(--border) / 0.75);
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.92);
+  background: rgb(var(--card) / 0.92);
   padding: 1rem;
 }
 
@@ -33,19 +33,19 @@
   margin: 0;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #3f5f4a;
+  color: rgb(var(--muted));
   font-size: 0.76rem;
   font-weight: 700;
 }
 
 .header h1 {
   margin: 0.3rem 0;
-  color: #153622;
+  color: rgb(var(--text-strong));
 }
 
 .header p {
   margin: 0;
-  color: #40634c;
+  color: rgb(var(--muted));
 }
 
 .error,
@@ -56,15 +56,15 @@
 }
 
 .error {
-  border: 1px solid rgba(95, 39, 39, 0.22);
-  background: rgba(255, 240, 240, 0.92);
-  color: #783535;
+  border: 1px solid rgb(var(--error) / 0.48);
+  background: rgb(var(--error) / 0.16);
+  color: rgb(var(--error));
 }
 
 .loading {
-  border: 1px solid rgba(35, 62, 45, 0.12);
-  background: rgba(255, 255, 255, 0.92);
-  color: #35533f;
+  border: 1px solid rgb(var(--border) / 0.68);
+  background: rgb(var(--card) / 0.92);
+  color: rgb(var(--muted));
 }
 
 .grid {
@@ -74,26 +74,26 @@
 }
 
 .card {
-  border: 1px solid rgba(35, 62, 45, 0.14);
+  border: 1px solid rgb(var(--border) / 0.75);
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.95);
+  background: rgb(var(--card) / 0.95);
   padding: 0.8rem;
 }
 
 .card h2 {
   margin: 0 0 0.5rem;
-  color: #163824;
+  color: rgb(var(--text-strong));
   font-size: 1rem;
 }
 
 .card pre {
   margin: 0;
   border-radius: 10px;
-  background: #f4faf6;
-  border: 1px solid rgba(35, 62, 45, 0.1);
+  background: rgb(var(--bg));
+  border: 1px solid rgb(var(--border) / 0.58);
   padding: 0.65rem;
   font-size: 0.78rem;
-  color: #2f4f3b;
+  color: rgb(var(--muted));
   overflow: auto;
   max-height: 360px;
 }
