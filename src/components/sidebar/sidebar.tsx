@@ -106,12 +106,12 @@ const discussionRooms = [
   { name: "Photography Room", href: "/discussion?room=photography" },
 ] as const;
 
-const adminItems = [
+const adminItems: readonly NavItem[] = [
   { icon: ShieldCheck, label: "Overview", href: "/admin" },
   { icon: ClipboardCheck, label: "Applications", href: "/admin/applications" },
   { icon: Flag, label: "Reports", href: "/admin/reports" },
   { icon: CircleUser, label: "Users", href: "/admin/users" },
-] satisfies readonly NavItem[];
+];
 
 export function AppSidebar() {
   const pathname = usePathname();

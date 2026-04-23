@@ -2,7 +2,9 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
+import { AppSidebar } from "@/components/sidebar/sidebar";
 import { supabase } from "@/lib/supabase";
+import layoutStyles from "../page.module.css";
 
 import styles from "./messages.module.css";
 
@@ -47,6 +49,7 @@ function orderedPair(left: string, right: string) {
 
 export default function MessagesPage() {
   const [viewerId, setViewerId] = useState<string | null>(null);
+  const [friendIds, setFriendIds] = useState<string[]>([]);
   const [people, setPeople] = useState<ProfileRow[]>([]);
   const [conversations, setConversations] = useState<ConversationPreview[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
@@ -80,13 +83,41 @@ export default function MessagesPage() {
   const loadInbox = useCallback(async (currentViewerId: string) => {
     setErrorMessage(null);
 
+    const friendsResponse = await supabase
+      .from("friendships")
+      .select("friend_user_id")
+      .eq("user_id", currentViewerId)
+      .not("friend_user_id", "is", null);
+
+    if (friendsResponse.error) {
+      setErrorMessage("Could not load your friends list.");
+      setPeople([]);
+      setConversations([]);
+      setFriendIds([]);
+      return;
+    }
+
+    const friendUserIds = Array.from(
+      new Set((friendsResponse.data ?? []).map((row) => row.friend_user_id).filter((value): value is string => Boolean(value))),
+    );
+
+    setFriendIds(friendUserIds);
+
+    if (!friendUserIds.length) {
+      setPeople([]);
+      setConversations([]);
+      setActiveConversationId(null);
+      setMessages([]);
+      return;
+    }
+
     const [profilesResponse, conversationsResponse] = await Promise.all([
       supabase
         .from("profiles")
         .select("id,username,display_name")
-        .neq("id", currentViewerId)
+        .in("id", friendUserIds)
         .order("display_name", { ascending: true })
-        .limit(25),
+        .limit(100),
       supabase
         .from("dm_conversations")
         .select("id,user_a,user_b,updated_at")
@@ -106,7 +137,11 @@ export default function MessagesPage() {
     setPeople(peopleRows);
 
     const profileById = new Map(peopleRows.map((profile) => [profile.id, profile]));
-    const conversationRows = (conversationsResponse.data ?? []) as ConversationRow[];
+    const allowedFriendIds = new Set(friendUserIds);
+    const conversationRows = ((conversationsResponse.data ?? []) as ConversationRow[]).filter((conversation) => {
+      const otherUserId = conversation.user_a === currentViewerId ? conversation.user_b : conversation.user_a;
+      return allowedFriendIds.has(otherUserId);
+    });
 
     const nextConversations = conversationRows
       .map((conversation) => {
@@ -178,6 +213,10 @@ export default function MessagesPage() {
 
   const startConversation = async (targetUserId: string) => {
     if (!viewerId) return;
+    if (!friendIds.includes(targetUserId)) {
+      setErrorMessage("Direct messages are only available between friends.");
+      return;
+    }
 
     const [userA, userB] = orderedPair(viewerId, targetUserId);
 
@@ -212,6 +251,10 @@ export default function MessagesPage() {
   const sendMessage = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!viewerId || !activeConversationId) return;
+    if (!activeConversation || !friendIds.includes(activeConversation.otherUserId)) {
+      setErrorMessage("Direct messages are only available between friends.");
+      return;
+    }
 
     const body = draft.trim();
     if (!body) return;
@@ -245,82 +288,88 @@ export default function MessagesPage() {
     return <p>Please sign in to use direct messages.</p>;
   }
 
+  const conversationsByFriendId = new Set(conversations.map((conversation) => conversation.otherUserId));
+  const startableFriends = people.filter((person) => !conversationsByFriendId.has(person.id));
+
   return (
-    <section className={styles.page}>
-      <h1>Messages</h1>
-      {errorMessage ? <p className={styles.empty}>{errorMessage}</p> : null}
+    <main className={`${layoutStyles.main} w-full max-w-full`}>
+      <AppSidebar />
+      <section className={`${styles.page} min-w-0 w-full flex-1 overflow-hidden`}>
+        <h1>Messages</h1>
+        {errorMessage ? <p className={styles.empty}>{errorMessage}</p> : null}
 
-      <div className={styles.layout}>
-        <aside className={styles.panel}>
-          <h2 className={styles.title}>Start a chat</h2>
-          <ul className={styles.userList}>
-            {people.map((person) => (
-              <li key={person.id}>
-                <button className={styles.rowButton} type="button" onClick={() => void startConversation(person.id)}>
-                  {displayName(person)}
-                </button>
-              </li>
-            ))}
-            {!people.length && !isLoading ? <li className={styles.empty}>No members found.</li> : null}
-          </ul>
-
-          <h2 className={styles.title} style={{ marginTop: "1rem" }}>
-            Conversations
-          </h2>
-          <ul className={styles.conversationList}>
-            {conversations.map((conversation) => (
-              <li key={conversation.id}>
-                <button
-                  className={`${styles.rowButton} ${conversation.id === activeConversationId ? styles.rowButtonActive : ""}`}
-                  type="button"
-                  onClick={() => openConversation(conversation.id)}
-                >
-                  <strong>{conversation.otherUserName}</strong>
-                  <p className={styles.meta}>Updated {timeFormatter.format(new Date(conversation.updatedAt))}</p>
-                </button>
-              </li>
-            ))}
-            {!conversations.length && !isLoading ? <li className={styles.empty}>No conversations yet.</li> : null}
-          </ul>
-        </aside>
-
-        <div className={`${styles.panel} ${styles.chatShell}`}>
-          <header>
-            <h2 className={styles.title}>{activeConversation ? activeConversation.otherUserName : "Pick a conversation"}</h2>
-          </header>
-
-          <ul className={styles.messageList}>
-            {activeConversationId
-              ? messages.map((message) => (
-                  <li
-                    key={message.id}
-                    className={`${styles.bubble} ${message.sender_id === viewerId ? styles.mine : styles.theirs}`}
-                    aria-label={message.sender_id === viewerId ? "Your message" : "Incoming message"}
+        <div className={styles.layout}>
+          <aside className={styles.panel}>
+            <h2 className={styles.title}>Chats</h2>
+            <ul className={styles.conversationList}>
+              {conversations.map((conversation) => (
+                <li key={conversation.id}>
+                  <button
+                    className={`${styles.rowButton} ${conversation.id === activeConversationId ? styles.rowButtonActive : ""}`}
+                    type="button"
+                    onClick={() => openConversation(conversation.id)}
                   >
-                    <p>{message.body}</p>
-                    <p className={styles.meta}>{timeFormatter.format(new Date(message.created_at))}</p>
-                  </li>
-                ))
-              : null}
-            {!messages.length && activeConversationId ? <li className={styles.empty}>No messages yet. Say hi 👋</li> : null}
-            {!activeConversationId ? <li className={styles.empty}>Start or select a conversation.</li> : null}
-          </ul>
+                    <strong>{conversation.otherUserName}</strong>
+                    <p className={styles.meta}>Updated {timeFormatter.format(new Date(conversation.updatedAt))}</p>
+                  </button>
+                </li>
+              ))}
+            </ul>
 
-          <form className={styles.composer} onSubmit={sendMessage}>
-            <input
-              type="text"
-              placeholder={activeConversationId ? "Write a message" : "Select conversation first"}
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              maxLength={1200}
-              disabled={!activeConversationId}
-            />
-            <button type="submit" disabled={!activeConversationId || !draft.trim()}>
-              Send
-            </button>
-          </form>
+            <h3 className={styles.subtitle}>Start new chat</h3>
+            <ul className={styles.userList}>
+              {startableFriends.map((person) => (
+                <li key={person.id}>
+                  <button className={styles.rowButton} type="button" onClick={() => void startConversation(person.id)}>
+                    {displayName(person)}
+                  </button>
+                </li>
+              ))}
+              {!people.length && !isLoading ? <li className={styles.empty}>Add friends to start messaging.</li> : null}
+              {!startableFriends.length && people.length > 0 && !isLoading ? (
+                <li className={styles.empty}>You already have chats with all friends.</li>
+              ) : null}
+            </ul>
+          </aside>
+
+          <div className={`${styles.panel} ${styles.chatShell}`}>
+            <header>
+              <h2 className={styles.title}>{activeConversation ? activeConversation.otherUserName : "Pick a chat"}</h2>
+            </header>
+
+            <ul className={styles.messageList}>
+              {activeConversationId
+                ? messages.map((message) => (
+                    <li
+                      key={message.id}
+                      className={`${styles.bubble} ${message.sender_id === viewerId ? styles.mine : styles.theirs}`}
+                      aria-label={message.sender_id === viewerId ? "Your message" : "Incoming message"}
+                    >
+                      <p>{message.body}</p>
+                      <p className={styles.meta}>{timeFormatter.format(new Date(message.created_at))}</p>
+                    </li>
+                  ))
+                : null}
+              {!messages.length && activeConversationId ? <li className={styles.empty}>No messages yet. Say hi 👋</li> : null}
+              {!activeConversationId ? <li className={styles.empty}>Choose a chat on the left.</li> : null}
+            </ul>
+
+            <form className={styles.composer} onSubmit={sendMessage}>
+              <input
+                type="text"
+                placeholder={activeConversationId ? "Write a message" : "Select conversation first"}
+                value={draft}
+                onChange={(event) => setDraft(event.target.value)}
+                maxLength={1200}
+                disabled={!activeConversationId}
+              />
+              <button type="submit" disabled={!activeConversationId || !draft.trim()}>
+                Send
+              </button>
+            </form>
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
+    </main>
   );
 }
