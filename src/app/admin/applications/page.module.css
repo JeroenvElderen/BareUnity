@@ -1,9 +1,9 @@
 .page {
   min-height: 100vh;
   background:
-    radial-gradient(1200px 600px at 8% 0%, rgba(163, 217, 170, 0.26), transparent 60%),
-    radial-gradient(900px 520px at 95% 8%, rgba(135, 206, 235, 0.2), transparent 58%),
-    linear-gradient(180deg, #f4faf6 0%, #eaf4ee 48%, #e7f0ec 100%);
+    radial-gradient(1200px 600px at 8% 0%, rgb(var(--success) / 0.22), transparent 60%),
+    radial-gradient(900px 520px at 95% 8%, rgb(var(--brand) / 0.2), transparent 58%),
+    linear-gradient(180deg, rgb(var(--bg)) 0%, rgb(var(--bg-soft)) 48%, rgb(var(--bg-soft)) 100%);
   padding: 2.5rem 1.25rem;
 }
 
@@ -16,8 +16,8 @@
 }
 
 .header {
-  border: 1px solid rgba(35, 62, 45, 0.14);
-  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgb(var(--border) / 0.75);
+  background: rgb(var(--card) / 0.82);
   backdrop-filter: blur(6px);
   border-radius: 24px;
   padding: 1.4rem;
@@ -31,32 +31,32 @@
   margin: 0;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #40634c;
+  color: rgb(var(--muted));
   font-size: 0.76rem;
   font-weight: 700;
 }
 
 .title {
   margin: 0.35rem 0 0;
-  color: #143420;
+  color: rgb(var(--text-strong));
   font-size: clamp(1.6rem, 1.4rem + 1vw, 2.25rem);
   font-weight: 800;
 }
 
 .subtitle {
   margin: 0.35rem 0 0;
-  color: #3f5f4a;
+  color: rgb(var(--muted));
   max-width: 60ch;
 }
 
 .badge {
   border-radius: 999px;
-  background: rgba(20, 52, 32, 0.08);
-  color: #1d4029;
+  background: rgb(var(--brand) / 0.12);
+  color: rgb(var(--text));
   font-size: 0.8rem;
   font-weight: 700;
   padding: 0.5rem 0.9rem;
-  border: 1px solid rgba(20, 52, 32, 0.12);
+  border: 1px solid rgb(var(--border) / 0.56);
 }
 
 .statsGrid {
@@ -67,8 +67,8 @@
 
 .statCard {
   border-radius: 18px;
-  border: 1px solid rgba(35, 62, 45, 0.12);
-  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgb(var(--border) / 0.68);
+  background: rgb(var(--card) / 0.9);
   padding: 0.85rem 1rem;
   display: flex;
   justify-content: space-between;
@@ -76,21 +76,21 @@
 }
 
 .statCard span {
-  color: #4b6656;
+  color: rgb(var(--muted));
   font-size: 0.78rem;
   text-transform: uppercase;
   letter-spacing: 0.07em;
 }
 
 .statCard strong {
-  color: #122d1d;
+  color: rgb(var(--text-strong));
   font-size: 1.4rem;
 }
 
 .toolbar {
   border-radius: 18px;
-  border: 1px solid rgba(35, 62, 45, 0.12);
-  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgb(var(--border) / 0.68);
+  background: rgb(var(--card) / 0.88);
   padding: 0.85rem 1rem;
   display: flex;
   justify-content: space-between;
@@ -99,7 +99,7 @@
 }
 
 .filterLabel {
-  color: #1f4530;
+  color: rgb(var(--text));
   font-size: 0.9rem;
   font-weight: 600;
   display: flex;
@@ -109,15 +109,15 @@
 
 .select {
   border-radius: 12px;
-  border: 1px solid rgba(20, 52, 32, 0.22);
-  background: #fff;
+  border: 1px solid rgb(var(--border) / 0.75);
+  background: rgb(var(--card));
   padding: 0.45rem 0.65rem;
 }
 
 .refreshButton {
-  border: 1px solid rgba(20, 52, 32, 0.2);
-  background: #f8fff9;
-  color: #1b472d;
+  border: 1px solid rgb(var(--border) / 0.68);
+  background: rgb(var(--bg-soft));
+  color: rgb(var(--brand-2));
   border-radius: 12px;
   padding: 0.52rem 0.95rem;
   font-weight: 700;
@@ -127,16 +127,16 @@
 .error,
 .empty {
   border-radius: 14px;
-  border: 1px solid rgba(95, 39, 39, 0.2);
-  background: rgba(255, 240, 240, 0.9);
-  color: #783535;
+  border: 1px solid rgb(var(--error) / 0.44);
+  background: rgb(var(--error) / 0.16);
+  color: rgb(var(--error));
   padding: 0.85rem 1rem;
 }
 
 .empty {
-  border-color: rgba(35, 62, 45, 0.12);
-  background: rgba(255, 255, 255, 0.9);
-  color: #35533f;
+  border-color: rgb(var(--border) / 0.68);
+  background: rgb(var(--card) / 0.9);
+  color: rgb(var(--muted));
 }
 
 .list {
@@ -146,8 +146,8 @@
 
 .card {
   border-radius: 22px;
-  border: 1px solid rgba(35, 62, 45, 0.13);
-  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgb(var(--border) / 0.72);
+  background: rgb(var(--card) / 0.92);
   padding: 1rem;
 }
 
@@ -160,12 +160,12 @@
 
 .cardHeader h2 {
   margin: 0;
-  color: #112f1d;
+  color: rgb(var(--text-strong));
 }
 
 .cardHeader p {
   margin: 0.2rem 0 0;
-  color: #496451;
+  color: rgb(var(--muted));
   font-size: 0.92rem;
 }
 
@@ -180,21 +180,21 @@
 }
 
 .statuspending {
-  color: #7a560d;
-  background: #fff3d5;
-  border-color: #f0d18b;
+  color: rgb(var(--warning));
+  background: rgb(var(--accent-soft) / 0.45);
+  border-color: rgb(var(--accent) / 0.6);
 }
 
 .statusapproved {
-  color: #18522a;
-  background: #dcf9e4;
-  border-color: #8ed7a2;
+  color: rgb(var(--success));
+  background: rgb(var(--success) / 0.2);
+  border-color: rgb(var(--success) / 0.6);
 }
 
 .statusrejected {
-  color: #702d2d;
-  background: #ffe1e1;
-  border-color: #efb0b0;
+  color: rgb(var(--error));
+  background: rgb(var(--error) / 0.22);
+  border-color: rgb(var(--error) / 0.6);
 }
 
 .metaGrid {
@@ -206,7 +206,7 @@
 
 .metaGrid dt {
   margin: 0;
-  color: #637b6c;
+  color: rgb(var(--muted));
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -214,7 +214,7 @@
 
 .metaGrid dd {
   margin: 0.25rem 0 0;
-  color: #1f3d2a;
+  color: rgb(var(--text-strong));
   font-size: 0.9rem;
   word-break: break-word;
 }
@@ -224,7 +224,7 @@
 }
 
 .docLink {
-  color: #14543d;
+  color: rgb(var(--brand-2));
   font-weight: 700;
   text-decoration: none;
 }
@@ -235,7 +235,7 @@
 
 .docMissing {
   margin: 0;
-  color: #745252;
+  color: rgb(var(--muted));
   font-size: 0.85rem;
 }
 
@@ -243,7 +243,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.38rem;
-  color: #1f4530;
+  color: rgb(var(--text));
   font-size: 0.9rem;
   font-weight: 600;
 }
@@ -251,8 +251,8 @@
 .textarea {
   min-height: 86px;
   border-radius: 12px;
-  border: 1px solid rgba(20, 52, 32, 0.22);
-  background: #fff;
+  border: 1px solid rgb(var(--border) / 0.75);
+  background: rgb(var(--card));
   padding: 0.6rem 0.72rem;
   resize: vertical;
   font: inherit;
@@ -274,14 +274,14 @@
 }
 
 .approveButton {
-  background: linear-gradient(180deg, #1f8a4d 0%, #18723f 100%);
-  color: #fff;
+  background: linear-gradient(180deg, rgb(var(--success)) 0%, rgb(var(--brand-2)) 100%);
+  color: rgb(var(--card));
 }
 
 .rejectButton {
-  background: #fff3f3;
-  color: #793232;
-  border-color: #e7b5b5;
+  background: rgb(var(--error) / 0.2);
+  color: rgb(var(--error));
+  border-color: rgb(var(--error) / 0.6);
 }
 
 .approveButton:disabled,
@@ -292,11 +292,11 @@
 
 .footerLink {
   margin: 0.4rem 0 0;
-  color: #2d4d38;
+  color: rgb(var(--muted));
 }
 
 .footerLink a {
-  color: #14543d;
+  color: rgb(var(--brand-2));
   font-weight: 700;
 }
 

@@ -235,7 +235,7 @@ export default function ProfilePage() {
             />
           </div>
           <CardContent className="space-y-4 p-3 md:p-5 min-w-0 overflow-hidden">
-            <section className="rounded-2xl border border-[rgb(var(--border))] bg-white p-3.5 md:p-4 min-w-0">
+            <section className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-3.5 md:p-4 min-w-0">
               <h1 className="break-words text-3xl font-black tracking-tight text-[rgb(var(--text-strong))] md:text-4xl">
                 {displayName}
               </h1>
@@ -261,7 +261,7 @@ export default function ProfilePage() {
               ].map((item) => (
                 <article
                   key={item.label}
-                  className="rounded-xl border border-[rgb(var(--border))] bg-white p-3 min-w-0"
+                  className="rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-3 min-w-0"
                 >
                   <p className="text-xs uppercase tracking-wide text-[rgb(var(--muted))]">
                     {item.label}
@@ -274,7 +274,7 @@ export default function ProfilePage() {
             </section>
 
             {interests.length > 0 && (
-              <section className="rounded-2xl border border-[rgb(var(--border))] bg-white p-3.5 md:p-4 min-w-0">
+              <section className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-3.5 md:p-4 min-w-0">
                 <p className="mb-2 text-xs font-semibold uppercase tracking-[0.08em] text-[rgb(var(--muted))]">
                   Interests
                 </p>
@@ -291,7 +291,7 @@ export default function ProfilePage() {
               </section>
             )}
 
-            <section className="rounded-2xl border border-[rgb(var(--border))] bg-white p-3.5 md:p-4 min-w-0 overflow-hidden">
+            <section className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-3.5 md:p-4 min-w-0 overflow-hidden">
               {isLoading ? (
                 <p className="text-sm text-[rgb(var(--muted))]">Loading profile…</p>
               ) : posts.length === 0 ? (

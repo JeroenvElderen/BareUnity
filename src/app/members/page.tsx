@@ -126,7 +126,7 @@ export default function MembersDirectoryPage() {
       <section className="min-w-0 w-full flex-1 overflow-hidden bg-[rgb(var(--bg-deep))/0.55]">
         <Card className="min-h-full w-full max-w-full overflow-hidden rounded-none border-x-0 border-y-0 border-[rgb(var(--border))] bg-[rgb(var(--card))/0.98] shadow-none">
           <CardContent className="space-y-4 p-3 md:p-5 min-w-0 overflow-hidden">
-            <section className="rounded-2xl border border-[rgb(var(--border))] bg-white p-3.5 md:p-4 min-w-0">
+            <section className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-3.5 md:p-4 min-w-0">
               <h1 className="break-words text-3xl font-black tracking-tight text-[rgb(var(--text-strong))] md:text-4xl">
                 Members
               </h1>
@@ -141,12 +141,12 @@ export default function MembersDirectoryPage() {
             </section>
 
             {loadError ? (
-              <section className="rounded-2xl border border-[rgb(var(--border))] bg-white p-4 text-sm text-[rgb(var(--muted))]">
+              <section className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-4 text-sm text-[rgb(var(--muted))]">
                 {loadError}
               </section>
             ) : null}
 
-            <section className="rounded-2xl border border-[rgb(var(--border))] bg-white p-3.5 md:p-4 min-w-0">
+            <section className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-3.5 md:p-4 min-w-0">
               {isLoading ? (
                 <p className="text-sm text-[rgb(var(--muted))]">Loading members…</p>
               ) : members.length === 0 ? (
@@ -162,7 +162,7 @@ export default function MembersDirectoryPage() {
                       <Link
                         key={member.id}
                         href={`/members/${encodeURIComponent(member.username)}`}
-                        className="rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))] p-3 transition-colors hover:bg-white"
+                        className="rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))] p-3 transition-colors hover:bg-[rgb(var(--card))]"
                       >
                         <div className="flex items-center gap-3">
                           <Avatar

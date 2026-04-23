@@ -16,7 +16,6 @@ import {
   LogOut,
   Menu,
   MessageCircle,
-  Search,
   Settings,
   ShieldCheck,
   SunMoon,
@@ -516,9 +515,9 @@ export function AppSidebar() {
     return () => mediaQuery.removeEventListener("change", onPreferenceChange);
   }, [colorMode]);
 
-  const nextColorModeLabel: Record<ColorModePreference, ColorModePreference> = {
+  const nextColorModeLabel: Record<ColorModePreference, "light" | "dark"> = {
     dark: "light",
-    light: "system",
+    light: "dark",
     system: "dark",
   };
 

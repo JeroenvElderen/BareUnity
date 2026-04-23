@@ -82,7 +82,7 @@ export function MediaGallery() {
               key={item.id}
               className={`rounded-md bg-gradient-to-br ${item.tones} p-2 text-[11px] text-[rgb(var(--text-strong))]`}
             >
-              <div className="rounded bg-white/70 px-2 py-1">{item.title}</div>
+              <div className="rounded bg-[rgb(var(--card)/0.7)] px-2 py-1">{item.title}</div>
             </div>
           ))}
         </div>
@@ -93,7 +93,7 @@ export function MediaGallery() {
 
       {open ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4">
-          <div className="max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-2xl border border-[rgb(var(--border))] bg-white shadow-2xl">
+          <div className="max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] shadow-2xl">
             <div className="flex items-center justify-between border-b border-[rgb(var(--border))] p-4">
               <div>
                 <h3 className="text-lg font-semibold text-[rgb(var(--text-strong))]">
@@ -115,7 +115,7 @@ export function MediaGallery() {
                     key={item.id}
                     className={`mb-4 break-inside-avoid rounded-xl border border-[rgb(var(--border))] bg-gradient-to-br ${item.tones} p-3 ${item.height}`}
                   >
-                    <div className="flex h-full flex-col justify-end rounded-lg bg-white/40 p-3 backdrop-blur-[1px]">
+                    <div className="flex h-full flex-col justify-end rounded-lg bg-[rgb(var(--card)/0.4)] p-3 backdrop-blur-[1px]">
                       <p className="text-sm font-semibold text-[rgb(var(--text-strong))]">
                         {item.title}
                       </p>
