@@ -28,6 +28,12 @@ type MessageRow = {
   created_at: string;
 };
 
+type PostgresChangePayload = {
+  new?: {
+    conversation_id?: string;
+  };
+};
+
 type ConversationPreview = {
   id: string;
   otherUserId: string;
@@ -190,7 +196,7 @@ export function MessagesOverlay() {
   }, [loadInbox]);
 
   useEffect(() => {
-    if (!activeConversationId || !isMessagesOpen) return;
+    if (!activeConversationId || !viewerId) return;
 
     const subscription = supabase
       .channel(`dm-messages-${activeConversationId}`)
@@ -206,16 +212,23 @@ export function MessagesOverlay() {
     return () => {
       void supabase.removeChannel(subscription);
     };
-  }, [activeConversationId, isMessagesOpen, loadMessages]);
+  }, [activeConversationId, loadMessages, viewerId]);
 
   useEffect(() => {
-    if (!viewerId || !isMessagesOpen) return;
+    if (!viewerId) return;
 
     const inboxChannel = supabase
       .channel(`dm-inbox-${viewerId}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "friendships", filter: `user_id=eq.${viewerId}` },
+        () => {
+          void loadInbox(viewerId);
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "friendships", filter: `friend_user_id=eq.${viewerId}` },
         () => {
           void loadInbox(viewerId);
         },
@@ -236,6 +249,19 @@ export function MessagesOverlay() {
       )
       .on(
         "postgres_changes",
+        { event: "INSERT", schema: "public", table: "dm_messages" },
+        (payload) => {
+          const maybePayload = payload as PostgresChangePayload;
+          const conversationId = maybePayload.new?.conversation_id;
+          if (!conversationId) return;
+          if (conversationId === activeConversationId) {
+            void loadMessages(conversationId);
+          }
+          void loadInbox(viewerId);
+        },
+      )
+      .on(
+        "postgres_changes",
         { event: "*", schema: "public", table: "profiles" },
         () => {
           void loadInbox(viewerId);
@@ -246,7 +272,7 @@ export function MessagesOverlay() {
     return () => {
       void supabase.removeChannel(inboxChannel);
     };
-  }, [isMessagesOpen, loadInbox, viewerId]);
+  }, [activeConversationId, loadInbox, loadMessages, viewerId]);
 
   const openConversation = (conversationId: string) => {
     setActiveConversationId(conversationId);
