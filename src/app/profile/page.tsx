@@ -96,8 +96,8 @@ async function getProfileDataForUser(userId: string): Promise<ProfileData> {
       .limit(30),
     supabase
       .from("friendships")
-      .select("id, friend_user_id, friend_username")
-      .eq("user_id", userId)
+      .select("id, user_id, friend_user_id, friend_username")
+      .or(`user_id.eq.${userId},friend_user_id.eq.${userId}`)
       .order("created_at", { ascending: false })
       .limit(30),
     supabase
@@ -112,8 +112,8 @@ async function getProfileDataForUser(userId: string): Promise<ProfileData> {
       .or("post_type.is.null,post_type.neq.story"),
     supabase
       .from("friendships")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", userId),
+      .select("user_id, friend_user_id")
+      .or(`user_id.eq.${userId},friend_user_id.eq.${userId}`),
     supabase
       .from("comments")
       .select("id", { count: "exact", head: true })
@@ -128,19 +128,34 @@ async function getProfileDataForUser(userId: string): Promise<ProfileData> {
   if (friendsCountResult.error) throw friendsCountResult.error;
   if (commentsCountResult.error) throw commentsCountResult.error;
 
+  const friendsById = new Map<string, { id: string; username: string }>();
+
+  for (const friend of friendsResult.data ?? []) {
+    const resolvedFriendId = friend.user_id === userId ? friend.friend_user_id : friend.user_id;
+    if (!resolvedFriendId || friendsById.has(resolvedFriendId)) {
+      continue;
+    }
+
+    friendsById.set(resolvedFriendId, {
+      id: resolvedFriendId,
+      username: friend.friend_username ?? "member",
+    });
+  }
+
+  const uniqueFriendIds = new Set(
+    (friendsCountResult.data ?? []).map((friendship) =>
+      friendship.user_id === userId ? friendship.friend_user_id : friendship.user_id,
+    ).filter((friendId): friendId is string => Boolean(friendId)),
+  );
+
   return {
     profile: profileResult.data ?? null,
     posts: (postsResult.data ?? []) as PostRow[],
-    friends: (friendsResult.data ?? [])
-      .map((friend) => ({
-        id: friend.friend_user_id ?? friend.id,
-        username: friend.friend_username ?? "member",
-      }))
-      .filter((friend) => Boolean(friend.id)),
+    friends: Array.from(friendsById.values()),
     interests: (settingsResult.data?.interests ?? []).slice(0, 8),
     stats: {
       posts: postsCountResult.count ?? 0,
-      friends: friendsCountResult.count ?? 0,
+      friends: uniqueFriendIds.size,
       comments: commentsCountResult.count ?? 0,
     },
   };
