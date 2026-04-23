@@ -6,6 +6,7 @@ import NextImage from "next/image";
 import { useSearchParams } from "next/navigation";
 
 import { AppSidebar } from "@/components/sidebar/sidebar";
+import { UsernameActionPopup } from "@/components/social/username-action-popup";
 import { buildUserScopedCacheKey, loadCachedThenRefresh } from "@/lib/client-cache";
 import { takePrefetchedRouteData } from "@/lib/prefetched-route-data";
 import { GALLERY_REALTIME_TABLES, subscribeToTables } from "@/lib/realtime";
@@ -540,7 +541,11 @@ export default function GalleryPage() {
                     <Heart className={styles.likeIcon} />
                     <span className={styles.likeCount}>{item.likeCount}</span>
                   </button>
-                <span className={styles.username}>@{item.username}</span>
+                <UsernameActionPopup
+                  username={item.username}
+                  displayName={`@${item.username}`}
+                  triggerClassName={styles.username}
+                />
                 </figcaption>
               </figure>
             ))}

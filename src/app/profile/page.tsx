@@ -1,12 +1,14 @@
 "use client";
 
 import Image from "next/image";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 
 import { AppSidebar } from "@/components/sidebar/sidebar";
+import { UsernameActionPopup } from "@/components/social/username-action-popup";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { loadCachedThenRefresh } from "@/lib/client-cache";
 import { PROFILE_REALTIME_TABLES, subscribeToTables } from "@/lib/realtime";
@@ -136,6 +138,7 @@ export default function ProfilePage() {
     user: null,
     accessToken: null,
   });
+  const [activeTab, setActiveTab] = useState<"posts" | "about">("posts");
 
   const loadProfileForUser = useCallback(async (
     sessionUser: User | null,
@@ -217,130 +220,117 @@ export default function ProfilePage() {
     "Nature-first connection, consent-forward gatherings, and calm community rituals.";
 
   const avatarFallback = getInitials(displayName);
+  const usernameHandle = useMemo(() => `@${profile?.username ?? "member"}`, [profile?.username]);
 
   return (
     <main className={`${layoutStyles.main} w-full max-w-full`}>
       <AppSidebar />
 
-      <section className="min-w-0 w-full flex-1 overflow-hidden bg-[rgb(var(--bg-deep))/0.55]">
-        <Card className="min-h-full w-full max-w-full overflow-hidden rounded-none border-x-0 border-y-0 border-[rgb(var(--border))] bg-[rgb(var(--card))/0.98] shadow-none">
-          <div className="relative h-40 border-b border-[rgb(var(--border))/0.75] bg-[linear-gradient(110deg,rgb(var(--brand))_0%,rgb(var(--accent-soft))_100%)] md:h-48" />
-
-          <div className="-mt-16 pl-0 md:-mt-20 md:pl-1">
-            <Avatar
-              src={resolveMediaUrl(profile?.avatar_url ?? null) ?? undefined}
-              alt={displayName}
-              fallback={avatarFallback}
-              className="h-24 w-24 border-4 border-white bg-[rgb(var(--bg-soft))] text-2xl shadow-lg md:h-28 md:w-28"
-            />
-          </div>
-          <CardContent className="space-y-4 p-3 md:p-5 min-w-0 overflow-hidden">
-            <section className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-3.5 md:p-4 min-w-0">
-              <h1 className="break-words text-3xl font-black tracking-tight text-[rgb(var(--text-strong))] md:text-4xl">
-                {displayName}
-              </h1>
-              <p className="mt-1 break-words text-base text-[rgb(var(--muted))] md:text-lg">
-                {bio}
-              </p>
-
-              <div className="mt-2.5 flex flex-wrap gap-2">
-                <Badge className="bg-[rgb(var(--accent-soft))] text-[rgb(var(--text-strong))]">
-                  Verified
-                </Badge>
-                {profile?.location ? (
-                  <Badge variant="outline">{profile.location}</Badge>
-                ) : null}
+      <section className="min-w-0 w-full flex-1 overflow-y-auto bg-[rgb(var(--bg-deep))/0.6] p-3 md:p-5">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-4">
+          <Card className="overflow-hidden border-[rgb(var(--border))] bg-[rgb(var(--card))]">
+            <div className="relative h-40 bg-[radial-gradient(circle_at_10%_10%,rgb(var(--accent-soft))_0%,transparent_48%),linear-gradient(120deg,rgb(var(--brand))_0%,rgb(var(--accent-soft))_100%)] md:h-52">
+              <div className="absolute right-4 top-4 flex items-center gap-2">
+                <Badge className="bg-white/20 text-white">My profile</Badge>
+                <UsernameActionPopup
+                  variant="button"
+                  userId={profile?.id ?? null}
+                  username={profile?.username ?? null}
+                  displayName="Actions"
+                />
               </div>
-            </section>
+            </div>
 
-            <section className="grid gap-2.5 md:grid-cols-3">
-              {[
-                { label: "Posts", value: stats.posts.toLocaleString() },
-                { label: "Friends", value: stats.friends.toLocaleString() },
-                { label: "Comments", value: stats.comments.toLocaleString() },
-              ].map((item) => (
-                <article
-                  key={item.label}
-                  className="rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-3 min-w-0"
-                >
-                  <p className="text-xs uppercase tracking-wide text-[rgb(var(--muted))]">
-                    {item.label}
-                  </p>
-                  <p className="text-2xl font-black tracking-tight text-[rgb(var(--text-strong))] md:text-3xl">
-                    {item.value}
-                  </p>
-                </article>
-              ))}
-            </section>
-
-            {interests.length > 0 && (
-              <section className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-3.5 md:p-4 min-w-0">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-[0.08em] text-[rgb(var(--muted))]">
-                  Interests
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {interests.map((interest) => (
-                    <span
-                      key={interest}
-                      className="rounded-full bg-[rgb(var(--bg-soft))] px-2.5 py-1 text-xs font-medium break-words"
-                    >
-                      {interest}
-                    </span>
-                  ))}
+            <CardContent className="-mt-14 space-y-4 p-4 md:p-6">
+              <div className="flex flex-wrap items-end justify-between gap-4">
+                <div className="flex min-w-0 items-end gap-3">
+                  <Avatar
+                    src={resolveMediaUrl(profile?.avatar_url ?? null) ?? undefined}
+                    alt={displayName}
+                    fallback={avatarFallback}
+                    className="h-24 w-24 border-4 border-white bg-[rgb(var(--bg-soft))] text-2xl shadow-lg md:h-28 md:w-28"
+                  />
+                  <div className="min-w-0 pb-1">
+                    <h1 className="truncate text-2xl font-black tracking-tight text-[rgb(var(--text-strong))] md:text-3xl">{displayName}</h1>
+                    <p className="text-sm font-medium text-[rgb(var(--muted))]">{usernameHandle}</p>
+                  </div>
                 </div>
-              </section>
-            )}
+              {profile?.location ? <Badge variant="outline">{profile.location}</Badge> : null}
+              </div>
 
-            <section className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-3.5 md:p-4 min-w-0 overflow-hidden">
-              {isLoading ? (
-                <p className="text-sm text-[rgb(var(--muted))]">Loading profile…</p>
-              ) : posts.length === 0 ? (
-                <p className="text-sm text-[rgb(var(--muted))]">
-                  No posts yet for this profile.
-                </p>
+              <p className="rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))/0.65] p-3 text-sm text-[rgb(var(--text))] md:text-base">{bio}</p>
+
+              <div className="grid gap-2 sm:grid-cols-3">
+                {[
+                  { label: "Posts", value: stats.posts.toLocaleString() },
+                  { label: "Friends", value: stats.friends.toLocaleString() },
+                  { label: "Comments", value: stats.comments.toLocaleString() },
+                ].map((item) => (
+                  <article key={item.label} className="rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))/0.55] p-3">
+                    <p className="text-[11px] uppercase tracking-[0.08em] text-[rgb(var(--muted))]">{item.label}</p>
+                    <p className="text-2xl font-black text-[rgb(var(--text-strong))]">{item.value}</p>
+                  </article>
+                ))}
+              </div>
+
+              <div className="flex flex-wrap gap-2 border-b border-[rgb(var(--border))] pb-2">
+                <Button size="sm" variant={activeTab === "posts" ? "default" : "outline"} onClick={() => setActiveTab("posts")}>Posts</Button>
+                <Button size="sm" variant={activeTab === "about" ? "default" : "outline"} onClick={() => setActiveTab("about")}>About</Button>
+              </div>
+
+              {activeTab === "about" ? (
+                <section className="rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))/0.45] p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[rgb(var(--muted))]">Interests</p>
+                  {interests.length ? (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {interests.map((interest) => (
+                        <span key={interest} className="rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--card))] px-2.5 py-1 text-xs font-medium">
+                          {interest}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-sm text-[rgb(var(--muted))]">No interests selected yet.</p>
+                  )}
+                </section>
               ) : (
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {posts.map((post) => {
-                    const mediaUrl = resolveMediaUrl(post.media_url);
+                <section className="rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))/0.4] p-3">
+                  {isLoading ? (
+                    <p className="text-sm text-[rgb(var(--muted))]">Loading profile…</p>
+                  ) : posts.length === 0 ? (
+                    <p className="text-sm text-[rgb(var(--muted))]">No posts yet for this profile.</p>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                      {posts.map((post) => {
+                        const mediaUrl = resolveMediaUrl(post.media_url);
 
-                    return (
-                      <article
-                        key={post.id}
-                        className="w-full overflow-hidden rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))/0.45]"
-                      >
-                        {mediaUrl && (
-                          <Image
-                            src={mediaUrl}
-                            alt={post.title?.trim() || "Profile post"}
-                            width={900}
-                            height={680}
-                            className="w-full h-auto max-w-full object-cover"
-                          />
-                        )}
+                        return (
+                          <article key={post.id} className="overflow-hidden rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--card))]">
+                            {mediaUrl ? (
+                              <Image
+                                src={mediaUrl}
+                                alt={post.title?.trim() || "Profile post"}
+                                width={900}
+                                height={680}
+                                className="h-40 w-full object-cover"
+                              />
+                            ) : null}
 
-                        <div className="p-3 min-w-0">
-                          <p className="text-[10px] font-semibold uppercase tracking-wide text-[rgb(var(--muted))]">
-                            {toReadableDate(post.created_at)}
-                          </p>
-
-                          <h3 className="mt-1 break-words text-base font-bold text-[rgb(var(--text-strong))]">
-                            {post.title?.trim() || "Untitled update"}
-                          </h3>
-
-                          {post.content?.trim() && (
-                            <p className="mt-1 break-words text-sm text-[rgb(var(--muted))]">
-                              {post.content.slice(0, 180)}
-                            </p>
-                          )}
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
+                            <div className="space-y-1 p-3">
+                              <p className="text-[10px] font-semibold uppercase tracking-wide text-[rgb(var(--muted))]">{toReadableDate(post.created_at)}</p>
+                              <h3 className="line-clamp-2 text-base font-bold text-[rgb(var(--text-strong))]">{post.title?.trim() || "Untitled update"}</h3>
+                              {post.content?.trim() ? <p className="line-clamp-3 text-sm text-[rgb(var(--muted))]">{post.content}</p> : null}
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  )}
+                </section>
               )}
-            </section>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
       </section>
     </main>
   );

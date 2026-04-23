@@ -4,6 +4,7 @@ import { Hash, Mic, Paperclip, Send, Smile, Users } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
 import { supabase } from "@/lib/supabase";
+import { UsernameActionPopup } from "@/components/social/username-action-popup";
 
 import styles from "./general-room.module.css";
 
@@ -32,6 +33,8 @@ type DbMessage = {
 
 type RoomMessage = {
   id: string;
+  authorId: string;
+  authorUsername: string | null;
   author: string;
   avatarSeed: string;
   role: "moderator" | "member";
@@ -139,6 +142,8 @@ export function GeneralRoom() {
 
         return {
           id: message.id,
+          authorId: message.author_id,
+          authorUsername: profile?.username ?? null,
           author,
           avatarSeed: profileInitials(author),
           role: isModerator ? "moderator" : "member",
@@ -321,7 +326,12 @@ export function GeneralRoom() {
               </div>
               <div className={styles.messageContent}>
                 <p className={styles.messageMeta}>
-                  <strong>{message.author}</strong>
+                  <UsernameActionPopup
+                    userId={message.authorId}
+                    username={message.authorUsername}
+                    displayName={message.author}
+                    triggerClassName="font-semibold underline-offset-2 hover:underline"
+                  />
                   <span className={message.role === "moderator" ? styles.modBadge : styles.memberBadge}>{message.role}</span>
                   <time>{message.time}</time>
                 </p>

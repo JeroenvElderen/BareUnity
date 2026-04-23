@@ -5,6 +5,7 @@ import { ChevronDown, Ellipsis, Heart, MessageCircle, Pencil, Trash2, X } from "
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { AppSidebar } from "@/components/sidebar/sidebar";
+import { UsernameActionPopup } from "@/components/social/username-action-popup";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -718,7 +719,11 @@ export default function HomePage() {
                       <div className="flex items-center gap-3">
                         <Avatar alt={post.author} fallback={post.fallback} className="h-11 w-11" />
                         <div>
-                          <p className="text-sm font-semibold text-[rgb(var(--text-strong))]">{post.author}</p>
+                          <UsernameActionPopup
+                            userId={post.authorId}
+                            displayName={post.author}
+                            triggerClassName="text-sm font-semibold text-[rgb(var(--text-strong))] underline-offset-2 hover:underline"
+                          />
                           <p className="text-xs text-[rgb(var(--muted))]">{post.posted}</p>
                         </div>
                       </div>
@@ -790,7 +795,13 @@ export default function HomePage() {
                               : undefined
                           }
                         >
-                          <span className="mr-1 font-semibold text-[rgb(var(--text-strong))]">{post.author}</span>
+                          <span className="mr-1">
+                            <UsernameActionPopup
+                              userId={post.authorId}
+                              displayName={post.author}
+                              triggerClassName="font-semibold text-[rgb(var(--text-strong))] underline-offset-2 hover:underline"
+                            />
+                          </span>
                           {caption}
                         </p>
                         {shouldClampCaption ? (
@@ -1119,7 +1130,11 @@ export default function HomePage() {
 
             <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
               <div className="rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))] p-3">
-                <p className="text-sm font-semibold text-[rgb(var(--text-strong))]">{activePost.author}</p>
+                <UsernameActionPopup
+                  userId={activePost.authorId}
+                  displayName={activePost.author}
+                  triggerClassName="text-sm font-semibold text-[rgb(var(--text-strong))] underline-offset-2 hover:underline"
+                />
                 {activePost.mediaUrl ? (
                   <img
                     src={activePost.mediaUrl}
@@ -1148,7 +1163,11 @@ export default function HomePage() {
                             <div className="flex items-start gap-2">
                               <Avatar src={node.authorAvatarUrl ?? undefined} alt={commentAuthorName} fallback={commentFallback} className="h-8 w-8" />
                               <div>
-                                <p className="text-xs font-semibold text-[rgb(var(--text-strong))]">{commentAuthorName}</p>
+                                <UsernameActionPopup
+                                  userId={node.authorId}
+                                  displayName={commentAuthorName}
+                                  triggerClassName="text-xs font-semibold text-[rgb(var(--text-strong))] underline-offset-2 hover:underline"
+                                />
                                 <p className="text-sm text-[rgb(var(--text))] break-words [overflow-wrap:anywhere]">{node.content}</p>
                               </div>
                             </div>

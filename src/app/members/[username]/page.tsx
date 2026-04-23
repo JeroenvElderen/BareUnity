@@ -6,10 +6,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 
 import { AppSidebar } from "@/components/sidebar/sidebar";
+import { UsernameActionPopup } from "@/components/social/username-action-popup";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { loadCachedThenRefresh } from "@/lib/client-cache";
+import { sendFriendRequestToProfile } from "@/lib/friend-requests";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { normalizeUsername } from "@/lib/username";
 import layoutStyles from "../../page.module.css";
@@ -100,6 +103,9 @@ export default function MemberProfilePage() {
   const [profileData, setProfileData] = useState<ProfileData>(EMPTY_PROFILE_DATA);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"posts" | "about">("posts");
+  const [friendRequestStatus, setFriendRequestStatus] = useState<string | null>(null);
+  const [isRequesting, setIsRequesting] = useState(false);
 
   const loadMemberProfile = useCallback(async (sessionUser: User | null, accessToken: string | null) => {
     if (!isSupabaseConfigured || !sessionUser || !accessToken || !requestedUsername) {
@@ -169,130 +175,130 @@ export default function MemberProfilePage() {
     return requestedUsername ? `@${requestedUsername}` : "@member";
   }, [profile?.username, requestedUsername]);
 
+  const sendFriendRequest = async () => {
+    setIsRequesting(true);
+    const result = await sendFriendRequestToProfile({ id: profile?.id, username: profile?.username ?? requestedUsername });
+    setFriendRequestStatus(result.message);
+    setIsRequesting(false);
+  };
+
   return (
     <main className={`${layoutStyles.main} w-full max-w-full`}>
       <AppSidebar />
 
-      <section className="min-w-0 w-full flex-1 overflow-hidden bg-[rgb(var(--bg-deep))/0.55]">
-        <Card className="min-h-full w-full max-w-full overflow-hidden rounded-none border-x-0 border-y-0 border-[rgb(var(--border))] bg-[rgb(var(--card))/0.98] shadow-none">
-          <div className="relative h-40 border-b border-[rgb(var(--border))/0.75] bg-[linear-gradient(110deg,rgb(var(--brand))_0%,rgb(var(--accent-soft))_100%)] md:h-48" />
-
-          <div className="-mt-16 pl-0 md:-mt-20 md:pl-1">
-            <Avatar
-              src={resolveMediaUrl(profile?.avatar_url ?? null) ?? undefined}
-              alt={displayName}
-              fallback={avatarFallback}
-              className="h-24 w-24 border-4 border-white bg-[rgb(var(--bg-soft))] text-2xl shadow-lg md:h-28 md:w-28"
-            />
-          </div>
-
-          <CardContent className="space-y-4 p-3 md:p-5 min-w-0 overflow-hidden">
-            <section className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-3.5 md:p-4 min-w-0">
-              <h1 className="break-words text-3xl font-black tracking-tight text-[rgb(var(--text-strong))] md:text-4xl">
-                {displayName}
-              </h1>
-              <p className="text-sm font-medium text-[rgb(var(--muted))]">{profileHandle}</p>
-              <p className="mt-1 break-words text-base text-[rgb(var(--muted))] md:text-lg">
-                {bio}
-              </p>
-
-              <div className="mt-2.5 flex flex-wrap gap-2">
-                <Badge className="bg-[rgb(var(--accent-soft))] text-[rgb(var(--text-strong))]">
-                  Member profile
-                </Badge>
-                {profile?.location ? (
-                  <Badge variant="outline">{profile.location}</Badge>
-                ) : null}
+      <section className="min-w-0 w-full flex-1 overflow-y-auto bg-[rgb(var(--bg-deep))/0.6] p-3 md:p-5">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-4">
+          <Card className="overflow-hidden border-[rgb(var(--border))] bg-[rgb(var(--card))]">
+            <div className="relative h-40 bg-[radial-gradient(circle_at_95%_10%,rgb(var(--accent-soft))_0%,transparent_45%),linear-gradient(120deg,rgb(var(--brand))_0%,rgb(var(--accent-soft))_100%)] md:h-52">
+              <div className="absolute right-4 top-4 flex items-center gap-2">
+                <Badge className="bg-white/20 text-white">Member profile</Badge>
+                <UsernameActionPopup
+                  variant="button"
+                  displayName="Actions"
+                  userId={profile?.id ?? null}
+                  username={profile?.username ?? requestedUsername}
+                />
               </div>
-            </section>
+            </div>
 
-            {loadError ? (
-              <section className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-4 text-sm text-[rgb(var(--muted))]">
-                {loadError}
-              </section>
-            ) : null}
-
-            <section className="grid gap-2.5 md:grid-cols-3">
-              {[
-                { label: "Posts", value: stats.posts.toLocaleString() },
-                { label: "Friends", value: stats.friends.toLocaleString() },
-                { label: "Comments", value: stats.comments.toLocaleString() },
-              ].map((item) => (
-                <article
-                  key={item.label}
-                  className="rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-3 min-w-0"
-                >
-                  <p className="text-xs uppercase tracking-wide text-[rgb(var(--muted))]">
-                    {item.label}
-                  </p>
-                  <p className="text-2xl font-black tracking-tight text-[rgb(var(--text-strong))] md:text-3xl">
-                    {item.value}
-                  </p>
-                </article>
-              ))}
-            </section>
-
-            {interests.length > 0 && (
-              <section className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-3.5 md:p-4 min-w-0">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-[0.08em] text-[rgb(var(--muted))]">
-                  Interests
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {interests.map((interest) => (
-                    <span
-                      key={interest}
-                      className="rounded-full bg-[rgb(var(--bg-soft))] px-2.5 py-1 text-xs font-medium break-words"
-                    >
-                      {interest}
-                    </span>
-                  ))}
+            <CardContent className="-mt-14 space-y-4 p-4 md:p-6">
+              <div className="flex flex-wrap items-end justify-between gap-4">
+                <div className="flex min-w-0 items-end gap-3">
+                  <Avatar
+                    src={resolveMediaUrl(profile?.avatar_url ?? null) ?? undefined}
+                    alt={displayName}
+                    fallback={avatarFallback}
+                    className="h-24 w-24 border-4 border-white bg-[rgb(var(--bg-soft))] text-2xl shadow-lg md:h-28 md:w-28"
+                  />
+                  <div className="min-w-0 pb-1">
+                    <h1 className="truncate text-2xl font-black tracking-tight text-[rgb(var(--text-strong))] md:text-3xl">{displayName}</h1>
+                    <p className="text-sm font-medium text-[rgb(var(--muted))]">{profileHandle}</p>
+                  </div>
                 </div>
-              </section>
-            )}
 
-            <section className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-3.5 md:p-4 min-w-0">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.08em] text-[rgb(var(--muted))]">
-                Recent posts
-              </p>
+              <div className="flex items-center gap-2">
+                  <Button size="sm" onClick={() => void sendFriendRequest()} disabled={isRequesting}>
+                    {isRequesting ? "Sending..." : "Send friend request"}
+                  </Button>
+                  {profile?.location ? <Badge variant="outline">{profile.location}</Badge> : null}
+                </div>
+              </div>
 
-              {isLoading ? (
-                <p className="text-sm text-[rgb(var(--muted))]">Loading profile…</p>
-              ) : posts.length === 0 ? (
-                <p className="text-sm text-[rgb(var(--muted))]">No posts yet for this profile.</p>
+              <p className="rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))/0.65] p-3 text-sm text-[rgb(var(--text))] md:text-base">{bio}</p>
+              {friendRequestStatus ? <p className="text-sm text-[rgb(var(--muted))]">{friendRequestStatus}</p> : null}
+
+              {loadError ? (
+                <section className="rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-4 text-sm text-[rgb(var(--muted))]">
+                  {loadError}
+                </section>
+              ) : null}
+
+              <div className="grid gap-2 sm:grid-cols-3">
+                {[
+                  { label: "Posts", value: stats.posts.toLocaleString() },
+                  { label: "Friends", value: stats.friends.toLocaleString() },
+                  { label: "Comments", value: stats.comments.toLocaleString() },
+                ].map((item) => (
+                  <article key={item.label} className="rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))/0.55] p-3">
+                    <p className="text-[11px] uppercase tracking-[0.08em] text-[rgb(var(--muted))]">{item.label}</p>
+                    <p className="text-2xl font-black text-[rgb(var(--text-strong))]">{item.value}</p>
+                  </article>
+                ))}
+              </div>
+
+              <div className="flex flex-wrap gap-2 border-b border-[rgb(var(--border))] pb-2">
+                <Button size="sm" variant={activeTab === "posts" ? "default" : "outline"} onClick={() => setActiveTab("posts")}>Posts</Button>
+                <Button size="sm" variant={activeTab === "about" ? "default" : "outline"} onClick={() => setActiveTab("about")}>About</Button>
+              </div>
+
+              {activeTab === "about" ? (
+                <section className="rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))/0.45] p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[rgb(var(--muted))]">Interests</p>
+                  {interests.length ? (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {interests.map((interest) => (
+                        <span key={interest} className="rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--card))] px-2.5 py-1 text-xs font-medium">
+                          {interest}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-sm text-[rgb(var(--muted))]">No interests listed yet.</p>
+                  )}
+                </section>
               ) : (
-                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                  {posts.map((post) => (
-                    <article
-                      key={post.id}
-                      className="rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))] p-2.5"
-                    >
-                      {post.media_url ? (
-                        <div className="relative mb-2 h-36 w-full overflow-hidden rounded-lg bg-black/5">
-                          <Image
-                            src={resolveMediaUrl(post.media_url) ?? post.media_url}
-                            alt={post.title?.trim() || "Profile post"}
-                            fill
-                            className="object-cover"
-                            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 45vw, 30vw"
-                          />
-                        </div>
-                      ) : null}
-                      <h3 className="line-clamp-2 text-sm font-semibold text-[rgb(var(--text-strong))]">
-                        {post.title?.trim() || "Untitled post"}
-                      </h3>
-                      <p className="mt-1 line-clamp-3 text-xs text-[rgb(var(--muted))]">
-                        {post.content?.trim() || "No description added."}
-                      </p>
-                      <p className="mt-2 text-[11px] font-medium uppercase tracking-[0.08em] text-[rgb(var(--muted))]">
-                        {toReadableDate(post.created_at)}
-                      </p>
-                    </article>
-                  ))}
-                </div>
+                <section className="rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))/0.4] p-3">
+                  {isLoading ? (
+                    <p className="text-sm text-[rgb(var(--muted))]">Loading profile…</p>
+                  ) : posts.length === 0 ? (
+                    <p className="text-sm text-[rgb(var(--muted))]">No posts yet for this profile.</p>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                      {posts.map((post) => (
+                        <article key={post.id} className="overflow-hidden rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--card))]">
+                          {post.media_url ? (
+                            <Image
+                              src={resolveMediaUrl(post.media_url) ?? post.media_url}
+                              alt={post.title?.trim() || "Profile post"}
+                              width={900}
+                              height={680}
+                              className="h-40 w-full object-cover"
+                            />
+                          ) : null}
+                          <div className="space-y-1 p-3">
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-[rgb(var(--muted))]">{toReadableDate(post.created_at)}</p>
+                            <h3 className="line-clamp-2 text-base font-bold text-[rgb(var(--text-strong))]">{post.title?.trim() || "Untitled post"}</h3>
+                            <p className="line-clamp-3 text-sm text-[rgb(var(--muted))]">{post.content?.trim() || "No description added."}</p>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </section>
               )}
-            </section>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
       </section>
     </main>
   );
