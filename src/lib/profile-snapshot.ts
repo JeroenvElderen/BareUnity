@@ -47,7 +47,7 @@ export async function buildProfileSnapshotPayload(userId: string): Promise<Profi
 
   if (!profile) return EMPTY_PROFILE_SNAPSHOT;
 
-  const [posts, settings, postsCount, friendsCount, commentsCount] = await Promise.all([
+  const [posts, settings, postsCount, friendships, commentsCount] = await Promise.all([
     db.posts.findMany({
       where: {
         author_id: profile.id,
@@ -74,13 +74,23 @@ export async function buildProfileSnapshotPayload(userId: string): Promise<Profi
         OR: [{ post_type: null }, { post_type: { not: "story" } }],
       },
     }),
-    db.friendships.count({
-      where: { user_id: profile.id },
+    db.friendships.findMany({
+      where: {
+        OR: [{ user_id: profile.id }, { friend_user_id: profile.id }],
+      },
+      select: {
+        user_id: true,
+        friend_user_id: true,
+      },
     }),
     db.comments.count({
       where: { author_id: profile.id },
     }),
   ]);
+
+  const uniqueFriendIds = new Set(
+    friendships.map((friendship) => (friendship.user_id === profile.id ? friendship.friend_user_id : friendship.user_id)).filter(Boolean),
+  );
 
   return {
     profile,
@@ -91,7 +101,7 @@ export async function buildProfileSnapshotPayload(userId: string): Promise<Profi
     interests: (settings?.interests ?? []).slice(0, 8),
     stats: {
       posts: postsCount,
-      friends: friendsCount,
+      friends: uniqueFriendIds.size,
       comments: commentsCount,
     },
   };
@@ -112,7 +122,9 @@ export async function getProfileSnapshotSourceVersion(userId: string): Promise<s
       select: { id: true, created_at: true },
     }),
     db.friendships.findFirst({
-      where: { user_id: userId },
+      where: {
+        OR: [{ user_id: userId }, { friend_user_id: userId }],
+      },
       orderBy: { created_at: "desc" },
       select: { id: true, created_at: true },
     }),

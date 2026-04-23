@@ -88,11 +88,22 @@ export async function loadFriends(userId: string) {
     return [] as Friend[];
   }
 
-  return data.map((row) => ({
-    id: row.user_id === userId ? row.friend_user_id : row.user_id,
-    username: row.friend_username,
-    status: (row.status as FriendStatus) || "offline",
-  }));
+  const friendsById = new Map<string, Friend>();
+
+  for (const row of data) {
+    const friendId = row.user_id === userId ? row.friend_user_id : row.user_id;
+    if (!friendId || friendsById.has(friendId)) {
+      continue;
+    }
+
+    friendsById.set(friendId, {
+      id: friendId,
+      username: row.friend_username,
+      status: (row.status as FriendStatus) || "offline",
+    });
+  }
+
+  return Array.from(friendsById.values());
 }
 
 export async function loadFriendRequests(userId: string) {
