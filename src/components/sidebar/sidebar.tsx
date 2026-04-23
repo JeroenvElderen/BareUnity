@@ -50,7 +50,6 @@ const primaryItems: readonly NavLinkItem[] = [
   { icon: Home, label: "Home", href: "/" },
   { icon: Compass, label: "Explore", href: "/explore" },
   { icon: Image, label: "Gallery", href: "/gallery" },
-  { icon: MessageCircle, label: "Messages", href: "/messages" },
 ];
 
 const bookingItems: readonly NavLinkItem[] = [
@@ -147,6 +146,8 @@ export function AppSidebar() {
   const pushNotification = useUIStore((state) => state.pushNotification);
   const markNotificationAsRead = useUIStore((state) => state.markNotificationAsRead);
   const markAllNotificationsAsRead = useUIStore((state) => state.markAllNotificationsAsRead);
+  const isMessagesOpen = useUIStore((state) => state.isMessagesOpen);
+  const toggleMessages = useUIStore((state) => state.toggleMessages);
   const unreadNotifications = notifications.filter((notification) => notification.unread).length;
   const isUserOnlineInPlatform = useCallback(() => {
     if (typeof window === "undefined") return false;
@@ -559,6 +560,19 @@ export function AppSidebar() {
                 {badge ? <span className={styles.badge}>{badge}</span> : null}
               </Link>
             ))}
+            <button
+              type="button"
+              className={`${styles.navItem} ${styles.navButton} ${isMessagesOpen ? styles.active : ""}`}
+              onClick={() => {
+                toggleMessages();
+                setIsMobileMenuOpen(false);
+              }}
+            >
+              <span className={styles.itemLeft}>
+                <MessageCircle size={18} aria-hidden />
+                <span>Messages</span>
+              </span>
+            </button>
 
             <div className={styles.dropdown}>
               <button

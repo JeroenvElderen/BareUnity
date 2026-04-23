@@ -101,6 +101,13 @@
   border-color: rgb(var(--border));
 }
 
+.navButton {
+  width: 100%;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+}
+
 .themeToggleButton {
   margin-top: 0.2rem;
 }
