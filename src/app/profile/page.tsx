@@ -96,8 +96,8 @@ async function getProfileDataForUser(userId: string): Promise<ProfileData> {
       .limit(30),
     supabase
       .from("friendships")
-      .select("id, user_id, friend_user_id, friend_username")
-      .or(`user_id.eq.${userId},friend_user_id.eq.${userId}`)
+      .select("id, friend_user_id, friend_username")
+      .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .limit(30),
     supabase
@@ -112,8 +112,8 @@ async function getProfileDataForUser(userId: string): Promise<ProfileData> {
       .or("post_type.is.null,post_type.neq.story"),
     supabase
       .from("friendships")
-      .select("user_id, friend_user_id")
-      .or(`user_id.eq.${userId},friend_user_id.eq.${userId}`),
+      .select("friend_user_id")
+      .eq("user_id", userId),
     supabase
       .from("comments")
       .select("id", { count: "exact", head: true })
@@ -131,21 +131,18 @@ async function getProfileDataForUser(userId: string): Promise<ProfileData> {
   const friendsById = new Map<string, { id: string; username: string }>();
 
   for (const friend of friendsResult.data ?? []) {
-    const resolvedFriendId = friend.user_id === userId ? friend.friend_user_id : friend.user_id;
-    if (!resolvedFriendId || friendsById.has(resolvedFriendId)) {
+    if (!friend.friend_user_id || friendsById.has(friend.friend_user_id)) {
       continue;
     }
 
-    friendsById.set(resolvedFriendId, {
-      id: resolvedFriendId,
+    friendsById.set(friend.friend_user_id, {
+      id: friend.friend_user_id,
       username: friend.friend_username ?? "member",
     });
   }
 
   const uniqueFriendIds = new Set(
-    (friendsCountResult.data ?? []).map((friendship) =>
-      friendship.user_id === userId ? friendship.friend_user_id : friendship.user_id,
-    ).filter((friendId): friendId is string => Boolean(friendId)),
+    (friendsCountResult.data ?? []).map((friendship) => friendship.friend_user_id).filter((friendId): friendId is string => Boolean(friendId)),
   );
 
   return {
