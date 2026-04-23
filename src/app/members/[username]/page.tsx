@@ -11,7 +11,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { loadCachedThenRefresh } from "@/lib/client-cache";
+import { getActiveCacheUser, loadCachedThenRefresh, readCachedValue } from "@/lib/client-cache";
 import { sendFriendRequestToProfile } from "@/lib/friend-requests";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { normalizeUsername } from "@/lib/username";
@@ -100,8 +100,12 @@ export default function MemberProfilePage() {
   const params = useParams<{ username: string }>();
   const requestedUsername = normalizeUsername(decodeURIComponent(params?.username ?? ""));
 
-  const [profileData, setProfileData] = useState<ProfileData>(EMPTY_PROFILE_DATA);
-  const [isLoading, setIsLoading] = useState(true);
+  const [profileData, setProfileData] = useState<ProfileData>(() => {
+    const activeUser = getActiveCacheUser();
+    if (!activeUser || !requestedUsername) return EMPTY_PROFILE_DATA;
+    return readCachedValue<ProfileData>(`member-profile:${activeUser}:${requestedUsername}:v1`, PROFILE_CACHE_MAX_AGE_MS) ?? EMPTY_PROFILE_DATA;
+  });
+  const [isLoading, setIsLoading] = useState(() => profileData.profile === null && profileData.posts.length === 0);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"posts" | "about">("posts");
   const [friendRequestStatus, setFriendRequestStatus] = useState<string | null>(null);

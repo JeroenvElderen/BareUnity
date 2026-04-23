@@ -15,6 +15,7 @@ import type { HomeFeedPayload } from "@/lib/homefeed";
 import { setPrefetchedRouteData } from "@/lib/prefetched-route-data";
 import { emitSocialGraphUpdatedEvent } from "@/lib/social-graph-events";
 import { supabase } from "@/lib/supabase";
+import { normalizeUsername } from "@/lib/username";
 
 import styles from "./auth-gate.module.css";
 
@@ -26,6 +27,35 @@ type GallerySnapshotPayload = {
   items?: Array<{ src?: unknown }>;
 };
 
+type MemberDirectoryPayload = {
+  members?: Array<{ username?: unknown }>;
+};
+
+type ProfileSnapshotPayload = {
+  profile: {
+    id: string;
+    username: string;
+    display_name: string | null;
+    bio: string | null;
+    avatar_url: string | null;
+    location: string | null;
+  } | null;
+  posts: Array<{
+    id: string;
+    title: string | null;
+    content: string | null;
+    media_url: string | null;
+    created_at: string | null;
+    post_type: string | null;
+  }>;
+  interests: string[];
+  stats: { posts: number; friends: number; comments: number };
+};
+
+type ProfilePageCachePayload = ProfileSnapshotPayload & {
+  friends: Array<{ id: string; username: string }>;
+};
+
 const PUBLIC_PATHS = new Set(["/welcome", "/login", "/register"]);
 const PROFILE_CACHE_KEY_PREFIX = "profile:";
 const LIVE_TABLES = ["posts", "comments", "friendships", "profiles", "profile_settings", "map_spots"] as const;
@@ -34,6 +64,7 @@ const CRITICAL_ROUTES_TO_PREFETCH = [
   "/",
 ];
 const BACKGROUND_ROUTES_TO_PREFETCH = [
+  "/members",
   "/explore",
   "/profile",
   "/gallery",
@@ -53,10 +84,14 @@ const PRE_LOGIN_DATA_ENDPOINTS = [
 const POST_LOGIN_BACKGROUND_ENDPOINTS = [
   "/api/map-spots",
   "/api/gallery/snapshot",
+  "/api/members",
+  "/api/profile/snapshot",
 ];
 const POST_LOGIN_HOMEFEED_ENDPOINT = "/api/homefeed";
 const POST_LOGIN_MAP_SPOTS_ENDPOINT = "/api/map-spots";
 const POST_LOGIN_GALLERY_ENDPOINT = "/api/gallery/snapshot";
+const POST_LOGIN_MEMBERS_ENDPOINT = "/api/members";
+const POST_LOGIN_PROFILE_ENDPOINT = "/api/profile/snapshot";
 const WARMUP_MIN_INTERVAL_MS = 5 * 60_000;
 
 export function AuthGate({ children }: AuthGateProps) {
@@ -214,8 +249,47 @@ export function AuthGate({ children }: AuthGateProps) {
       } catch {
         // best-effort prefetch should not block routing
       }
+      return;
+    }
+
+    if (url === POST_LOGIN_MEMBERS_ENDPOINT) {
+      try {
+        const payload = (await response.json()) as { members?: unknown[] };
+        setPrefetchedRouteData("members-directory", payload.members ?? []);
+      } catch {
+        // best-effort prefetch should not block routing
+      }
+      return;
+    }
+
+    if (url === POST_LOGIN_PROFILE_ENDPOINT) {
+      try {
+        const payload = (await response.json()) as ProfileSnapshotPayload;
+        setPrefetchedRouteData("profile-snapshot", payload);
+      } catch {
+        // best-effort prefetch should not block routing
+      }
     }
   }, [prefetchGalleryImages]);
+
+  const cacheMemberProfiles = useCallback(async (membersPayload: MemberDirectoryPayload, headers: HeadersInit, viewerUserId: string) => {
+    const usernames = (membersPayload.members ?? [])
+      .map((member) => (typeof member?.username === "string" ? normalizeUsername(member.username) : ""))
+      .filter(Boolean);
+
+    const uniqueUsernames = Array.from(new Set(usernames));
+
+    await Promise.allSettled(uniqueUsernames.map(async (username) => {
+      const response = await fetch(`/api/members/${encodeURIComponent(username)}/snapshot`, {
+        cache: "no-store",
+        headers,
+      });
+
+      if (!response.ok) return;
+      const payload = (await response.json()) as ProfileSnapshotPayload;
+      writeCachedValue(`member-profile:${viewerUserId}:${username}:v1`, payload);
+    }));
+  }, []);
 
   const prefetchEndpoints = useCallback(async (
     urls: readonly string[],
@@ -226,6 +300,7 @@ export function AuthGate({ children }: AuthGateProps) {
     try {
       const shouldIncludeAuthToken = options.includeAuthToken ?? false;
       let headers: HeadersInit = {};
+      let viewerUserId: string | null = null;
       if (shouldIncludeAuthToken) {
         let session;
         try {
@@ -237,12 +312,36 @@ export function AuthGate({ children }: AuthGateProps) {
         }
 
         const accessToken = session?.access_token;
+        viewerUserId = session?.user?.id ?? null;
         headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
       }
 
       await Promise.allSettled(
         urls.map(async (url) => {
           const response = await fetch(url, { cache: "no-store", headers });
+
+          if (shouldIncludeAuthToken && url === POST_LOGIN_MEMBERS_ENDPOINT && viewerUserId && response.ok) {
+            try {
+              const membersPayload = (await response.clone().json()) as MemberDirectoryPayload;
+              await cacheMemberProfiles(membersPayload, headers, viewerUserId);
+            } catch {
+              // member profile warmup is best effort only
+            }
+          }
+
+          if (shouldIncludeAuthToken && url === POST_LOGIN_PROFILE_ENDPOINT && viewerUserId && response.ok) {
+            try {
+              const profilePayload = (await response.clone().json()) as ProfileSnapshotPayload;
+              const profilePagePayload: ProfilePageCachePayload = {
+                ...profilePayload,
+                friends: [],
+              };
+              writeCachedValue(`profile:${viewerUserId}:v2`, profilePagePayload);
+            } catch {
+              // own profile warmup is best effort only
+            }
+          }
+
           await cacheWarmupResponse(url, response);
         }),
       );
@@ -253,7 +352,7 @@ export function AuthGate({ children }: AuthGateProps) {
     } finally {
       warmupInFlightRef.current = false;
     }
-  }, [cacheWarmupResponse]);
+  }, [cacheMemberProfiles, cacheWarmupResponse]);
 
   const prefetchHomeFeedUntilReady = useCallback(async (options?: { maxAttempts?: number; retryDelayMs?: number }) => {
     const maxAttempts = options?.maxAttempts ?? 8;

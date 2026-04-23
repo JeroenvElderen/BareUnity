@@ -79,13 +79,20 @@
 .messageList {
   align-content: start;
   max-height: none;
+  align-content: start;
   overflow-y: auto;
   padding-right: 0.25rem;
 }
 
+.messageList {
+  align-items: start;
+}
+
 .bubble {
+  align-self: start;
   border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
   border-radius: 12px;
+  height: fit-content;
   padding: 0.65rem 0.75rem;
   max-width: 75%;
 }

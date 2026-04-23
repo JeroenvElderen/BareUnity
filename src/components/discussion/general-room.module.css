@@ -84,6 +84,7 @@
 
 .messagesPanel {
   display: grid;
+  align-content: start;
   gap: 0.68rem;
   min-height: 280px;
   max-height: min(58vh, 560px);
