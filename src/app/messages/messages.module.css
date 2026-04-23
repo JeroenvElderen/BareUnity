@@ -1,0 +1,121 @@
+.page {
+  display: grid;
+  gap: 1rem;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 1rem;
+  min-height: 68vh;
+}
+
+.panel {
+  background: var(--card, rgba(13, 17, 23, 0.7));
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  border-radius: 14px;
+  padding: 0.9rem;
+}
+
+.title {
+  margin: 0 0 0.6rem;
+  font-size: 1rem;
+}
+
+.userList,
+.conversationList,
+.messageList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.rowButton {
+  width: 100%;
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  padding: 0.65rem;
+  cursor: pointer;
+}
+
+.rowButton:hover,
+.rowButtonActive {
+  border-color: rgba(119, 177, 131, 0.75);
+  background: rgba(119, 177, 131, 0.12);
+}
+
+.meta {
+  margin: 0.2rem 0 0;
+  font-size: 0.8rem;
+  opacity: 0.75;
+}
+
+.chatShell {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 0.85rem;
+}
+
+.messageList {
+  align-content: start;
+  max-height: 56vh;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.bubble {
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  border-radius: 12px;
+  padding: 0.65rem 0.75rem;
+  max-width: 75%;
+}
+
+.mine {
+  margin-left: auto;
+  background: rgba(86, 144, 255, 0.16);
+}
+
+.theirs {
+  margin-right: auto;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.composer {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.55rem;
+}
+
+.composer input {
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.16));
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  padding: 0.65rem 0.9rem;
+}
+
+.composer button {
+  border: none;
+  border-radius: 999px;
+  padding: 0.65rem 1rem;
+  background: rgba(119, 177, 131, 0.85);
+  color: #0c130e;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.empty {
+  opacity: 0.75;
+  font-size: 0.92rem;
+}
+
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}

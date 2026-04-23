@@ -46,7 +46,7 @@ const primaryItems = [
   { icon: Home, label: "Home", href: "/" },
   { icon: Compass, label: "Explore", href: "/explore" },
   { icon: Image, label: "Gallery", href: "/gallery" },
-  { icon: MessageCircle, label: "Messages", href: "#", badge: "4" },
+  { icon: MessageCircle, label: "Messages", href: "/messages" },
 ] satisfies readonly NavItem[];
 
 const bookingItems = [
