@@ -86,9 +86,8 @@ export function MessagesOverlay() {
 
       const friendsResponse = await supabase
         .from("friendships")
-        .select("friend_user_id")
-        .eq("user_id", currentViewerId)
-        .not("friend_user_id", "is", null);
+        .select("user_id, friend_user_id")
+        .or(`user_id.eq.${currentViewerId},friend_user_id.eq.${currentViewerId}`);
 
       if (friendsResponse.error) {
         setErrorMessage("Could not load your friends list.");
@@ -98,9 +97,17 @@ export function MessagesOverlay() {
         return;
       }
 
-      const friendUserIds = Array.from(
-        new Set((friendsResponse.data ?? []).map((row) => row.friend_user_id).filter((value): value is string => Boolean(value))),
-      );
+      const friendUserIds = Array.from(new Set((friendsResponse.data ?? []).map((row) => {
+        if (row.user_id === currentViewerId) {
+          return row.friend_user_id;
+        }
+
+        if (row.friend_user_id === currentViewerId) {
+          return row.user_id;
+        }
+
+        return null;
+      }).filter((value): value is string => Boolean(value))));
 
       setFriendIds(friendUserIds);
 

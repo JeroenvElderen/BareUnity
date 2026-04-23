@@ -80,8 +80,8 @@ export async function saveProfileSocialSettings(userId: string, settings: Profil
 export async function loadFriends(userId: string) {
   const { data, error } = await supabase
     .from("friendships")
-    .select("id, friend_username, status")
-    .eq("user_id", userId)
+    .select("id, user_id, friend_user_id, friend_username, status")
+    .or(`user_id.eq.${userId},friend_user_id.eq.${userId}`)
     .order("created_at", { ascending: false });
 
   if (error || !data) {
@@ -89,7 +89,7 @@ export async function loadFriends(userId: string) {
   }
 
   return data.map((row) => ({
-    id: row.id,
+    id: row.user_id === userId ? row.friend_user_id : row.user_id,
     username: row.friend_username,
     status: (row.status as FriendStatus) || "offline",
   }));
@@ -116,42 +116,24 @@ export async function loadFriendRequests(userId: string) {
 }
 
 export async function acceptFriendRequest(userId: string, request: FriendRequest) {
-  const { error: requestError } = await supabase
-    .from("friend_requests")
-    .update({ status: "accepted" })
-    .eq("id", request.id)
-    .eq("receiver_id", userId);
-
-  if (requestError) {
-    console.warn("Failed to update friend request", requestError.message);
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError || !sessionData.session?.access_token) {
+    console.warn("Failed to load auth session for accepting friend request", sessionError?.message ?? "Missing session");
     return false;
   }
 
-  const [receiverProfile, senderProfile] = await Promise.all([
-    supabase.from("profiles").select("username").eq("id", userId).maybeSingle<{ username: string | null }>(),
-    supabase.from("profiles").select("username").eq("id", request.senderId).maybeSingle<{ username: string | null }>(),
-  ]);
-
-  const receiverUsername = receiverProfile.data?.username?.trim() || "member";
-  const senderUsername = senderProfile.data?.username?.trim() || request.username || "member";
-
-  const { error: friendshipError } = await supabase.from("friendships").insert([
-    {
-      user_id: userId,
-      friend_user_id: request.senderId,
-      friend_username: senderUsername,
-      status: "online",
+  const response = await fetch(`/api/friend-requests/${request.id}/accept`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${sessionData.session.access_token}`,
+      "Content-Type": "application/json",
     },
-    {
-      user_id: request.senderId,
-      friend_user_id: userId,
-      friend_username: receiverUsername,
-      status: "online",
-    },
-  ]);
+    body: JSON.stringify({ userId }),
+  });
 
-  if (friendshipError) {
-    console.warn("Failed to create friendship", friendshipError.message);
+  if (!response.ok) {
+    const message = await response.text();
+    console.warn("Failed to accept friend request", message);
     return false;
   }
 
