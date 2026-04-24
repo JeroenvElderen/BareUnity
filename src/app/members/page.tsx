@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 
 import { AppSidebar } from "@/components/sidebar/sidebar";
@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { loadCachedThenRefresh } from "@/lib/client-cache";
+import { takePrefetchedRouteData } from "@/lib/prefetched-route-data";
 import { MEMBERS_REALTIME_TABLES, subscribeToTables } from "@/lib/realtime";
 import { acceptFriendRequest, declineFriendRequest, loadFriendRequests, type FriendRequest } from "@/lib/social";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
@@ -65,12 +66,14 @@ async function getMembers(accessToken: string): Promise<MemberListItem[]> {
 }
 
 export default function MembersDirectoryPage() {
-  const [members, setMembers] = useState<MemberListItem[]>(EMPTY_MEMBERS);
+  const [prefetchedMembers] = useState<MemberListItem[] | null>(() => takePrefetchedRouteData<MemberListItem[]>("members-directory"));
+  const [members, setMembers] = useState<MemberListItem[]>(() => prefetchedMembers ?? EMPTY_MEMBERS);
+  const membersCountRef = useRef(members.length);
   const [viewerId, setViewerId] = useState<string | null>(null);
   const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([]);
   const [requestActionMessage, setRequestActionMessage] = useState<string | null>(null);
   const [pendingRequestIds, setPendingRequestIds] = useState<Set<string>>(() => new Set());
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(() => prefetchedMembers === null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [sessionContext, setSessionContext] = useState<{ user: User | null; accessToken: string | null }>({
     user: null,
@@ -81,6 +84,10 @@ export default function MembersDirectoryPage() {
     const requests = await loadFriendRequests(userId);
     setFriendRequests(requests);
   }, []);
+
+  useEffect(() => {
+    membersCountRef.current = members.length;
+  }, [members.length]);
 
   const loadMembers = useCallback(async (sessionUser: User | null, accessToken: string | null) => {
     setSessionContext({ user: sessionUser, accessToken });
@@ -95,7 +102,7 @@ export default function MembersDirectoryPage() {
     }
 
     setViewerId(sessionUser.id);
-    setIsLoading(true);
+    setIsLoading(membersCountRef.current === 0);
     setLoadError(null);
 
     try {

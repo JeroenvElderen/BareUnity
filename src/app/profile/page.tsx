@@ -10,8 +10,9 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { loadCachedThenRefresh } from "@/lib/client-cache";
+import { getActiveCacheUser, loadCachedThenRefresh, readCachedValue } from "@/lib/client-cache";
 import { PROFILE_REALTIME_TABLES, subscribeToTables } from "@/lib/realtime";
+import { subscribeToSocialGraphUpdates } from "@/lib/social-graph-events";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import layoutStyles from "../page.module.css";
 
@@ -159,8 +160,12 @@ async function getProfileDataForUser(userId: string): Promise<ProfileData> {
 }
 
 export default function ProfilePage() {
-  const [profileData, setProfileData] = useState<ProfileData>(EMPTY_PROFILE_DATA);
-  const [isLoading, setIsLoading] = useState(true);
+  const [profileData, setProfileData] = useState<ProfileData>(() => {
+    const activeUser = getActiveCacheUser();
+    if (!activeUser) return EMPTY_PROFILE_DATA;
+    return readCachedValue<ProfileData>(`profile:${activeUser}:v2`, PROFILE_CACHE_MAX_AGE_MS) ?? EMPTY_PROFILE_DATA;
+  });
+  const [isLoading, setIsLoading] = useState(() => profileData.profile === null && profileData.posts.length === 0);
   const [sessionContext, setSessionContext] = useState<{ user: User | null; accessToken: string | null }>({
     user: null,
     accessToken: null,
@@ -232,6 +237,14 @@ export default function ProfilePage() {
         void loadProfileForUser(sessionContext.user, sessionContext.accessToken, { background: true });
       },
       debounceMs: 500,
+    });
+  }, [loadProfileForUser, sessionContext.accessToken, sessionContext.user]);
+
+  useEffect(() => {
+    if (!sessionContext.user || !sessionContext.accessToken) return;
+
+    return subscribeToSocialGraphUpdates(() => {
+      void loadProfileForUser(sessionContext.user, sessionContext.accessToken, { background: true });
     });
   }, [loadProfileForUser, sessionContext.accessToken, sessionContext.user]);
   

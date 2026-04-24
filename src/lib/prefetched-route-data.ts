@@ -3,7 +3,9 @@
 type PrefetchKey =
   | "homefeed"
   | "gallery-snapshot"
-  | "map-spots";
+  | "map-spots"
+  | "members-directory"
+  | "profile-snapshot";
 
 type PrefetchedEntry<T> = {
   value: T;

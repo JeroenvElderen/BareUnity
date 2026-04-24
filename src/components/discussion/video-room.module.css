@@ -41,6 +41,21 @@
   line-height: 1.42;
 }
 
+.joinButton {
+  margin-top: 0.75rem;
+  border-radius: 999px;
+  border: 1px solid rgb(var(--brand) / 0.35);
+  background: rgb(var(--brand) / 0.14);
+  color: rgb(var(--text-strong));
+  font-weight: 700;
+  padding: 0.48rem 0.9rem;
+  cursor: pointer;
+}
+
+.joinButton:hover {
+  background: rgb(var(--brand) / 0.22);
+}
+
 .metaPills {
   display: flex;
   gap: 0.55rem;
