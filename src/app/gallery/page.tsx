@@ -3,10 +3,10 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEventHandler, type TouchEvent } from "react";
 import { Heart } from "lucide-react";
 import NextImage from "next/image";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
 import { AppSidebar } from "@/components/sidebar/sidebar";
-import { UsernameActionPopup } from "@/components/social/username-action-popup";
 import { buildUserScopedCacheKey, loadCachedThenRefresh } from "@/lib/client-cache";
 import { takePrefetchedRouteData } from "@/lib/prefetched-route-data";
 import { GALLERY_REALTIME_TABLES, subscribeToTables } from "@/lib/realtime";
@@ -541,11 +541,9 @@ export default function GalleryPage() {
                     <Heart className={styles.likeIcon} />
                     <span className={styles.likeCount}>{item.likeCount}</span>
                   </button>
-                <UsernameActionPopup
-                  username={item.username}
-                  displayName={`@${item.username}`}
-                  triggerClassName={styles.username}
-                />
+                <Link href={`/members/${encodeURIComponent(item.username)}`} className={styles.username}>
+                    @{item.username}
+                  </Link>
                 </figcaption>
               </figure>
             ))}
