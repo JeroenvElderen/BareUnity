@@ -36,13 +36,17 @@ export async function sendFriendRequestToProfile(target: { id?: string | null; u
     return { ok: false, reason: "not_authenticated", message: "Sign in to send a friend request." };
   }
 
+  if (target.id && target.id === viewer.id) {
+    return { ok: false, reason: "self", message: "You can't send a friend request to yourself." };
+  }
+
   const receiverProfile = await resolveTargetProfile({ userId: target.id, username: target.username });
   if (!receiverProfile) {
     return { ok: false, reason: "user_not_found", message: "Could not find that member profile." };
   }
 
   if (receiverProfile.id === viewer.id) {
-    return { ok: false, reason: "self", message: "This is your profile." };
+    return { ok: false, reason: "self", message: "You can't send a friend request to yourself." };
   }
 
   if (receiverProfile.allow_friend_requests === false) {

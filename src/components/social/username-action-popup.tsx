@@ -26,12 +26,22 @@ export function UsernameActionPopup({
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [viewerId, setViewerId] = useState<string | null>(null);
+  const [viewerUsername, setViewerUsername] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
 
   useEffect(() => {
-    void supabase.auth.getUser().then(({ data }) => {
-      setViewerId(data.user?.id ?? null);
+    void supabase.auth.getUser().then(async ({ data }) => {
+      const currentViewerId = data.user?.id ?? null;
+      setViewerId(currentViewerId);
+
+      if (!currentViewerId) {
+        setViewerUsername(null);
+        return;
+      }
+
+      const { data: profile } = await supabase.from("profiles").select("username").eq("id", currentViewerId).maybeSingle<{ username: string | null }>();
+      setViewerUsername(profile?.username?.trim().toLowerCase() ?? null);
     });
   }, []);
 
@@ -46,7 +56,11 @@ export function UsernameActionPopup({
     return () => document.removeEventListener("mousedown", onDocumentClick);
   }, []);
 
-  const isSelf = useMemo(() => Boolean(userId && viewerId && userId === viewerId), [userId, viewerId]);
+  const isSelf = useMemo(() => {
+    if (userId && viewerId && userId === viewerId) return true;
+    if (!username || !viewerUsername) return false;
+    return username.trim().toLowerCase() === viewerUsername;
+  }, [userId, viewerId, username, viewerUsername]);
 
   const navigateToProfile = () => {
     if (isSelf) {
@@ -94,16 +108,14 @@ export function UsernameActionPopup({
           >
             {isSelf ? "Open my profile" : "View profile"}
           </button>
-          {!isSelf ? (
-            <button
-              type="button"
-              disabled={isSending}
-              className="mt-1 w-full rounded-md px-2 py-1.5 text-left text-sm hover:bg-[rgb(var(--bg-soft))] disabled:opacity-60"
-              onClick={() => void sendRequest()}
-            >
-              {isSending ? "Sending request..." : "Send friend request"}
-            </button>
-          ) : null}
+          <button
+            type="button"
+            disabled={isSending || isSelf}
+            className="mt-1 w-full rounded-md px-2 py-1.5 text-left text-sm hover:bg-[rgb(var(--bg-soft))] disabled:cursor-not-allowed disabled:opacity-60"
+            onClick={() => void sendRequest()}
+          >
+            {isSelf ? "Send friend request (disabled)" : isSending ? "Sending request..." : "Send friend request"}
+          </button>
           {status ? <p className="mt-2 px-2 text-xs text-[rgb(var(--muted))]">{status}</p> : null}
         </div>
       ) : null}
