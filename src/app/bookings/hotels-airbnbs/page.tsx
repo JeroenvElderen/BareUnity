@@ -1,71 +1,19 @@
+import Link from "next/link";
 import { AppSidebar } from "@/components/sidebar/sidebar";
 import layoutStyles from "@/app/page.module.css";
 import styles from "./hotels-airbnbs.module.css";
+import { getListings } from "./stays-data";
 
-type Listing = {
-  name: string;
-  location: string;
-  type: "Hotel" | "Entire place" | "Boutique stay";
-  rating: number;
-  reviews: number;
-  price: number;
-  nights: number;
-  badge: string;
-  perks: string[];
-};
-
-const listings: Listing[] = [
-  {
-    name: "Harbor Light Suites",
-    location: "San Diego · Waterfront",
-    type: "Hotel",
-    rating: 9.1,
-    reviews: 842,
-    price: 248,
-    nights: 4,
-    badge: "Best value",
-    perks: ["Breakfast included", "Free cancellation", "Ocean-view suites"],
-  },
-  {
-    name: "Sage Loft by the Park",
-    location: "Austin · Zilker",
-    type: "Entire place",
-    rating: 4.88,
-    reviews: 167,
-    price: 192,
-    nights: 4,
-    badge: "Guest favorite",
-    perks: ["Self check-in", "Workspace", "Superhost"],
-  },
-  {
-    name: "Palm Courtyard Retreat",
-    location: "Miami · South Beach",
-    type: "Boutique stay",
-    rating: 8.7,
-    reviews: 513,
-    price: 276,
-    nights: 4,
-    badge: "Free airport transfer",
-    perks: ["Resort pool", "Late checkout", "Pay at property"],
-  },
-];
-
-const quickFilters = [
-  "Beachfront",
-  "Family friendly",
-  "Remote-work ready",
-  "Breakfast included",
-  "Free cancellation",
-  "Pet friendly",
-];
+const quickFilters = ["Oceanfront", "Pet friendly", "Workcation", "Wellness", "Flexible cancellation", "Breakfast"];
 
 const statCards = [
   { label: "Stays found", value: "182" },
-  { label: "Under $250/night", value: "96" },
-  { label: "Top-rated 9+", value: "41" },
+  { label: "Price sweet spot", value: "$180-$260" },
+  { label: "Instant book options", value: "74" },
 ] as const;
 
-export default function HotelsAndAirbnbsPage() {
+export default async function HotelsAndAirbnbsPage() {
+  const listings = await getListings();
   return (
     <main className={layoutStyles.main}>
       <AppSidebar />
@@ -74,11 +22,11 @@ export default function HotelsAndAirbnbsPage() {
         <div className={styles.shell}>
           <header className={styles.hero}>
             <div className={styles.heroCopy}>
-              <p className={styles.eyebrow}>Hotels + Homes</p>
-              <h1>Find beautiful stays with hotel confidence and Airbnb charm.</h1>
+              <p className={styles.eyebrow}>Stays</p>
+              <h1>Plan one trip view for hotels, homes, and boutique escapes.</h1>
               <p className={styles.subtext}>
-                One search flow for verified hotels, unique homes, and boutique experiences. Compare quality scores,
-                cancellation flexibility, and transparent total price.
+                Reworked to make decisions faster: compare vibe, quality score, and real total cost without opening ten
+                tabs.
               </p>
             </div>
 
@@ -89,24 +37,24 @@ export default function HotelsAndAirbnbsPage() {
                   <input defaultValue="Barcelona" />
                 </label>
                 <label className={styles.field}>
-                  <span>Check in</span>
-                  <input defaultValue="Jun 18" />
+                  <span>Dates</span>
+                  <input defaultValue="Jun 18 - Jun 22" />
                 </label>
                 <label className={styles.field}>
-                  <span>Check out</span>
-                  <input defaultValue="Jun 22" />
-                </label>
-                <label className={styles.field}>
-                  <span>Guests</span>
+                  <span>Travelers</span>
                   <input defaultValue="2 adults · 1 room" />
+                </label>
+                <label className={styles.field}>
+                  <span>Budget / night</span>
+                  <input defaultValue="$150-$300" />
                 </label>
               </div>
 
               <div className={styles.actionsRow}>
                 <button type="button" className={styles.searchButton}>
-                  Search stays
+                  Update results
                 </button>
-                <p>Updated just now · taxes and fees preview included</p>
+                <p>Live pricing with taxes + fees preview</p>
               </div>
             </form>
 
@@ -131,12 +79,12 @@ export default function HotelsAndAirbnbsPage() {
           <section className={styles.content}>
             <aside className={styles.filtersCard} aria-label="Property filters">
               <div className={styles.filtersHeader}>
-                <h2>Filters</h2>
-                <button type="button">Reset</button>
+                <h2>Trip filters</h2>
+                <button type="button">Clear</button>
               </div>
 
               <div className={styles.filterGroup}>
-                <h3>Property type</h3>
+                <h3>Stay type</h3>
                 <label>
                   <input type="checkbox" defaultChecked /> Hotels
                 </label>
@@ -144,17 +92,14 @@ export default function HotelsAndAirbnbsPage() {
                   <input type="checkbox" defaultChecked /> Entire homes
                 </label>
                 <label>
-                  <input type="checkbox" /> Shared rooms
+                  <input type="checkbox" defaultChecked /> Boutique stays
                 </label>
               </div>
 
               <div className={styles.filterGroup}>
-                <h3>Essentials</h3>
+                <h3>Amenities</h3>
                 <label>
-                  <input type="checkbox" defaultChecked /> Free cancellation
-                </label>
-                <label>
-                  <input type="checkbox" /> Breakfast
+                  <input type="checkbox" defaultChecked /> Flexible cancellation
                 </label>
                 <label>
                   <input type="checkbox" defaultChecked /> Fast Wi-Fi
@@ -162,18 +107,21 @@ export default function HotelsAndAirbnbsPage() {
                 <label>
                   <input type="checkbox" /> Kitchen
                 </label>
+                <label>
+                  <input type="checkbox" /> Parking
+                </label>
               </div>
 
               <div className={styles.filterGroup}>
-                <h3>Price per night</h3>
-                <p>$120 – $320</p>
+                <h3>Guest rating</h3>
+                <p>Excellent 8.5+ and above</p>
               </div>
             </aside>
 
             <div className={styles.resultsColumn}>
               <div className={styles.resultsTopBar}>
-                <p>182 stays · sorted by best match</p>
-                <button type="button">Show map</button>
+                <p>182 stays · sorted for value and location fit</p>
+                <button type="button">Map view</button>
               </div>
 
               {listings.map((listing) => (
@@ -187,6 +135,7 @@ export default function HotelsAndAirbnbsPage() {
                       <div>
                         <p className={styles.location}>{listing.location}</p>
                         <h3>{listing.name}</h3>
+                        <p className={styles.vibe}>{listing.vibe}</p>
                         <p className={styles.badge}>{listing.badge}</p>
                       </div>
                       <div className={styles.score}>
@@ -195,9 +144,9 @@ export default function HotelsAndAirbnbsPage() {
                       </div>
                     </div>
 
-                    <ul className={styles.perks}>
-                      {listing.perks.map((perk) => (
-                        <li key={perk}>{perk}</li>
+                    <ul className={styles.amenities}>
+                      {listing.amenities.map((amenity) => (
+                        <li key={amenity}>{amenity}</li>
                       ))}
                     </ul>
 
@@ -205,7 +154,7 @@ export default function HotelsAndAirbnbsPage() {
                       <p>
                         from <strong>${listing.price}</strong> / night · ${listing.price * listing.nights} total
                       </p>
-                      <button type="button">View details</button>
+                      <Link href={`/bookings/hotels-airbnbs/${listing.slug}`} className={styles.detailsLink}>See stay details</Link>
                     </div>
                   </div>
                 </article>
