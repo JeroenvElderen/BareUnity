@@ -47,7 +47,12 @@ export default async function ExplorePage() {
       <section className={styles.page}>
         <div className={styles.commandBar}>
           <label htmlFor="explore-search" className={styles.searchWrap}>
-            <input id="explore-search" type="text" placeholder="Search spots, events, routes..." />
+            <div className={styles.searchControls}>
+              <input id="explore-search" type="text" placeholder="Search spots, events, routes..." />
+              <button id="explore-search-submit" type="button">
+                Search
+              </button>
+            </div>
           </label>
         </div>
 

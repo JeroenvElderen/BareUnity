@@ -39,6 +39,23 @@
   border-color: rgb(var(--ring));
 }
 
+.searchControls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.searchControls button {
+  border: 1px solid rgb(var(--border));
+  border-radius: 10px;
+  background: rgb(var(--bg-soft) / 0.75);
+  color: rgb(var(--text));
+  padding: 0.62rem 0.85rem;
+  font-size: 0.84rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 .commandChips {
   display: flex;
   flex-wrap: wrap;

@@ -85,6 +85,8 @@ type MapLibreMapInstance = {
   off: (event: "click", listener: (event: MapClickEvent) => void) => void;
   flyTo?: (config: { center: [number, number]; zoom?: number }) => void;
   getCenter?: () => { lat: number; lng: number };
+  getZoom?: () => number;
+  setZoom?: (zoom: number) => void;
   dragPan?: InteractionControl;
   scrollZoom?: InteractionControl;
   boxZoom?: InteractionControl;
@@ -356,9 +358,11 @@ export function MapStageClient() {
   const [isLocatingUser, setIsLocatingUser] = useState(false);
   const [locationPromptError, setLocationPromptError] = useState<string | null>(null);
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
-
+  const pendingSearchTermRef = useRef("");
+  
   const canCreateLocation = useMemo(() => isLoggedIn, [isLoggedIn]);
   const searchInputId = "explore-search";
+  const searchSubmitButtonId = "explore-search-submit";
 
   useEffect(() => {
     let mounted = true;
@@ -477,17 +481,36 @@ export function MapStageClient() {
 
   useEffect(() => {
     const searchInput = document.getElementById(searchInputId) as HTMLInputElement | null;
+    const searchSubmitButton = document.getElementById(searchSubmitButtonId) as HTMLButtonElement | null;
     if (!searchInput) return;
 
+    pendingSearchTermRef.current = searchInput.value;
+
+    const submitSearchTerm = () => {
+      setSearchTerm(pendingSearchTermRef.current);
+    };
+
     const onSearchInput = (event: Event) => {
-      setSearchTerm((event.target as HTMLInputElement).value);
+      pendingSearchTermRef.current = (event.target as HTMLInputElement).value;
+    };
+    const onSearchKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      submitSearchTerm();
+    };
+    const onSearchSubmitClick = () => {
+      submitSearchTerm();
     };
 
     searchInput.addEventListener("input", onSearchInput);
+    searchInput.addEventListener("keydown", onSearchKeyDown);
+    searchSubmitButton?.addEventListener("click", onSearchSubmitClick);
     return () => {
       searchInput.removeEventListener("input", onSearchInput);
+      searchInput.removeEventListener("keydown", onSearchKeyDown);
+      searchSubmitButton?.removeEventListener("click", onSearchSubmitClick);
     };
-  }, []);
+  }, [searchInputId, searchSubmitButtonId]);
 
   useEffect(() => {
     const chipButtons = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-explore-chip]"));
@@ -507,6 +530,7 @@ export function MapStageClient() {
       const searchInput = document.getElementById(searchInputId) as HTMLInputElement | null;
       if (searchInput) {
         searchInput.value = "";
+        pendingSearchTermRef.current = "";
       }
     };
 
@@ -689,6 +713,12 @@ export function MapStageClient() {
     return spots.filter((spot) => matchesSearchTerm(spot, query) && matchesActiveFilter(spot));
   }
 
+  function zoomOutToRevealMarkers() {
+    const currentZoom = mapRef.current?.getZoom?.();
+    if (typeof currentZoom !== "number") return;
+    mapRef.current?.setZoom?.(Math.max(2, currentZoom - 1.5));
+  }
+
   function rerenderMarkers() {
     const query = searchTerm.trim().toLowerCase();
     renderedSpotIdsRef.current.clear();
@@ -706,7 +736,7 @@ export function MapStageClient() {
           addSpotMarkerToMap(cachedSpot);
         }
         if (!query) {
-          mapRef.current?.flyTo?.({ center: EXPLORE_DEFAULT_MAP_CENTER, zoom: EXPLORE_DEFAULT_MAP_ZOOM });
+          zoomOutToRevealMarkers();
           return;
         }
 
@@ -735,7 +765,7 @@ export function MapStageClient() {
         }
 
         if (!query) {
-          mapRef.current?.flyTo?.({ center: EXPLORE_DEFAULT_MAP_CENTER, zoom: EXPLORE_DEFAULT_MAP_ZOOM });
+          zoomOutToRevealMarkers();
           return;
         }
 
