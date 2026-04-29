@@ -15,7 +15,7 @@ export function generateStaticParams() {
 
 export default async function StayDetailsPage({ params }: StayDetailsPageProps) {
   const { slug } = await params;
-  const listing = getListingBySlug(slug);
+  const listing = await getListingBySlug(slug);
 
   if (!listing) notFound();
 

@@ -77,6 +77,22 @@ const defaultFeed: HomeFeedPayload = {
   posts: [],
   viewerId: null,
 };
+
+function normalizeFeedPayload(payload: HomeFeedPayload | null | undefined): HomeFeedPayload {
+  const source = payload ?? defaultFeed;
+  return {
+    ...source,
+    stories: Array.isArray(source.stories) ? source.stories : [],
+    friends: Array.isArray(source.friends) ? source.friends : [],
+    posts: Array.isArray(source.posts)
+      ? source.posts.map((post) => ({
+          ...post,
+          comments: Array.isArray(post.comments) ? post.comments : [],
+        }))
+      : [],
+    viewerId: source.viewerId ?? null,
+  };
+}
 const HOME_FEED_CACHE_MAX_AGE_MS = 1000 * 60 * 15;
 const STORY_VIEW_MS = 7000;
 const STORY_HOLD_MIN_MS = 180;
@@ -106,7 +122,7 @@ export default function HomePage() {
   const [postImageDataUrl, setPostImageDataUrl] = useState<string>("");
   const galleryImageInputRef = useRef<HTMLInputElement | null>(null);
   const cameraImageInputRef = useRef<HTMLInputElement | null>(null);
-  const [feed, setFeed] = useState<HomeFeedPayload>(() => prefetchedFeed ?? cachedFeed ?? defaultFeed);
+  const [feed, setFeed] = useState<HomeFeedPayload>(() => normalizeFeedPayload(prefetchedFeed ?? cachedFeed ?? defaultFeed));
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
   const [activeReplyByPost, setActiveReplyByPost] = useState<Record<string, string | null>>({});
   const [expandedCommentThreadsByPost, setExpandedCommentThreadsByPost] = useState<Record<string, Record<string, boolean>>>({});
@@ -185,7 +201,7 @@ export default function HomePage() {
           throw new Error(`Home feed request failed (${response.status})`);
         }
 
-        const data = (await response.json()) as HomeFeedPayload;
+        const data = normalizeFeedPayload((await response.json()) as HomeFeedPayload);
         writeCachedValue(homeFeedCacheKey, data);
         setFeed(data);
       } catch {
