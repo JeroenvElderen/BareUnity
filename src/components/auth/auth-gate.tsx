@@ -72,7 +72,6 @@ const BACKGROUND_ROUTES_TO_PREFETCH = [
   "/bookings",
   "/bookings/activities",
   "/bookings/hotels-airbnbs",
-  "/bookings/resorts",
   "/bookings/spas",
   "/admin",
   "/admin/applications",

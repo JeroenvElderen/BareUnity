@@ -5,14 +5,9 @@ import styles from "./bookings.module.css";
 
 const categories = [
   {
-    title: "Hotels & Airbnbs",
-    description: "Accommodation discovery and stay booking templates.",
+    title: "Stays (Hotels, BnBs, Resorts, Campings)",
+    description: "Unified stay booking for hotels, bnbs, resorts, and campings.",
     href: "/bookings/hotels-airbnbs",
-  },
-  {
-    title: "Resorts",
-    description: "Package-based resort templates and planning flows.",
-    href: "/bookings/resorts",
   },
   {
     title: "Spas & Wellness",
