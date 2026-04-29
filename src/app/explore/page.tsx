@@ -52,10 +52,18 @@ export default async function ExplorePage() {
           </label>
 
           <div className={styles.commandChips}>
-            <button type="button">Now</button>
-            <button type="button">Within 6 mi</button>
-            <button type="button">Quiet places</button>
-            <button type="button">Events</button>
+            <button type="button" data-explore-chip data-explore-chip-mode="all">
+              Now
+            </button>
+            <button type="button" data-explore-chip data-explore-chip-mode="nearby">
+              Within 6 mi
+            </button>
+            <button type="button" data-explore-chip data-explore-chip-mode="quiet">
+              Quiet places
+            </button>
+            <button type="button" data-explore-chip data-explore-chip-mode="events">
+              Events
+            </button>
           </div>
         </div>
 
@@ -70,7 +78,7 @@ export default async function ExplorePage() {
             </div>
 
             <div id="explore-map-container" className={styles.mapSurface}>
-              <MapStageClient />
+              <MapStageClient controls={{ searchInputId: "explore-search" }} />
             </div>
           </article>
 

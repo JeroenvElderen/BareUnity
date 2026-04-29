@@ -19,6 +19,10 @@ type Spot = {
   privacy: "Public" | "Discreet" | string;
   terrain?: string | null;
 };
+type ExploreFilterMode = "all" | "nearby" | "quiet" | "events";
+type ExploreControls = {
+  searchInputId: string;
+};
 
 type AccessType = "Public" | "Discreet" | "Private Club";
 type TerrainType = "Beach" | "Hot spring" | "Campground" | "Forest" | "Urban rooftop" | "Resort";
@@ -328,7 +332,7 @@ function formatCoordinate(value: string) {
   return num.toFixed(6);
 }
 
-export function MapStageClient() {
+export function MapStageClient({ controls }: { controls: ExploreControls }) {
   const [mapSpotsCacheKey] = useState(() => buildUserScopedCacheKey("map-spots"));
   const prefetchedMapSpotsRef = useRef<Spot[] | null>(takePrefetchedRouteData<Spot[]>("map-spots"));
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
@@ -339,6 +343,8 @@ export function MapStageClient() {
   const [open, setOpen] = useState(false);
   const [isPickingFromMap, setIsPickingFromMap] = useState(false);
   const [selectedSpot, setSelectedSpot] = useState<Spot | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [activeFilter, setActiveFilter] = useState<ExploreFilterMode>("all");
   const [locationForm, setLocationForm] = useState<CreateLocationFormState>(INITIAL_LOCATION_FORM);
   const [locationSearchQuery, setLocationSearchQuery] = useState("");
   const [locationSearchLoading, setLocationSearchLoading] = useState(false);
@@ -469,6 +475,38 @@ export function MapStageClient() {
   }, [mapSpotsCacheKey]);
 
   useEffect(() => {
+    const searchInput = document.getElementById(controls.searchInputId) as HTMLInputElement | null;
+    if (!searchInput) return;
+
+    const onSearchInput = (event: Event) => {
+      setSearchTerm((event.target as HTMLInputElement).value);
+    };
+
+    searchInput.addEventListener("input", onSearchInput);
+    return () => {
+      searchInput.removeEventListener("input", onSearchInput);
+    };
+  }, [controls.searchInputId]);
+
+  useEffect(() => {
+    const chipButtons = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-explore-chip]"));
+    if (!chipButtons.length) return;
+
+    const handlers = chipButtons.map((button) => {
+      const mode = button.dataset.exploreChipMode as ExploreFilterMode;
+      const onClick = () => setActiveFilter(mode || "all");
+      button.addEventListener("click", onClick);
+      return { button, onClick };
+    });
+
+    return () => {
+      for (const handler of handlers) {
+        handler.button.removeEventListener("click", handler.onClick);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
 
@@ -585,6 +623,38 @@ export function MapStageClient() {
     new window.maplibregl.Marker({ element: markerElement, anchor: "center" }).setLngLat([longitude, latitude]).addTo(map);
     renderedSpotIdsRef.current.add(spot.id);
   }
+
+  function rerenderMarkers() {
+    renderedSpotIdsRef.current.clear();
+    const mapElement = mapContainerRef.current;
+    if (mapElement) {
+      mapElement.querySelectorAll(".maplibregl-marker").forEach((node) => node.remove());
+    }
+
+    void loadCachedThenRefresh<Spot[]>({
+      key: mapSpotsCacheKey,
+      maxAgeMs: MAP_SPOTS_CACHE_MAX_AGE_MS,
+      onCachedData: (cachedSpots) => {
+        for (const cachedSpot of cachedSpots) {
+          addSpotMarkerToMap(cachedSpot);
+        }
+      },
+      fetchFresh: async () => {
+        const mapSpotsResponse = await fetch("/api/map-spots", { cache: "no-store" });
+        if (!mapSpotsResponse.ok) {
+          throw new Error(`Map spots request failed (${mapSpotsResponse.status})`);
+        }
+        const payload = (await mapSpotsResponse.json()) as { spots?: Spot[] };
+        return payload.spots ?? [];
+      },
+    }).catch((error) => {
+      console.error("Failed to refresh map markers after filtering", error);
+    });
+  }
+
+  useEffect(() => {
+    rerenderMarkers();
+  }, [activeFilter, searchTerm]);
 
   async function searchLocations() {
     const query = locationSearchQuery.trim();
@@ -1220,3 +1290,4 @@ export function MapStageClient() {
     </>
   );
 }
+

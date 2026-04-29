@@ -64,10 +64,6 @@ export function MapSpotPopup({ name, description, privacy, onClose }: MapSpotPop
           </div>
         </section>
 
-        <button type="button" className={styles.cta}>
-          View full location →
-        </button>
-
         <div className={styles.metrics}>
           <div className={styles.metric}>
             <p className={styles.metricLabel}>Mood</p>

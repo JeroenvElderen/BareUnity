@@ -78,6 +78,15 @@ function RemoteVideoTile({ member }: { member: RemoteVideoParticipant }) {
 }
 
 export function VideoRoom() {
+  const isMobileDevice = useMemo(() => {
+    if (typeof navigator === "undefined") return false;
+    if ("userAgentData" in navigator) {
+      const uaData = (navigator as Navigator & { userAgentData?: { mobile?: boolean } }).userAgentData;
+      if (typeof uaData?.mobile === "boolean") return uaData.mobile;
+    }
+    return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+  }, []);
+
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
 
   const peerStatesRef = useRef(new Map<string, PeerState>());
@@ -273,8 +282,9 @@ export function VideoRoom() {
     setIsConnectingMedia(true);
 
     try {
+      const videoConstraints = isMobileDevice ? { facingMode: cameraFacingMode } : true;
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: cameraFacingMode },
+        video: videoConstraints,
         audio: true,
       });
 
@@ -288,7 +298,7 @@ export function VideoRoom() {
     } finally {
       setIsConnectingMedia(false);
     }
-  }, [cameraFacingMode]);
+  }, [cameraFacingMode, isMobileDevice]);
 
   const replaceVideoTrack = useCallback((nextTrack: MediaStreamTrack | null) => {
     if (!localStream) return;
@@ -585,8 +595,9 @@ export function VideoRoom() {
 
     const next = !isCameraOn;
     if (next) {
+      const videoConstraints = isMobileDevice ? { facingMode: cameraFacingMode } : true;
       void navigator.mediaDevices
-        .getUserMedia({ video: { facingMode: cameraFacingMode }, audio: false })
+        .getUserMedia({ video: videoConstraints, audio: false })
         .then((stream) => {
           const [track] = stream.getVideoTracks();
           if (!track) return;
@@ -611,7 +622,7 @@ export function VideoRoom() {
   };
 
   const switchCamera = async () => {
-    if (!isJoinedRoom) return;
+    if (!isJoinedRoom || !isMobileDevice) return;
     const nextFacing = cameraFacingMode === "user" ? "environment" : "user";
     setCameraFacingMode(nextFacing);
     if (!isCameraOn) return;
@@ -701,9 +712,14 @@ export function VideoRoom() {
               {isCameraOn ? <Camera size={18} aria-hidden /> : <CameraOff size={18} aria-hidden />}
               <span>{isCameraOn ? "Stop video" : "Start video"}</span>
             </button>
-            <button type="button" className={styles.controlButton} onClick={() => void switchCamera()} disabled={!isJoinedRoom}>
+            <button
+              type="button"
+              className={styles.controlButton}
+              onClick={() => void switchCamera()}
+              disabled={!isJoinedRoom || !isMobileDevice}
+            >
               <RefreshCw size={18} aria-hidden />
-              <span>Switch camera</span>
+              <span>{isMobileDevice ? "Switch camera" : "Switch unavailable"}</span>
             </button>
 
             <button
