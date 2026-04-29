@@ -47,27 +47,8 @@ export default async function ExplorePage() {
       <section className={styles.page}>
         <div className={styles.commandBar}>
           <label htmlFor="explore-search" className={styles.searchWrap}>
-            <span>Search</span>
             <input id="explore-search" type="text" placeholder="Search spots, events, routes..." />
           </label>
-
-          <div className={styles.commandChips}>
-            <button type="button" data-explore-chip data-explore-chip-mode="all">
-              Now
-            </button>
-            <button type="button" data-explore-chip data-explore-chip-mode="nearby">
-              Within 6 mi
-            </button>
-            <button type="button" data-explore-chip data-explore-chip-mode="quiet">
-              Quiet places
-            </button>
-            <button type="button" data-explore-chip data-explore-chip-mode="events">
-              Events
-            </button>
-            <button type="button" data-explore-reset>
-              Reset filters
-            </button>
-          </div>
         </div>
 
         <section className={styles.stage}>
