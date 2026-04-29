@@ -6,15 +6,16 @@ import styles from "../hotels-airbnbs.module.css";
 import { fallbackListings, getListingBySlug } from "../stays-data";
 
 type StayDetailsPageProps = {
-  params: Promise<{ slug: string }>;
+  params: { slug: string };
 };
 
 export function generateStaticParams() {
-  return fallbackListings.map((listing) => ({ slug: listing.slug }));
+  const seedListings = Array.isArray(fallbackListings) ? fallbackListings : [];
+  return seedListings.filter((listing) => listing?.slug).map((listing) => ({ slug: listing.slug }));
 }
 
 export default async function StayDetailsPage({ params }: StayDetailsPageProps) {
-  const { slug } = await params;
+  const { slug } = params;
   const listing = await getListingBySlug(slug);
 
   if (!listing) notFound();
@@ -75,7 +76,7 @@ export default async function StayDetailsPage({ params }: StayDetailsPageProps) 
                   </div>
 
                   <ul className={styles.amenities}>
-                    {listing.amenities.map((amenity) => (
+                    {(Array.isArray(listing.amenities) ? listing.amenities : []).map((amenity) => (
                       <li key={amenity}>{amenity}</li>
                     ))}
                   </ul>

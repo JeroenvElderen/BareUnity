@@ -48,19 +48,20 @@ function getTypeIcon(type: AppNotificationType) {
 export default function NotificationsPage() {
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
   const notifications = useUIStore((state) => state.notifications);
+  const notificationItems = useMemo(() => (Array.isArray(notifications) ? notifications : []), [notifications]);
   const markNotificationAsRead = useUIStore((state) => state.markNotificationAsRead);
   const markAllNotificationsAsRead = useUIStore((state) => state.markAllNotificationsAsRead);
 
   const unreadCount = useMemo(
-    () => notifications.filter((notification) => notification.unread).length,
-    [notifications],
+    () => notificationItems.filter((notification) => notification.unread).length,
+    [notificationItems],
   );
 
-  const readCount = notifications.length - unreadCount;
+  const readCount = notificationItems.length - unreadCount;
 
   const visibleNotifications = useMemo(
-    () => (showUnreadOnly ? notifications.filter((notification) => notification.unread) : notifications),
-    [notifications, showUnreadOnly],
+    () => (showUnreadOnly ? notificationItems.filter((notification) => notification.unread) : notificationItems),
+    [notificationItems, showUnreadOnly],
   );
 
   return (
@@ -97,7 +98,7 @@ export default function NotificationsPage() {
         <section className={styles.stats} aria-label="Notification statistics">
           <article className={styles.statCard}>
             <span>Total</span>
-            <strong>{notifications.length}</strong>
+            <strong>{notificationItems.length}</strong>
           </article>
           <article className={styles.statCard}>
             <span>Unread</span>
