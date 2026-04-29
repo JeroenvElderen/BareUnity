@@ -110,6 +110,7 @@ export default function MemberProfilePage() {
   const [activeTab, setActiveTab] = useState<"posts" | "about">("posts");
   const [friendRequestStatus, setFriendRequestStatus] = useState<string | null>(null);
   const [isRequesting, setIsRequesting] = useState(false);
+  const [viewerId, setViewerId] = useState<string | null>(null);
 
   const loadMemberProfile = useCallback(async (sessionUser: User | null, accessToken: string | null) => {
     if (!isSupabaseConfigured || !sessionUser || !accessToken || !requestedUsername) {
@@ -147,12 +148,14 @@ export default function MemberProfilePage() {
 
     void supabase.auth.getSession().then(({ data }) => {
       if (!isMounted) return;
+      setViewerId(data.session?.user?.id ?? null);
       void loadMemberProfile(data.session?.user ?? null, data.session?.access_token ?? null);
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      setViewerId(session?.user?.id ?? null);
       void loadMemberProfile(session?.user ?? null, session?.access_token ?? null);
     });
 
@@ -180,11 +183,14 @@ export default function MemberProfilePage() {
   }, [profile?.username, requestedUsername]);
 
   const sendFriendRequest = async () => {
+    if (!profile?.id || (viewerId && profile.id === viewerId)) return;
     setIsRequesting(true);
     const result = await sendFriendRequestToProfile({ id: profile?.id, username: profile?.username ?? requestedUsername });
     setFriendRequestStatus(result.message);
     setIsRequesting(false);
   };
+
+  const isSelfProfile = Boolean(profile?.id && viewerId && profile.id === viewerId);
 
   return (
     <main className={`${layoutStyles.main} w-full max-w-full`}>
@@ -220,9 +226,9 @@ export default function MemberProfilePage() {
                   </div>
                 </div>
 
-              <div className="flex items-center gap-2">
-                  <Button size="sm" onClick={() => void sendFriendRequest()} disabled={isRequesting}>
-                    {isRequesting ? "Sending..." : "Send friend request"}
+                <div className="flex items-center gap-2">
+                  <Button size="sm" onClick={() => void sendFriendRequest()} disabled={isRequesting || isSelfProfile || !profile?.id}>
+                    {isSelfProfile ? "Send friend request (disabled)" : isRequesting ? "Sending..." : "Send friend request"}
                   </Button>
                   {profile?.location ? <Badge variant="outline">{profile.location}</Badge> : null}
                 </div>
