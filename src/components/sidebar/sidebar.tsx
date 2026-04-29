@@ -105,8 +105,6 @@ function createNotification(
 const discussionRooms = [
   { name: "General Room", href: "/discussion" },
   { name: "Video Room", href: "/video-room" },
-  { name: "Wellness Room", href: "/discussion?room=wellness" },
-  { name: "Photography Room", href: "/discussion?room=photography" },
 ] as const;
 
 const adminItems: readonly NavLinkItem[] = [

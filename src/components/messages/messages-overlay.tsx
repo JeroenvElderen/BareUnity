@@ -451,7 +451,7 @@ export function MessagesOverlay() {
                   ))
                 : null}
               {!messages.length && activeConversationId ? <li className={styles.empty}>No messages yet. Say hi 👋</li> : null}
-              {!activeConversationId ? <li className={styles.empty}>Choose a chat on the left.</li> : null}
+              {!activeConversationId ? <li className={styles.empty}>Choose a chat to start messaging.</li> : null}
             </ul>
 
             <form className={styles.composer} onSubmit={sendMessage}>

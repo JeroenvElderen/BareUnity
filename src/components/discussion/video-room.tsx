@@ -1,6 +1,6 @@
 "use client";
 
-import { Camera, CameraOff, Mic, MicOff, PhoneOff, ScreenShare, Users } from "lucide-react";
+import { Camera, CameraOff, Mic, MicOff, PhoneOff, RefreshCw, ScreenShare, Users } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { supabase } from "@/lib/supabase";
@@ -95,6 +95,7 @@ export function VideoRoom() {
   const [isSharing, setIsSharing] = useState(false);
   const [isJoinedRoom, setIsJoinedRoom] = useState(false);
   const [isConnectingMedia, setIsConnectingMedia] = useState(true);
+  const [cameraFacingMode, setCameraFacingMode] = useState<"user" | "environment">("user");
 
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStreamsByUser, setRemoteStreamsByUser] = useState<Record<string, MediaStream>>({});
@@ -273,7 +274,7 @@ export function VideoRoom() {
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
+        video: { facingMode: cameraFacingMode },
         audio: true,
       });
 
@@ -287,7 +288,28 @@ export function VideoRoom() {
     } finally {
       setIsConnectingMedia(false);
     }
-  }, []);
+  }, [cameraFacingMode]);
+
+  const replaceVideoTrack = useCallback((nextTrack: MediaStreamTrack | null) => {
+    if (!localStream) return;
+    const currentVideoTrack = localStream.getVideoTracks()[0] ?? null;
+    if (currentVideoTrack) {
+      currentVideoTrack.stop();
+      localStream.removeTrack(currentVideoTrack);
+    }
+    if (nextTrack) {
+      localStream.addTrack(nextTrack);
+    }
+    peerStatesRef.current.forEach(({ pc }) => {
+      const sender = pc.getSenders().find((candidate) => candidate.track?.kind === "video");
+      if (sender) {
+        void sender.replaceTrack(nextTrack);
+      } else if (nextTrack) {
+        pc.addTrack(nextTrack, localStream);
+      }
+    });
+    setLocalStream(new MediaStream(localStream.getTracks()));
+  }, [localStream]);
 
   useEffect(() => {
     const videoElement = localVideoRef.current;
@@ -562,10 +584,46 @@ export function VideoRoom() {
     if (!localStream) return;
 
     const next = !isCameraOn;
+    if (next) {
+      void navigator.mediaDevices
+        .getUserMedia({ video: { facingMode: cameraFacingMode }, audio: false })
+        .then((stream) => {
+          const [track] = stream.getVideoTracks();
+          if (!track) return;
+          track.enabled = true;
+          replaceVideoTrack(track);
+          setIsCameraOn(true);
+        })
+        .catch((error) => {
+          console.error("[media] could not re-enable camera", error);
+          setLoadError("Could not turn camera back on.");
+          setIsCameraOn(false);
+        });
+      return;
+    }
+
     localStream.getVideoTracks().forEach((track) => {
-      track.enabled = next;
+      track.enabled = false;
+      track.stop();
     });
-    setIsCameraOn(next);
+    replaceVideoTrack(null);
+    setIsCameraOn(false);
+  };
+
+  const switchCamera = async () => {
+    if (!isJoinedRoom) return;
+    const nextFacing = cameraFacingMode === "user" ? "environment" : "user";
+    setCameraFacingMode(nextFacing);
+    if (!isCameraOn) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: nextFacing }, audio: false });
+      const [track] = stream.getVideoTracks();
+      if (!track) return;
+      replaceVideoTrack(track);
+    } catch (error) {
+      console.error("[media] switch camera failed", error);
+      setLoadError("Could not switch camera.");
+    }
   };
 
   const leaveRoom = () => {
@@ -611,7 +669,9 @@ export function VideoRoom() {
               {localStream && isCameraOn ? (
                 <video ref={localVideoRef} autoPlay muted playsInline className={styles.localVideo} />
               ) : (
-                <div className={styles.videoFallback}>{isJoinedRoom ? "Camera is off" : "Click Join room to connect"}</div>
+                <button type="button" className={styles.videoFallback} onClick={() => !isJoinedRoom && setIsJoinedRoom(true)}>
+                  {isJoinedRoom ? "Camera is off" : "Click Join room to connect"}
+                </button>
               )}
               <div className={styles.stageBadge}>{isJoinedRoom ? "You" : "Not joined"}</div>
               {isJoinedRoom && isConnectingMedia ? <p className={styles.statusInfo}>Connecting camera and microphone…</p> : null}
@@ -640,6 +700,10 @@ export function VideoRoom() {
             <button type="button" className={styles.controlButton} onClick={toggleCamera} disabled={!isJoinedRoom || !localStream}>
               {isCameraOn ? <Camera size={18} aria-hidden /> : <CameraOff size={18} aria-hidden />}
               <span>{isCameraOn ? "Stop video" : "Start video"}</span>
+            </button>
+            <button type="button" className={styles.controlButton} onClick={() => void switchCamera()} disabled={!isJoinedRoom}>
+              <RefreshCw size={18} aria-hidden />
+              <span>Switch camera</span>
             </button>
 
             <button

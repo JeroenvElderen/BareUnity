@@ -15,9 +15,10 @@ import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import layoutStyles from "../page.module.css";
 import styles from "./settings.module.css";
 
-type OptionState = "On" | "Off" | "Friends" | "Members" | "Private";
+type OptionState = "No-one" | "Friends only" | "Everyone";
 
 type SettingOption = {
+  key: string;
   label: string;
   detail: string;
   state: OptionState;
@@ -40,11 +41,11 @@ const settingSections: SettingSection[] = [
     pill: "Profile",
     tone: "calm",
     options: [
-      { label: "Username", detail: "Change your @handle used in search and mentions.", state: "On" },
-      { label: "Primary email", detail: "Update your sign-in email and verification address.", state: "On" },
-      { label: "Password reset", detail: "Rotate password and invalidate older credentials.", state: "On" },
-      { label: "Recovery keys", detail: "Generate backup keys for account recovery.", state: "On" },
-      { label: "Connected devices", detail: "Review and remove active sessions.", state: "On" },
+      { key: "Username", label: "Username", detail: "Change your @handle used in search and mentions.", state: "Everyone" },
+      { key: "Primary email", label: "Primary email", detail: "Update your sign-in email and verification address.", state: "Everyone" },
+      { key: "Password reset", label: "Password reset", detail: "Rotate password and invalidate older credentials.", state: "Everyone" },
+      { key: "Recovery keys", label: "Recovery keys", detail: "Generate backup keys for account recovery.", state: "Everyone" },
+      { key: "Connected devices", label: "Connected devices", detail: "Review and remove active sessions.", state: "Everyone" },
     ],
   },
   {
@@ -54,11 +55,11 @@ const settingSections: SettingSection[] = [
     pill: "Account",
     tone: "calm",
     options: [
-      { label: "Display name visibility", detail: "Show your chosen name in public spaces.", state: "On" },
-      { label: "Profile verification badge", detail: "Display trust verification on your profile.", state: "On" },
-      { label: "Two-factor authentication", detail: "Require a second login verification step.", state: "On" },
-      { label: "Login alerts", detail: "Get notified when your account is accessed from a new device.", state: "On" },
-      { label: "Session management", detail: "Allow remote logout from other active devices.", state: "On" },
+      { key: "Display name visibility", label: "Display name visibility", detail: "Show your chosen name in public spaces.", state: "Everyone" },
+      { key: "Profile verification badge", label: "Profile verification badge", detail: "Display trust verification on your profile.", state: "Everyone" },
+      { key: "Two-factor authentication", label: "Two-factor authentication", detail: "Require a second login verification step.", state: "Everyone" },
+      { key: "Login alerts", label: "Login alerts", detail: "Get notified when your account is accessed from a new device.", state: "Everyone" },
+      { key: "Session management", label: "Session management", detail: "Allow remote logout from other active devices.", state: "Everyone" },
     ],
   },
   {
@@ -68,11 +69,11 @@ const settingSections: SettingSection[] = [
     pill: "Consent",
     tone: "sun",
     options: [
-      { label: "Block DMs from non-connections", detail: "Only connected members can message you.", state: "On" },
-      { label: "Meetup invite approval", detail: "Manually approve each event invitation.", state: "On" },
-      { label: "Boundary card in new chats", detail: "Auto-share your comfort preferences in first contact.", state: "On" },
-      { label: "Voice/video call permission", detail: "Only friends can request live calls.", state: "Friends" },
-      { label: "Tag approval", detail: "Require approval before you are tagged in posts.", state: "On" },
+      { key: "Block DMs from non-connections", label: "Block DMs from non-connections", detail: "Only connected members can message you.", state: "Everyone" },
+      { key: "Meetup invite approval", label: "Meetup invite approval", detail: "Manually approve each event invitation.", state: "Everyone" },
+      { key: "Boundary card in new chats", label: "Boundary card in new chats", detail: "Auto-share your comfort preferences in first contact.", state: "Everyone" },
+      { key: "Voice/video call permission", label: "Voice/video call permission", detail: "Only friends can request live calls.", state: "Friends only" },
+      { key: "Tag approval", label: "Tag approval", detail: "Require approval before you are tagged in posts.", state: "Everyone" },
     ],
   },
   {
@@ -82,12 +83,12 @@ const settingSections: SettingSection[] = [
     pill: "Privacy",
     tone: "sea",
     options: [
-      { label: "Profile visibility", detail: "Who can view your full profile page.", state: "Members" },
-      { label: "Location precision", detail: "Share only broad region instead of exact location.", state: "Private" },
-      { label: "Online status", detail: "Show when you are currently online.", state: "Off" },
-      { label: "Read receipts", detail: "Let others know you have seen their messages.", state: "Off" },
-      { label: "Saved posts visibility", detail: "Allow others to see your saved items.", state: "Private" },
-      { label: "Search indexing", detail: "Allow profile snippets in public search engines.", state: "Off" },
+      { key: "Profile visibility", label: "Profile visibility", detail: "Who can view your full profile page.", state: "Everyone" },
+      { key: "Location precision", label: "Location precision", detail: "Share only broad region instead of exact location.", state: "No-one" },
+      { key: "Online status", label: "Online status", detail: "Show when you are currently online.", state: "No-one" },
+      { key: "Read receipts", label: "Read receipts", detail: "Let others know you have seen their messages.", state: "No-one" },
+      { key: "Saved posts visibility", label: "Saved posts visibility", detail: "Allow others to see your saved items.", state: "No-one" },
+      { key: "Search indexing", label: "Search indexing", detail: "Allow profile snippets in public search engines.", state: "No-one" },
     ],
   },
   {
@@ -97,11 +98,11 @@ const settingSections: SettingSection[] = [
     pill: "Safety",
     tone: "sun",
     options: [
-      { label: "Sensitive media blur", detail: "Blur sensitive media previews by default.", state: "On" },
-      { label: "Harassment phrase detection", detail: "Auto-flag abusive language in interactions.", state: "On" },
-      { label: "Keyword blocklist", detail: "Hide comments containing blocked words.", state: "On" },
-      { label: "Trusted circles only", detail: "Limit interaction to verified/trusted members.", state: "Friends" },
-      { label: "Emergency support shortcut", detail: "Show quick-report and support actions in chats.", state: "On" },
+      { key: "Sensitive media blur", label: "Sensitive media blur", detail: "Blur sensitive media previews by default.", state: "Everyone" },
+      { key: "Harassment phrase detection", label: "Harassment phrase detection", detail: "Auto-flag abusive language in interactions.", state: "Everyone" },
+      { key: "Keyword blocklist", label: "Keyword blocklist", detail: "Hide comments containing blocked words.", state: "Everyone" },
+      { key: "Trusted circles only", label: "Trusted circles only", detail: "Limit interaction to verified/trusted members.", state: "Friends only" },
+      { key: "Emergency support shortcut", label: "Emergency support shortcut", detail: "Show quick-report and support actions in chats.", state: "Everyone" },
     ],
   },
   {
@@ -111,11 +112,11 @@ const settingSections: SettingSection[] = [
     pill: "Alerts",
     tone: "calm",
     options: [
-      { label: "Security alerts", detail: "Immediate alerts for account-risk events.", state: "On" },
-      { label: "Direct message mentions", detail: "Get notified when someone directly mentions you.", state: "On" },
-      { label: "Booking changes", detail: "Alerts for booking updates and schedule changes.", state: "On" },
-      { label: "Event reminders", detail: "Reminder before events and check-ins.", state: "On" },
-      { label: "Weekly digest", detail: "Single summary instead of frequent feed alerts.", state: "Members" },
+      { key: "Security alerts", label: "Security alerts", detail: "Immediate alerts for account-risk events.", state: "Everyone" },
+      { key: "Direct message mentions", label: "Direct message mentions", detail: "Get notified when someone directly mentions you.", state: "Everyone" },
+      { key: "Booking changes", label: "Booking changes", detail: "Alerts for booking updates and schedule changes.", state: "Everyone" },
+      { key: "Event reminders", label: "Event reminders", detail: "Reminder before events and check-ins.", state: "Everyone" },
+      { key: "Weekly digest", label: "Weekly digest", detail: "Single summary instead of frequent feed alerts.", state: "Everyone" },
     ],
   },
   {
@@ -125,11 +126,11 @@ const settingSections: SettingSection[] = [
     pill: "Discovery",
     tone: "earth",
     options: [
-      { label: "Wellness-first ranking", detail: "Prioritize educational and wellness naturist content.", state: "On" },
-      { label: "Family-safe mode", detail: "Filter content to keep feed family-appropriate.", state: "On" },
-      { label: "Hide sponsored posts", detail: "Reduce promotional content in your main feed.", state: "On" },
-      { label: "Nearby circles", detail: "Recommend local communities and trusted hosts.", state: "Members" },
-      { label: "Retreat recommendations", detail: "Show relevant naturist retreats and events.", state: "On" },
+      { key: "Wellness-first ranking", label: "Wellness-first ranking", detail: "Prioritize educational and wellness naturist content.", state: "Everyone" },
+      { key: "Family-safe mode", label: "Family-safe mode", detail: "Filter content to keep feed family-appropriate.", state: "Everyone" },
+      { key: "Hide sponsored posts", label: "Hide sponsored posts", detail: "Reduce promotional content in your main feed.", state: "Everyone" },
+      { key: "Nearby circles", label: "Nearby circles", detail: "Recommend local communities and trusted hosts.", state: "Everyone" },
+      { key: "Retreat recommendations", label: "Retreat recommendations", detail: "Show relevant naturist retreats and events.", state: "Everyone" },
     ],
   },
 ];
@@ -167,9 +168,8 @@ function getToneClass(tone: SettingSection["tone"]) {
 }
 
 function getStateClass(state: OptionState) {
-  if (state === "On") return styles.stateOn;
-  if (state === "Off") return styles.stateOff;
-  if (state === "Private") return styles.statePrivate;
+  if (state === "Everyone") return styles.stateOn;
+  if (state === "No-one") return styles.statePrivate;
   return styles.stateLimited;
 }
 
@@ -196,6 +196,15 @@ export default function SettingsPage() {
   const [recoveryKeys, setRecoveryKeys] = useState<string[]>(cachedProfileSecurity?.recoveryKeys ?? []);
   const [recoveryKeysError, setRecoveryKeysError] = useState<string | null>(null);
   const [recoveryKeysStatus, setRecoveryKeysStatus] = useState<string | null>(null);
+  const [optionStates, setOptionStates] = useState<Record<string, OptionState>>(() => {
+    const seeded: Record<string, OptionState> = {};
+    for (const section of settingSections) for (const option of section.options) seeded[`${section.key}.${option.key}`] = option.state;
+    return seeded;
+  });
+
+  const setOptionVisibility = (sectionKey: string, optionKey: string, value: OptionState) => {
+    setOptionStates((current) => ({ ...current, [`${sectionKey}.${optionKey}`]: value }));
+  };
 
   const persistProfileSecurityCache = (nextValues: Partial<ProfileSecurityCache>) => {
     writeCachedValue<ProfileSecurityCache>(profileSecurityCacheKey, {
@@ -259,7 +268,7 @@ export default function SettingsPage() {
 
   const totalOptions = settingSections.reduce((acc, section) => acc + section.options.length, 0);
   const enabledCount = settingSections.reduce(
-    (acc, section) => acc + section.options.filter((option) => option.state === "On").length,
+    (acc, section) => acc + section.options.filter((option) => option.state !== "No-one").length,
     0,
   );
 
@@ -545,7 +554,7 @@ export default function SettingsPage() {
                     if (isUsernameOption || isPrimaryEmailOption || isPasswordOption || isRecoveryKeysOption) {
                       return (
                         <SettingsOptionCard
-                          key={option.label}
+                          key={option.key}
                           label={option.label}
                           detail={option.detail}
                           variant={variant}
@@ -581,12 +590,12 @@ export default function SettingsPage() {
 
                     return (
                       <SettingsOptionCard
-                        key={option.label}
+                        key={option.key}
                         label={option.label}
                         detail={option.detail}
                         variant={variant}
                         badge="Status"
-                        stateNode={<span className={`${styles.statePill} ${getStateClass(option.state)}`}>{option.state}</span>}
+                        stateNode={<div className={styles.visibilityGroup}>{(["No-one", "Friends only", "Everyone"] as const).map((level) => { const current = optionStates[`${activeSection.key}.${option.key}`] ?? option.state; return (<button key={level} type="button" className={`${styles.statePill} ${current === level ? getStateClass(level) : styles.stateOff}`} onClick={() => setOptionVisibility(activeSection.key, option.key, level)}>{level}</button>); })}</div>}
                       />
                     );
                   })}

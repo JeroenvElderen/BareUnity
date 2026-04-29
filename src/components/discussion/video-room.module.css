@@ -117,8 +117,11 @@
 }
 
 .videoFallback {
+  border: 0;
+  background: transparent;
   color: rgb(var(--muted));
   font-size: 0.94rem;
+  cursor: pointer;
 }
 
 .stageBadge {
