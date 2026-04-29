@@ -773,15 +773,7 @@ export default function HomePage() {
                       ) : null}
                     </div>
                     {caption ? (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setExpandedCaptionsByPost((current) => ({ ...current, [post.id]: !current[post.id] }))
-                        }
-                        className="mb-3 block w-full text-left"
-                        aria-expanded={isCaptionExpanded}
-                        aria-label={isCaptionExpanded ? "Collapse caption" : "Expand caption"}
-                      >
+                      <div className="mb-3">
                         <p
                           className="whitespace-pre-line break-words text-sm text-[rgb(var(--text))] [overflow-wrap:anywhere]"
                           style={
@@ -805,11 +797,19 @@ export default function HomePage() {
                           {caption}
                         </p>
                         {shouldClampCaption ? (
-                          <span className="mt-1 inline-block text-xs font-medium text-[rgb(var(--muted))]">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setExpandedCaptionsByPost((current) => ({ ...current, [post.id]: !current[post.id] }))
+                            }
+                            className="mt-1 inline-block text-left text-xs font-medium text-[rgb(var(--muted))]"
+                            aria-expanded={isCaptionExpanded}
+                            aria-label={isCaptionExpanded ? "Collapse caption" : "Expand caption"}
+                          >
                             {isCaptionExpanded ? "Show less" : "Show more"}
-                          </span>
+                          </button>
                         ) : null}
-                      </button>
+                      </div>
                     ) : null}
                     <div className="mb-3 flex flex-wrap items-center gap-2 border-t border-[rgb(var(--border))] pt-3">
                       <Button

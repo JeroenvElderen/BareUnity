@@ -23,7 +23,7 @@ export function UsernameActionPopup({
   variant = "inline",
 }: UsernameActionPopupProps) {
   const router = useRouter();
-  const rootRef = useRef<HTMLDivElement | null>(null);
+  const rootRef = useRef<HTMLSpanElement | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [viewerId, setViewerId] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
@@ -69,7 +69,7 @@ export function UsernameActionPopup({
   };
 
   return (
-    <div ref={rootRef} className="relative inline-flex items-center">
+    <span ref={rootRef} className="relative inline-flex items-center">
       {variant === "button" ? (
         <Button type="button" size="sm" variant="outline" className={triggerClassName} onClick={() => setIsOpen((v) => !v)}>
           {displayName}
@@ -107,6 +107,6 @@ export function UsernameActionPopup({
           {status ? <p className="mt-2 px-2 text-xs text-[rgb(var(--muted))]">{status}</p> : null}
         </div>
       ) : null}
-    </div>
+    </span>
   );
 }
