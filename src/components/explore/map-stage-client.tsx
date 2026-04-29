@@ -216,6 +216,8 @@ const AMENITY_OPTIONS: AmenityType[] = [
   "Pool",
 ];
 const MAP_SPOTS_CACHE_MAX_AGE_MS = 1000 * 60 * 5;
+const EXPLORE_DEFAULT_MAP_CENTER: [number, number] = [-98.5795, 39.8283];
+const EXPLORE_DEFAULT_MAP_ZOOM = 3;
 
 function resolveSearchCoordinates(result: LocationSearchResult) {
   const latitudeCandidate = result.lat ?? result.latitude;
@@ -393,8 +395,8 @@ export function MapStageClient() {
 
         const map = new window.maplibregl.Map({
           container: mapContainerRef.current,
-          center: [-98.5795, 39.8283],
-          zoom: 3,
+          center: EXPLORE_DEFAULT_MAP_CENTER,
+          zoom: EXPLORE_DEFAULT_MAP_ZOOM,
           style: {
             version: 8,
             sources: {
@@ -638,9 +640,13 @@ export function MapStageClient() {
   }
 
   function matchesSearchTerm(spot: Spot, query: string) {
-    if (!query) return true;
+    const normalizedQuery = query.trim().toLowerCase();
+    if (!normalizedQuery) return true;
+
+    const queryTerms = normalizedQuery.split(/\s+/).filter(Boolean);
     const haystack = `${spot.name} ${spot.description} ${spot.terrain ?? ""} ${spot.privacy}`.toLowerCase();
-    return haystack.includes(query);
+    
+    return queryTerms.every((term) => haystack.includes(term));
   }
 
   function distanceMiles(aLat: number, aLng: number, bLat: number, bLng: number) {
@@ -684,6 +690,7 @@ export function MapStageClient() {
   }
 
   function rerenderMarkers() {
+    const query = searchTerm.trim().toLowerCase();
     renderedSpotIdsRef.current.clear();
     const mapElement = mapContainerRef.current;
     if (mapElement) {
@@ -698,6 +705,11 @@ export function MapStageClient() {
         for (const cachedSpot of filteredCachedSpots) {
           addSpotMarkerToMap(cachedSpot);
         }
+        if (!query) {
+          mapRef.current?.flyTo?.({ center: EXPLORE_DEFAULT_MAP_CENTER, zoom: EXPLORE_DEFAULT_MAP_ZOOM });
+          return;
+        }
+
         const firstMatch = filteredCachedSpots[0];
         if (firstMatch) {
           const latitude = Number(firstMatch.latitude);
@@ -713,11 +725,32 @@ export function MapStageClient() {
           throw new Error(`Map spots request failed (${mapSpotsResponse.status})`);
         }
         const payload = (await mapSpotsResponse.json()) as { spots?: Spot[] };
-        return applyExploreFilters(payload.spots ?? []);
+        return payload.spots ?? [];
       },
-    }).catch((error) => {
-      console.error("Failed to refresh map markers after filtering", error);
-    });
+    })
+      .then((freshSpots) => {
+        const filteredFreshSpots = applyExploreFilters(freshSpots);
+        for (const freshSpot of filteredFreshSpots) {
+          addSpotMarkerToMap(freshSpot);
+        }
+
+        if (!query) {
+          mapRef.current?.flyTo?.({ center: EXPLORE_DEFAULT_MAP_CENTER, zoom: EXPLORE_DEFAULT_MAP_ZOOM });
+          return;
+        }
+
+        const firstMatch = filteredFreshSpots[0];
+        if (!firstMatch) return;
+
+        const latitude = Number(firstMatch.latitude);
+        const longitude = Number(firstMatch.longitude);
+        if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+          mapRef.current?.flyTo?.({ center: [longitude, latitude], zoom: 10 });
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to refresh map markers after filtering", error);
+      });
   }
 
   useEffect(() => {
