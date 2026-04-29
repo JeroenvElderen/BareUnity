@@ -106,6 +106,56 @@ export function VideoRoom() {
   const [isConnectingMedia, setIsConnectingMedia] = useState(true);
   const [cameraFacingMode, setCameraFacingMode] = useState<"user" | "environment">("user");
 
+  const getVideoConstraints = useCallback(
+    (facing: "user" | "environment") => (isMobileDevice ? { facingMode: { ideal: facing } } : true),
+    [isMobileDevice],
+  );
+
+  const requestVideoTrack = useCallback(
+    async (facing: "user" | "environment") => {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: getVideoConstraints(facing),
+        audio: false,
+      });
+      const [track] = stream.getVideoTracks();
+      if (track) return track;
+
+      stream.getTracks().forEach((currentTrack) => currentTrack.stop());
+      throw new Error("No video track available from media stream.");
+    },
+    [getVideoConstraints],
+  );
+
+  const requestVideoTrackWithFallback = useCallback(
+    async (facing: "user" | "environment") => {
+      try {
+        return await requestVideoTrack(facing);
+      } catch (primaryError) {
+        try {
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          const videoInputs = devices.filter((device) => device.kind === "videoinput");
+          const matcher = facing === "environment" ? /(back|rear|environment)/i : /(front|user|face)/i;
+
+          const matchedDevice = videoInputs.find((device) => matcher.test(device.label));
+          if (!matchedDevice) throw primaryError;
+
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: { deviceId: { exact: matchedDevice.deviceId } },
+            audio: false,
+          });
+          const [track] = stream.getVideoTracks();
+          if (track) return track;
+
+          stream.getTracks().forEach((currentTrack) => currentTrack.stop());
+          throw primaryError;
+        } catch {
+          throw primaryError;
+        }
+      }
+    },
+    [requestVideoTrack],
+  );
+
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStreamsByUser, setRemoteStreamsByUser] = useState<Record<string, MediaStream>>({});
 
@@ -282,9 +332,8 @@ export function VideoRoom() {
     setIsConnectingMedia(true);
 
     try {
-      const videoConstraints = isMobileDevice ? { facingMode: cameraFacingMode } : true;
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: videoConstraints,
+        video: getVideoConstraints(cameraFacingMode),
         audio: true,
       });
 
@@ -298,7 +347,7 @@ export function VideoRoom() {
     } finally {
       setIsConnectingMedia(false);
     }
-  }, [cameraFacingMode, isMobileDevice]);
+  }, [cameraFacingMode, getVideoConstraints]);
 
   const replaceVideoTrack = useCallback((nextTrack: MediaStreamTrack | null) => {
     if (!localStream) return;
@@ -595,12 +644,8 @@ export function VideoRoom() {
 
     const next = !isCameraOn;
     if (next) {
-      const videoConstraints = isMobileDevice ? { facingMode: cameraFacingMode } : true;
-      void navigator.mediaDevices
-        .getUserMedia({ video: videoConstraints, audio: false })
-        .then((stream) => {
-          const [track] = stream.getVideoTracks();
-          if (!track) return;
+      void requestVideoTrackWithFallback(cameraFacingMode)
+        .then((track) => {
           track.enabled = true;
           replaceVideoTrack(track);
           setIsCameraOn(true);
@@ -624,13 +669,11 @@ export function VideoRoom() {
   const switchCamera = async () => {
     if (!isJoinedRoom || !isMobileDevice) return;
     const nextFacing = cameraFacingMode === "user" ? "environment" : "user";
-    setCameraFacingMode(nextFacing);
     if (!isCameraOn) return;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: nextFacing }, audio: false });
-      const [track] = stream.getVideoTracks();
-      if (!track) return;
+      const track = await requestVideoTrackWithFallback(nextFacing);
       replaceVideoTrack(track);
+      setCameraFacingMode(nextFacing);
     } catch (error) {
       console.error("[media] switch camera failed", error);
       setLoadError("Could not switch camera.");
