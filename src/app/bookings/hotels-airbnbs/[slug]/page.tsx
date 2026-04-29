@@ -3,19 +3,17 @@ import { notFound } from "next/navigation";
 import { AppSidebar } from "@/components/sidebar/sidebar";
 import layoutStyles from "@/app/page.module.css";
 import styles from "../hotels-airbnbs.module.css";
-import { fallbackListings, getListingBySlug } from "../stays-data";
+import { getListingBySlug } from "../stays-data";
 
 type StayDetailsPageProps = {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 };
 
-export function generateStaticParams() {
-  const seedListings = Array.isArray(fallbackListings) ? fallbackListings : [];
-  return seedListings.filter((listing) => listing?.slug).map((listing) => ({ slug: listing.slug }));
-}
+export const dynamic = "force-dynamic";
+export const dynamicParams = true;
 
 export default async function StayDetailsPage({ params }: StayDetailsPageProps) {
-  const { slug } = params;
+  const { slug } = await params;
   const listing = await getListingBySlug(slug);
 
   if (!listing) notFound();
