@@ -88,6 +88,7 @@ type MapLibreMapInstance = {
   on: (event: "click", listener: (event: MapClickEvent) => void) => void;
   off: (event: "click", listener: (event: MapClickEvent) => void) => void;
   flyTo?: (config: { center: [number, number]; zoom?: number }) => void;
+  getCenter?: () => { lat: number; lng: number };
   dragPan?: InteractionControl;
   scrollZoom?: InteractionControl;
   boxZoom?: InteractionControl;
@@ -356,6 +357,7 @@ export function MapStageClient({ controls }: { controls: ExploreControls }) {
   const [showLocationPrompt, setShowLocationPrompt] = useState(true);
   const [isLocatingUser, setIsLocatingUser] = useState(false);
   const [locationPromptError, setLocationPromptError] = useState<string | null>(null);
+  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
 
   const canCreateLocation = useMemo(() => isLoggedIn, [isLoggedIn]);
 
@@ -542,6 +544,7 @@ export function MapStageClient({ controls }: { controls: ExploreControls }) {
       (position) => {
         const latitude = position.coords.latitude;
         const longitude = position.coords.longitude;
+        setUserLocation({ latitude, longitude });
         mapRef.current?.flyTo?.({ center: [longitude, latitude], zoom: 11 });
         dismissLocationPrompt();
         setIsLocatingUser(false);
@@ -624,6 +627,52 @@ export function MapStageClient({ controls }: { controls: ExploreControls }) {
     renderedSpotIdsRef.current.add(spot.id);
   }
 
+  function matchesSearchTerm(spot: Spot, query: string) {
+    if (!query) return true;
+    const haystack = `${spot.name} ${spot.description} ${spot.terrain ?? ""} ${spot.privacy}`.toLowerCase();
+    return haystack.includes(query);
+  }
+
+  function distanceMiles(aLat: number, aLng: number, bLat: number, bLng: number) {
+    const toRad = (value: number) => (value * Math.PI) / 180;
+    const earthRadiusMiles = 3958.8;
+    const dLat = toRad(bLat - aLat);
+    const dLng = toRad(bLng - aLng);
+    const lat1 = toRad(aLat);
+    const lat2 = toRad(bLat);
+    const haversine =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.sin(dLng / 2) * Math.sin(dLng / 2) * Math.cos(lat1) * Math.cos(lat2);
+    return 2 * earthRadiusMiles * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
+  }
+
+  function matchesActiveFilter(spot: Spot) {
+    if (activeFilter === "all") return true;
+    if (activeFilter === "quiet") return spot.privacy.toLowerCase().includes("discreet");
+    if (activeFilter === "events") {
+      const text = `${spot.name} ${spot.description}`.toLowerCase();
+      return text.includes("event");
+    }
+    if (activeFilter === "nearby") {
+      const latitude = Number(spot.latitude);
+      const longitude = Number(spot.longitude);
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return false;
+      const center = userLocation
+        ? userLocation
+        : mapRef.current?.getCenter
+          ? { latitude: mapRef.current.getCenter().lat, longitude: mapRef.current.getCenter().lng }
+          : null;
+      if (!center) return true;
+      return distanceMiles(center.latitude, center.longitude, latitude, longitude) <= 6;
+    }
+    return true;
+  }
+
+  function applyExploreFilters(spots: Spot[]) {
+    const query = searchTerm.trim().toLowerCase();
+    return spots.filter((spot) => matchesSearchTerm(spot, query) && matchesActiveFilter(spot));
+  }
+
   function rerenderMarkers() {
     renderedSpotIdsRef.current.clear();
     const mapElement = mapContainerRef.current;
@@ -635,8 +684,17 @@ export function MapStageClient({ controls }: { controls: ExploreControls }) {
       key: mapSpotsCacheKey,
       maxAgeMs: MAP_SPOTS_CACHE_MAX_AGE_MS,
       onCachedData: (cachedSpots) => {
-        for (const cachedSpot of cachedSpots) {
+        const filteredCachedSpots = applyExploreFilters(cachedSpots);
+        for (const cachedSpot of filteredCachedSpots) {
           addSpotMarkerToMap(cachedSpot);
+        }
+        const firstMatch = filteredCachedSpots[0];
+        if (firstMatch) {
+          const latitude = Number(firstMatch.latitude);
+          const longitude = Number(firstMatch.longitude);
+          if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+            mapRef.current?.flyTo?.({ center: [longitude, latitude], zoom: 10 });
+          }
         }
       },
       fetchFresh: async () => {
@@ -645,7 +703,7 @@ export function MapStageClient({ controls }: { controls: ExploreControls }) {
           throw new Error(`Map spots request failed (${mapSpotsResponse.status})`);
         }
         const payload = (await mapSpotsResponse.json()) as { spots?: Spot[] };
-        return payload.spots ?? [];
+        return applyExploreFilters(payload.spots ?? []);
       },
     }).catch((error) => {
       console.error("Failed to refresh map markers after filtering", error);
