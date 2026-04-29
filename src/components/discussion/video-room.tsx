@@ -360,7 +360,12 @@ export function VideoRoom() {
       localStream.addTrack(nextTrack);
     }
     peerStatesRef.current.forEach(({ pc }) => {
-      const sender = pc.getSenders().find((candidate) => candidate.track?.kind === "video");
+      const sender =
+        pc.getSenders().find((candidate) => candidate.track?.kind === "video") ??
+        pc
+          .getTransceivers()
+          .find((transceiver) => transceiver.receiver.track.kind === "video")
+          ?.sender;
       if (sender) {
         void sender.replaceTrack(nextTrack);
       } else if (nextTrack) {
@@ -671,6 +676,11 @@ export function VideoRoom() {
     const nextFacing = cameraFacingMode === "user" ? "environment" : "user";
     if (!isCameraOn) return;
     try {
+      const currentVideoTrack = localStream?.getVideoTracks()[0] ?? null;
+      if (currentVideoTrack && localStream) {
+        currentVideoTrack.stop();
+        localStream.removeTrack(currentVideoTrack);
+      }
       const track = await requestVideoTrackWithFallback(nextFacing);
       replaceVideoTrack(track);
       setCameraFacingMode(nextFacing);

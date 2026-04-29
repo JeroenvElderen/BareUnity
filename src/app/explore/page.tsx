@@ -64,6 +64,9 @@ export default async function ExplorePage() {
             <button type="button" data-explore-chip data-explore-chip-mode="events">
               Events
             </button>
+            <button type="button" data-explore-reset>
+              Reset filters
+            </button>
           </div>
         </div>
 
@@ -78,7 +81,7 @@ export default async function ExplorePage() {
             </div>
 
             <div id="explore-map-container" className={styles.mapSurface}>
-              <MapStageClient controls={{ searchInputId: "explore-search" }} />
+              <MapStageClient />
             </div>
           </article>
 

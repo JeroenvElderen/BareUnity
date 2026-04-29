@@ -20,10 +20,6 @@ type Spot = {
   terrain?: string | null;
 };
 type ExploreFilterMode = "all" | "nearby" | "quiet" | "events";
-type ExploreControls = {
-  searchInputId: string;
-};
-
 type AccessType = "Public" | "Discreet" | "Private Club";
 type TerrainType = "Beach" | "Hot spring" | "Campground" | "Forest" | "Urban rooftop" | "Resort";
 type AmenityType =
@@ -333,7 +329,7 @@ function formatCoordinate(value: string) {
   return num.toFixed(6);
 }
 
-export function MapStageClient({ controls }: { controls: ExploreControls }) {
+export function MapStageClient() {
   const [mapSpotsCacheKey] = useState(() => buildUserScopedCacheKey("map-spots"));
   const prefetchedMapSpotsRef = useRef<Spot[] | null>(takePrefetchedRouteData<Spot[]>("map-spots"));
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
@@ -360,6 +356,7 @@ export function MapStageClient({ controls }: { controls: ExploreControls }) {
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
 
   const canCreateLocation = useMemo(() => isLoggedIn, [isLoggedIn]);
+  const searchInputId = "explore-search";
 
   useEffect(() => {
     let mounted = true;
@@ -477,7 +474,7 @@ export function MapStageClient({ controls }: { controls: ExploreControls }) {
   }, [mapSpotsCacheKey]);
 
   useEffect(() => {
-    const searchInput = document.getElementById(controls.searchInputId) as HTMLInputElement | null;
+    const searchInput = document.getElementById(searchInputId) as HTMLInputElement | null;
     if (!searchInput) return;
 
     const onSearchInput = (event: Event) => {
@@ -488,11 +485,12 @@ export function MapStageClient({ controls }: { controls: ExploreControls }) {
     return () => {
       searchInput.removeEventListener("input", onSearchInput);
     };
-  }, [controls.searchInputId]);
+  }, []);
 
   useEffect(() => {
     const chipButtons = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-explore-chip]"));
-    if (!chipButtons.length) return;
+    const resetButton = document.querySelector<HTMLButtonElement>("[data-explore-reset]");
+    if (!chipButtons.length && !resetButton) return;
 
     const handlers = chipButtons.map((button) => {
       const mode = button.dataset.exploreChipMode as ExploreFilterMode;
@@ -501,10 +499,22 @@ export function MapStageClient({ controls }: { controls: ExploreControls }) {
       return { button, onClick };
     });
 
+    const onReset = () => {
+      setActiveFilter("all");
+      setSearchTerm("");
+      const searchInput = document.getElementById(searchInputId) as HTMLInputElement | null;
+      if (searchInput) {
+        searchInput.value = "";
+      }
+    };
+
+    resetButton?.addEventListener("click", onReset);
+
     return () => {
       for (const handler of handlers) {
         handler.button.removeEventListener("click", handler.onClick);
       }
+      resetButton?.removeEventListener("click", onReset);
     };
   }, []);
 
