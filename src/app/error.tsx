@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import styles from "./auth.module.css";
+import styles from "./error.module.css";
 
 type ErrorPageProps = {
   error: Error & { digest?: string };

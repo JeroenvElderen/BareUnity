@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import styles from "@/app/auth.module.css";
+import styles from "@/components/auth/auth-page.module.css";
 import { supabase } from "@/lib/supabase";
 
 export default function LoginPage() {

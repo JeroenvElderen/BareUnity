@@ -4,7 +4,7 @@ import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import styles from "@/app/auth.module.css";
+import styles from "@/components/auth/auth-page.module.css";
 import { supabase } from "@/lib/supabase";
 
 type QuizAnswer = "" | "correct" | "incorrect";
@@ -126,7 +126,7 @@ export default function RegisterPage() {
     }
 
     if (!form.idDocument) {
-      setStatus("Please upload a government ID file for manual review.");
+      setStatus("Please upload a government ID file so our team can manually review and approve your account.");
       return;
     }
 
@@ -366,7 +366,10 @@ export default function RegisterPage() {
                 }
                 required
               />
-              <p className={styles.help}>Used only for verification. Not displayed on your profile.</p>
+              <p className={styles.help}>
+                Your ID is used only for manual reviewer verification and account approval. It is never shown on your
+                profile.
+              </p>
             </label>
 
             <label className={styles.field}>
