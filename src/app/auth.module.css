@@ -185,3 +185,36 @@
   display: grid;
   gap: 0.8rem;
 }
+.progressTrack {
+  height: 8px;
+  border-radius: 999px;
+  background: rgb(var(--bg-soft));
+  border: 1px solid rgb(var(--border));
+  overflow: hidden;
+  margin: 0.4rem 0;
+}
+
+.progressFill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgb(var(--accent)), rgb(var(--brand)));
+}
+
+.inputWrap {
+  position: relative;
+}
+
+.eyeButton {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 1px solid rgb(var(--border));
+  background: rgb(var(--card));
+  color: rgb(var(--muted));
+  border-radius: 8px;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+}

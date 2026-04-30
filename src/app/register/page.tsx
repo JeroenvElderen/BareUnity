@@ -59,6 +59,8 @@ export default function RegisterPage() {
   const [form, setForm] = useState<RegisterState>(initialState);
   const [status, setStatus] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -73,6 +75,46 @@ export default function RegisterPage() {
     const answers = [form.quizAnswerRespect, form.quizAnswerConsent, form.quizAnswerReporting];
     return answers.filter((answer) => answer === "correct").length;
   }, [form.quizAnswerRespect, form.quizAnswerConsent, form.quizAnswerReporting]);
+
+  const passwordStrength = useMemo(() => {
+    const checks = [
+      form.password.length >= 12,
+      /[A-Z]/.test(form.password),
+      /[a-z]/.test(form.password),
+      /\d/.test(form.password),
+      /[^A-Za-z0-9]/.test(form.password),
+    ];
+
+    const score = checks.filter(Boolean).length;
+
+    if (score <= 2) return "Needs work";
+    if (score <= 4) return "Strong";
+    return "Excellent";
+  }, [form.password]);
+
+  const completionScore = useMemo(() => {
+    const checks = [
+      form.fullName.trim().length > 0,
+      form.displayName.trim().length > 0,
+      form.email.trim().length > 0,
+      form.password.length >= 12,
+      form.confirmPassword.length > 0,
+      form.dateOfBirth.length > 0,
+      form.country.length > 0,
+      form.membershipType.length > 0,
+      form.idType.length > 0,
+      form.idDocument !== null,
+      form.motivation.trim().length >= 30,
+      form.consentCode === CONSENT_CODE,
+      quizScore === 3,
+      form.isAdultConfirmed,
+      form.isConsentConfirmed,
+      form.isPhotoRuleConfirmed,
+      form.isPolicyConfirmed,
+    ];
+
+    return Math.round((checks.filter(Boolean).length / checks.length) * 100);
+  }, [form, quizScore]);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -145,20 +187,26 @@ export default function RegisterPage() {
       <section className={styles.shell}>
         <p className={styles.brand}>🌿 BareUnity • Naturist Community</p>
         <article className={styles.card}>
-          <h1 className={styles.title}>Strict onboarding application</h1>
+          <h1 className={styles.title}>Join safely and set your comfort level</h1>
           <p className={styles.subtitle}>
-            This platform is free for members, but every applicant must complete
-            strict consent-first screening before full access is granted.
+            Built for consent-first naturist connection. You can use a display name,
+            choose privacy boundaries, and complete safety screening before approval.
           </p>
 
           <div className={styles.stageBanner}>
-            <p>Stage A: Identity basics • Stage B: Safety training • Stage C: Manual review</p>
+            <p>
+              Application progress <strong>{completionScore}%</strong>
+            </p>
+            <div className={styles.progressTrack} aria-hidden>
+              <span className={styles.progressFill} style={{ width: `${completionScore}%` }} />
+            </div>
+            <p className={styles.help}>Stage A: Account basics • Stage B: Safety checks • Stage C: Manual review</p>
           </div>
 
           <form className={styles.form} onSubmit={onSubmit}>
-            <p className={styles.sectionLabel}>A. Identity basics</p>
+            <p className={styles.sectionLabel}>A. Account basics</p>
             <label className={styles.field}>
-              <span className={styles.label}>Legal full name</span>
+              <span className={styles.label}>Legal full name (private, review-only)</span>
               <input
                 className={styles.input}
                 placeholder="Alex Morgan"
@@ -170,7 +218,7 @@ export default function RegisterPage() {
             </label>
 
             <label className={styles.field}>
-              <span className={styles.label}>Display name</span>
+              <span className={styles.label}>Display name (shown publicly)</span>
               <input
                 className={styles.input}
                 placeholder="NatureAlex"
@@ -182,7 +230,7 @@ export default function RegisterPage() {
             </label>
 
             <label className={styles.field}>
-              <span className={styles.label}>Email</span>
+              <span className={styles.label}>Email (for login and safety notices)</span>
               <input
                 className={styles.input}
                 placeholder="you@example.com"
@@ -196,25 +244,44 @@ export default function RegisterPage() {
             <div className={styles.split}>
               <label className={styles.field}>
                 <span className={styles.label}>Password (12+ chars)</span>
-                <input
-                  className={styles.input}
-                  type="password"
-                  value={form.password}
-                  onChange={(event) => setForm((prev) => ({ ...prev, password: event.target.value }))}
-                  required
-                />
+                <div className={styles.inputWrap}>
+                  <input
+                    className={styles.input}
+                    type={isPasswordVisible ? "text" : "password"}
+                    value={form.password}
+                    onChange={(event) => setForm((prev) => ({ ...prev, password: event.target.value }))}
+                    required
+                  />
+                  <button
+                    type="button"
+                    className={styles.eyeButton}
+                    onClick={() => setIsPasswordVisible((prev) => !prev)}
+                  >
+                    {isPasswordVisible ? "Hide" : "Show"}
+                  </button>
+                </div>
+                <p className={styles.help}>Strength: {passwordStrength}</p>
               </label>
               <label className={styles.field}>
                 <span className={styles.label}>Confirm password</span>
-                <input
-                  className={styles.input}
-                  type="password"
-                  value={form.confirmPassword}
-                  onChange={(event) =>
-                    setForm((prev) => ({ ...prev, confirmPassword: event.target.value }))
-                  }
-                  required
-                />
+                <div className={styles.inputWrap}>
+                  <input
+                    className={styles.input}
+                    type={isConfirmPasswordVisible ? "text" : "password"}
+                    value={form.confirmPassword}
+                    onChange={(event) =>
+                      setForm((prev) => ({ ...prev, confirmPassword: event.target.value }))
+                    }
+                    required
+                  />
+                  <button
+                    type="button"
+                    className={styles.eyeButton}
+                    onClick={() => setIsConfirmPasswordVisible((prev) => !prev)}
+                  >
+                    {isConfirmPasswordVisible ? "Hide" : "Show"}
+                  </button>
+                </div>
               </label>
             </div>
 
@@ -270,7 +337,7 @@ export default function RegisterPage() {
               </select>
             </label>
 
-            <p className={styles.sectionLabel}>B. Safety training</p>
+            <p className={styles.sectionLabel}>B. Safety checks</p>
             <label className={styles.field}>
               <span className={styles.label}>Government ID type for manual review</span>
               <select
@@ -288,7 +355,6 @@ export default function RegisterPage() {
               </select>
             </label>
 
-
             <label className={styles.field}>
               <span className={styles.label}>Upload government ID (JPG, PNG, WEBP, PDF • max 10MB)</span>
               <input
@@ -300,15 +366,16 @@ export default function RegisterPage() {
                 }
                 required
               />
-              <p className={styles.help}>This file is used only for your manual verification review.</p>
+              <p className={styles.help}>Used only for verification. Not displayed on your profile.</p>
             </label>
+
             <label className={styles.field}>
-              <span className={styles.label}>Why are you joining this naturist community? (30+ chars)</span>
+              <span className={styles.label}>Why are you joining this community? (30+ chars)</span>
               <textarea
                 className={styles.textarea}
                 value={form.motivation}
                 onChange={(event) => setForm((prev) => ({ ...prev, motivation: event.target.value }))}
-                placeholder="Share your naturist intent, community values, and what respectful participation means to you."
+                placeholder="Share your naturist values, boundaries, and what respectful participation means to you."
                 minLength={30}
                 required
               />
@@ -392,7 +459,7 @@ export default function RegisterPage() {
               </label>
             </fieldset>
 
-            <p className={styles.sectionLabel}>C. Legal attestations</p>
+            <p className={styles.sectionLabel}>C. Consent and policy</p>
             <label className={styles.checkboxRow}>
               <input
                 type="checkbox"
@@ -402,7 +469,7 @@ export default function RegisterPage() {
                 }
                 required
               />
-              I confirm I am at least 18 years old and legally allowed to join naturist communities in my country.
+              I confirm I am at least 18 years old and legally allowed to join in my country.
             </label>
             <label className={styles.checkboxRow}>
               <input
@@ -439,7 +506,7 @@ export default function RegisterPage() {
             </label>
 
             <button className={styles.button} type="submit" disabled={isLoading}>
-              {isLoading ? "Submitting application..." : "Submit strict onboarding application"}
+              {isLoading ? "Submitting application..." : "Create account and submit for review"}
             </button>
 
             {status ? <p className={styles.help}>{status}</p> : null}
@@ -454,7 +521,7 @@ export default function RegisterPage() {
         </article>
 
         <p className={styles.legal}>
-          All new accounts stay in manual verification review before gaining full platform privileges.
+          New accounts remain in manual verification review before full platform privileges are granted.
         </p>
       </section>
     </main>
