@@ -1,39 +1,88 @@
-.page { min-height: 100vh; width: 100%; padding: 1.2rem 1rem 2.5rem; background: linear-gradient(180deg, rgb(var(--bg)) 0%, rgb(var(--bg-soft)) 100%); color: rgb(var(--text)); }
-.shell { max-width: 1260px; margin: 0 auto; display: grid; gap: 1.25rem; }
-.breadcrumb { font-size: .9rem; color: rgb(var(--muted)); }
-.searchRow { display: grid; gap: .8rem; grid-template-columns: repeat(auto-fit,minmax(180px,1fr)); }
-.field { border: 1px solid rgb(var(--border)); background: rgb(var(--card)); border-radius: .65rem; padding: .6rem .75rem; display: grid; gap: .3rem; }
+.page {
+  min-height: 100vh;
+  width: 100%;
+  padding: 1.25rem 1rem 3rem;
+  background: linear-gradient(180deg, rgb(var(--bg)) 0%, rgb(var(--bg-soft)) 100%);
+  color: rgb(var(--text));
+}
+
+.shell {
+  max-width: 1240px;
+  margin: 0 auto;
+  display: grid;
+  gap: 1.25rem;
+}
+
+.breadcrumb {
+  margin: 0;
+  font-size: 0.9rem;
+  color: rgb(var(--muted));
+}
+
+.searchPanel,
+.filterCard,
+.card,
+.resultsWrap,
+.emptyState {
+  border: 1px solid rgb(var(--border));
+  border-radius: 1rem;
+  background: rgb(var(--card));
+}
+
+.searchPanel {
+  padding: 1.15rem;
+  display: grid;
+  gap: 1rem;
+  box-shadow: 0 14px 28px rgb(var(--brand) / 0.06);
+}
+
+.title { margin: 0; font-size: clamp(1.5rem, 2vw, 2rem); color: rgb(var(--text-strong)); }
+.subtitle { margin: 0.4rem 0 0; color: rgb(var(--muted)); }
+
+.searchRow { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fit,minmax(175px,1fr)); align-items: end; }
+.field { border: 1px solid rgb(var(--border)); background: rgb(var(--bg)); border-radius: .75rem; padding: .62rem .75rem; display: grid; gap: .3rem; }
 .field span { font-size: .75rem; color: rgb(var(--muted)); }
-.field input { border: none; outline: none; background: transparent; color: rgb(var(--text-strong)); font-size: 1rem; }
-.searchButton { border: none; background: rgb(0 113 194); color: #fff; border-radius: .65rem; font-weight: 700; min-height: 56px; }
+.field input { border: none; outline: none; background: transparent; color: rgb(var(--text-strong)); font-size: .96rem; }
+.searchButton { border: none; background: rgb(var(--brand)); color:#fff; border-radius: .75rem; font-weight: 700; min-height: 52px; padding: 0 1rem; }
+
 .content { display: grid; gap: 1rem; }
-.filters { border-right: 1px solid rgb(var(--border)); padding-right: 1rem; }
-.filterCard { position: sticky; top: 1rem; display: grid; gap: 1rem; }
-.filterCard h2 { margin:0; font-size:1.7rem; color: rgb(var(--text-strong)); }
-.filterGroup h3 { margin:0 0 .55rem; font-size:1.05rem; color: rgb(var(--text-strong)); }
-.filterGroup label { display:flex; gap:.5rem; margin:.45rem 0; color: rgb(var(--muted)); }
+.filters { display: grid; }
+.filterCard { padding: 1rem; display: grid; gap: 1rem; position: sticky; top: 1rem; height: fit-content; }
+.filterCard h2 { margin:0; font-size:1.2rem; color: rgb(var(--text-strong)); }
+.filterHint { margin: 0; color: rgb(var(--muted)); font-size: .9rem; }
+.filterGroup h3 { margin:0 0 .55rem; font-size:1rem; color: rgb(var(--text-strong)); }
+.filterGroup label { display:flex; gap:.5rem; margin:.45rem 0; color: rgb(var(--text)); }
+
+.resultsWrap { padding: 1rem; display: grid; gap: 1rem; }
 .resultsTop { display:flex; justify-content:space-between; align-items:center; gap:.8rem; }
-.resultsTop h2 { margin:0; color: rgb(var(--text-strong)); }
-.resultsTop select { border:1px solid rgb(var(--border)); background: rgb(var(--card)); border-radius:.65rem; padding:.6rem .8rem; color: rgb(var(--text)); }
+.resultsTop h2 { margin:0; color: rgb(var(--text-strong)); font-size: 1.1rem; }
+.resultsTop select { border:1px solid rgb(var(--border)); background: rgb(var(--bg)); border-radius:.65rem; padding:.6rem .8rem; color: rgb(var(--text)); }
+
 .results { display:grid; gap:1rem; }
-.card { border:1px solid rgb(var(--border)); border-radius:.85rem; background: rgb(var(--card)); box-shadow: 0 10px 24px rgb(var(--brand) / .08); overflow:hidden; display:grid; }
+.card { overflow:hidden; display:grid; box-shadow: 0 10px 24px rgb(var(--brand) / .08); }
 .media { min-height:220px; background-size:cover; background-position:center; }
 .body { padding:1rem; display:grid; gap:.8rem; }
 .topline { display:flex; justify-content:space-between; gap:.8rem; }
-.name { margin:0; font-size:1.8rem; color: rgb(var(--text-strong)); }
+.badge { margin: 0 0 .45rem; display: inline-block; padding: .2rem .6rem; border-radius: 999px; font-size: .75rem; background: rgb(var(--bg-soft)); color: rgb(var(--text-strong)); }
+.name { margin:0; font-size:1.4rem; color: rgb(var(--text-strong)); }
 .location,.vibe { margin:0; color: rgb(var(--muted)); }
-.rating { text-align:right; }
-.rating strong{font-size:1.4rem; color: rgb(var(--text-strong));}
+.rating { text-align:right; margin: 0; }
+.rating strong{font-size:1.35rem; color: rgb(var(--text-strong));}
 .amenities { list-style:none; padding:0; margin:0; display:flex; gap:.45rem; flex-wrap:wrap; }
 .amenities li { border-radius:999px; padding:.3rem .7rem; background: rgb(var(--bg-soft)); color: rgb(var(--muted)); font-size:.85rem; }
 .bottom { display:flex; justify-content:space-between; align-items:flex-end; gap:.8rem; }
-.price { margin:0; font-size:1.5rem; font-weight:800; color: rgb(var(--text-strong)); }
+.price { margin:0; font-size:1.45rem; font-weight:800; color: rgb(var(--text-strong)); }
 .price span { font-size:.9rem; font-weight:500; color: rgb(var(--muted)); }
 .actions { display:grid; gap:.45rem; }
 .bookBtn,.detailsBtn { text-decoration:none; text-align:center; border-radius:.65rem; padding:.55rem .9rem; font-weight:700; }
-.bookBtn { background: rgb(0 113 194); color:#fff; }
+.bookBtn { background: rgb(var(--brand)); color:#fff; }
 .detailsBtn { border:1px solid rgb(var(--border)); color: rgb(var(--text)); }
-@media (min-width: 960px){
-  .content { grid-template-columns: 290px minmax(0,1fr); }
+
+.emptyState { padding: 2rem 1rem; text-align: center; }
+.emptyState h3 { margin: 0 0 .4rem; }
+.emptyState p { margin: 0; color: rgb(var(--muted)); }
+
+@media (min-width: 980px){
+  .content { grid-template-columns: 300px minmax(0,1fr); }
   .card { grid-template-columns: 34% minmax(0,1fr); }
 }
