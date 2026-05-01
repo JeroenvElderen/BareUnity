@@ -1,5 +1,3 @@
-import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase-admin";
-
 export type Listing = {
   slug: string;
   name: string;
@@ -16,9 +14,10 @@ export type Listing = {
   websiteUrl: string;
   address: string;
   checkInWindow: string;
+  gallery: string[];
 };
 
-export const fallbackListings: Listing[] = [
+export const listings: Listing[] = [
   {
     slug: "harbor-light-suites",
     name: "Harbor Light Suites",
@@ -36,6 +35,13 @@ export const fallbackListings: Listing[] = [
     websiteUrl: "https://www.example.com/harbor-light-suites",
     address: "145 Harbor View Dr, San Diego, CA",
     checkInWindow: "Check-in 3:00 PM · Check-out 11:00 AM",
+    gallery: [
+      "https://picsum.photos/seed/harbor-light-suites-0/1200/800",
+      "https://picsum.photos/seed/harbor-light-suites-1/1200/800",
+      "https://picsum.photos/seed/harbor-light-suites-2/1200/800",
+      "https://picsum.photos/seed/harbor-light-suites-3/1200/800",
+      "https://picsum.photos/seed/harbor-light-suites-4/1200/800",
+    ],
   },
   {
     slug: "sage-loft-by-the-park",
@@ -54,6 +60,13 @@ export const fallbackListings: Listing[] = [
     websiteUrl: "https://www.example.com/sage-loft-by-the-park",
     address: "212 Barton Springs Rd, Austin, TX",
     checkInWindow: "Check-in 4:00 PM · Check-out 10:00 AM",
+    gallery: [
+      "https://picsum.photos/seed/sage-loft-by-the-park-0/1200/800",
+      "https://picsum.photos/seed/sage-loft-by-the-park-1/1200/800",
+      "https://picsum.photos/seed/sage-loft-by-the-park-2/1200/800",
+      "https://picsum.photos/seed/sage-loft-by-the-park-3/1200/800",
+      "https://picsum.photos/seed/sage-loft-by-the-park-4/1200/800",
+    ],
   },
   {
     slug: "palm-courtyard-retreat",
@@ -72,43 +85,20 @@ export const fallbackListings: Listing[] = [
     websiteUrl: "https://www.example.com/palm-courtyard-retreat",
     address: "55 Collins Ave, Miami Beach, FL",
     checkInWindow: "Check-in 3:00 PM · Check-out 11:00 AM",
+    gallery: [
+      "https://picsum.photos/seed/palm-courtyard-retreat-0/1200/800",
+      "https://picsum.photos/seed/palm-courtyard-retreat-1/1200/800",
+      "https://picsum.photos/seed/palm-courtyard-retreat-2/1200/800",
+      "https://picsum.photos/seed/palm-courtyard-retreat-3/1200/800",
+      "https://picsum.photos/seed/palm-courtyard-retreat-4/1200/800",
+    ],
   },
 ];
 
-function toListing(row: Record<string, unknown>): Listing {
-  return {
-    slug: String(row.slug ?? ""),
-    name: String(row.name ?? ""),
-    location: String(row.location ?? ""),
-    type: (row.type as Listing["type"]) ?? "Hotel",
-    rating: Number(row.rating ?? 0),
-    reviews: Number(row.reviews ?? 0),
-    price: Number(row.price ?? 0),
-    nights: Number(row.nights ?? 1),
-    badge: String(row.badge ?? ""),
-    vibe: String(row.vibe ?? ""),
-    amenities: Array.isArray(row.amenities) ? row.amenities.map(String) : Array.isArray(row.perks) ? row.perks.map(String) : [],
-    description: String(row.description ?? ""),
-    websiteUrl: String(row.website_url ?? ""),
-    address: String(row.address ?? ""),
-    checkInWindow: String(row.check_in_window ?? ""),
-  };
-}
-
 export async function getListings() {
-  if (!isSupabaseAdminConfigured) return fallbackListings;
-
-  try {
-    const supabase = createSupabaseAdminClient();
-    const { data, error } = await supabase.from("stays").select("*").order("name");
-    if (error || !data?.length) return fallbackListings;
-    return data.map((row) => toListing(row));
-  } catch {
-    return fallbackListings;
-  }
+  return listings;
 }
 
 export async function getListingBySlug(slug: string) {
-  const listings = await getListings();
   return listings.find((listing) => listing.slug === slug);
 }

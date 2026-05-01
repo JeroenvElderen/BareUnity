@@ -18,78 +18,66 @@ export default async function StayDetailsPage({ params }: StayDetailsPageProps) 
 
   if (!listing) notFound();
 
+  const galleryItems = listing.gallery.slice(0, 5);
+
   return (
     <main className={layoutStyles.main}>
       <AppSidebar />
       <section className={styles.page}>
         <div className={styles.shell}>
-          <article className={styles.hero}>
-            <div className={styles.heroCopy}>
-              <p className={styles.eyebrow}>Stay details</p>
+          <header className={styles.titleBar}>
+            <div>
               <h1>{listing.name}</h1>
-              <p className={styles.subtext}>{listing.description}</p>
+              <p className={styles.addressLine}>{listing.location} · {listing.address}</p>
             </div>
+            <div className={styles.scoreBlock}>
+              <p>Exceptional</p>
+              <strong>{listing.rating.toFixed(1)}</strong>
+              <span>{listing.reviews.toLocaleString()} reviews</span>
+            </div>
+          </header>
 
-            <div className={styles.statStrip}>
-              <article className={styles.statCard}>
-                <p>Location</p>
-                <strong>{listing.location}</strong>
-              </article>
-              <article className={styles.statCard}>
-                <p>Rating</p>
-                <strong>{listing.rating}</strong>
-              </article>
-              <article className={styles.statCard}>
-                <p>Price</p>
-                <strong>${listing.price}/night</strong>
-              </article>
+          <article className={styles.galleryCard}>
+            <div className={styles.galleryGrid}>
+              {galleryItems.map((imageUrl, idx) => (
+                <figure key={`${imageUrl}-${idx}`} className={idx === 0 ? styles.galleryMain : styles.galleryThumb}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={imageUrl} alt={`${listing.name} photo ${idx + 1}`} loading={idx === 0 ? "eager" : "lazy"} />
+                </figure>
+              ))}
             </div>
           </article>
 
-          <section className={styles.content}>
-            <aside className={styles.filtersCard}>
-              <div className={styles.filterGroup}>
-                <h3>Address</h3>
-                <p>{listing.address}</p>
-              </div>
-              <div className={styles.filterGroup}>
-                <h3>Timing</h3>
-                <p>{listing.checkInWindow}</p>
-              </div>
-              <div className={styles.filterGroup}>
-                <h3>Stay vibe</h3>
-                <p>{listing.vibe}</p>
-              </div>
-            </aside>
+          <section className={styles.detailsLayout}>
+            <article className={styles.listingCard}>
+              <div className={styles.listingBody}>
+                <p className={styles.badge}>{listing.badge}</p>
+                <h2>About this property</h2>
+                <p className={styles.subtext}>{listing.description}</p>
+                <p className={styles.vibe}>{listing.vibe}</p>
 
-            <div className={styles.resultsColumn}>
-              <article className={styles.listingCard}>
-                <div className={styles.listingBody}>
-                  <div className={styles.listingHeader}>
-                    <div>
-                      <p className={styles.location}>{listing.type}</p>
-                      <h3>Amenities</h3>
-                      <p className={styles.badge}>{listing.badge}</p>
-                    </div>
-                  </div>
-
-                  <ul className={styles.amenities}>
-                    {(Array.isArray(listing.amenities) ? listing.amenities : []).map((amenity) => (
-                      <li key={amenity}>{amenity}</li>
-                    ))}
-                  </ul>
-
-                  <div className={styles.listingFooter}>
-                    <Link href="/bookings/hotels-airbnbs" className={styles.detailsLink}>
-                      Back to stays
-                    </Link>
-                    <a href={listing.websiteUrl} target="_blank" rel="noreferrer" className={styles.detailsLink}>
-                      Go to stay website
-                    </a>
-                  </div>
+                <div className={styles.metaGrid}>
+                  <article className={styles.metaItem}><p>Property type</p><strong>{listing.type}</strong></article>
+                  <article className={styles.metaItem}><p>Check-in</p><strong>{listing.checkInWindow}</strong></article>
+                  <article className={styles.metaItem}><p>Length of stay</p><strong>{listing.nights} nights</strong></article>
                 </div>
-              </article>
-            </div>
+
+                <h3>Amenities</h3>
+                <ul className={styles.amenities}>
+                  {listing.amenities.map((amenity) => (
+                    <li key={amenity}>{amenity}</li>
+                  ))}
+                </ul>
+              </div>
+            </article>
+
+            <aside className={styles.bookingCard}>
+              <p className={styles.bookingTitle}>Book on partner website</p>
+              <p className={styles.bookingPrice}>${listing.price} <span>/ night</span></p>
+              <p className={styles.partnerNote}>You will complete booking and payment directly with the property partner.</p>
+              <a href={listing.websiteUrl} target="_blank" rel="noreferrer" className={styles.primaryAction}>Check availability on partner site</a>
+              <Link href="/bookings/hotels-airbnbs" className={styles.secondaryAction}>Back to stays</Link>
+            </aside>
           </section>
         </div>
       </section>
