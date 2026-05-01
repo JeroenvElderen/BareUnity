@@ -1,55 +1,54 @@
-.page {
-  min-height: 100vh;
-  width: 100%;
-  padding: 1.2rem 1rem 2.6rem;
-  color: rgb(var(--text));
-  background: linear-gradient(180deg, rgb(var(--bg)) 0%, rgb(var(--bg-soft)) 100%);
-}
-
-.shell { margin: 0 auto; max-width: 1220px; display: grid; gap: 1rem; }
-.titleBar, .galleryCard, .listingCard, .bookingCard { border: 1px solid rgb(var(--border)); border-radius: 1rem; background: rgb(var(--card)); box-shadow: 0 10px 26px rgb(var(--brand) / 0.08); }
-
-.titleBar { padding: 1rem 1.1rem; display: flex; justify-content: space-between; gap: 0.8rem; align-items: flex-start; }
-.titleBar h1 { margin: 0; font-size: clamp(1.4rem, 2.7vw, 2rem); color: rgb(var(--text-strong)); }
-.addressLine { margin: 0.4rem 0 0; color: rgb(var(--muted)); font-size: 0.92rem; }
-.scoreBlock { text-align: right; display: grid; gap: 0.12rem; }
-.scoreBlock p, .scoreBlock span { margin: 0; color: rgb(var(--muted)); font-size: 0.8rem; }
-.scoreBlock strong { font-size: 1.26rem; color: rgb(var(--text-strong)); }
-
-.galleryCard { padding: 0.7rem; }
-.galleryGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; }
-.galleryMain, .galleryThumb { margin: 0; min-height: 130px; border-radius: 0.78rem; position: relative; overflow: hidden; }
-.galleryMain img, .galleryThumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.galleryMain { grid-column: span 2; min-height: 260px; }
-.galleryMain::after, .galleryThumb::after { content: ""; position: absolute; inset: 0; background: linear-gradient(0deg, rgb(12 16 24 / 0.62), transparent 55%); }
-.detailsLayout { display: grid; gap: 1rem; }
-.listingBody { padding: 1rem; display: grid; gap: 0.8rem; }
-.badge { margin: 0; width: fit-content; border-radius: 999px; padding: 0.24rem 0.56rem; background: rgb(var(--accent) / 0.16); color: rgb(var(--warning)); font-size: 0.72rem; font-weight: 700; }
-.listingBody h2, .listingBody h3 { margin: 0; color: rgb(var(--text-strong)); }
-.subtext, .vibe { margin: 0; color: rgb(var(--muted)); }
-.vibe { font-size: 0.9rem; }
-
-.metaGrid { display: grid; gap: 0.5rem; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
-.metaItem { border: 1px solid rgb(var(--border)); border-radius: 0.75rem; padding: 0.6rem; background: rgb(var(--bg) / 0.7); }
-.metaItem p { margin: 0; font-size: 0.75rem; color: rgb(var(--muted)); }
-.metaItem strong { font-size: 0.88rem; color: rgb(var(--text-strong)); }
-
-.amenities { margin: 0; padding-left: 1rem; display: grid; gap: 0.35rem; color: rgb(var(--text)); font-size: 0.88rem; }
-
-.bookingCard { padding: 1rem; display: grid; gap: 0.65rem; height: fit-content; }
-.bookingTitle { margin: 0; color: rgb(var(--muted)); font-size: 0.82rem; font-weight: 600; }
-.bookingPrice { margin: 0; font-size: 1.5rem; font-weight: 800; color: rgb(var(--text-strong)); }
-.bookingPrice span { font-size: 0.9rem; color: rgb(var(--muted)); font-weight: 500; }
-.partnerNote { margin: 0; font-size: 0.84rem; color: rgb(var(--muted)); }
-.primaryAction { border: none; border-radius: 0.75rem; padding: 0.68rem 0.8rem; background: rgb(0 113 194); color: white; font-weight: 700; cursor: pointer; text-decoration: none; text-align: center; }
-.secondaryAction { border: 1px solid rgb(var(--border)); border-radius: 0.75rem; padding: 0.58rem 0.7rem; text-decoration: none; text-align: center; color: rgb(var(--text)); font-size: 0.83rem; background: rgb(var(--bg)); }
-
-@media (min-width: 840px) {
-  .galleryGrid { grid-template-columns: 2fr 1fr 1fr; }
-  .galleryMain { grid-column: auto; grid-row: span 2; min-height: 300px; }
-}
-
-@media (min-width: 1040px) {
-  .detailsLayout { grid-template-columns: minmax(0, 1fr) 320px; align-items: start; }
-  .bookingCard { position: sticky; top: 1rem; }
-}
+.page { min-height: 100vh; width: 100%; padding: 1.5rem 1.2rem 3rem; color: #0d1b2a; background: #f6f7f9; }
+.shell { margin: 0 auto; max-width: 1260px; display: grid; gap: 1.6rem; }
+.breadcrumbs { display: flex; gap: 0.6rem; align-items: center; font-size: 0.9rem; color: #74879b; }
+.breadcrumbs a { color: #1d63ff; text-decoration: none; }
+.breadcrumbs p { margin: 0; }
+.titleBarModern { display: flex; justify-content: space-between; align-items: flex-start; }
+.titleBarModern h1 { margin: 0; font-size: clamp(2rem, 5vw, 3rem); }
+.stars { margin: 0.4rem 0; letter-spacing: 0.18rem; }
+.addressLine { margin: 0; color: #7a8ea3; font-size: 1rem; }
+.saveBtn { border: 1px solid #b8d0ff; border-radius: 999px; padding: 0.8rem 1.2rem; background: #f8fbff; color: #6d7d90; font-size: 1.2rem; }
+.galleryModern { display: grid; grid-template-columns: 2.1fr 1fr 1fr; gap: 1rem; }
+.heroPhoto, .subPhoto { margin: 0; border-radius: 0.7rem; overflow: hidden; min-height: 220px; }
+.heroPhoto { grid-row: span 2; min-height: 455px; }
+.heroPhoto img, .subPhoto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tabsMock { display: grid; grid-template-columns: repeat(5, 1fr); border-bottom: 1px solid #cad6e3; }
+.tabsMock span { text-align: center; padding: 0.9rem 0.4rem; }
+.activeTab { background: #2f7bef; color: #fff; }
+.descriptionBlock { display: grid; grid-template-columns: 1fr 340px; gap: 1.5rem; border-bottom: 1px solid #cad6e3; padding-bottom: 1.5rem; }
+.descriptionBlock h2, .servicesBlock h2, .roomsBlock h2, .commentsBlock h2, .policySection h2 { margin: 0 0 0.7rem; font-size: 2rem; }
+.descriptionBlock p { color: #6f8297; line-height: 1.45; max-width: 74ch; }
+.ratingCard strong { font-size: 4rem; color: #2f7bef; background: #dce6f7; border-radius: 0.6rem; padding: 0.75rem 1.2rem; display: inline-block; }
+.ratingCard p, .ratingCard span { margin: 0.4rem 0 0; color: #6f8297; }
+.servicesBlock { border-bottom: 1px solid #cad6e3; padding-bottom: 1.5rem; }
+.serviceHighlights { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 0.9rem; margin-bottom: 1rem; }
+.serviceHighlights p { margin: 0; }
+.serviceColumns { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 1.5rem; }
+.serviceColumns h3 { margin: 0 0 0.5rem; }
+.serviceColumns ul { margin: 0; padding-left: 1rem; color: #6f8297; }
+.serviceColumns li { margin-bottom: 0.5rem; }
+.roomsBlock { border-bottom: 1px solid #cad6e3; padding-bottom: 1.5rem; }
+.roomSearch { display: grid; grid-template-columns: 1fr 1fr 1.5fr auto; gap: 0.8rem; margin-bottom: 1rem; }
+.roomSearch input { border: 1px solid #c4d1de; border-radius: 0.35rem; padding: 0.8rem; }
+.roomSearch button { background: #2f7bef; color: #fff; border: 0; border-radius: 0.35rem; padding: 0.8rem 1.6rem; }
+.roomGrid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 1.2rem; }
+.roomCard { background: #fff; border: 1px solid #d8e0eb; border-radius: 0.7rem; overflow: hidden; }
+.roomCard img { width: 100%; height: 180px; object-fit: cover; display: block; }
+.roomCard div { padding: 1rem; }
+.roomCard h3 { margin: 0; }
+.roomCard ul { margin: 0.7rem 0; padding-left: 1rem; color: #6f8297; min-height: 100px; }
+.roomPrice { font-size: 1.8rem; margin: 0.7rem 0; color: #031128; }
+.roomCard a { display: block; text-align: center; border: 1px solid #2f7bef; color: #2f7bef; border-radius: 0.35rem; padding: 0.55rem; text-decoration: none; }
+.commentsBlock { border-bottom: 1px solid #cad6e3; padding-bottom: 1.5rem; }
+.commentScore strong { font-size: 1.3rem; color: #2f7bef; background: #dce6f7; border-radius: 0.35rem; padding: 0.25rem 0.5rem; margin-right: 0.5rem; }
+.commentBars { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 0.8rem 1.5rem; }
+.commentBars p { margin: 0; font-size: 0.95rem; }
+.commentBars span { display: block; height: 4px; background: #2f7bef; border-radius: 999px; margin-top: 0.5rem; }
+.policyItem { background: #fff; border: 1px solid #d9dfe7; border-top: none; }
+.policyItem:first-of-type { border-top: 1px solid #d9dfe7; border-top-left-radius: 0.6rem; border-top-right-radius: 0.6rem; }
+.policyItem:last-of-type { border-bottom-left-radius: 0.6rem; border-bottom-right-radius: 0.6rem; }
+.policyItem summary { list-style: none; cursor: pointer; padding: 1.2rem; }
+.policyItem summary::-webkit-details-marker { display: none; }
+.policyItem p { margin: 0; color: #6f8297; padding: 0 1.2rem 1.2rem; }
+@media (max-width: 1100px) { .serviceHighlights { grid-template-columns: repeat(2, minmax(0,1fr)); } .roomGrid, .serviceColumns, .commentBars { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 980px) { .galleryModern { grid-template-columns: 1fr 1fr; } .heroPhoto { grid-column: span 2; grid-row: auto; min-height: 300px; } .descriptionBlock, .roomSearch, .roomGrid, .serviceColumns, .commentBars { grid-template-columns: 1fr; } }
