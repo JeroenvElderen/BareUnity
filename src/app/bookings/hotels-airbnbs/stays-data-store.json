@@ -36,6 +36,62 @@
     "websiteUrl": "https://naturisme-athena.org/ossendrecht/",
     "address": "Postbaan 8, 4641 RM Ossendrecht, Netherlands",
     "checkInWindow": "Check-in afternoon · Check-out morning",
+    "policies": [
+      {
+        "category": "Check-in and check-out",
+        "items": [
+          "Check-in from 14:00",
+          "Check-out by 11:00",
+          "Early check-in subject to availability",
+          "Late check-out on request"
+        ]
+      },
+      {
+        "category": "Cancellation",
+        "items": [
+          "Terms vary by season",
+          "Policy depends on accommodation type",
+          "Date changes may be possible",
+          "Refund rules confirmed by property"
+        ]
+      },
+      {
+        "category": "Accepted payment methods",
+        "items": [
+          "Major cards accepted",
+          "Cash accepted on site",
+          "Deposit may require card",
+          "Extras charged at checkout"
+        ]
+      },
+      {
+        "category": "Property policy",
+        "items": [
+          "Naturist-focused environment",
+          "Respect shared-space etiquette",
+          "Quiet hours apply in evenings",
+          "Community guidelines posted on arrival"
+        ]
+      },
+      {
+        "category": "Security",
+        "items": [
+          "On-site staff available",
+          "Reception support during open hours",
+          "Controlled access in shared areas",
+          "Guests should secure valuables"
+        ]
+      },
+      {
+        "category": "Pets",
+        "items": [
+          "Pet acceptance by request",
+          "Rules vary by stay category",
+          "Leash required in common areas",
+          "Extra cleaning fee may apply"
+        ]
+      }
+    ],
     "gallery": [
       "https://naturisme-athena.org/wp-content/uploads/2025/06/ATHENA-202506-©BUROBONITO-80-960x640.jpg",
       "https://naturisme-athena.org/wp-content/uploads/2025/06/ATHENA-202506-©BUROBONITO-47-960x1440.jpg",

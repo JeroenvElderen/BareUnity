@@ -8,8 +8,6 @@ type StayDetailsPageProps = {
   params: Promise<{ slug: string }>;
 };
 
-const policyItems = ["Check-in and check-out", "Cancellation", "Accepted payment methods", "Hotel policy", "Security", "Pets"];
-
 export const dynamic = "force-dynamic";
 export const dynamicParams = true;
 
@@ -30,8 +28,16 @@ export default async function StayDetailsPage({ params }: StayDetailsPageProps) 
           <section className={styles.galleryModern}>
             {galleryItems.map((imageUrl, idx) => (
               <figure key={`${imageUrl}-${idx}`} className={idx === 0 ? styles.heroPhoto : styles.subPhoto}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={imageUrl} alt={`${listing.name} photo ${idx + 1}`} loading={idx === 0 ? "eager" : "lazy"} />
+                <a
+                  href={imageUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={styles.photoLink}
+                  aria-label={`Open full size photo ${idx + 1} for ${listing.name}`}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={imageUrl} alt={`${listing.name} photo ${idx + 1}`} loading={idx === 0 ? "eager" : "lazy"} />
+                </a>
               </figure>
             ))}
           </section>
@@ -51,7 +57,16 @@ export default async function StayDetailsPage({ params }: StayDetailsPageProps) 
 
           <section className={styles.policySection}>
             <h2>Property policies</h2>
-            {policyItems.map((item) => <details key={item} className={styles.policyItem}><summary>{item}</summary><p>Please verify these details directly with the property partner before booking.</p></details>)}
+            {listing.policies.map((policy) => (
+              <article key={policy.category} className={styles.policyCategory}>
+                <h3>{policy.category}</h3>
+                <ul className={styles.policyTags}>
+                  {policy.items.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </article>
+            ))}
           </section>
         </div>
       </section>
