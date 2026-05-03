@@ -1,12 +1,12 @@
 export type Listing = {
   slug: string;
   name: string;
-  location: string;
-  type: "Hotel" | "Entire place" | "Boutique stay";
+  country: string;
+  placeName: string;
+  type: "Hotel" | "Entire place" | "Boutique stay" | "Naturist camping";
   rating: number;
   reviews: number;
   price: number;
-  nights: number;
   badge: string;
   vibe: string;
   amenities: string[];
@@ -21,12 +21,12 @@ export const listings: Listing[] = [
   {
     slug: "harbor-light-suites",
     name: "Harbor Light Suites",
-    location: "San Diego · Waterfront",
+    country: "United Stats",
+    placeName: "San Diego · Waterfront",
     type: "Hotel",
     rating: 9.1,
     reviews: 842,
     price: 248,
-    nights: 4,
     badge: "Best value",
     vibe: "Resort energy · Morning yoga · Sunset terrace",
     amenities: ["Dogs allowed", "Private bathroom", "Toiletries", "Breakfast included", "Free cancellation", "Ocean-view suites"],
@@ -43,15 +43,16 @@ export const listings: Listing[] = [
       "https://picsum.photos/seed/harbor-light-suites-4/1200/800",
     ],
   },
+  
   {
     slug: "sage-loft-by-the-park",
     name: "Sage Loft by the Park",
-    location: "Austin · Zilker",
+    country: "United States",
+    placeName: "Austin · Zilker",
     type: "Entire place",
     rating: 4.88,
     reviews: 167,
     price: 192,
-    nights: 4,
     badge: "Guest favorite",
     vibe: "Quiet block · Walkable coffee shops · Remote-work setup",
     amenities: ["Dogs allowed", "Full bathroom", "Kitchen", "Self check-in", "Workspace", "Superhost"],
@@ -69,14 +70,60 @@ export const listings: Listing[] = [
     ],
   },
   {
+  slug: "athena-naturist-park-ossendrecht",
+  name: "Athena Naturist Park",
+  country: "Netherlands",
+  placeName: "Ossendrecht · North Brabant",
+  type: "Naturist camping",
+  rating: 8.5,
+  reviews: 200,
+  price: 35,
+  badge: "Naturist wellness & spa",
+  vibe: "Naturist retreat · Forest camping & glamping · Social clubhouse energy",
+  amenities: [
+    "Pool",
+    "Sauna",
+    "Sunbathing lawn",
+    "Clubhouse",
+    "Bar",
+    "Terrace",
+    "Fresh bread service",
+    "Communal meals",
+    "Sanitary facilities",
+    "Showers",
+    "Laundry",
+    "WiFi",
+    "Playground",
+    "Sports courts",
+    "Activities",
+    "BBQ",
+    "Camping pitches",
+    "Glamping",
+    "Parking",
+    "Cycling access"
+  ],
+  description:
+    "Relaxed naturist park set in forest surroundings with camping and glamping options, a wellness area with sauna and pool, and a friendly clubhouse scene with regular social activities.",
+  websiteUrl: "https://naturisme-athena.org/ossendrecht/",
+  address: "Postbaan 8, 4641 RM Ossendrecht, Netherlands",
+  checkInWindow: "Check-in afternoon · Check-out morning",
+  gallery: [
+    "https://picsum.photos/seed/athena-ossendrecht-0/1200/800",
+    "https://picsum.photos/seed/athena-ossendrecht-1/1200/800",
+    "https://picsum.photos/seed/athena-ossendrecht-2/1200/800",
+    "https://picsum.photos/seed/athena-ossendrecht-3/1200/800",
+    "https://picsum.photos/seed/athena-ossendrecht-4/1200/800"
+  ]
+},
+  {
     slug: "palm-courtyard-retreat",
     name: "Palm Courtyard Retreat",
-    location: "Miami · South Beach",
+    country: "United States",
+    placeName: "Miami · South Beach",
     type: "Boutique stay",
     rating: 8.7,
     reviews: 513,
     price: 276,
-    nights: 4,
     badge: "Free airport transfer",
     vibe: "Design-forward rooms · Spa package · Rooftop lounge",
     amenities: ["Pool", "Spa bathroom", "Toiletries", "Late checkout", "Pay at property"],

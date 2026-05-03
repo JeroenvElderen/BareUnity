@@ -19,7 +19,7 @@ export function StaysListClient({ listings }: StaysListClientProps) {
   const [guests, setGuests] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("rating");
   const [ratingFilter, setRatingFilter] = useState<RatingFilter | null>(null);
-  const [selectedTypes, setSelectedTypes] = useState<Record<string, boolean>>({ Hotel: false, "Entire place": false, "Boutique stay": false });
+  const [selectedTypes, setSelectedTypes] = useState<Record<string, boolean>>({ Hotel: false, "Entire place": false, "Boutique stay": false, "Naturist camping": false });
 
   const hasTypeFilters = Object.values(selectedTypes).some(Boolean);
   const hasActiveFilters =
@@ -35,7 +35,8 @@ export function StaysListClient({ listings }: StaysListClientProps) {
     const filtered = listings.filter((listing) => {
       const matchesDestination =
         destinationLower.length === 0 ||
-        listing.location.toLowerCase().includes(destinationLower) ||
+        listing.placeName.toLowerCase().includes(destinationLower) ||
+        listing.country.toLowerCase().includes(destinationLower) ||
         listing.name.toLowerCase().includes(destinationLower);
       const matchesType = !hasTypeFilters || (selectedTypes[listing.type] ?? false);
       const matchesRating =
@@ -60,7 +61,7 @@ export function StaysListClient({ listings }: StaysListClientProps) {
     setCheckOut("");
     setGuests("");
     setRatingFilter(null);
-    setSelectedTypes({ Hotel: false, "Entire place": false, "Boutique stay": false });
+    setSelectedTypes({ Hotel: false, "Entire place": false, "Boutique stay": false, "Naturist camping": false });
   };
 
   return (
@@ -69,7 +70,7 @@ export function StaysListClient({ listings }: StaysListClientProps) {
       <section className={styles.searchPanel}>
         <div>
           <h1 className={styles.title}>Find your next stay</h1>
-          <p className={styles.subtitle}>Compare hotels, resorts, and entire places with unified filters and quick booking links.</p>
+          <p className={styles.subtitle}>Compare hotels, resorts, and entire places with unified filters and quick booking links.</p><p className={styles.subtitle}>Compare hotels, camping, and entire places with unified filters and quick booking links.</p>
         </div>
         <form className={styles.searchRow} aria-label="Accommodation search form" onSubmit={(e) => e.preventDefault()}>
           <label className={styles.field}><span>Destination</span><input value={destination} onChange={(e) => setDestination(e.target.value)} /></label>
@@ -95,11 +96,12 @@ export function StaysListClient({ listings }: StaysListClientProps) {
             <div className={styles.filterGroup}>
               <h3>Type of stay</h3>
               <label><input type="checkbox" checked={selectedTypes.Hotel} onChange={() => toggleType("Hotel")} /> Hotels</label>
-              <label><input type="checkbox" checked={selectedTypes["Boutique stay"]} onChange={() => toggleType("Boutique stay")} /> Resorts</label>
+              <label><input type="checkbox" checked={selectedTypes["Boutique stay"]} onChange={() => toggleType("Boutique stay")} /> Boutique stays</label>
+              <label><input type="checkbox" checked={selectedTypes["Naturist camping"]} onChange={() => toggleType("Naturist camping")} /> Naturist camping</label>
               <label><input type="checkbox" checked={selectedTypes["Entire place"]} onChange={() => toggleType("Entire place")} /> Entire places</label>
             </div>
             {hasActiveFilters ? (
-              <button type="button" className={styles.resetButton} onClick={resetFilters}>
+              <button type="button" className={styles.searchButton} onClick={resetFilters}>
                 Reset filters
               </button>
             ) : null}
@@ -132,7 +134,7 @@ export function StaysListClient({ listings }: StaysListClientProps) {
                       <div>
                         <p className={styles.badge}>{listing.badge}</p>
                         <h3 className={styles.name}>{listing.name}</h3>
-                        <p className={styles.location}>{listing.location}</p>
+                        <p className={styles.location}>{listing.placeName}, {listing.country}</p>
                         <p className={styles.vibe}>{listing.vibe}</p>
                       </div>
                       <p className={styles.rating}><strong>{listing.rating.toFixed(1)}</strong><br />{listing.reviews} ratings</p>

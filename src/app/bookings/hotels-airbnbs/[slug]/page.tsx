@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppSidebar } from "@/components/sidebar/sidebar";
 import layoutStyles from "@/app/page.module.css";
@@ -26,7 +25,7 @@ export default async function StayDetailsPage({ params }: StayDetailsPageProps) 
       <AppSidebar />
       <section className={styles.page}>
         <div className={styles.shell}>
-          <header className={styles.titleBarModern}><div><p className={styles.badgePill}>{listing.badge}</p><h1>{listing.name}</h1><p className={styles.addressLine}>{listing.address}</p><p className={styles.vibeText}>{listing.vibe}</p><div className={styles.quickMeta}><span>{listing.type}</span><span>{listing.location}</span><span>{listing.rating.toFixed(1)} rating</span></div></div><a className={styles.bookNowBtn} href={listing.websiteUrl} target="_blank" rel="noreferrer">Book now</a></header>
+          <header className={styles.titleBarModern}><div><p className={styles.badgePill}>{listing.badge}</p><h1>{listing.name}</h1><p className={styles.addressLine}>{listing.address}</p><p className={styles.vibeText}>{listing.vibe}</p><div className={styles.quickMeta}><span>{listing.type}</span><span>{listing.placeName}, {listing.country}</span><span>{listing.rating.toFixed(1)} rating</span></div></div><a className={styles.bookNowBtn} href={listing.websiteUrl} target="_blank" rel="noreferrer">Book now</a></header>
 
           <section className={styles.galleryModern}>
             {galleryItems.map((imageUrl, idx) => (
