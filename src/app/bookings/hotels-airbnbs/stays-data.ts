@@ -1,3 +1,6 @@
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+
 export type Listing = {
   slug: string;
   name: string;
@@ -17,59 +20,18 @@ export type Listing = {
   gallery: string[];
 };
 
-export const listings: Listing[] = [
-  {
-    slug: "athena-naturist-park-ossendrecht",
-    name: "Athena Naturist Park",
-    country: "Netherlands",
-    placeName: "Ossendrecht · North Brabant",
-    type: "Naturist camping",
-    rating: 8.5,
-    reviews: 200,
-    price: 35,
-    badge: "Naturist wellness & spa",
-    vibe: "Naturist retreat · Forest camping & glamping · Social clubhouse energy",
-    amenities: [
-      "Pool",
-      "Sauna",
-      "Sunbathing lawn",
-      "Clubhouse",
-      "Bar",
-      "Terrace",
-      "Fresh bread service",
-      "Communal meals",
-      "Sanitary facilities",
-      "Showers",
-      "Laundry",
-      "WiFi",
-      "Playground",
-      "Sports courts",
-      "Activities",
-      "BBQ",
-      "Camping pitches",
-      "Glamping",
-      "Parking",
-      "Cycling access",
-    ],
-    description:
-      "Relaxed naturist park set in forest surroundings with camping and glamping options, a wellness area with sauna and pool, and a friendly clubhouse scene with regular social activities.",
-    websiteUrl: "https://naturisme-athena.org/ossendrecht/",
-    address: "Postbaan 8, 4641 RM Ossendrecht, Netherlands",
-    checkInWindow: "Check-in afternoon · Check-out morning",
-    gallery: [
-      "https://picsum.photos/seed/athena-ossendrecht-0/1200/800",
-      "https://picsum.photos/seed/athena-ossendrecht-1/1200/800",
-      "https://picsum.photos/seed/athena-ossendrecht-2/1200/800",
-      "https://picsum.photos/seed/athena-ossendrecht-3/1200/800",
-      "https://picsum.photos/seed/athena-ossendrecht-4/1200/800",
-    ],
-  },
-];
+const DATA_FILE_PATH = path.join(process.cwd(), "src/app/bookings/hotels-airbnbs/stays-data-store.json");
+
+async function readListingsFromDisk() {
+  const raw = await readFile(DATA_FILE_PATH, "utf8");
+  return JSON.parse(raw) as Listing[];
+}
 
 export async function getListings() {
-  return listings;
+  return readListingsFromDisk();
 }
 
 export async function getListingBySlug(slug: string) {
+  const listings = await readListingsFromDisk();
   return listings.find((listing) => listing.slug === slug);
 }

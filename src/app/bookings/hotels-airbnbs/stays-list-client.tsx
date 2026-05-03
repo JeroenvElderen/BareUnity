@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import styles from "./stays-list.module.css";
 import type { Listing } from "./stays-data";
@@ -13,7 +13,39 @@ type SortOption = "rating" | "price-low" | "price-high";
 type RatingFilter = "9" | "8" | "7";
 
 export function StaysListClient({ listings }: StaysListClientProps) {
-  const stayTypes = useMemo(() => Array.from(new Set(listings.map((listing) => listing.type))), [listings]);
+  const [liveListings, setLiveListings] = useState<Listing[]>(listings);
+
+  useEffect(() => {
+    setLiveListings(listings);
+  }, [listings]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const pullLatest = async () => {
+      try {
+        const response = await fetch("/api/bookings/hotels-airbnbs", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        if (!response.ok) return;
+        const data = (await response.json()) as { listings?: Listing[] };
+        if (Array.isArray(data.listings)) setLiveListings(data.listings);
+      } catch {
+        // silently ignore polling errors
+      }
+    };
+
+    pullLatest();
+    const intervalId = setInterval(pullLatest, 10000);
+
+    return () => {
+      controller.abort();
+      clearInterval(intervalId);
+    };
+  }, []);
+
+  const stayTypes = useMemo(() => Array.from(new Set(liveListings.map((listing) => listing.type))), [liveListings]);
   const emptyTypeFilters = useMemo(() => Object.fromEntries(stayTypes.map((type) => [type, false])) as Record<string, boolean>, [stayTypes]);
   const [destination, setDestination] = useState("");
   const [checkIn, setCheckIn] = useState("");
@@ -34,7 +66,7 @@ export function StaysListClient({ listings }: StaysListClientProps) {
 
   const results = useMemo(() => {
     const destinationLower = destination.trim().toLowerCase();
-    const filtered = listings.filter((listing) => {
+    const filtered = liveListings.filter((listing) => {
       const matchesDestination =
         destinationLower.length === 0 ||
         listing.placeName.toLowerCase().includes(destinationLower) ||
@@ -54,7 +86,7 @@ export function StaysListClient({ listings }: StaysListClientProps) {
       if (sortBy === "price-high") return b.price - a.price;
       return b.rating - a.rating;
     });
-  }, [destination, hasTypeFilters, listings, ratingFilter, selectedTypes, sortBy]);
+  }, [destination, hasTypeFilters, liveListings, ratingFilter, selectedTypes, sortBy]);
 
   const toggleType = (type: Listing["type"]) => setSelectedTypes((current) => ({ ...current, [type]: !current[type] }));
   const resetFilters = () => {
@@ -146,7 +178,7 @@ export function StaysListClient({ listings }: StaysListClientProps) {
                     </ul>
 
                     <div className={styles.bottom}>
-                      <p className={styles.price}>${listing.price} <span>/ night</span></p>
+                      <p className={styles.price}>from: €{listing.price} <span>/ night</span></p>
                       <div className={styles.actions}>
                         <a href={listing.websiteUrl} target="_blank" rel="noreferrer" className={styles.bookBtn}>Book</a>
                         <Link href={`/bookings/hotels-airbnbs/${listing.slug}`} className={styles.detailsBtn}>See more details</Link>

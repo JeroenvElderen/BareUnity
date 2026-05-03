@@ -524,7 +524,9 @@ export function AppSidebar() {
   };
 
   return (
-    <aside className={styles.sidebar} aria-label="Main sidebar navigation">
+    <>
+      <div className={styles.sidebarRail} aria-hidden />
+      <aside className={styles.sidebar} aria-label="Main sidebar navigation">
       <header className={styles.header}>
         <div className={styles.logoMark} aria-hidden>
           <Sparkles size={16} />
@@ -799,6 +801,7 @@ export function AppSidebar() {
           ))}
         </div>
       ) : null}
-    </aside>
+      </aside>
+    </>
   );
 }
