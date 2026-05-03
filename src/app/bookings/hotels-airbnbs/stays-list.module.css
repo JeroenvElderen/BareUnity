@@ -52,6 +52,14 @@
 .filterHint { margin: 0; color: rgb(var(--muted)); font-size: .9rem; }
 .filterGroup h3 { margin:0 0 .55rem; font-size:1rem; color: rgb(var(--text-strong)); }
 .filterGroup label { display:flex; gap:.5rem; margin:.45rem 0; color: rgb(var(--text)); }
+.resetButton {
+  border: 1px solid rgb(var(--border));
+  background: rgb(var(--bg));
+  color: rgb(var(--text-strong));
+  border-radius: .65rem;
+  padding: .55rem .9rem;
+  font-weight: 700;
+}
 
 .resultsWrap { padding: 1rem; display: grid; gap: 1rem; }
 .resultsTop { display:flex; justify-content:space-between; align-items:center; gap:.8rem; }

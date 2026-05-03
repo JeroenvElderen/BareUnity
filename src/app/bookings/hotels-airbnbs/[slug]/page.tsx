@@ -26,7 +26,6 @@ export default async function StayDetailsPage({ params }: StayDetailsPageProps) 
       <AppSidebar />
       <section className={styles.page}>
         <div className={styles.shell}>
-          <nav className={styles.breadcrumbs}><Link href="/">Home</Link><span>›</span><Link href="/bookings/hotels-airbnbs">Search results</Link><span>›</span><p>{listing.name}</p></nav>
           <header className={styles.titleBarModern}><div><p className={styles.badgePill}>{listing.badge}</p><h1>{listing.name}</h1><p className={styles.addressLine}>{listing.address}</p><p className={styles.vibeText}>{listing.vibe}</p><div className={styles.quickMeta}><span>{listing.type}</span><span>{listing.location}</span><span>{listing.rating.toFixed(1)} rating</span></div></div><a className={styles.bookNowBtn} href={listing.websiteUrl} target="_blank" rel="noreferrer">Book now</a></header>
 
           <section className={styles.galleryModern}>
