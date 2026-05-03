@@ -158,7 +158,7 @@ export function StaysListClient({ listings }: StaysListClientProps) {
                         <p className={styles.location}>{listing.placeName}, {listing.country}</p>
                         <p className={styles.vibe}>{listing.vibe}</p>
                       </div>
-                      <p className={styles.rating}><strong>{listing.rating.toFixed(1)}</strong><br />{listing.reviews} ratings (out of 5)</p>
+                      <p className={styles.rating}><strong>{listing.rating.toFixed(1)}</strong></p>
                     </div>
 
                     <ul className={styles.amenities}>
