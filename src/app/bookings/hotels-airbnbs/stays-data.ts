@@ -18,6 +18,10 @@ export type Listing = {
   address: string;
   checkInWindow: string;
   gallery: string[];
+  policies: Array<{
+    category: string;
+    items: string[];
+  }>;
 };
 
 const DATA_FILE_PATH = path.join(process.cwd(), "src/app/bookings/hotels-airbnbs/stays-data-store.json");

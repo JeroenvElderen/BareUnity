@@ -13,10 +13,13 @@
 .quickMeta span { padding: .27rem .6rem; border-radius: 999px; background: rgb(var(--bg)); border: 1px solid rgb(var(--border)); color: rgb(var(--muted)); font-size: .82rem; }
 .bookNowBtn { border: none; border-radius: 0.75rem; padding: 0.72rem 1rem; background: rgb(var(--brand)); color: #fff; font-weight: 700; text-decoration: none; white-space: nowrap; box-shadow: 0 8px 18px rgb(var(--brand) / 0.35); }
 
-.galleryModern { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 0.8rem; }
+.galleryModern { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 0.8rem; }
 .heroPhoto, .subPhoto { margin: 0; border-radius: 0.8rem; overflow: hidden; min-height: 200px; border: 1px solid rgb(var(--border)); background: rgb(var(--card)); }
-.heroPhoto { grid-row: span 2; min-height: 410px; }
-.heroPhoto img, .subPhoto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.heroPhoto { grid-row: span 2; min-height: 320px; }
+.subPhoto { min-height: 155px; }
+.photoLink { display: block; width: 100%; height: 100%; }
+.heroPhoto img, .subPhoto img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .25s ease; }
+.photoLink:hover img, .photoLink:focus-visible img { transform: scale(1.04); }
 
 .descriptionBlock { display: grid; grid-template-columns: 1fr 280px; gap: 1rem; }
 .descriptionBlock article, .ratingCard, .servicesBlock, .policySection { border: 1px solid rgb(var(--border)); border-radius: 1rem; background: rgb(var(--card)); padding: 1rem; }
@@ -30,12 +33,11 @@
 .amenitiesList { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 0.55rem; }
 .amenitiesList li { border: 1px solid rgb(var(--border)); border-radius: 999px; padding: 0.38rem 0.72rem; background: rgb(var(--bg-soft)); color: rgb(var(--text)); font-size: 0.9rem; }
 
-.policyItem { background: rgb(var(--card)); border: 1px solid rgb(var(--border)); border-top: none; }
-.policyItem:first-of-type { border-top: 1px solid rgb(var(--border)); border-top-left-radius: 0.6rem; border-top-right-radius: 0.6rem; }
-.policyItem:last-of-type { border-bottom-left-radius: 0.6rem; border-bottom-right-radius: 0.6rem; }
-.policyItem summary { list-style: none; cursor: pointer; padding: 1rem; color: rgb(var(--text-strong)); }
-.policyItem summary::-webkit-details-marker { display: none; }
-.policyItem p { margin: 0; color: rgb(var(--muted)); padding: 0 1rem 1rem; }
+.policySection { display: grid; gap: 0.9rem; }
+.policyCategory { border: 1px solid rgb(var(--border)); border-radius: 0.8rem; background: rgb(var(--bg-soft)); padding: 0.9rem; }
+.policyCategory h3 { margin: 0 0 0.65rem; color: rgb(var(--text-strong)); font-size: 1rem; }
+.policyTags { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.policyTags li { border: 1px solid rgb(var(--border)); border-radius: 999px; padding: 0.35rem 0.7rem; background: rgb(var(--bg)); color: rgb(var(--muted)); font-size: 0.88rem; }
 
 @media (max-width: 980px) {
   .galleryModern { grid-template-columns: 1fr 1fr; }

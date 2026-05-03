@@ -10,7 +10,7 @@ type StaysListClientProps = {
 };
 
 type SortOption = "rating" | "price-low" | "price-high";
-type RatingFilter = "9" | "8" | "7";
+type RatingFilter = "4_5" | "4" | "3_5";
 
 export function StaysListClient({ listings }: StaysListClientProps) {
   const [liveListings, setLiveListings] = useState<Listing[]>(listings);
@@ -48,9 +48,6 @@ export function StaysListClient({ listings }: StaysListClientProps) {
   const stayTypes = useMemo(() => Array.from(new Set(liveListings.map((listing) => listing.type))), [liveListings]);
   const emptyTypeFilters = useMemo(() => Object.fromEntries(stayTypes.map((type) => [type, false])) as Record<string, boolean>, [stayTypes]);
   const [destination, setDestination] = useState("");
-  const [checkIn, setCheckIn] = useState("");
-  const [checkOut, setCheckOut] = useState("");
-  const [guests, setGuests] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("rating");
   const [ratingFilter, setRatingFilter] = useState<RatingFilter | null>(null);
   const [selectedTypes, setSelectedTypes] = useState<Record<string, boolean>>(emptyTypeFilters);
@@ -58,9 +55,6 @@ export function StaysListClient({ listings }: StaysListClientProps) {
   const hasTypeFilters = Object.values(selectedTypes).some(Boolean);
   const hasActiveFilters =
     destination.trim().length > 0 ||
-    checkIn.trim().length > 0 ||
-    checkOut.trim().length > 0 ||
-    guests.trim().length > 0 ||
     ratingFilter !== null ||
     hasTypeFilters;
 
@@ -75,9 +69,9 @@ export function StaysListClient({ listings }: StaysListClientProps) {
       const matchesType = !hasTypeFilters || (selectedTypes[listing.type] ?? false);
       const matchesRating =
         ratingFilter === null ||
-        (ratingFilter === "9" && listing.rating >= 9) ||
-        (ratingFilter === "8" && listing.rating >= 8) ||
-        (ratingFilter === "7" && listing.rating >= 7);
+        (ratingFilter === "4_5" && listing.rating >= 4.5) ||
+        (ratingFilter === "4" && listing.rating >= 4) ||
+        (ratingFilter === "3_5" && listing.rating >= 3.5);
       return matchesDestination && matchesType && matchesRating;
     });
 
@@ -91,9 +85,6 @@ export function StaysListClient({ listings }: StaysListClientProps) {
   const toggleType = (type: Listing["type"]) => setSelectedTypes((current) => ({ ...current, [type]: !current[type] }));
   const resetFilters = () => {
     setDestination("");
-    setCheckIn("");
-    setCheckOut("");
-    setGuests("");
     setRatingFilter(null);
     setSelectedTypes(emptyTypeFilters);
   };
@@ -108,10 +99,7 @@ export function StaysListClient({ listings }: StaysListClientProps) {
         </div>
         <form className={styles.searchRow} aria-label="Accommodation search form" onSubmit={(e) => e.preventDefault()}>
           <label className={styles.field}><span>Destination</span><input value={destination} onChange={(e) => setDestination(e.target.value)} /></label>
-          <label className={styles.field}><span>Check in</span><input value={checkIn} onChange={(e) => setCheckIn(e.target.value)} /></label>
-          <label className={styles.field}><span>Check out</span><input value={checkOut} onChange={(e) => setCheckOut(e.target.value)} /></label>
-          <label className={styles.field}><span>Guests</span><input value={guests} onChange={(e) => setGuests(e.target.value)} /></label>
-          <button type="submit" className={styles.searchButton}>Update results</button>
+                    <button type="submit" className={styles.searchButton}>Update results</button>
         </form>
       </section>
 
@@ -123,9 +111,9 @@ export function StaysListClient({ listings }: StaysListClientProps) {
             <div className={styles.filterGroup}>
               <h3>Rating</h3>
               <label><input type="radio" name="rating" checked={ratingFilter === null} onChange={() => setRatingFilter(null)} /> All ratings</label>
-              <label><input type="radio" name="rating" checked={ratingFilter === "9"} onChange={() => setRatingFilter("9")} /> 9+ Wonderful</label>
-              <label><input type="radio" name="rating" checked={ratingFilter === "8"} onChange={() => setRatingFilter("8")} /> 8+ Very good</label>
-              <label><input type="radio" name="rating" checked={ratingFilter === "7"} onChange={() => setRatingFilter("7")} /> 7+ Good</label>
+              <label><input type="radio" name="rating" checked={ratingFilter === "4_5"} onChange={() => setRatingFilter("4_5")} /> 4.5+ Outstanding</label>
+              <label><input type="radio" name="rating" checked={ratingFilter === "4"} onChange={() => setRatingFilter("4")} /> 4+ Excellent</label>
+              <label><input type="radio" name="rating" checked={ratingFilter === "3_5"} onChange={() => setRatingFilter("3_5")} /> 3.5+ Great</label>
             </div>
             <div className={styles.filterGroup}>
               <h3>Type of stay</h3>
@@ -170,7 +158,7 @@ export function StaysListClient({ listings }: StaysListClientProps) {
                         <p className={styles.location}>{listing.placeName}, {listing.country}</p>
                         <p className={styles.vibe}>{listing.vibe}</p>
                       </div>
-                      <p className={styles.rating}><strong>{listing.rating.toFixed(1)}</strong><br />{listing.reviews} ratings</p>
+                      <p className={styles.rating}><strong>{listing.rating.toFixed(1)}</strong><br />{listing.reviews} ratings (out of 5)</p>
                     </div>
 
                     <ul className={styles.amenities}>
