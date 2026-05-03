@@ -35,53 +35,71 @@
 
 .policySection {
   display: grid;
-  gap: 1rem;
-  padding: 1.25rem;
-  border-radius: 1rem;
+  gap: 1.1rem;
+  padding: 1.3rem;
+  border-radius: 1.1rem;
   border: 1px solid rgb(var(--border));
-  background: rgb(var(--card));
+  background: radial-gradient(circle at top right, rgb(var(--brand) / 0.12), transparent 46%), rgb(var(--card));
+}
+
+.policyHeader h2 {
+  margin: 0;
+}
+
+.policyHeader p {
+  margin: 0.45rem 0 0;
+  color: rgb(var(--muted));
+  max-width: 62ch;
+  line-height: 1.45;
+}
+
+.policyGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
 }
 
 .policyCategory {
   display: grid;
-  grid-template-columns: 220px 1fr;
-  gap: 1rem;
-  align-items: start;
+  gap: 0.65rem;
   padding: 1rem;
-  border-radius: 0.85rem;
-  background: rgb(var(--bg-soft));
+  border-radius: 0.95rem;
+  background: linear-gradient(180deg, rgb(var(--bg)) 0%, rgb(var(--bg-soft)) 100%);
   border: 1px solid rgb(var(--border));
-}
-
-.policyCategory + .policyCategory {
-  border-top: none;
 }
 
 .policySummary {
   margin: 0;
-  color: rgb(var(--text-strong));
-  font-size: 0.82rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  font-weight: 800;
+  color: rgb(var(--brand));
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
-.policyTags {
+.policyList {
   margin: 0;
   padding: 0;
   list-style: none;
   display: grid;
-  gap: 0.5rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
 }
 
-.policyTags li {
-  border: 0;
-  border-radius: 0.55rem;
-  padding: 0.5rem 0.65rem;
-  background: rgb(var(--card));
+.policyList li {
+  display: flex;
+  gap: 0.55rem;
+  align-items: flex-start;
   color: rgb(var(--text));
   font-size: 0.9rem;
-  font-weight: 500;
+  line-height: 1.4;
+}
+
+.policyList li::before {
+  content: "•";
+  color: rgb(var(--brand));
+  font-size: 1.05rem;
+  line-height: 1.05;
+  margin-top: 0.08rem;
 }
 
 
@@ -90,4 +108,5 @@
   .heroPhoto { grid-column: span 2; grid-row: auto; min-height: 280px; }
   .descriptionBlock { grid-template-columns: 1fr; }
   .titleBarModern { flex-direction: column; }
+  .policyGrid { grid-template-columns: 1fr; }
 }

@@ -97,19 +97,27 @@ export default async function StayDetailsPage({
           </section>
 
           <section className={styles.policySection}>
-            <h2>Property policies</h2>
+            <div className={styles.policyHeader}>
+              <h2>Property policies</h2>
+              <p>
+                Everything to know before arrival, organized into quick sections
+                for easier planning.
+              </p>
+            </div>
 
-            {listing.policies.map((policy) => (
-              <div key={policy.category} className={styles.policyCategory}>
-                <h3 className={styles.policySummary}>{policy.category}</h3>
+            <div className={styles.policyGrid}>
+              {listing.policies.map((policy) => (
+                <article key={policy.category} className={styles.policyCategory}>
+                  <h3 className={styles.policySummary}>{policy.category}</h3>
 
-                <ul className={styles.policyTags}>
-                  {policy.items.map((item) => (
-                    <li key={item}>{item}</li>
-                  ))}
-                </ul>
-              </div>
-            ))}
+                  <ul className={styles.policyList}>
+                    {policy.items.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                </article>
+              ))}
+            </div>
           </section>
         </div>
       </section>
