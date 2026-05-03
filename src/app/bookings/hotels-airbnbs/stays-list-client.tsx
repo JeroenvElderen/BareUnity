@@ -13,13 +13,15 @@ type SortOption = "rating" | "price-low" | "price-high";
 type RatingFilter = "9" | "8" | "7";
 
 export function StaysListClient({ listings }: StaysListClientProps) {
+  const stayTypes = useMemo(() => Array.from(new Set(listings.map((listing) => listing.type))), [listings]);
+  const emptyTypeFilters = useMemo(() => Object.fromEntries(stayTypes.map((type) => [type, false])) as Record<string, boolean>, [stayTypes]);
   const [destination, setDestination] = useState("");
   const [checkIn, setCheckIn] = useState("");
   const [checkOut, setCheckOut] = useState("");
   const [guests, setGuests] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("rating");
   const [ratingFilter, setRatingFilter] = useState<RatingFilter | null>(null);
-  const [selectedTypes, setSelectedTypes] = useState<Record<string, boolean>>({ Hotel: false, "Entire place": false, "Boutique stay": false, "Naturist camping": false });
+  const [selectedTypes, setSelectedTypes] = useState<Record<string, boolean>>(emptyTypeFilters);
 
   const hasTypeFilters = Object.values(selectedTypes).some(Boolean);
   const hasActiveFilters =
@@ -61,7 +63,7 @@ export function StaysListClient({ listings }: StaysListClientProps) {
     setCheckOut("");
     setGuests("");
     setRatingFilter(null);
-    setSelectedTypes({ Hotel: false, "Entire place": false, "Boutique stay": false, "Naturist camping": false });
+    setSelectedTypes(emptyTypeFilters);
   };
 
   return (
@@ -70,7 +72,7 @@ export function StaysListClient({ listings }: StaysListClientProps) {
       <section className={styles.searchPanel}>
         <div>
           <h1 className={styles.title}>Find your next stay</h1>
-          <p className={styles.subtitle}>Compare hotels, resorts, and entire places with unified filters and quick booking links.</p><p className={styles.subtitle}>Compare hotels, camping, and entire places with unified filters and quick booking links.</p>
+          <p className={styles.subtitle}>Compare hotels, camping, and entire places with unified filters and quick booking links.</p>
         </div>
         <form className={styles.searchRow} aria-label="Accommodation search form" onSubmit={(e) => e.preventDefault()}>
           <label className={styles.field}><span>Destination</span><input value={destination} onChange={(e) => setDestination(e.target.value)} /></label>
@@ -95,10 +97,9 @@ export function StaysListClient({ listings }: StaysListClientProps) {
             </div>
             <div className={styles.filterGroup}>
               <h3>Type of stay</h3>
-              <label><input type="checkbox" checked={selectedTypes.Hotel} onChange={() => toggleType("Hotel")} /> Hotels</label>
-              <label><input type="checkbox" checked={selectedTypes["Boutique stay"]} onChange={() => toggleType("Boutique stay")} /> Boutique stays</label>
-              <label><input type="checkbox" checked={selectedTypes["Naturist camping"]} onChange={() => toggleType("Naturist camping")} /> Naturist camping</label>
-              <label><input type="checkbox" checked={selectedTypes["Entire place"]} onChange={() => toggleType("Entire place")} /> Entire places</label>
+              {stayTypes.map((type) => (
+                <label key={type}><input type="checkbox" checked={selectedTypes[type] ?? false} onChange={() => toggleType(type)} /> {type}</label>
+              ))}
             </div>
             {hasActiveFilters ? (
               <button type="button" className={styles.searchButton} onClick={resetFilters}>

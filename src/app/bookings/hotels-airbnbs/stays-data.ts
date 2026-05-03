@@ -113,8 +113,9 @@ export const listings: Listing[] = [
     "https://picsum.photos/seed/athena-ossendrecht-2/1200/800",
     "https://picsum.photos/seed/athena-ossendrecht-3/1200/800",
     "https://picsum.photos/seed/athena-ossendrecht-4/1200/800"
-  ]
-},
+  ],
+  },
+
   {
     slug: "palm-courtyard-retreat",
     name: "Palm Courtyard Retreat",
