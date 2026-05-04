@@ -148,12 +148,13 @@ export function StaysListClient({ listings }: StaysListClientProps) {
             <div className={styles.results}>
               {results.map((listing, idx) => (
                 <article key={listing.slug} className={styles.card}>
-                  <div className={styles.media} style={{ backgroundImage: `url(${listing.gallery[0] ?? `https://picsum.photos/seed/${idx}/900/600`})` }} aria-hidden="true">
-                    <p className={styles.ratingPill}>{listing.rating.toFixed(1)}</p>
-                  </div>
+                  <div className={styles.media} style={{ backgroundImage: `url(${listing.gallery[0] ?? `https://picsum.photos/seed/${idx}/900/600`})` }} aria-hidden="true" />
 
                   <div className={styles.body}>
-                    <h3 className={styles.name}>{listing.name}</h3>
+                    <div className={styles.titleRow}>
+                      <h3 className={styles.name}>{listing.name}</h3>
+                      <p className={styles.ratingPill}>★ {listing.rating.toFixed(1)}</p>
+                    </div>
                     <p className={styles.location}>{listing.placeName}, {listing.country}</p>
                     <ul className={styles.amenities}>
                       {listing.amenities.slice(0, 4).map((amenity) => <li key={amenity}>{amenity}</li>)}

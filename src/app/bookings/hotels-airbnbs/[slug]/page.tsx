@@ -11,6 +11,13 @@ type StayDetailsPageProps = {
 export const dynamic = "force-dynamic";
 export const dynamicParams = true;
 
+function getRatingTone(rating: number) {
+  if (rating >= 4.8) return "Exceptional";
+  if (rating >= 4.5) return "Outstanding";
+  if (rating >= 4.0) return "Excellent";
+  return "Great";
+}
+
 export default async function StayDetailsPage({
   params,
 }: StayDetailsPageProps) {
@@ -36,7 +43,7 @@ export default async function StayDetailsPage({
                 <span>
                   {listing.placeName}, {listing.country}
                 </span>
-                <span>{listing.rating.toFixed(1)} rating</span>
+                <span>★ {listing.rating.toFixed(1)} · {getRatingTone(listing.rating)}</span>
               </div>
             </div>
             <a
@@ -80,8 +87,9 @@ export default async function StayDetailsPage({
             </article>
             <aside className={styles.ratingCard}>
               <h3>Guest rating</h3>
-              <div>
-                <strong>{listing.rating.toFixed(1)}</strong>
+              <div className={styles.ratingSummary}>
+                <p className={styles.ratingTone}>{getRatingTone(listing.rating)}</p>
+                <strong>★ {listing.rating.toFixed(1)}</strong>
                 <p>{listing.reviews.toLocaleString()} verified ratings</p>
               </div>
             </aside>

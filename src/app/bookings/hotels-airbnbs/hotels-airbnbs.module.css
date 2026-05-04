@@ -27,8 +27,10 @@
 .descriptionBlock p { color: rgb(var(--muted)); line-height: 1.5; margin: 0; }
 .ratingCard { background: linear-gradient(160deg, rgb(var(--card)) 0%, rgb(var(--bg-soft)) 100%); }
 .ratingCard h3 { margin: 0 0 0.6rem; color: rgb(var(--text-strong)); }
+.ratingSummary { display: grid; gap: .15rem; }
+.ratingTone { margin: 0; font-size: .8rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: rgb(var(--brand)); }
 .ratingCard strong { font-size: 2.2rem; color: rgb(var(--brand)); display: inline-block; }
-.ratingCard p { margin: 0.35rem 0 0; color: rgb(var(--muted)); }
+.ratingCard p { margin: 0.2rem 0 0; color: rgb(var(--muted)); }
 
 .amenitiesList { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 0.55rem; }
 .amenitiesList li { border: 1px solid rgb(var(--border)); border-radius: 999px; padding: 0.38rem 0.72rem; background: rgb(var(--bg-soft)); color: rgb(var(--text)); font-size: 0.9rem; }
