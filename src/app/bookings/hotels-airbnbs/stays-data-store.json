@@ -11,11 +11,13 @@
     "badge": "Naturist wellness & spa",
     "vibe": "Naturist retreat · Forest camping & glamping · Social clubhouse energy",
     "amenities": [
-      "Pool",
+      "Heated outdoor pool",
       "Sauna",
+      "Wellness area",
       "Sunbathing lawn",
       "Clubhouse",
       "Bar",
+      "Restaurant",
       "Terrace",
       "Fresh bread service",
       "Communal meals",
@@ -26,13 +28,14 @@
       "Playground",
       "Sports courts",
       "Activities",
-      "BBQ",
+      "BBQ area",
       "Camping pitches",
-      "Glamping",
+      "Glamping accommodation",
+      "Rental units",
       "Parking",
       "Cycling access"
     ],
-    "description": "Relaxed naturist park set in forest surroundings with camping and glamping options, a wellness area with sauna and pool, and a friendly clubhouse scene with regular social activities.",
+    "description": "Naturist park in a wooded setting near Ossendrecht offering spacious camping pitches and rental accommodation. The site features a heated outdoor pool, sauna and wellness area, along with a lively clubhouse, restaurant and terrace where regular social activities and communal events take place.",
     "websiteUrl": "https://naturisme-athena.org/ossendrecht/",
     "address": "Postbaan 8, 4641 RM Ossendrecht, Netherlands",
     "checkInWindow": "Check-in afternoon · Check-out morning",
@@ -42,53 +45,53 @@
         "items": [
           "Check-in from 14:00",
           "Check-out by 11:00",
-          "Early check-in subject to availability",
-          "Late check-out on request"
+          "Arrival times coordinated via reception",
+          "Late arrival possible with prior notice"
         ]
       },
       {
         "category": "Cancellation",
         "items": [
-          "Terms vary by season",
-          "Policy depends on accommodation type",
-          "Date changes may be possible",
-          "Refund rules confirmed by property"
+          "Cancellation terms depend on booking type",
+          "Seasonal conditions may apply",
+          "Changes subject to availability",
+          "Refunds handled according to reservation terms"
         ]
       },
       {
         "category": "Accepted payment methods",
         "items": [
-          "Major cards accepted",
+          "Card payments accepted",
           "Cash accepted on site",
-          "Deposit may require card",
-          "Extras charged at checkout"
+          "Advance payment may be required",
+          "Additional services charged separately"
         ]
       },
       {
         "category": "Property policy",
         "items": [
-          "Naturist-focused environment",
-          "Respect shared-space etiquette",
-          "Quiet hours apply in evenings",
-          "Community guidelines posted on arrival"
+          "Official naturist environment",
+          "Respect naturist etiquette in all designated areas",
+          "Clothing optional depending on conditions",
+          "Guests expected to follow site rules and community standards"
         ]
       },
       {
         "category": "Security",
         "items": [
-          "On-site staff available",
-          "Reception support during open hours",
-          "Controlled access in shared areas",
-          "Guests should secure valuables"
+          "Reception and staff available on site",
+          "Defined access areas within the park",
+          "Supervision during opening periods",
+          "Guests responsible for personal belongings"
         ]
       },
       {
         "category": "Pets",
         "items": [
-          "Pet acceptance by request",
-          "Rules vary by stay category",
-          "Leash required in common areas",
-          "Extra cleaning fee may apply"
+          "Pets allowed in designated areas",
+          "Must be kept on a leash",
+          "Owners responsible for behaviour and cleanliness",
+          "Restrictions may apply to accommodations"
         ]
       }
     ],
@@ -98,6 +101,317 @@
       "https://naturisme-athena.org/wp-content/uploads/2022/06/Ossendrecht-jaarplaatsen-960x960.jpeg",
       "https://naturisme-athena.org/wp-content/uploads/2022/06/Ossendrecht-verhuur-960x960.jpeg",
       "https://naturisme-athena.org/wp-content/uploads/2025/06/ATHENA-202506-©BUROBONITO-76-960x1440.jpg"
+    ]
+  },
+  {
+    "slug": "camping-loodsmansduin-texel",
+    "name": "Camping Loodsmansduin",
+    "country": "Netherlands",
+    "placeName": "Den Hoorn · Texel · North Holland",
+    "type": "Naturist camping",
+    "rating": 4.4,
+    "reviews": 1100,
+    "price": 30,
+    "badge": "Dunes & nature park escape",
+    "vibe": "Family-friendly dune camping · Quiet nature retreat · Active outdoor lifestyle",
+    "amenities": [
+      "Heated outdoor pool",
+      "Sunbathing area",
+      "Restaurant",
+      "Snack bar",
+      "Terrace",
+      "Playground",
+      "Entertainment program (seasonal)",
+      "Sports activities",
+      "Cycling access",
+      "Nature trails",
+      "Sanitary facilities",
+      "Showers",
+      "Laundry",
+      "WiFi",
+      "Camping pitches",
+      "Furnished tents",
+      "Chalets",
+      "Self-catering accommodation",
+      "Parking",
+      "Pet-friendly areas"
+    ],
+    "description": "Camping Loodsmansduin is a spacious dune campsite located in the National Park Dunes of Texel near Den Hoorn. Surrounded by protected nature reserves, the site offers sheltered pitches among heath-covered dunes as well as comfortable rental accommodations including chalets and furnished tents. Guests can enjoy a heated outdoor pool, restaurant, and family-friendly facilities, while the beach is just a short bike ride away through scenic dune landscapes.",
+    "websiteUrl": "https://www.krim.nl/camping-loodsmansduin",
+    "address": "Rommelpot 19, 1797 RN Den Hoorn, Texel, Netherlands",
+    "checkInWindow": "Check-in afternoon · Check-out morning",
+    "policies": [
+      {
+        "category": "Check-in and check-out",
+        "items": [
+          "Check-in from 15:00",
+          "Check-out by 10:00",
+          "Reception available during opening hours",
+          "Late arrivals possible with prior arrangement"
+        ]
+      },
+      {
+        "category": "Cancellation",
+        "items": [
+          "Cancellation terms depend on booking type",
+          "Seasonal conditions may apply",
+          "Changes subject to availability",
+          "Refunds handled according to reservation terms"
+        ]
+      },
+      {
+        "category": "Accepted payment methods",
+        "items": [
+          "Card payments accepted",
+          "Online prepayment for reservations",
+          "Additional services charged separately"
+        ]
+      },
+      {
+        "category": "Property policy",
+        "items": [
+          "Family-oriented campsite",
+          "Quiet hours may apply",
+          "Naturist section available in designated area",
+          "Guests expected to respect nature and park rules"
+        ]
+      },
+      {
+        "category": "Security",
+        "items": [
+          "Managed reception and staff presence",
+          "Defined campsite access",
+          "Guests responsible for personal belongings"
+        ]
+      },
+      {
+        "category": "Pets",
+        "items": [
+          "Pets allowed on designated pitches",
+          "Must be kept on a leash",
+          "Dog-friendly environment with nearby walking areas",
+          "Restrictions may apply to accommodations"
+        ]
+      }
+    ],
+    "gallery": [
+      "https://newyse-res.cloudinary.com/image/upload///t_mcms_original/f_auto/v1511969540/33-2437509.jpg",
+      "https://newyse-res.cloudinary.com/image/upload///t_mcms_original/f_auto/v1712049709/33-19729474.jpg",
+      "https://newyse-res.cloudinary.com/image/upload///t_mcms_original/f_auto/v1765442927/33-2426311.jpg",
+      "https://newyse-res.cloudinary.com/image/upload///t_mcms_original/f_auto/v1712070174/33-19729476.jpg"
+    ]
+  },
+  {
+    "slug": "fkk-camping-muellerhof-keutschach",
+    "name": "FKK Camping Müllerhof",
+    "country": "Austria",
+    "placeName": "Keutschach am See · Carinthia",
+    "type": "Naturist camping",
+    "rating": 4.7,
+    "reviews": 378,
+    "price": 12,
+    "badge": "Top 100 European campsite · Direct lake access",
+    "vibe": "Premium naturist retreat · Quiet alpine lake setting · Clean & high-quality facilities",
+    "amenities": [
+      "Direct lake access",
+      "Natural bathing lake",
+      "Private nudist beach",
+      "Sunbathing lawns",
+      "Sauna",
+      "Massage services",
+      "Restaurant",
+      "Takeaway food",
+      "Shop",
+      "Fresh bread service",
+      "Sanitary facilities",
+      "Showers",
+      "Laundry",
+      "WiFi",
+      "Children’s playground",
+      "Indoor playroom",
+      "Organised activities",
+      "Camping pitches with electricity",
+      "Mobile homes",
+      "Rental cabins",
+      "Parking",
+      "Cycling and hiking access"
+    ],
+    "description": "FKK Camping Müllerhof is a high-quality naturist campsite located directly on Lake Keutschach in Carinthia, Austria. Set in the scenic Keutschach Valley on the sunny side of the Alps, the site is known for its peaceful atmosphere, exceptional cleanliness and direct access to a natural bathing lake. Guests can enjoy spacious pitches, wellness facilities, and a full-service restaurant while embracing a traditional naturist lifestyle in a relaxed alpine environment.",
+    "websiteUrl": "https://fkk-camping.at",
+    "address": "Dobein 10, 9074 Keutschach am See, Austria",
+    "checkInWindow": "Check-in afternoon · Check-out morning",
+    "policies": [
+      {
+        "category": "Check-in and check-out",
+        "items": [
+          "Check-in from afternoon",
+          "Check-out by late morning",
+          "Reception available during opening hours",
+          "Arrival times coordinated with campsite"
+        ]
+      },
+      {
+        "category": "Cancellation",
+        "items": [
+          "Cancellation terms depend on booking type",
+          "Seasonal conditions may apply",
+          "Changes subject to availability",
+          "Refunds handled according to reservation terms"
+        ]
+      },
+      {
+        "category": "Accepted payment methods",
+        "items": [
+          "Cash accepted",
+          "Card payments may be limited",
+          "Advance payment may be required",
+          "Additional services charged separately"
+        ]
+      },
+      {
+        "category": "Property policy",
+        "items": [
+          "Official naturist campsite",
+          "Nudity expected in designated areas",
+          "Respect naturist etiquette required",
+          "Focus on peace, cleanliness and quality environment"
+        ]
+      },
+      {
+        "category": "Security",
+        "items": [
+          "Managed access to campsite",
+          "Staff present on site",
+          "Clearly defined camping areas",
+          "Guests responsible for personal belongings"
+        ]
+      },
+      {
+        "category": "Pets",
+        "items": [
+          "Pets not allowed",
+          "Applies across camping areas and accommodations",
+          "Check specific booking conditions if exceptions apply"
+        ]
+      }
+    ],
+    "gallery": [
+      "https://fkk-camping.at/wp-content/uploads/2016/11/fkk_9264-1030x687.jpg",
+      "https://fkk-camping.at/wp-content/uploads/2016/11/fkk_165903-1030x687.jpg",
+      "https://fkk-camping.at/wp-content/uploads/2016/11/strand-v-s-1030x687.jpg",
+      "https://fkk-camping.at/wp-content/uploads/2017/05/sani17_7514-1030x687.jpg",
+      "https://fkk-camping.at/wp-content/uploads/2016/11/shop-0867-1030x687.jpg"
+    ]
+  },
+  {
+    "slug": "rutar-lido-naturist-resort-eberndorf",
+    "name": "Rutar Lido Naturist Resort",
+    "country": "Austria",
+    "placeName": "Eberndorf · Carinthia",
+    "type": "Naturist resort & camping",
+    "rating": 4.3,
+    "reviews": 400,
+    "price": 10,
+    "badge": "Large naturist holiday village · Pools & alpine setting",
+    "vibe": "Spacious naturist resort · Quiet and traditional · Active outdoor & social atmosphere",
+    "amenities": [
+      "Natural bathing lake",
+      "Multiple outdoor pools",
+      "Indoor swimming pools",
+      "Children’s pool",
+      "Sauna complex",
+      "Whirlpool",
+      "Sunbathing lawns",
+      "Restaurant",
+      "Bar",
+      "Takeaway food",
+      "Supermarket",
+      "Fresh bread service",
+      "Sanitary facilities",
+      "Showers",
+      "Laundry",
+      "WiFi",
+      "Playground",
+      "Kids club (seasonal)",
+      "Fitness room",
+      "Sports facilities",
+      "Bowling alley",
+      "Evening entertainment",
+      "Camping pitches",
+      "Mobile homes",
+      "Holiday apartments",
+      "Naturist hotel",
+      "Dog area with swimming pond",
+      "Fishing",
+      "Cycling and hiking access",
+      "Parking"
+    ],
+    "description": "Rutar Lido is a large naturist resort in Carinthia set across 15 hectares of green alpine landscape near Eberndorf. The site combines a campsite, holiday village, and naturist hotel with extensive facilities including indoor and outdoor pools, a natural bathing lake, sauna complex, and sports amenities. Known for its peaceful atmosphere and spacious layout, it offers a traditional naturist experience with a mix of relaxation, outdoor activities, and social entertainment.",
+    "websiteUrl": "https://www.rutarlido.at",
+    "address": "Lido 1, 9141 Eberndorf, Austria",
+    "checkInWindow": "Check-in afternoon · Check-out morning",
+    "policies": [
+      {
+        "category": "Check-in and check-out",
+        "items": [
+          "Check-in from afternoon",
+          "Check-out by late morning",
+          "Reception available during opening hours",
+          "Arrival times coordinated with resort"
+        ]
+      },
+      {
+        "category": "Cancellation",
+        "items": [
+          "Cancellation terms depend on booking type",
+          "Seasonal conditions may apply",
+          "Changes subject to availability",
+          "Refunds handled according to reservation terms"
+        ]
+      },
+      {
+        "category": "Accepted payment methods",
+        "items": [
+          "Cash accepted",
+          "Card payments may be available",
+          "Advance payment may be required",
+          "Extras charged separately"
+        ]
+      },
+      {
+        "category": "Property policy",
+        "items": [
+          "Official naturist resort",
+          "Nudity expected in designated areas",
+          "Respect naturist etiquette required",
+          "Family-friendly but primarily adult-oriented atmosphere"
+        ]
+      },
+      {
+        "category": "Security",
+        "items": [
+          "Defined resort access areas",
+          "Staff present on site",
+          "Large, zoned property layout",
+          "Guests responsible for personal belongings"
+        ]
+      },
+      {
+        "category": "Pets",
+        "items": [
+          "Pets allowed in designated areas",
+          "Dedicated dog meadow and swimming area",
+          "Must be kept under control",
+          "Restrictions may apply in accommodations"
+        ]
+      }
+    ],
+    "gallery": [
+      "https://www.rutarlido.at/wp-content/uploads/2022/01/Areal-32-1-scaled.jpg",
+      "https://www.rutarlido.at/wp-content/uploads/2022/01/Areal-10-1-scaled.jpg",
+      "https://www.rutarlido.at/wp-content/uploads/2022/01/PoolsBaederSaunen-3-2-scaled.jpg",
+      "https://www.rutarlido.at/wp-content/uploads/2022/01/wellness._verpixelt-scaled.jpg",
+      "https://www.rutarlido.at/wp-content/uploads/2022/01/Sommer-Restaurant-7-scaled.jpg"
     ]
   }
 ]
