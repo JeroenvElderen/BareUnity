@@ -20,6 +20,12 @@ const sections = [
     href: "/admin/users",
     cta: "Create users",
   },
+  {
+    title: "Stay listing manager",
+    description: "Add hotels, campings, and resorts without redeploying by writing directly to the stays data store.",
+    href: "/admin/stays",
+    cta: "Add stay",
+  },
 ];
 
 export default function AdminOverviewPage() {

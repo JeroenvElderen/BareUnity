@@ -148,25 +148,19 @@ export function StaysListClient({ listings }: StaysListClientProps) {
             <div className={styles.results}>
               {results.map((listing, idx) => (
                 <article key={listing.slug} className={styles.card}>
-                  <div className={styles.media} style={{ backgroundImage: `url(${listing.gallery[0] ?? `https://picsum.photos/seed/${idx}/900/600`})` }} aria-hidden="true" />
+                  <div className={styles.media} style={{ backgroundImage: `url(${listing.gallery[0] ?? `https://picsum.photos/seed/${idx}/900/600`})` }} aria-hidden="true">
+                    <p className={styles.ratingPill}>{listing.rating.toFixed(1)}</p>
+                  </div>
 
                   <div className={styles.body}>
-                    <div className={styles.topline}>
-                      <div>
-                        <p className={styles.badge}>{listing.badge}</p>
-                        <h3 className={styles.name}>{listing.name}</h3>
-                        <p className={styles.location}>{listing.placeName}, {listing.country}</p>
-                        <p className={styles.vibe}>{listing.vibe}</p>
-                      </div>
-                      <p className={styles.rating}><strong>{listing.rating.toFixed(1)}</strong></p>
-                    </div>
-
+                    <h3 className={styles.name}>{listing.name}</h3>
+                    <p className={styles.location}>{listing.placeName}, {listing.country}</p>
                     <ul className={styles.amenities}>
                       {listing.amenities.slice(0, 4).map((amenity) => <li key={amenity}>{amenity}</li>)}
                     </ul>
 
                     <div className={styles.bottom}>
-                      <p className={styles.price}>from: €{listing.price} <span>/ night</span></p>
+                      <p className={styles.price}>€{listing.price} <span>/ night</span></p>
                       <div className={styles.actions}>
                         <a href={listing.websiteUrl} target="_blank" rel="noreferrer" className={styles.bookBtn}>Book</a>
                         <Link href={`/bookings/hotels-airbnbs/${listing.slug}`} className={styles.detailsBtn}>See more details</Link>

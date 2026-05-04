@@ -413,5 +413,108 @@
       "https://www.rutarlido.at/wp-content/uploads/2022/01/wellness._verpixelt-scaled.jpg",
       "https://www.rutarlido.at/wp-content/uploads/2022/01/Sommer-Restaurant-7-scaled.jpg"
     ]
-  }
+  },
+  {
+  "slug": "vritomartis-naturist-resort-sfakia",
+  "name": "Vritomartis Naturist Resort",
+  "country": "Greece",
+  "placeName": "Chora Sfakion · Crete",
+  "type": "Naturist hotel & resort",
+  "rating": 4.8,
+  "reviews": 546,
+  "price": 204,
+  "badge": "Premium naturist hotel · Private beach",
+  "vibe": "Relaxed luxury naturism · Social yet peaceful · Mediterranean coastal escape",
+  "amenities": [
+    "Large outdoor swimming pool",
+    "Children’s pool",
+    "Private naturist beach",
+    "Beach bar",
+    "Sun loungers",
+    "Sunbathing lawns",
+    "Restaurant",
+    "Pool bar",
+    "Terrace dining",
+    "Buffet meals",
+    "Fresh local cuisine",
+    "WiFi",
+    "Reception (24h)",
+    "Air-conditioned rooms",
+    "Balconies",
+    "Daily housekeeping",
+    "Shuttle to beach",
+    "Organised excursions",
+    "Boat trips",
+    "Yoga and activities",
+    "Sports (boules, table tennis)",
+    "Entertainment program",
+    "Parking"
+  ],
+  "description": "Vritomartis Naturist Resort is a well-established naturist hotel located on the south coast of Crete near Chora Sfakion. Overlooking the Libyan Sea and surrounded by mountains, the resort offers a calm and welcoming environment ideal for both first-time and experienced naturists. Guests can enjoy a large swimming pool, organised activities, and access to a private naturist beach at Filaki. The resort is known for its high cleanliness standards, friendly service, and relaxed Mediterranean atmosphere with a strong focus on comfort and community.",
+  "websiteUrl": "https://www.vritomartis.com",
+  "address": "Chora Sfakion 73011, Crete, Greece",
+  "checkInWindow": "Check-in afternoon · Check-out morning",
+  "policies": [
+    {
+      "category": "Check-in and check-out",
+      "items": [
+        "Check-in from afternoon",
+        "Check-out by late morning",
+        "24-hour reception available",
+        "Late arrivals accommodated"
+      ]
+    },
+    {
+      "category": "Cancellation",
+      "items": [
+        "Cancellation policies depend on booking type",
+        "Seasonal conditions apply",
+        "Changes subject to availability",
+        "Refunds handled per reservation terms"
+      ]
+    },
+    {
+      "category": "Accepted payment methods",
+      "items": [
+        "Credit and debit cards accepted",
+        "Cash accepted",
+        "Advance payment required for reservations",
+        "Extras charged separately"
+      ]
+    },
+    {
+      "category": "Property policy",
+      "items": [
+        "Official naturist resort",
+        "Nudity required in pool and beach areas",
+        "Clothing required in indoor areas",
+        "Respect naturist etiquette and community standards"
+      ]
+    },
+    {
+      "category": "Security",
+      "items": [
+        "Staff available 24/7",
+        "Managed resort access",
+        "Safe and family-friendly environment",
+        "Guests responsible for personal belongings"
+      ]
+    },
+    {
+      "category": "Pets",
+      "items": [
+        "Pets not typically allowed",
+        "Restrictions apply across the property",
+        "Check specific booking conditions"
+      ]
+    }
+  ],
+  "gallery": [
+    "https://www.vritomartis.com/wp-content/uploads/DJI_0694-scaled.jpg",
+    "https://www.vritomartis.com/wp-content/uploads/DSC_5615-scaled.jpg",
+    "https://www.vritomartis.com/wp-content/uploads/vritomartis-nudist-resort-rooms-7.jpg",
+    "https://www.vritomartis.com/wp-content/uploads/vritomartis-nudist-resort-beach-6.jpg",
+    "https://www.vritomartis.com/wp-content/uploads/NIK_0302.jpg"
+  ]
+}
 ]
