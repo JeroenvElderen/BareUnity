@@ -88,17 +88,17 @@
   border: 1px solid rgb(255 255 255 / .18);
 }
 .body { padding:1rem; display:grid; gap:.45rem; }
-.name { margin:0; font-size:1.15rem; line-height: 1.3; color: rgb(var(--text-strong)); }
+.name { margin:0; font-size:1.15rem; line-height: 1.3; color: rgb(var(--text-strong)); overflow-wrap: anywhere; }
 .location { margin:0; color: rgb(var(--muted)); font-size: .9rem; }
 .amenities { list-style:none; margin: .1rem 0 0; padding:0; display:flex; flex-wrap:wrap; gap:.4rem; }
 .amenities li { border: 1px solid rgb(var(--border)); border-radius: 999px; padding: .22rem .55rem; font-size: .75rem; color: rgb(var(--muted)); background: rgb(var(--bg)); }
 .bottom { display:grid; gap:.75rem; padding-top: .6rem; margin-top: .2rem; border-top: 1px solid rgb(var(--border)); }
 .price { margin:0; font-size:1.25rem; font-weight:760; color: rgb(var(--text-strong)); display: flex; align-items: baseline; gap: .35rem; }
 .price span { font-size:.84rem; font-weight:500; color: rgb(var(--muted)); }
-.actions { display:grid; gap:.5rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.bookBtn,.detailsBtn { text-decoration:none; text-align:center; border-radius:.65rem; padding:.62rem .78rem; font-weight:650; }
+.actions { display:flex; flex-wrap:wrap; gap:.5rem; }
+.bookBtn,.detailsBtn { text-decoration:none; text-align:center; border-radius:.65rem; padding:.62rem .78rem; font-weight:650; flex: 1 1 150px; }
 .bookBtn { background: rgb(var(--brand)); color:#fff; }
-.detailsBtn { border:1px solid rgb(var(--border)); color: rgb(var(--text)); background: rgb(var(--bg)); }
+.detailsBtn { border:1px solid rgb(var(--border)); color: rgb(var(--text)); background: rgb(var(--bg)); white-space: normal; }
 
 .emptyState { padding: 2rem 1rem; text-align: center; }
 .emptyState h3 { margin: 0 0 .4rem; }
@@ -106,13 +106,24 @@
 
 @media (min-width: 980px){
   .content { grid-template-columns: 300px minmax(0,1fr); }
+}
+
+@media (min-width: 1400px){
   .card { grid-template-columns: minmax(280px, 36%) minmax(0,1fr); align-items: stretch; }
   .media { min-height: 100%; }
   .body { padding: 1rem 1.1rem; }
   .bottom { grid-template-columns: auto minmax(250px, 360px); align-items: center; }
 }
 
+@media (max-width: 1399px){
+  .titleRow { align-items: flex-start; }
+  .ratingPill { font-size: .85rem; padding: .3rem .55rem; }
+  .bottom { gap: .65rem; }
+}
+
 @media (max-width: 680px){
   .searchRow { grid-template-columns: 1fr; }
-  .actions { grid-template-columns: 1fr; }
+  .resultsTop { flex-direction: column; align-items: stretch; }
+  .resultsTop select { width: 100%; }
+  .bookBtn,.detailsBtn { flex-basis: 100%; }
 }
