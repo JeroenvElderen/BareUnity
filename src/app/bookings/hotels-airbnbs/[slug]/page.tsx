@@ -90,7 +90,7 @@ export default async function StayDetailsPage({
               <div className={styles.ratingSummary}>
                 <p className={styles.ratingTone}>{getRatingTone(listing.rating)}</p>
                 <strong>★ {listing.rating.toFixed(1)}</strong>
-                <p>{listing.reviews.toLocaleString()} verified ratings</p>
+                <p>Verified guest rating</p>
               </div>
             </aside>
           </section>

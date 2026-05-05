@@ -8,7 +8,6 @@ export type Listing = {
   placeName: string;
   type: "Hotel" | "Entire place" | "Boutique stay" | "Naturist camping";
   rating: number;
-  reviews: number;
   price: number;
   badge: string;
   vibe: string;

@@ -111,6 +111,7 @@ const adminItems: readonly NavLinkItem[] = [
   { icon: ClipboardCheck, label: "Applications", href: "/admin/applications" },
   { icon: Flag, label: "Reports", href: "/admin/reports" },
   { icon: CircleUser, label: "Users", href: "/admin/users" },
+  { icon: Building2, label: "Stays", href: "/admin/stays" },
 ];
 
 export function AppSidebar() {
