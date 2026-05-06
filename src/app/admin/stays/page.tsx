@@ -216,7 +216,7 @@ export default function AdminStaysPage() {
           <p className={styles.eyebrow}>Admin Studio</p>
           <h1 className={styles.title}>Stay listing manager</h1>
           <p className={styles.subtitle}>
-            Import stay details from a public website, review every field, and save verified hotel, camping, resort, or rental listings to the BareUnity stays data store.
+            Import stay details from a public website with optional Ollama cloud enrichment, review every field, and save verified hotel, camping, resort, or rental listings to the BareUnity stays data store.
           </p>
         </header>
 
