@@ -33,10 +33,11 @@ type PolicyDraft = {
   items: string;
 };
 
-type ImportDraft = Partial<Pick<Listing, "name" | "description" | "address" | "country" | "placeName" | "websiteUrl">> & {
-  price?: number | null;
-  rating?: number | null;
-  amenities?: string[];
+type ImportDraft = Partial<Omit<Listing, "policies">> & {
+  policies?: Array<{
+    category: string;
+    items: string[];
+  }>;
   warnings?: string[];
 };
 
@@ -68,16 +69,31 @@ function listFromText(value: string) {
 function updateFormWithDraft(current: StayFormState, draft: ImportDraft): StayFormState {
   return {
     ...current,
+    slug: draft.slug ?? current.slug,
     name: draft.name ?? current.name,
-    description: draft.description ?? current.description,
-    address: draft.address ?? current.address,
     country: draft.country ?? current.country,
     placeName: draft.placeName ?? current.placeName,
-    websiteUrl: draft.websiteUrl ?? current.websiteUrl,
-    price: draft.price ? String(draft.price) : current.price,
+    type: draft.type ?? current.type,
     rating: draft.rating ? String(Math.min(5, draft.rating)) : current.rating,
+    price: draft.price ? String(draft.price) : current.price,
+    badge: draft.badge ?? current.badge,
+    vibe: draft.vibe ?? current.vibe,
     amenities: draft.amenities?.length ? draft.amenities.join("\n") : current.amenities,
+    description: draft.description ?? current.description,
+    websiteUrl: draft.websiteUrl ?? current.websiteUrl,
+    address: draft.address ?? current.address,
+    checkInWindow: draft.checkInWindow ?? current.checkInWindow,
+    gallery: draft.gallery?.length ? draft.gallery.join("\n") : current.gallery,
   };
+}
+
+function policiesFromDraft(draft: ImportDraft) {
+  if (!draft.policies?.length) return null;
+
+  return draft.policies.map((policy) => ({
+    category: policy.category,
+    items: policy.items.join("\n"),
+  }));
 }
 
 export default function AdminStaysPage() {
@@ -139,6 +155,8 @@ export default function AdminStaysPage() {
       }
 
       setForm((current) => updateFormWithDraft(current, payload.draft ?? {}));
+      const importedPolicies = policiesFromDraft(payload.draft);
+      if (importedPolicies) setPolicies(importedPolicies);
       setWarnings(payload.draft.warnings ?? []);
     } catch (importError) {
       setError(importError instanceof Error ? importError.message : "Could not import this stay website.");

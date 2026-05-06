@@ -1,18 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ensureStayAdmin } from "../auth";
+import type { Listing } from "@/app/bookings/hotels-airbnbs/stays-data";
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
+type PolicyDraft = {
+  category: string;
+  items: string[];
+};
+
 type ImportDraft = {
+  slug: string;
   name: string;
-  description: string;
-  address: string;
   country: string;
   placeName: string;
-  price: number | null;
+  type: Listing["type"];
   rating: number | null;
+  price: number | null;
+  badge: string;
+  vibe: string;
   amenities: string[];
+  description: string;
   websiteUrl: string;
+  address: string;
+  checkInWindow: string;
+  policies: PolicyDraft[];
+  gallery: string[];
   warnings: string[];
 };
 
@@ -91,6 +104,136 @@ function asText(value: JsonValue | undefined): string {
   if (Array.isArray(value)) return value.map(asText).filter(Boolean).join(", ");
   if (value && typeof value === "object") return Object.values(value).map(asText).filter(Boolean).join(", ");
   return "";
+}
+
+function asRecord(value: JsonValue | undefined): Record<string, JsonValue> | null {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, JsonValue>) : null;
+}
+
+function slugify(value: string) {
+  return value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+}
+
+function uniqueStrings(values: Array<string | false | null | undefined>) {
+  return [...new Set(values.map((value) => (typeof value === "string" ? value.trim() : "")).filter(Boolean))];
+}
+
+function absolutizeUrl(value: string, baseUrl: URL) {
+  try {
+    return new URL(decodeHtml(value), baseUrl).toString();
+  } catch {
+    return "";
+  }
+}
+
+function extractAddressParts(address: JsonValue | undefined, addressText: string) {
+  const record = asRecord(address);
+  const country = asText(record?.addressCountry).replace(/^[A-Z]{2}$/, (code) => {
+    const regionNames = new Intl.DisplayNames(["en"], { type: "region" });
+    return regionNames.of(code) ?? code;
+  });
+  const locality = asText(record?.addressLocality);
+  const region = asText(record?.addressRegion);
+  const cityRegion = uniqueStrings([locality, region]).join(" · ");
+
+  if (country || cityRegion) {
+    return {
+      country,
+      placeName: cityRegion,
+    };
+  }
+
+  const parts = addressText.split(",").map((part) => part.trim()).filter(Boolean);
+  return {
+    country: parts.at(-1) ?? "",
+    placeName: uniqueStrings(parts.slice(-3, -1).map((part) => part.replace(/^\d{4,6}\s*/, ""))).join(" · "),
+  };
+}
+
+function inferStayType(records: Record<string, JsonValue>[], htmlText: string): Listing["type"] {
+  const typeText = `${records.map((record) => asText(record["@type"])).join(" ")} ${htmlText}`;
+  if (/camping|campground|camp site|campsite|pitch|glamping|naturist|nudist/i.test(typeText)) return "Naturist camping";
+  if (/apartment|villa|holiday home|vacation rental|entire place|airbnb|cottage|chalet/i.test(typeText)) return "Entire place";
+  if (/boutique|guesthouse|b&b|bed and breakfast|inn/i.test(typeText)) return "Boutique stay";
+  return "Hotel";
+}
+
+function extractCheckInWindow(record: Record<string, JsonValue> | undefined, htmlText: string) {
+  const checkIn = asText(record?.checkinTime ?? record?.checkInTime);
+  const checkOut = asText(record?.checkoutTime ?? record?.checkOutTime);
+  if (checkIn || checkOut) return uniqueStrings([checkIn && `Check-in ${checkIn}`, checkOut && `Check-out ${checkOut}`].filter(Boolean)).join(" · ");
+
+  const checkInMatch = htmlText.match(/check[- ]?in[^0-9]{0,40}(\d{1,2}(?::\d{2})?\s?(?:am|pm)?)/i)?.[1];
+  const checkOutMatch = htmlText.match(/check[- ]?out[^0-9]{0,40}(\d{1,2}(?::\d{2})?\s?(?:am|pm)?)/i)?.[1];
+  if (checkInMatch || checkOutMatch) {
+    return uniqueStrings([checkInMatch && `Check-in from ${checkInMatch}`, checkOutMatch && `Check-out by ${checkOutMatch}`].filter(Boolean)).join(" · ");
+  }
+
+  return "Check-in afternoon · Check-out morning";
+}
+
+function collectGallery(html: string, records: Record<string, JsonValue>[], baseUrl: URL) {
+  const imageCandidates = records.flatMap((record) => [record.image, record.photo, record.logo].map((value) => asText(value)));
+  imageCandidates.push(getMeta(html, "property", "og:image"));
+  imageCandidates.push(...[...html.matchAll(/<link[^>]+rel=["']image_src["'][^>]+href=["']([^"']+)["'][^>]*>/gi)].map((match) => match[1] ?? ""));
+  imageCandidates.push(...[...html.matchAll(/<img[^>]+(?:src|data-src)=["']([^"']+)["'][^>]*>/gi)].map((match) => match[1] ?? ""));
+
+  return uniqueStrings(
+    imageCandidates
+      .flatMap((value) => value.split(","))
+      .map((value) => absolutizeUrl(value, baseUrl))
+      .filter((value) => /\.(?:avif|gif|jpe?g|png|webp)(?:\?|$)/i.test(value)),
+  ).slice(0, 8);
+}
+
+function buildBadge(type: Listing["type"], amenities: string[]) {
+  if (amenities.some((amenity) => /wellness|spa|sauna/i.test(amenity))) return "Wellness & relaxation stay";
+  if (amenities.some((amenity) => /beach|dune|coast/i.test(amenity))) return "Beach and nature escape";
+  if (type === "Naturist camping") return "Naturist camping escape";
+  if (type === "Boutique stay") return "Boutique website find";
+  return "Website-sourced stay";
+}
+
+function buildVibe(type: Listing["type"], placeName: string, amenities: string[]) {
+  const highlights = amenities.filter((amenity) => /pool|sauna|spa|beach|restaurant|bar|garden|terrace|cycling|playground|parking/i.test(amenity)).slice(0, 3);
+  return uniqueStrings([type, placeName, ...highlights]).join(" · ") || "Website-sourced listing";
+}
+
+function buildPolicies(checkInWindow: string, type: Listing["type"]): PolicyDraft[] {
+  return [
+    {
+      category: "Check-in and check-out",
+      items: uniqueStrings([checkInWindow, "Arrival times coordinated via the official website or reception", "Late arrival subject to property approval"]),
+    },
+    {
+      category: "Cancellation",
+      items: ["Cancellation terms depend on the selected rate and booking dates", "Seasonal conditions may apply", "Refunds are handled according to the property's reservation terms"],
+    },
+    {
+      category: "Accepted payment methods",
+      items: ["Payment methods are confirmed on the official booking website", "Advance payment may be required", "Additional services may be charged separately"],
+    },
+    {
+      category: "Property policy",
+      items: type === "Naturist camping"
+        ? ["Naturist etiquette applies in designated areas", "Guests are expected to respect site rules and community standards", "Clothing rules may vary by area, weather, or activity"]
+        : ["Guests are expected to follow property rules", "Quiet hours and shared-space etiquette may apply", "Facilities and services may vary by season"],
+    },
+    {
+      category: "Security",
+      items: ["Reception or host contact available according to opening hours", "Guests are responsible for personal belongings", "Emergency procedures are managed by the property"],
+    },
+    {
+      category: "Pets",
+      items: ["Pet rules must be confirmed with the property before booking", "Restrictions may apply by room or accommodation type", "Owners are responsible for behaviour and cleanliness"],
+    },
+  ];
 }
 
 function firstNumber(...values: Array<JsonValue | undefined>) {
@@ -196,30 +339,49 @@ export async function GET(request: NextRequest) {
     }
 
     const html = await response.text();
+    const htmlText = textFromHtml(html);
     const jsonLd = parseJsonLd(html);
     const records = jsonLd.flatMap(flattenJsonLd);
-    const hotelRecord = records.find((record) => /Hotel|LodgingBusiness|Campground|Resort|LocalBusiness/i.test(asText(record["@type"]))) ?? records[0];
+    const hotelRecord = records.find((record) => /Hotel|LodgingBusiness|Campground|Resort|LocalBusiness|BedAndBreakfast/i.test(asText(record["@type"]))) ?? records[0];
     const addressText = hotelRecord ? asText(hotelRecord.address) : "";
+    const addressParts = extractAddressParts(hotelRecord?.address, addressText);
     const description = asText(hotelRecord?.description) || getMeta(html, "name", "description") || getMeta(html, "property", "og:description");
     const price = extractLowestPrice(records, html);
-    const rating = firstNumber(hotelRecord?.aggregateRating, hotelRecord?.reviewRating);
+    const rating = firstNumber(asRecord(hotelRecord?.aggregateRating)?.ratingValue, hotelRecord?.aggregateRating, hotelRecord?.reviewRating);
+    const amenities = collectAmenities(html, records);
+    const type = inferStayType(records, htmlText);
+    const name = asText(hotelRecord?.name) || getTitle(html).split(/[|—–-]/)[0].trim();
+    const checkInWindow = extractCheckInWindow(hotelRecord, htmlText);
+    const gallery = collectGallery(html, records, websiteUrl);
 
     const draft: ImportDraft = {
-      name: asText(hotelRecord?.name) || getTitle(html).split("|")[0].trim(),
-      description,
-      address: addressText,
-      country: "",
-      placeName: "",
-      price,
+      slug: slugify(`${name}-${addressParts.placeName || addressParts.country || websiteUrl.hostname}`),
+      name,
+      country: addressParts.country,
+      placeName: addressParts.placeName,
+      type,
       rating,
-      amenities: collectAmenities(html, records),
+      price,
+      badge: buildBadge(type, amenities),
+      vibe: buildVibe(type, addressParts.placeName, amenities),
+      amenities,
+      description,
       websiteUrl: websiteUrl.toString(),
+      address: addressText,
+      checkInWindow,
+      policies: buildPolicies(checkInWindow, type),
+      gallery,
       warnings: [],
     };
 
+    if (!draft.name) draft.warnings.push("No stay name was found. Add the public property name manually before saving.");
+    if (!draft.country) draft.warnings.push("No country was found. Add the stay country manually before saving.");
+    if (!draft.placeName) draft.warnings.push("No city or region was found. Add the place / region manually before saving.");
     if (!draft.price) draft.warnings.push("No lowest price was found on the website. Add the lowest public website price manually before saving.");
     if (!draft.description) draft.warnings.push("No description metadata was found. Copy the stay description from the website manually.");
     if (!draft.address) draft.warnings.push("No structured address was found. Add the address manually.");
+    if (!draft.amenities.length) draft.warnings.push("No amenities were detected. Add amenities copied from the website manually.");
+    if (!draft.gallery.length) draft.warnings.push("No gallery images were detected. Add public image URLs from the website manually if available.");
 
     return NextResponse.json({ draft });
   } catch (error) {
