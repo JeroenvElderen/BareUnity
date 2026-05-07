@@ -49,6 +49,8 @@ const MAX_CRAWLED_CONTENT_CHARACTERS = 300000;
 const MAX_POLICY_ITEMS_PER_CATEGORY = 5;
 const MAX_POLICY_ITEM_CHARACTERS = 96;
 const MIN_REWRITTEN_POLICY_CHARACTERS = 8;
+const POLICY_CATEGORY_ORDER = ["Check-in and check-out", "Cancellation", "Accepted payment methods", "Property policy", "Security", "Pets"] as const;
+const POLICY_CATEGORY_RANK = new Map<string, number>(POLICY_CATEGORY_ORDER.map((category, index) => [category, index]));
 
 function isListingType(value: string): value is Listing["type"] {
   return ["Hotel", "Entire place", "Boutique stay", "Naturist camping"].includes(value);
@@ -69,7 +71,7 @@ function coercePolicies(value: JsonValue | undefined) {
   return value
     .map((item) => {
       const record = asRecord(item);
-      const category = coerceString(record?.category);
+      const category = normalizePolicyCategory(coerceString(record?.category));
       return {
         category,
         items: compactPolicyItems(coerceStringArray(record?.items), category),
@@ -158,9 +160,34 @@ function normalizePolicyText(value: string) {
     .trim();
 }
 
+function isQuestionLikePolicyText(value: string) {
+  return /\?/.test(value) || /^(?:can|could|do|does|how|is|are|should|what|when|where|which|who|why|will|would)\b/i.test(value.trim());
+}
+
+function sentenceCasePolicyItem(value: string) {
+  return value ? `${value.charAt(0).toUpperCase()}${value.slice(1)}` : "";
+}
+
+function finalizePolicyItem(value: string) {
+  const text = sentenceCasePolicyItem(normalizePolicyText(value).replace(/[.;,\s]+$/, ""));
+  if (!text || isQuestionLikePolicyText(text) || text.length > MAX_POLICY_ITEM_CHARACTERS - 1) return "";
+
+  return `${text}.`;
+}
+
 function fitPolicyItem(value: string) {
-  const text = normalizePolicyText(value).replace(/[.;,\s]+$/, "");
-  if (text.length <= MAX_POLICY_ITEM_CHARACTERS) return text;
+  return finalizePolicyItem(value);
+}
+
+function normalizePolicyCategory(value: string) {
+  const text = normalizePolicyText(value).replace(/[?:;,.\s]+$/, "");
+  if (!text || isQuestionLikePolicyText(value)) return "";
+  if (/check[- ]?in|check[- ]?out|arrival|departure/i.test(text)) return "Check-in and check-out";
+  if (/cancel|refund|reservation terms/i.test(text)) return "Cancellation";
+  if (/payment|pay|card|cash|bank|deposit/i.test(text)) return "Accepted payment methods";
+  if (/pet|dog|animal/i.test(text)) return "Pets";
+  if (/security|safe|safety|emergency|belongings/i.test(text)) return "Security";
+  if (/naturist|nudist|clothing|property|house rule|site rule|community|etiquette|respect/i.test(text)) return "Property policy";
 
   return "";
 }
@@ -267,17 +294,110 @@ function rewritePolicyItem(value: string, category: string) {
   return text.length <= MAX_POLICY_ITEM_CHARACTERS ? cleanPolicyFragment(text) : "";
 }
 
+function policySpecificityScore(item: string) {
+  const text = item.toLowerCase();
+  let score = item.length;
+  if (/\b\d/.test(text)) score += 80;
+  if (/\b(?:allowed|required|must|by|from|until|between|leash|vaccinated|cash|card|bank|non-refundable)\b/.test(text)) score += 30;
+  if (/\b(?:confirm|may apply|may be|required separately|booking website|property safety rules apply|expected)\b/.test(text)) score -= 35;
+
+  return score;
+}
+
+function policyDedupeKey(item: string, category: string) {
+  const text = item.toLowerCase();
+
+  if (category === "Pets") {
+    if (/maximum\s+\d+\s+pets?/.test(text)) return "max-pets";
+    if (/leash|vaccinat/.test(text)) return "pet-control";
+    if (/owner|behaviour|behavior|cleanliness/.test(text)) return "pet-owner";
+    if (/restriction|room|accommodation/.test(text)) return "pet-restrictions";
+    if (/confirm|before booking/.test(text)) return "pet-confirm";
+    if (/pets? allowed/.test(text)) return "pets-allowed";
+  }
+
+  if (category === "Property policy") {
+    if (/season|open|operates|april|september|october/.test(text)) return "property-season";
+    if (/clothing|textile|clothes/.test(text)) return "property-clothing";
+    if (/naturist|nudist|etiquette|designated/.test(text)) return "property-naturist";
+    if (/quiet|noise/.test(text)) return "property-quiet";
+    if (/respect|community|standard|behaviour|behavior|nature|environment/.test(text)) return "property-respect";
+  }
+
+  if (category === "Check-in and check-out") {
+    if (/check[- ]?in|check[- ]?out/.test(text)) return "check-times";
+    if (/late/.test(text)) return "late-arrival";
+    if (/arrival|reception/.test(text)) return "arrival";
+  }
+
+  if (category === "Cancellation") {
+    if (/refund/.test(text)) return "refunds";
+    if (/season/.test(text)) return "cancel-season";
+    if (/deposit|no-show/.test(text)) return "cancel-deposit";
+    if (/cancel|rate|booking dates|terms/.test(text)) return "cancel-terms";
+  }
+
+  if (category === "Accepted payment methods") {
+    if (/cash|card|visa|mastercard|bank transfer/.test(text)) return "payment-methods";
+    if (/advance|prepayment|deposit/.test(text)) return "advance-payment";
+    if (/extra|additional|separate|supplement/.test(text)) return "payment-extras";
+    if (/payment|pay/.test(text)) return "payment-generic";
+  }
+
+  if (category === "Security") {
+    if (/belongings|liability|responsib/.test(text)) return "security-belongings";
+    if (/emergency/.test(text)) return "security-emergency";
+    if (/reception|host|contact/.test(text)) return "security-contact";
+    if (/safe|safety|security/.test(text)) return "security-safety";
+  }
+
+  return text.replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function removeGenericPolicyItems(items: string[], category: string) {
+  const concreteKeys = new Set(items.map((item) => policyDedupeKey(item, category)));
+  const hasConcretePetRules = ["max-pets", "pet-control", "pet-owner", "pet-restrictions", "pets-allowed"].some((key) => concreteKeys.has(key));
+  const hasConcretePaymentMethods = concreteKeys.has("payment-methods");
+  const hasSpecificSecurity = ["security-belongings", "security-emergency", "security-contact"].some((key) => concreteKeys.has(key));
+
+  return items.filter((item) => {
+    const text = item.toLowerCase();
+    const key = policyDedupeKey(item, category);
+    if (category === "Pets" && hasConcretePetRules && key === "pet-confirm") return false;
+    if (category === "Accepted payment methods" && hasConcretePaymentMethods && key === "payment-generic") return false;
+    if (category === "Security" && hasSpecificSecurity && key === "security-safety") return false;
+    if (category === "Property policy" && /located in|perfect for|refreshing haven|club encourages|advocate/.test(text)) return false;
+
+    return true;
+  });
+}
+
 function compactPolicyItems(items: string[], category: string) {
-  return uniqueStrings(items.map((item) => rewritePolicyItem(item, category)))
-    .filter((item) => item.length >= MIN_REWRITTEN_POLICY_CHARACTERS)
-    .slice(0, MAX_POLICY_ITEMS_PER_CATEGORY);
+  const bestByKey = new Map<string, string>();
+
+  for (const item of items) {
+    const finalized = finalizePolicyItem(rewritePolicyItem(item, category));
+    if (finalized.length < MIN_REWRITTEN_POLICY_CHARACTERS) continue;
+
+    const key = policyDedupeKey(finalized, category);
+    const existing = bestByKey.get(key);
+    if (!existing || policySpecificityScore(finalized) > policySpecificityScore(existing)) {
+      bestByKey.set(key, finalized);
+    }
+  }
+
+  return removeGenericPolicyItems([...bestByKey.values()], category).slice(0, MAX_POLICY_ITEMS_PER_CATEGORY);
 }
 
 function isPolicyLikeSentence(sentence: string, category: string) {
   const text = normalizePolicyText(sentence);
   const lowerCategory = category.toLowerCase();
 
-  if (/\b(?:discover|enjoy|unique holiday|memories|laughter|adventure|activities|programme|gym|yoga|surfing|workshops|entertainment|restaurant|bar|spa|pool|beach access|pine forest)\b/i.test(text)) {
+  if (/\b(?:discover|enjoy|unique holiday|memories|laughter|adventure|activities|programme|gym|yoga|surfing|workshops|entertainment|restaurant|bar|spa|pool|beach access|pine forest|refreshing haven|perfect for|club encourages|creativity)\b/i.test(text)) {
+    return false;
+  }
+
+  if (/\b(?:located in|is located|region)\b/i.test(text)) {
     return false;
   }
 
@@ -285,12 +405,8 @@ function isPolicyLikeSentence(sentence: string, category: string) {
     return /\b(?:check[- ]?in|check[- ]?out|arrival times?|departure|reception hours|late arrival|late check[- ]?in)\b/i.test(text);
   }
 
-  if (lowerCategory.includes("house rules")) {
-    return /\b(?:house rules|site rules|quiet hours|noise|must|required|not allowed|prohibited|respect|behaviour|behavior)\b/i.test(text);
-  }
-
-  if (lowerCategory.includes("naturist")) {
-    return /\b(?:naturist|nudist|clothing optional|clothes free|textile|etiquette|designated|must|required|respect)\b/i.test(text);
+  if (lowerCategory.includes("property policy")) {
+    return /\b(?:house rules|site rules|quiet hours|noise|must|required|not allowed|prohibited|respect|behaviour|behavior|naturist|nudist|clothing optional|clothes free|textile|etiquette|designated|open|season)\b/i.test(text);
   }
 
   return true;
@@ -300,17 +416,16 @@ function mergePolicyDrafts(basePolicies: PolicyDraft[], aiPolicies: PolicyDraft[
   const byCategory = new Map<string, PolicyDraft>();
 
   for (const policy of [...basePolicies, ...(aiPolicies ?? [])]) {
-    const category = policy.category.trim();
+    const category = normalizePolicyCategory(policy.category);
     if (!category || !policy.items.length) continue;
-    const key = category.toLowerCase();
-    const existing = byCategory.get(key);
-    byCategory.set(key, {
-      category: existing?.category ?? category,
+    const existing = byCategory.get(category);
+    byCategory.set(category, {
+      category,
       items: compactPolicyItems([...(existing?.items ?? []), ...policy.items], category),
     });
   }
 
-  return [...byCategory.values()].slice(0, 12);
+  return [...byCategory.values()].sort((a, b) => (POLICY_CATEGORY_RANK.get(a.category) ?? 99) - (POLICY_CATEGORY_RANK.get(b.category) ?? 99));
 }
 
 function mergeAiDraft(baseDraft: ImportDraft, aiDraft: Partial<ImportDraft>): ImportDraft {
@@ -349,7 +464,7 @@ async function enrichDraftWithAi(baseDraft: ImportDraft, crawledContent: string,
     return baseDraft;
   }
 
-  const prompt = `Extract a BareUnity stay listing from this public accommodation website crawl. Use only facts present in the crawled HTML/text/PDF content. Do a thorough check of services, facilities, amenities, activities, entertainment, house rules, booking terms, cancellation, payment, pets, naturist rules, check-in/out, privacy/terms, FAQ, and downloadable PDF/document content. Return strict JSON with these keys: slug, name, country, placeName, type, rating, price, badge, vibe, amenities, description, websiteUrl, address, checkInWindow, policies, gallery. type must be one of Hotel, Entire place, Boutique stay, Naturist camping. amenities should include Services and/or Entertainment when the website mentions entertainment and/or services, recreation, events, shows, music, games, animation, or activity programmes. policies must be an array of {"category":"...","items":["..."]} based on visible website/document policy text, not generic assumptions. Rewrite policies into compact BareUnity-friendly rule summaries using only facts found in the website content. Do not copy full website sentences and do not simply cut them off. Each policy item must be a complete short phrase, max ${MAX_POLICY_ITEMS_PER_CATEGORY} items per category and max ${MAX_POLICY_ITEM_CHARACTERS} characters per item. Combine related facts, keep prices/dates/times/limits when present, and exclude marketing text, destination descriptions, amenity lists, and activity programme details from policies. gallery must contain public image URLs only. If a fact is missing, use an empty string, null, or empty array.
+  const prompt = `Extract a BareUnity stay listing from this public accommodation website crawl. Use only facts present in the crawled HTML/text/PDF content. Do a thorough check of services, facilities, amenities, activities, entertainment, house rules, booking terms, cancellation, payment, pets, naturist rules, check-in/out, privacy/terms, FAQ, and downloadable PDF/document content. Return strict JSON with these keys: slug, name, country, placeName, type, rating, price, badge, vibe, amenities, description, websiteUrl, address, checkInWindow, policies, gallery. type must be one of Hotel, Entire place, Boutique stay, Naturist camping. amenities should include Services and/or Entertainment when the website mentions entertainment and/or services, recreation, events, shows, music, games, animation, or activity programmes. Write the listing in the concise BareUnity style shown by this example: badge "Naturist wellness & spa", vibe "Naturist retreat · Forest camping & glamping · Social clubhouse energy", description as 1-2 factual sentences, and policies grouped as Check-in and check-out, Cancellation, Accepted payment methods, Property policy, Security, and Pets when those facts exist. policies must be an array of {"category":"...","items":["..."]} based on visible website/document policy text, not generic assumptions. Only use the six policy categories listed above; fold house rules and naturist rules into Property policy, and do not create separate Children, Accessibility, House rules, or Naturist rules sections. Policies are facts only: never write questions, FAQ prompts, question-mark text, or uncertain user-facing questions inside policy categories or policy items. Rewrite policies into compact BareUnity-friendly declarative sentences using only facts found in the website content. Each policy item must be a complete short sentence ending with a period, max ${MAX_POLICY_ITEMS_PER_CATEGORY} items per category and max ${MAX_POLICY_ITEM_CHARACTERS} characters per item. Combine related facts, keep prices/dates/times/limits when present, and exclude marketing text, destination descriptions, amenity lists, and activity programme details from policies. gallery must contain public image URLs only. If a fact is missing, use an empty string, null, or empty array.
 
 URL: ${websiteUrl.toString()}
 
@@ -375,7 +490,7 @@ ${crawledContent.slice(0, MAX_AI_HTML_CHARACTERS)}`;
         messages: [
           {
             role: "system",
-            content: "You are a careful travel data extraction assistant. Never invent missing details. Return only valid JSON. Rewrite policy items into brief, complete, rule-like summaries based only on source facts.",
+            content: "You are a careful travel data extraction assistant. Never invent missing details. Return only valid JSON. Write policy categories and items as declarative facts only, never as questions or FAQ prompts.",
           },
           { role: "user", content: prompt },
         ],
@@ -782,12 +897,9 @@ function extractPoliciesFromText(text: string, checkInWindow: string, type: List
     ["Check-in and check-out", /\b(?:check[- ]?in|check[- ]?out|arrival|departure|reception hours|late arrival)\b/i],
     ["Cancellation", /\b(?:cancell?ation|cancel|refund|non[- ]?refundable|deposit|no[- ]?show)\b/i],
     ["Accepted payment methods", /\b(?:payment|pay|credit card|visa|mastercard|cash|bank transfer|deposit|prepayment)\b/i],
-    ["House rules", /\b(?:house rules|site rules|rules|quiet hours|noise|respect|behaviour|behavior)\b/i],
-    ["Pets", /\b(?:pet|pets|dog|dogs|animal|animals)\b/i],
-    ["Naturist rules", /\b(?:naturist|nudist|clothing optional|clothes free|textile|etiquette)\b/i],
-    ["Children and families", /\b(?:children|child|kids|family|families|adult only|adults only)\b/i],
-    ["Accessibility", /\b(?:accessible|accessibility|wheelchair|disabled|mobility)\b/i],
+    ["Property policy", /\b(?:house rules|site rules|rules|quiet hours|noise|respect|behaviour|behavior|naturist|nudist|clothing optional|clothes free|textile|etiquette|season|open)\b/i],
     ["Security", /\b(?:security|safe|safety|emergency|liability|belongings|responsibility)\b/i],
+    ["Pets", /\b(?:pet|pets|dog|dogs|animal|animals)\b/i],
   ];
 
   const extracted = policyMatchers

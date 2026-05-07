@@ -463,6 +463,97 @@
     ]
   },
   {
+    "slug": "naturist-club-and-campsite-harrogate-valley-club",
+    "name": "Naturist Club and Campsite Harrogate, Valley Club",
+    "country": "United Kingdom",
+    "placeName": "Harrogate, North Yorkshire",
+    "type": "Naturist camping",
+    "rating": 4.5,
+    "price": 35,
+    "badge": "Naturist club & campsite",
+    "vibe": "Naturist camping · Outdoor sports & social hub · Family‑friendly naturist community",
+    "amenities": [
+      "Pool",
+      "Bar",
+      "Garden",
+      "Entertainment",
+      "Activities",
+      "Clubhouse",
+      "Licensed bar",
+      "Kitchen",
+      "Pool table",
+      "Darts board",
+      "Bingo",
+      "Domino",
+      "Quiz nights",
+      "Karaoke",
+      "9‑hole pitch & putt",
+      "Boules court",
+      "Badminton court",
+      "Miniten court",
+      "Table tennis",
+      "Sunbathing area",
+      "Free sports equipment"
+    ],
+    "description": "Valley Club is a members‑run naturist club and campsite set on five acres near Harrogate, offering camping, caravan and motorhome stays alongside a range of sports and social activities.",
+    "websiteUrl": "https://valley-sun-club.co.uk/",
+    "address": "Bilton Ln, Harrogate HG1 4DL, United Kingdom",
+    "checkInWindow": "Check-in afternoon · Check-out morning",
+    "policies": [
+      {
+        "category": "Cancellation",
+        "items": [
+          "Cancellation depends on rate and booking dates.",
+          "Seasonal cancellation conditions may apply.",
+          "Refunds follow property reservation terms."
+        ]
+      },
+      {
+        "category": "Accepted payment methods",
+        "items": [
+          "Payment methods confirmed on booking website.",
+          "Advance payment or deposit may be required.",
+          "Extras may be charged separately."
+        ]
+      },
+      {
+        "category": "Property policy",
+        "items": [
+          "Clothing rules may vary by area or activity.",
+          "Names of offenders may be shared with local naturist organisations and British Naturism.",
+          "Respect site rules and community standards.",
+          "The club is not a venue for sexual activities."
+        ]
+      },
+      {
+        "category": "Security",
+        "items": [
+          "Reception/host contact during opening hours.",
+          "Guests are responsible for personal belongings.",
+          "Emergency procedures managed by property."
+        ]
+      },
+      {
+        "category": "Pets",
+        "items": [
+          "Well–behaved pets are welcome.",
+          "Pet restrictions may vary by accommodation.",
+          "Owners responsible for behaviour and cleanliness."
+        ]
+      }
+    ],
+    "gallery": [
+      "https://impro.usercontent.one/appid/oneComWsb/domain/valley-sun-club.co.uk/media/valley-sun-club.co.uk/onewebmedia/E5E5673C-5CA2-4B94-BE69-B49C4870820E.jpeg",
+      "https://impro.usercontent.one/appid/oneComWsb/domain/valley-sun-club.co.uk/media/valley-sun-club.co.uk/onewebmedia/03FFF041-3F3D-43E4-83F5-640C243E70FF.jpeg",
+      "https://impro.usercontent.one/appid/oneComWsb/domain/valley-sun-club.co.uk/media/valley-sun-club.co.uk/onewebmedia/Landscape.JPG",
+      "https://impro.usercontent.one/appid/oneComWsb/domain/valley-sun-club.co.uk/media/valley-sun-club.co.uk/onewebmedia/IMG_2611.JPG",
+      "https://impro.usercontent.one/appid/oneComWsb/domain/valley-sun-club.co.uk/media/valley-sun-club.co.uk/onewebmedia/IMG_9300%20(8).JPG",
+      "https://impro.usercontent.one/appid/oneComWsb/domain/valley-sun-club.co.uk/media/valley-sun-club.co.uk/onewebmedia/C0877F3A-975E-407F-9031-53B48E5769BA.jpeg",
+      "https://impro.usercontent.one/appid/oneComWsb/domain/valley-sun-club.co.uk/media/valley-sun-club.co.uk/onewebmedia/IMG_1014.JPG",
+      "https://impro.usercontent.one/appid/oneComWsb/domain/valley-sun-club.co.uk/media/valley-sun-club.co.uk/onewebmedia/IMG_0788b.jpg"
+    ]
+  },
+  {
     "slug": "naturista-oazis-kemping-delegyhaza",
     "name": "Naturista Oázis Kemping",
     "country": "Hungary",
