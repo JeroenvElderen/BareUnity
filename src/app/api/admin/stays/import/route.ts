@@ -46,6 +46,9 @@ const MAX_AI_HTML_CHARACTERS = 100000;
 const MAX_IMPORT_CRAWL_PAGES = Math.max(1, Number(process.env.STAYS_IMPORT_MAX_CRAWL_PAGES ?? 12));
 const MAX_IMPORT_DOCUMENTS = Math.max(0, Number(process.env.STAYS_IMPORT_MAX_DOCUMENTS ?? 6));
 const MAX_CRAWLED_CONTENT_CHARACTERS = 300000;
+const MAX_POLICY_ITEMS_PER_CATEGORY = 5;
+const MAX_POLICY_ITEM_CHARACTERS = 96;
+const MIN_REWRITTEN_POLICY_CHARACTERS = 8;
 
 function isListingType(value: string): value is Listing["type"] {
   return ["Hotel", "Entire place", "Boutique stay", "Naturist camping"].includes(value);
@@ -66,9 +69,10 @@ function coercePolicies(value: JsonValue | undefined) {
   return value
     .map((item) => {
       const record = asRecord(item);
+      const category = coerceString(record?.category);
       return {
-        category: coerceString(record?.category),
-        items: coerceStringArray(record?.items),
+        category,
+        items: compactPolicyItems(coerceStringArray(record?.items), category),
       };
     })
     .filter((policy) => policy.category && policy.items.length)
@@ -144,6 +148,154 @@ function sanitizeAiDraft(value: Record<string, JsonValue>, websiteUrl: URL): Par
   };
 }
 
+function normalizePolicyText(value: string) {
+  return decodeHtml(value)
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/\s+([,.;:!?])/g, "$1")
+    .replace(/\s*[-–—]\s*/g, "–")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function fitPolicyItem(value: string) {
+  const text = normalizePolicyText(value).replace(/[.;,\s]+$/, "");
+  if (text.length <= MAX_POLICY_ITEM_CHARACTERS) return text;
+
+  return "";
+}
+
+function cleanPolicyFragment(value: string) {
+  return normalizePolicyText(value)
+    .replace(/^(?:please|note that|upon arrival,?|during your stay,?)\s+/i, "")
+    .replace(/\b(?:you can|you may|guests can)\b/gi, "Guests may")
+    .replace(/[.;,\s]+$/, "");
+}
+
+function rewritePolicyItem(value: string, category: string) {
+  const text = normalizePolicyText(value);
+  const lowerCategory = category.toLowerCase();
+
+  if (!text) return "";
+
+  if (lowerCategory.includes("pet")) {
+    const maxPets = text.match(/(?:maximum|max)\s+(\d+)\s+pets?/i)?.[1];
+    if (maxPets) return `Maximum ${maxPets} pets per accommodation`;
+
+    const lowSeasonFee = text.match(/([€$£]\s*\d+(?:[.,]\d+)?)\s*per\s*week\s*in\s*low\s*season/i)?.[1];
+    const highSeasonFee = text.match(/([€$£]\s*\d+(?:[.,]\d+)?)\s*per\s*week\s*in\s*high\s*season/i)?.[1];
+    const highSeasonDates = text.match(/(\d{2}\/\d{2}\s*[–-]\s*\d{2}\/\d{2})/)?.[1]?.replace(/\s+/g, "");
+    if (/pets? allowed/i.test(text) && (lowSeasonFee || highSeasonFee)) {
+      const exclusion = /exclud(?:ing|es)\s+categor(?:y|ies)\s+1\s+and\s+2/i.test(text) ? "Cat. 1/2 excluded; " : "";
+      const fees = uniqueStrings([lowSeasonFee && `${lowSeasonFee} low season`, highSeasonFee && `${highSeasonFee} high season`, highSeasonDates]).join("; ");
+      return fitPolicyItem(`Pets allowed; ${exclusion}${fees}`);
+    }
+
+    if (/pets? allowed/i.test(text)) return "Pets allowed; confirm limits before booking";
+    if (/leash/i.test(text) && /vaccinat/i.test(text)) return "Pets must be leashed and vaccinated";
+    if (/leash/i.test(text)) return "Pets must be kept on a leash";
+    if (/vaccinat/i.test(text)) return "Pets must be vaccinated";
+    if (/confirm|booking|before booking/i.test(text)) return "Confirm pet rules before booking";
+    if (/responsib|cleanliness|behaviour|behavior/i.test(text)) return "Owners responsible for behaviour and cleanliness";
+    if (/restriction|room|accommodation type/i.test(text)) return "Pet restrictions may vary by accommodation";
+  }
+
+  if (lowerCategory.includes("check-in")) {
+    const checkIn = text.match(/check[- ]?in\s*(?:from|after|at)?\s*([\w:./-]+(?:\s*[ap]m)?|afternoon|morning|evening)/i)?.[1];
+    const checkOut = text.match(/check[- ]?out\s*(?:by|before|at)?\s*([\w:./-]+(?:\s*[ap]m)?|afternoon|morning|evening)/i)?.[1];
+    if (checkIn || checkOut) return uniqueStrings([checkIn && `Check-in ${checkIn}`, checkOut && `check-out ${checkOut}`]).join("; ");
+    if (/late arrival|late check[- ]?in/i.test(text)) return "Late arrival subject to property approval";
+    if (/arrival times?|reception hours/i.test(text)) return "Arrival times confirmed by reception";
+  }
+
+  if (lowerCategory.includes("cancellation")) {
+    if (/non[- ]?refundable/i.test(text)) return "Non-refundable conditions may apply";
+    if (/selected rate|booking dates|rate/i.test(text)) return "Cancellation depends on rate and booking dates";
+    if (/season/i.test(text)) return "Seasonal cancellation conditions may apply";
+    if (/refund/i.test(text)) return "Refunds follow property reservation terms";
+    if (/deposit|no[- ]?show/i.test(text)) return "Deposits/no-show terms follow booking conditions";
+    if (/cancel/i.test(text)) return "Cancellation terms follow booking conditions";
+  }
+
+  if (lowerCategory.includes("payment")) {
+    if (/advance|prepayment|deposit/i.test(text)) return "Advance payment or deposit may be required";
+    if (/additional|separate|extra|supplement/i.test(text)) return "Extras may be charged separately";
+    if (/cash/i.test(text) && /card|visa|mastercard/i.test(text)) return "Cash and card payments may be accepted";
+    if (/card|visa|mastercard/i.test(text)) return "Card payment may be accepted";
+    if (/bank transfer/i.test(text)) return "Bank transfer may be accepted";
+    if (/payment|pay/i.test(text)) return "Payment methods confirmed on booking website";
+  }
+
+  if (lowerCategory.includes("house rules")) {
+    if (/quiet hours|noise/i.test(text)) return "Quiet hours and noise rules apply";
+    if (/self[- ]?respect/i.test(text) && /others/i.test(text) && /environment|nature/i.test(text)) return "Respect self, others, nature, and the environment";
+    if (/family[- ]?oriented/i.test(text) && /naturism/i.test(text)) return "Family-oriented naturist values apply";
+    if (/respect/i.test(text) && /environment|nature/i.test(text)) return "Respect nature and the environment";
+    if (/respect/i.test(text)) return "Respectful behaviour is expected";
+    if (/must|required/i.test(text)) return fitPolicyItem(cleanPolicyFragment(text));
+    if (/not allowed|prohibited/i.test(text)) return fitPolicyItem(cleanPolicyFragment(text));
+  }
+
+  if (lowerCategory.includes("naturist") || lowerCategory.includes("property policy")) {
+    if (/designated/i.test(text) && /naturist|nudist|clothing optional|textile/i.test(text)) return "Naturist etiquette applies in designated areas";
+    if (/clothing|textile|weather|activity/i.test(text)) return "Clothing rules may vary by area or activity";
+    if (/community|etiquette|standard/i.test(text)) return "Respect site rules and community standards";
+    if (/family[- ]?oriented/i.test(text) && /naturism/i.test(text)) return "Family-oriented naturist values apply";
+    if (/respect/i.test(text) && /environment|nature/i.test(text)) return "Respect nature and the environment";
+    if (/respect/i.test(text)) return "Respectful naturist behaviour is expected";
+  }
+
+  if (lowerCategory.includes("accessibility")) {
+    if (/wheelchair|disabled|mobility/i.test(text)) return fitPolicyItem(cleanPolicyFragment(text));
+    if (/accessible on foot|on foot from/i.test(text)) return "Accessible on foot from the campsite";
+    if (/easily accessible|accessible/i.test(text)) return "Area is described as accessible";
+  }
+
+  if (lowerCategory.includes("security")) {
+    if (/belongings|liability|responsib/i.test(text)) return "Guests are responsible for personal belongings";
+    if (/emergency/i.test(text)) return "Emergency procedures managed by property";
+    if (/reception|host|contact/i.test(text)) return "Reception/host contact during opening hours";
+    if (/safe|safety|security/i.test(text)) return "Property safety rules apply";
+  }
+
+  if (lowerCategory.includes("children") || lowerCategory.includes("famil")) {
+    if (/adult only|adults only/i.test(text)) return "Adults-only conditions may apply";
+    if (/playground|play area/i.test(text)) return "Children's play area available";
+    if (/children|kids|family|families/i.test(text) && /allowed|welcome/i.test(text)) return "Children and families welcome";
+  }
+
+  return text.length <= MAX_POLICY_ITEM_CHARACTERS ? cleanPolicyFragment(text) : "";
+}
+
+function compactPolicyItems(items: string[], category: string) {
+  return uniqueStrings(items.map((item) => rewritePolicyItem(item, category)))
+    .filter((item) => item.length >= MIN_REWRITTEN_POLICY_CHARACTERS)
+    .slice(0, MAX_POLICY_ITEMS_PER_CATEGORY);
+}
+
+function isPolicyLikeSentence(sentence: string, category: string) {
+  const text = normalizePolicyText(sentence);
+  const lowerCategory = category.toLowerCase();
+
+  if (/\b(?:discover|enjoy|unique holiday|memories|laughter|adventure|activities|programme|gym|yoga|surfing|workshops|entertainment|restaurant|bar|spa|pool|beach access|pine forest)\b/i.test(text)) {
+    return false;
+  }
+
+  if (lowerCategory.includes("check-in")) {
+    return /\b(?:check[- ]?in|check[- ]?out|arrival times?|departure|reception hours|late arrival|late check[- ]?in)\b/i.test(text);
+  }
+
+  if (lowerCategory.includes("house rules")) {
+    return /\b(?:house rules|site rules|quiet hours|noise|must|required|not allowed|prohibited|respect|behaviour|behavior)\b/i.test(text);
+  }
+
+  if (lowerCategory.includes("naturist")) {
+    return /\b(?:naturist|nudist|clothing optional|clothes free|textile|etiquette|designated|must|required|respect)\b/i.test(text);
+  }
+
+  return true;
+}
+
 function mergePolicyDrafts(basePolicies: PolicyDraft[], aiPolicies: PolicyDraft[] | undefined) {
   const byCategory = new Map<string, PolicyDraft>();
 
@@ -154,7 +306,7 @@ function mergePolicyDrafts(basePolicies: PolicyDraft[], aiPolicies: PolicyDraft[
     const existing = byCategory.get(key);
     byCategory.set(key, {
       category: existing?.category ?? category,
-      items: uniqueStrings([...(existing?.items ?? []), ...policy.items]).slice(0, 8),
+      items: compactPolicyItems([...(existing?.items ?? []), ...policy.items], category),
     });
   }
 
@@ -197,7 +349,7 @@ async function enrichDraftWithAi(baseDraft: ImportDraft, crawledContent: string,
     return baseDraft;
   }
 
-  const prompt = `Extract a BareUnity stay listing from this public accommodation website crawl. Use only facts present in the crawled HTML/text/PDF content. Do a thorough check of services, facilities, amenities, activities, entertainment, house rules, booking terms, cancellation, payment, pets, naturist rules, check-in/out, privacy/terms, FAQ, and downloadable PDF/document content. Return strict JSON with these keys: slug, name, country, placeName, type, rating, price, badge, vibe, amenities, description, websiteUrl, address, checkInWindow, policies, gallery. type must be one of Hotel, Entire place, Boutique stay, Naturist camping. amenities should include Services and/or Entertainment when the website mentions entertainment and/or services, recreation, events, shows, music, games, animation, or activity programmes. policies must be an array of {"category":"...","items":["..."]} based on visible website/document policy text, not generic assumptions. gallery must contain public image URLs only. If a fact is missing, use an empty string, null, or empty array.
+  const prompt = `Extract a BareUnity stay listing from this public accommodation website crawl. Use only facts present in the crawled HTML/text/PDF content. Do a thorough check of services, facilities, amenities, activities, entertainment, house rules, booking terms, cancellation, payment, pets, naturist rules, check-in/out, privacy/terms, FAQ, and downloadable PDF/document content. Return strict JSON with these keys: slug, name, country, placeName, type, rating, price, badge, vibe, amenities, description, websiteUrl, address, checkInWindow, policies, gallery. type must be one of Hotel, Entire place, Boutique stay, Naturist camping. amenities should include Services and/or Entertainment when the website mentions entertainment and/or services, recreation, events, shows, music, games, animation, or activity programmes. policies must be an array of {"category":"...","items":["..."]} based on visible website/document policy text, not generic assumptions. Rewrite policies into compact BareUnity-friendly rule summaries using only facts found in the website content. Do not copy full website sentences and do not simply cut them off. Each policy item must be a complete short phrase, max ${MAX_POLICY_ITEMS_PER_CATEGORY} items per category and max ${MAX_POLICY_ITEM_CHARACTERS} characters per item. Combine related facts, keep prices/dates/times/limits when present, and exclude marketing text, destination descriptions, amenity lists, and activity programme details from policies. gallery must contain public image URLs only. If a fact is missing, use an empty string, null, or empty array.
 
 URL: ${websiteUrl.toString()}
 
@@ -223,7 +375,7 @@ ${crawledContent.slice(0, MAX_AI_HTML_CHARACTERS)}`;
         messages: [
           {
             role: "system",
-            content: "You are a careful travel data extraction assistant. Never invent missing details. Return only valid JSON.",
+            content: "You are a careful travel data extraction assistant. Never invent missing details. Return only valid JSON. Rewrite policy items into brief, complete, rule-like summaries based only on source facts.",
           },
           { role: "user", content: prompt },
         ],
@@ -260,6 +412,9 @@ function decodeHtml(value: string) {
     .replace(/&apos;/g, "'")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&#160;/g, " ")
+    .replace(/&#xA0;/gi, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -606,7 +761,7 @@ function buildVibe(type: Listing["type"], placeName: string, amenities: string[]
   return uniqueStrings([type, placeName, ...highlights]).join(" · ") || "Website-sourced listing";
 }
 
-function collectPolicyItems(text: string, matcher: RegExp) {
+function collectPolicyItems(text: string, matcher: RegExp, category: string) {
   const items: string[] = [];
   const sentences = text
     .split(/(?<=[.!?])\s+|\n+|\s{2,}/)
@@ -614,10 +769,12 @@ function collectPolicyItems(text: string, matcher: RegExp) {
     .filter((sentence) => sentence.length >= 24 && sentence.length <= 240);
 
   for (const sentence of sentences) {
-    if (matcher.test(sentence)) items.push(sentence.replace(/^[•\-*\d.)\s]+/, ""));
+    if (matcher.test(sentence) && isPolicyLikeSentence(sentence, category)) {
+      items.push(sentence.replace(/^[•\-*\d.)\s]+/, ""));
+    }
   }
 
-  return uniqueStrings(items).slice(0, 6);
+  return compactPolicyItems(items, category);
 }
 
 function extractPoliciesFromText(text: string, checkInWindow: string, type: Listing["type"]): PolicyDraft[] {
@@ -634,7 +791,7 @@ function extractPoliciesFromText(text: string, checkInWindow: string, type: List
   ];
 
   const extracted = policyMatchers
-    .map(([category, matcher]) => ({ category, items: collectPolicyItems(text, matcher) }))
+    .map(([category, matcher]) => ({ category, items: collectPolicyItems(text, matcher, category) }))
     .filter((policy) => policy.items.length);
 
   return mergePolicyDrafts(extracted, buildFallbackPolicies(checkInWindow, type));
