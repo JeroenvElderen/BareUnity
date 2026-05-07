@@ -42,55 +42,55 @@
       {
         "category": "Check-in and check-out",
         "items": [
-          "Check-in from 14:00",
-          "Check-out by 11:00",
-          "Arrival times coordinated via reception",
-          "Late arrival possible with prior notice"
+          "Check-in starts at 14:00.",
+          "Check-out is required by 11:00.",
+          "Arrival times are arranged through reception.",
+          "Late arrivals should be requested in advance."
         ]
       },
       {
         "category": "Cancellation",
         "items": [
-          "Cancellation terms depend on booking type",
-          "Seasonal conditions may apply",
-          "Changes subject to availability",
-          "Refunds handled according to reservation terms"
+          "Cancellation terms depend on the selected booking type.",
+          "Seasonal booking conditions may apply.",
+          "Changes are subject to availability.",
+          "Refunds follow the reservation terms."
         ]
       },
       {
         "category": "Accepted payment methods",
         "items": [
-          "Card payments accepted",
-          "Cash accepted on site",
-          "Advance payment may be required",
-          "Additional services charged separately"
+          "Card payments are accepted.",
+          "Cash can be paid on site.",
+          "Advance payment may be required.",
+          "Extras and services may be charged separately."
         ]
       },
       {
         "category": "Property policy",
         "items": [
-          "Official naturist environment",
-          "Respect naturist etiquette in all designated areas",
-          "Clothing optional depending on conditions",
-          "Guests expected to follow site rules and community standards"
+          "This is an official naturist environment.",
+          "Naturist etiquette applies in designated areas.",
+          "Clothing rules may vary by area or conditions.",
+          "Guests must respect site rules and community standards."
         ]
       },
       {
         "category": "Security",
         "items": [
-          "Reception and staff available on site",
-          "Defined access areas within the park",
-          "Supervision during opening periods",
-          "Guests responsible for personal belongings"
+          "Reception and staff are available on site.",
+          "Park access is limited to defined areas.",
+          "Supervision is provided during opening periods.",
+          "Guests remain responsible for personal belongings."
         ]
       },
       {
         "category": "Pets",
         "items": [
-          "Pets allowed in designated areas",
-          "Must be kept on a leash",
-          "Owners responsible for behaviour and cleanliness",
-          "Restrictions may apply to accommodations"
+          "Pets are allowed in designated areas.",
+          "Pets must be kept on a leash.",
+          "Owners are responsible for behaviour and cleanliness.",
+          "Accommodation restrictions may apply."
         ]
       }
     ],
@@ -138,55 +138,55 @@
       {
         "category": "Check-in and check-out",
         "items": [
-          "Check-in from 15:00",
-          "Check-out by 10:00",
-          "Reception available during opening hours",
-          "Late arrival possible with prior notice"
+          "Check-in starts at 15:00.",
+          "Check-out is required by 10:00.",
+          "Reception is available during opening hours.",
+          "Late arrivals should be arranged in advance."
         ]
       },
       {
         "category": "Cancellation",
         "items": [
-          "Cancellation terms depend on booking type",
-          "Seasonal conditions apply",
-          "Changes subject to availability",
-          "Refunds handled according to reservation terms"
+          "Cancellation terms depend on the selected booking type.",
+          "Seasonal booking conditions apply.",
+          "Changes are subject to availability.",
+          "Refunds follow the reservation terms."
         ]
       },
       {
         "category": "Accepted payment methods",
         "items": [
-          "Card payments accepted",
-          "Cash accepted on site",
-          "Advance payment may be required",
-          "Additional services charged separately"
+          "Card payments are accepted.",
+          "Cash can be paid on site.",
+          "Advance payment may be required.",
+          "Extras and services may be charged separately."
         ]
       },
       {
         "category": "Property policy",
         "items": [
-          "Official naturist campsite",
-          "Nudity expected in designated areas",
-          "Respect naturist etiquette required",
-          "Quiet atmosphere encouraged"
+          "This is an official naturist campsite.",
+          "Nudity is expected in designated naturist areas.",
+          "Naturist etiquette is required.",
+          "Guests are asked to keep the atmosphere quiet and respectful."
         ]
       },
       {
         "category": "Security",
         "items": [
-          "Managed campsite access",
-          "Staff available on site",
-          "Defined camping areas",
-          "Guests responsible for personal belongings"
+          "Campsite access is managed by the property.",
+          "Staff are available on site.",
+          "Camping areas are clearly defined.",
+          "Guests remain responsible for personal belongings."
         ]
       },
       {
         "category": "Pets",
         "items": [
-          "Pets allowed in designated areas",
-          "Must be kept under control",
-          "Owner responsible for behaviour and cleanliness",
-          "Restrictions may apply"
+          "Pets are allowed in designated areas.",
+          "Pets must be kept under control.",
+          "Owners are responsible for behaviour and cleanliness.",
+          "Pet restrictions may apply by booking type."
         ]
       }
     ],
@@ -240,53 +240,53 @@
       {
         "category": "Check-in and check-out",
         "items": [
-          "Check-in from 15:00",
-          "Check-out by 10:00",
-          "Reception available during opening hours",
-          "Late arrivals possible with prior arrangement"
+          "Check-in starts at 15:00.",
+          "Check-out is required by 10:00.",
+          "Reception is available during opening hours.",
+          "Late arrivals should be arranged in advance."
         ]
       },
       {
         "category": "Cancellation",
         "items": [
-          "Cancellation terms depend on booking type",
-          "Seasonal conditions may apply",
-          "Changes subject to availability",
-          "Refunds handled according to reservation terms"
+          "Cancellation terms depend on the selected booking type.",
+          "Seasonal booking conditions may apply.",
+          "Changes are subject to availability.",
+          "Refunds follow the reservation terms."
         ]
       },
       {
         "category": "Accepted payment methods",
         "items": [
-          "Card payments accepted",
-          "Online prepayment for reservations",
-          "Additional services charged separately"
+          "Card payments are accepted.",
+          "Reservations may require online prepayment.",
+          "Extras and services may be charged separately."
         ]
       },
       {
         "category": "Property policy",
         "items": [
-          "Family-oriented campsite",
-          "Quiet hours may apply",
-          "Naturist section available in designated area",
-          "Guests expected to respect nature and park rules"
+          "This is a family-oriented campsite.",
+          "Quiet hours may apply on site.",
+          "Naturist use is limited to the designated section.",
+          "Guests must respect nature and park rules."
         ]
       },
       {
         "category": "Security",
         "items": [
-          "Managed reception and staff presence",
-          "Defined campsite access",
-          "Guests responsible for personal belongings"
+          "Reception and staff are present on site.",
+          "Campsite access is managed by the property.",
+          "Guests remain responsible for personal belongings."
         ]
       },
       {
         "category": "Pets",
         "items": [
-          "Pets allowed on designated pitches",
-          "Must be kept on a leash",
-          "Dog-friendly environment with nearby walking areas",
-          "Restrictions may apply to accommodations"
+          "Pets are allowed on designated pitches.",
+          "Pets must be kept on a leash.",
+          "Nearby walking areas are available for dogs.",
+          "Accommodation restrictions may apply."
         ]
       }
     ],
@@ -339,54 +339,54 @@
       {
         "category": "Check-in and check-out",
         "items": [
-          "Check-in from afternoon",
-          "Check-out by late morning",
-          "Reception available during opening hours",
-          "Arrival times coordinated with campsite"
+          "Check-in is available in the afternoon.",
+          "Check-out is required by late morning.",
+          "Reception is available during opening hours.",
+          "Arrival times are coordinated with the campsite."
         ]
       },
       {
         "category": "Cancellation",
         "items": [
-          "Cancellation terms depend on booking type",
-          "Seasonal conditions may apply",
-          "Changes subject to availability",
-          "Refunds handled according to reservation terms"
+          "Cancellation terms depend on the selected booking type.",
+          "Seasonal booking conditions may apply.",
+          "Changes are subject to availability.",
+          "Refunds follow the reservation terms."
         ]
       },
       {
         "category": "Accepted payment methods",
         "items": [
-          "Cash accepted",
-          "Card payments may be limited",
-          "Advance payment may be required",
-          "Additional services charged separately"
+          "Cash payments are accepted.",
+          "Card payment availability may be limited.",
+          "Advance payment may be required.",
+          "Extras and services may be charged separately."
         ]
       },
       {
         "category": "Property policy",
         "items": [
-          "Official naturist campsite",
-          "Nudity expected in designated areas",
-          "Respect naturist etiquette required",
-          "Focus on peace, cleanliness and quality environment"
+          "This is an official naturist campsite.",
+          "Nudity is expected in designated areas.",
+          "Naturist etiquette is required.",
+          "Guests should support a peaceful and clean environment."
         ]
       },
       {
         "category": "Security",
         "items": [
-          "Managed access to campsite",
-          "Staff present on site",
-          "Clearly defined camping areas",
-          "Guests responsible for personal belongings"
+          "Campsite access is managed by the property.",
+          "Staff are present on site.",
+          "Camping areas are clearly defined.",
+          "Guests remain responsible for personal belongings."
         ]
       },
       {
         "category": "Pets",
         "items": [
-          "Pets not allowed",
-          "Applies across camping areas and accommodations",
-          "Check specific booking conditions if exceptions apply"
+          "Pets are not allowed.",
+          "The pet restriction applies to camping areas and rentals.",
+          "Check booking conditions for any listed exceptions."
         ]
       }
     ],
@@ -428,16 +428,26 @@
       {
         "category": "Check-in and check-out",
         "items": [
-          "Check-in afternoon",
-          "Check-out morning"
+          "Check-in is available in the afternoon.",
+          "Check-out is required in the morning."
+        ]
+      },
+      {
+        "category": "Property policy",
+        "items": [
+          "This is a naturist campsite with designated naturist areas.",
+          "Guests are expected to respect naturist etiquette.",
+          "Beach, pool and wellness access may vary by area or season."
         ]
       },
       {
         "category": "Pets",
         "items": [
-          "Pets allowed (max 2",
-          "must be leashed and vaccinated)",
-          "Restrictions may apply by accommodation type"
+          "Up to 2 pets are allowed per accommodation.",
+          "Category 1 and 2 dogs are not accepted.",
+          "Pets must be leashed and vaccinated.",
+          "Pet fees are €35/week low season and €42/week high season.",
+          "High-season pet pricing applies from 04/07 to 29/08."
         ]
       }
     ],
@@ -489,53 +499,53 @@
       {
         "category": "Check-in and check-out",
         "items": [
-          "Check-in from afternoon",
-          "Check-out by late morning",
-          "Reception available during opening hours",
-          "Arrival coordinated on site"
+          "Check-in is available in the afternoon.",
+          "Check-out is required by late morning.",
+          "Reception is available during opening hours.",
+          "Arrival is coordinated on site."
         ]
       },
       {
         "category": "Cancellation",
         "items": [
-          "Cancellation terms depend on booking type",
-          "Seasonal conditions may apply",
-          "Changes subject to availability",
-          "Refunds handled according to reservation terms"
+          "Cancellation terms depend on the selected booking type.",
+          "Seasonal booking conditions may apply.",
+          "Changes are subject to availability.",
+          "Refunds follow the reservation terms."
         ]
       },
       {
         "category": "Accepted payment methods",
         "items": [
-          "Cash primarily accepted",
-          "Limited card payment availability",
-          "Advance payment may be required",
-          "Extras charged separately"
+          "Cash is the primary payment method.",
+          "Card payment availability may be limited.",
+          "Advance payment may be required.",
+          "Extras may be charged separately."
         ]
       },
       {
         "category": "Property policy",
         "items": [
-          "Official naturist campsite",
-          "Nudity required in designated areas",
-          "Respect naturist etiquette required",
-          "Simple, nature-focused environment (not luxury)"
+          "This is an official naturist campsite.",
+          "Nudity is required in designated naturist areas.",
+          "Naturist etiquette is required.",
+          "The setting is simple and nature-focused, not luxury."
         ]
       },
       {
         "category": "Security",
         "items": [
-          "Defined campsite access",
-          "Community-based environment",
-          "Guests responsible for personal belongings"
+          "Campsite access is clearly defined.",
+          "The site has a community-based atmosphere.",
+          "Guests remain responsible for personal belongings."
         ]
       },
       {
         "category": "Pets",
         "items": [
-          "Pets allowed",
-          "Must be supervised",
-          "Owners responsible for behaviour and cleanliness"
+          "Pets are allowed.",
+          "Pets must be supervised.",
+          "Owners are responsible for behaviour and cleanliness."
         ]
       }
     ],
@@ -596,55 +606,55 @@
       {
         "category": "Check-in and check-out",
         "items": [
-          "Check-in from afternoon",
-          "Check-out by late morning",
-          "Reception available during opening hours",
-          "Arrival times coordinated with resort"
+          "Check-in is available in the afternoon.",
+          "Check-out is required by late morning.",
+          "Reception is available during opening hours.",
+          "Arrival times are coordinated with the resort."
         ]
       },
       {
         "category": "Cancellation",
         "items": [
-          "Cancellation terms depend on booking type",
-          "Seasonal conditions may apply",
-          "Changes subject to availability",
-          "Refunds handled according to reservation terms"
+          "Cancellation terms depend on the selected booking type.",
+          "Seasonal booking conditions may apply.",
+          "Changes are subject to availability.",
+          "Refunds follow the reservation terms."
         ]
       },
       {
         "category": "Accepted payment methods",
         "items": [
-          "Cash accepted",
-          "Card payments may be available",
-          "Advance payment may be required",
-          "Extras charged separately"
+          "Cash payments are accepted.",
+          "Card payments may be available.",
+          "Advance payment may be required.",
+          "Extras may be charged separately."
         ]
       },
       {
         "category": "Property policy",
         "items": [
-          "Official naturist resort",
-          "Nudity expected in designated areas",
-          "Respect naturist etiquette required",
-          "Family-friendly but primarily adult-oriented atmosphere"
+          "This is an official naturist resort.",
+          "Nudity is expected in designated naturist areas.",
+          "Naturist etiquette is required.",
+          "The atmosphere is family-friendly and mainly adult-oriented."
         ]
       },
       {
         "category": "Security",
         "items": [
-          "Defined resort access areas",
-          "Staff present on site",
-          "Large, zoned property layout",
-          "Guests responsible for personal belongings"
+          "Resort access is arranged by zones.",
+          "Staff are present on site.",
+          "The property has a large, defined layout.",
+          "Guests remain responsible for personal belongings."
         ]
       },
       {
         "category": "Pets",
         "items": [
-          "Pets allowed in designated areas",
-          "Dedicated dog meadow and swimming area",
-          "Must be kept under control",
-          "Restrictions may apply in accommodations"
+          "Pets are allowed in designated areas.",
+          "A dog meadow and dog swimming area are available.",
+          "Pets must be kept under control.",
+          "Accommodation restrictions may apply."
         ]
       }
     ],
@@ -699,54 +709,54 @@
       {
         "category": "Check-in and check-out",
         "items": [
-          "Check-in from afternoon",
-          "Check-out by late morning",
-          "24-hour reception available",
-          "Late arrivals accommodated"
+          "Check-in is available in the afternoon.",
+          "Check-out is required by late morning.",
+          "Reception is available 24 hours.",
+          "Late arrivals can be accommodated."
         ]
       },
       {
         "category": "Cancellation",
         "items": [
-          "Cancellation policies depend on booking type",
-          "Seasonal conditions apply",
-          "Changes subject to availability",
-          "Refunds handled per reservation terms"
+          "Cancellation terms depend on the selected booking type.",
+          "Seasonal booking conditions apply.",
+          "Changes are subject to availability.",
+          "Refunds follow the reservation terms."
         ]
       },
       {
         "category": "Accepted payment methods",
         "items": [
-          "Credit and debit cards accepted",
-          "Cash accepted",
-          "Advance payment required for reservations",
-          "Extras charged separately"
+          "Credit and debit cards are accepted.",
+          "Cash payments are accepted.",
+          "Reservations require advance payment.",
+          "Extras may be charged separately."
         ]
       },
       {
         "category": "Property policy",
         "items": [
-          "Official naturist resort",
-          "Nudity required in pool and beach areas",
-          "Clothing required in indoor areas",
-          "Respect naturist etiquette and community standards"
+          "This is an official naturist resort.",
+          "Nudity is required in pool and beach areas.",
+          "Clothing is required indoors.",
+          "Guests must respect naturist etiquette and community standards."
         ]
       },
       {
         "category": "Security",
         "items": [
-          "Staff available 24/7",
-          "Managed resort access",
-          "Safe and family-friendly environment",
-          "Guests responsible for personal belongings"
+          "Staff are available 24 hours.",
+          "Resort access is managed by the property.",
+          "The resort is described as safe and family-friendly.",
+          "Guests remain responsible for personal belongings."
         ]
       },
       {
         "category": "Pets",
         "items": [
-          "Pets not typically allowed",
-          "Restrictions apply across the property",
-          "Check specific booking conditions"
+          "Pets are not typically allowed.",
+          "Pet restrictions apply across the property.",
+          "Check booking conditions for any listed exceptions."
         ]
       }
     ],
