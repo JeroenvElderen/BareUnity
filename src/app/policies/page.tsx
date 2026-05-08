@@ -15,14 +15,14 @@ export default function PoliciesPage() {
           ← Back to BareUnity
         </Link>
         <p className={styles.kicker}>BareUnity legal center</p>
-        <h1>Privacy, Terms, Community Rules & Protective Policies</h1>
+        <h1>Complete Privacy, Terms, Community Rules & Safety Policies</h1>
         <p className={styles.lede}>
-          A comprehensive policy hub for an adult-only, consent-first naturist community. Last updated {lastUpdated}.
+          The current, expanded rules for using BareUnity as an adult-only, consent-first naturist community. Last updated {lastUpdated}.
         </p>
         <div className={styles.notice}>
-          <strong>Important:</strong> No template can “cover everything” in every country or dispute. This is a broad,
-          owner-protective operational draft, not legal advice. Have a qualified lawyer adapt it to your entity,
-          jurisdiction, vendors, insurance, contact details, and launch market before publishing.
+          <strong>Important:</strong> These expanded policies explain the rules that apply when members use BareUnity, including privacy,
+          verification, consent, content, messaging, offline safety, venue discovery, payments, enforcement, and legal
+          requests. They may be updated as features, safety practices, vendors, or legal requirements change.
         </div>
         <div className={styles.contactPanel}>
           <p>

@@ -46,7 +46,7 @@ export default async function PolicyDetailsPage({ params }: PolicyDetailsPagePro
         </Link>
         <p className={styles.kicker}>{policy.eyebrow}</p>
         <h1>{policy.title}</h1>
-        <p className={styles.lede}>Standalone BareUnity policy page. Last updated {lastUpdated}.</p>
+        <p className={styles.lede}>BareUnity policy page. Last updated {lastUpdated}.</p>
         <div className={styles.contactPanel}>
           <p>
             <strong>Official legal name:</strong> {policyContact.legalName}
@@ -76,8 +76,8 @@ export default async function PolicyDetailsPage({ params }: PolicyDetailsPagePro
           </ul>
           <div className={styles.notice}>
             <strong>Need help with this policy?</strong> Email BareUnity at{" "}
-            <a href={`mailto:${policyContact.email}`}>{policyContact.email}</a>. This policy is a protective operational
-            draft and should be reviewed by qualified counsel for the exact jurisdiction and business setup.
+            <a href={`mailto:${policyContact.email}`}>{policyContact.email}</a> with privacy, safety, moderation,
+            copyright, accessibility, billing, venue listing, enforcement appeal, or legal questions.
           </div>
         </article>
 
