@@ -118,3 +118,16 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+.policyLinks {
+  margin: 0;
+  text-align: center;
+  font-size: 0.82rem;
+}
+
+.policyLinks a {
+  color: rgb(var(--brand));
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}

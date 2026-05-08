@@ -505,7 +505,7 @@ export default function RegisterPage() {
                 }
                 required
               />
-              I agree to BareUnity&apos;s Terms, Privacy Policy, and strict moderation guidelines.
+              I agree to BareUnity&apos;s Terms, Privacy Policy, and strict moderation guidelines available in the policies hub.
             </label>
 
             <button className={styles.button} type="submit" disabled={isLoading}>
@@ -519,6 +519,13 @@ export default function RegisterPage() {
               <Link className={styles.link} href="/login">
                 Sign in
               </Link>
+            </p>
+            <p className={styles.legal}>
+              Review the {" "}
+              <Link className={styles.link} href="/policies">
+                Privacy, Terms, Safety & Legal Policies
+              </Link>
+              {" "}before joining.
             </p>
           </form>
         </article>

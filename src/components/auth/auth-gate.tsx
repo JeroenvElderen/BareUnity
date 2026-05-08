@@ -56,7 +56,7 @@ type ProfilePageCachePayload = ProfileSnapshotPayload & {
   friends: Array<{ id: string; username: string }>;
 };
 
-const PUBLIC_PATHS = new Set(["/welcome", "/login", "/register"]);
+const PUBLIC_PATHS = new Set(["/welcome", "/login", "/register", "/policies"]);
 const PROFILE_CACHE_KEY_PREFIX = "profile:";
 const LIVE_TABLES = ["posts", "comments", "friendships", "profiles", "profile_settings", "map_spots"] as const;
 const POST_LOGIN_LOADER_FLAG = "bareunity_post_login_loading";
@@ -135,6 +135,7 @@ export function AuthGate({ children }: AuthGateProps) {
   const isPublicPath = useMemo(() => {
     if (!pathname) return false;
     if (PUBLIC_PATHS.has(pathname)) return true;
+    if (pathname.startsWith("/policies/")) return true;
     return pathname.startsWith("/api") || pathname.startsWith("/_next");
   }, [pathname]);
 

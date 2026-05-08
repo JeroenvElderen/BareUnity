@@ -39,6 +39,9 @@ export default function WelcomePage() {
             </Link>
           </div>
           <p className={styles.note}>Your boundaries and privacy stay in your control.</p>
+          <p className={styles.policyLinks}>
+            <Link href="/policies">Privacy, Terms, Safety & Legal Policies</Link>
+          </p>
         </article>
       </section>
     </main>

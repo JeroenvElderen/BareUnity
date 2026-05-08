@@ -173,6 +173,13 @@ export default function LoginPage() {
                 Create an account
               </Link>
             </p>
+            <p className={styles.legal}>
+              By signing in, you continue under BareUnity&apos;s {" "}
+              <Link className={styles.link} href="/policies">
+                Privacy, Terms, Safety & Legal Policies
+              </Link>
+              .
+            </p>
           </form>
         </article>
       </section>

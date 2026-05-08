@@ -1,0 +1,263 @@
+.page {
+  min-height: 100vh;
+  padding: clamp(1rem, 3vw, 2rem);
+  background:
+    radial-gradient(circle at 15% 0%, rgb(var(--accent-soft) / 0.4), transparent 42%),
+    radial-gradient(circle at 90% 15%, rgb(var(--brand-2) / 0.18), transparent 36%),
+    linear-gradient(180deg, rgb(var(--bg)) 0%, rgb(var(--bg-soft)) 100%);
+  color: rgb(var(--text));
+}
+
+.hero,
+.toc,
+.content {
+  width: min(1180px, 100%);
+  margin: 0 auto;
+}
+
+.hero {
+  display: grid;
+  gap: 1rem;
+  padding: clamp(1.25rem, 4vw, 2.5rem);
+  border: 1px solid rgb(var(--border));
+  border-radius: 28px;
+  background: linear-gradient(135deg, rgb(var(--card) / 0.96), rgb(var(--bg-soft) / 0.78));
+  box-shadow: 0 24px 60px rgb(17 29 28 / 0.12);
+}
+
+.backLink {
+  width: fit-content;
+  color: rgb(var(--brand));
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.backLink:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.kicker,
+.eyebrow {
+  margin: 0;
+  color: rgb(var(--brand));
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.hero h1 {
+  max-width: 900px;
+  margin: 0;
+  color: rgb(var(--text-strong));
+  font-size: clamp(2.2rem, 6vw, 4.6rem);
+  line-height: 0.98;
+  letter-spacing: -0.055em;
+}
+
+.lede {
+  max-width: 850px;
+  margin: 0;
+  color: rgb(var(--muted));
+  font-size: clamp(1rem, 2vw, 1.25rem);
+  line-height: 1.7;
+}
+
+.notice {
+  border: 1px solid rgb(var(--brand) / 0.28);
+  border-radius: 18px;
+  padding: 0.95rem 1rem;
+  background: rgb(var(--brand) / 0.09);
+  color: rgb(var(--text));
+  line-height: 1.6;
+}
+
+.toc {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  gap: 0.55rem;
+  overflow-x: auto;
+  padding: 1rem 0.1rem;
+  margin-block: 0.5rem;
+  backdrop-filter: blur(16px);
+}
+
+.toc a {
+  flex: 0 0 auto;
+  border: 1px solid rgb(var(--border));
+  border-radius: 999px;
+  padding: 0.52rem 0.78rem;
+  background: rgb(var(--card) / 0.9);
+  color: rgb(var(--text));
+  text-decoration: none;
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.toc a:hover {
+  border-color: rgb(var(--brand) / 0.45);
+  color: rgb(var(--brand));
+}
+
+.content {
+  display: grid;
+  gap: 1rem;
+  padding-bottom: 3rem;
+}
+
+.policyCard {
+  scroll-margin-top: 5.5rem;
+  display: grid;
+  gap: 0.9rem;
+  border: 1px solid rgb(var(--border));
+  border-radius: 24px;
+  padding: clamp(1.1rem, 3vw, 1.75rem);
+  background: rgb(var(--card) / 0.94);
+  box-shadow: 0 16px 36px rgb(17 29 28 / 0.08);
+}
+
+.policyCard h2 {
+  margin: 0;
+  color: rgb(var(--text-strong));
+  font-size: clamp(1.45rem, 3vw, 2.2rem);
+  line-height: 1.08;
+}
+
+.bodyText {
+  display: grid;
+  gap: 0.7rem;
+  color: rgb(var(--muted));
+  line-height: 1.75;
+}
+
+.bodyText p {
+  margin: 0;
+}
+
+.checklist {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.65rem;
+  padding: 0;
+  margin: 0.4rem 0 0;
+  list-style: none;
+}
+
+.checklist li {
+  position: relative;
+  min-height: 100%;
+  border: 1px solid rgb(var(--border));
+  border-radius: 16px;
+  padding: 0.78rem 0.85rem 0.78rem 2.15rem;
+  background: linear-gradient(135deg, rgb(var(--bg-soft) / 0.7), rgb(var(--card) / 0.86));
+  color: rgb(var(--text));
+  line-height: 1.55;
+}
+
+.checklist li::before {
+  content: "✓";
+  position: absolute;
+  left: 0.8rem;
+  top: 0.78rem;
+  display: grid;
+  place-items: center;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 999px;
+  background: rgb(var(--brand) / 0.18);
+  color: rgb(var(--brand));
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+@media (min-width: 760px) {
+  .checklist {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.contactPanel {
+  display: grid;
+  gap: 0.35rem;
+  border: 1px solid rgb(var(--border));
+  border-radius: 18px;
+  padding: 0.95rem 1rem;
+  background: rgb(var(--card) / 0.72);
+  line-height: 1.6;
+}
+
+.contactPanel p {
+  margin: 0;
+}
+
+.contactPanel a,
+.notice a {
+  color: rgb(var(--brand));
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.policyPageLink {
+  width: fit-content;
+  border: 1px solid rgb(var(--brand) / 0.35);
+  border-radius: 999px;
+  padding: 0.58rem 0.85rem;
+  color: rgb(var(--brand));
+  font-weight: 800;
+  text-decoration: none;
+  background: rgb(var(--brand) / 0.08);
+}
+
+.policyPageLink:hover {
+  background: rgb(var(--brand) / 0.14);
+}
+
+.policyHero {
+  margin-bottom: 1rem;
+}
+
+.standalonePolicyCard {
+  gap: 1rem;
+}
+
+.relatedPolicies {
+  display: grid;
+  gap: 0.8rem;
+  border: 1px solid rgb(var(--border));
+  border-radius: 22px;
+  padding: clamp(1rem, 3vw, 1.35rem);
+  background: rgb(var(--card) / 0.9);
+}
+
+.relatedPolicies h2 {
+  margin: 0;
+  color: rgb(var(--text-strong));
+  font-size: 1.2rem;
+}
+
+.relatedPolicies div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.relatedPolicies a {
+  border: 1px solid rgb(var(--border));
+  border-radius: 999px;
+  padding: 0.48rem 0.68rem;
+  color: rgb(var(--text));
+  background: rgb(var(--bg-soft) / 0.68);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.relatedPolicies a:hover {
+  border-color: rgb(var(--brand) / 0.45);
+  color: rgb(var(--brand));
+}

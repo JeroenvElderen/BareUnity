@@ -17,6 +17,7 @@ import {
   Menu,
   MessageCircle,
   Settings,
+  ScrollText,
   ShieldCheck,
   SunMoon,
   Sparkles,
@@ -62,6 +63,7 @@ const workspaceItems = [
   { icon: Bell, label: "Notifications", badge: "0" },
   { icon: Users, label: "Members", href: "/members" },
   { icon: Settings, label: "Settings", href: "/settings" },
+  { icon: ScrollText, label: "Policies", href: "/policies" },
 ] satisfies readonly NavItem[];
 
 const relativeTimeFormatter = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
