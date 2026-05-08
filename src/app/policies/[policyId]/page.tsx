@@ -41,12 +41,31 @@ export default async function PolicyDetailsPage({ params }: PolicyDetailsPagePro
   return (
     <main className={styles.page}>
       <section className={`${styles.hero} ${styles.policyHero}`}>
-        <Link href="/policies" className={styles.backLink}>
-          ← Back to all policies
-        </Link>
+        <div className={styles.heroHeader}>
+          <Link href="/policies" className={styles.backLink}>
+            ← Back to all policies
+          </Link>
+          <span className={styles.lastUpdatedBadge}>Last updated {lastUpdated}</span>
+        </div>
         <p className={styles.kicker}>{policy.eyebrow}</p>
         <h1>{policy.title}</h1>
-        <p className={styles.lede}>BareUnity policy page. Last updated {lastUpdated}.</p>
+        <p className={styles.lede}>A dedicated BareUnity policy reference for this topic.</p>
+        <div className={styles.heroGrid}>
+          <div className={styles.notice}>
+            <strong>Policy scope:</strong> This page explains expectations, enforcement considerations, and member
+            responsibilities for {policy.eyebrow.toLowerCase()} within BareUnity.
+          </div>
+          <div className={styles.quickFacts} aria-label="Policy page highlights">
+            <div className={styles.quickFact}>
+              <strong>{policy.cards.length}</strong>
+              <span>Key operating notes</span>
+            </div>
+            <div className={styles.quickFact}>
+              <strong>{policy.body.length}</strong>
+              <span>Detailed policy sections</span>
+            </div>
+          </div>
+        </div>
         <div className={styles.contactPanel}>
           <p>
             <strong>Official legal name:</strong> {policyContact.legalName}

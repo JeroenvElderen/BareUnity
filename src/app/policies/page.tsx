@@ -11,18 +11,33 @@ export default function PoliciesPage() {
   return (
     <main className={styles.page}>
       <section className={styles.hero}>
-        <Link href="/welcome" className={styles.backLink}>
-          ← Back to BareUnity
-        </Link>
+        <div className={styles.heroHeader}>
+          <Link href="/welcome" className={styles.backLink}>
+            ← Back to BareUnity
+          </Link>
+          <span className={styles.lastUpdatedBadge}>Last updated {lastUpdated}</span>
+        </div>
         <p className={styles.kicker}>BareUnity legal center</p>
         <h1>Complete Privacy, Terms, Community Rules & Safety Policies</h1>
         <p className={styles.lede}>
-          The current, expanded rules for using BareUnity as an adult-only, consent-first naturist community. Last updated {lastUpdated}.
+          The current, expanded rules for using BareUnity as an adult-only, consent-first naturist community.
         </p>
-        <div className={styles.notice}>
-          <strong>Important:</strong> These expanded policies explain the rules that apply when members use BareUnity, including privacy,
-          verification, consent, content, messaging, offline safety, venue discovery, payments, enforcement, and legal
-          requests. They may be updated as features, safety practices, vendors, or legal requirements change.
+        <div className={styles.heroGrid}>
+          <div className={styles.notice}>
+            <strong>Important:</strong> These expanded policies explain the rules that apply when members use BareUnity, including privacy,
+            verification, consent, content, messaging, offline safety, venue discovery, payments, enforcement, and legal
+            requests. They may be updated as features, safety practices, vendors, or legal requirements change.
+          </div>
+          <div className={styles.quickFacts} aria-label="Policy center highlights">
+            <div className={styles.quickFact}>
+              <strong>{policyGroups.length}</strong>
+              <span>Policy areas covering community operations</span>
+            </div>
+            <div className={styles.quickFact}>
+              <strong>18+</strong>
+              <span>Adult-only, consent-first membership standard</span>
+            </div>
+          </div>
         </div>
         <div className={styles.contactPanel}>
           <p>
@@ -45,6 +60,15 @@ export default function PoliciesPage() {
           </Link>
         ))}
       </nav>
+
+      <section className={styles.sectionIntro} aria-labelledby="policy-library-heading">
+        <p className={styles.kicker}>Policy library</p>
+        <h2 id="policy-library-heading">Review each policy area</h2>
+        <p>
+          Each section summarizes the standards members, visitors, venues, and service providers should understand before
+          using BareUnity. Open a dedicated page for more focused reading.
+        </p>
+      </section>
 
       <section className={styles.content}>
         {policyGroups.map((group) => (
