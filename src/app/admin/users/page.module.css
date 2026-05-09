@@ -180,3 +180,25 @@
   color: rgb(var(--muted));
   padding: 0.7rem 0.8rem;
 }
+
+.form,
+.listCard,
+.userRow {
+  box-shadow: var(--shadow-card);
+}
+
+@media (max-width: 640px) {
+  .page {
+    padding: 0.85rem 0.75rem 1.4rem;
+  }
+
+  .searchRow,
+  .userRow {
+    display: grid;
+  }
+
+  .form button,
+  .searchRow button {
+    width: 100%;
+  }
+}

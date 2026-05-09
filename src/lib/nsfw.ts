@@ -25,10 +25,15 @@ export type SexualSeverityResult = {
   reason: string;
 };
 
+export type HuggingFaceNsfwEntry = {
+  label?: string;
+  score?: number;
+};
+
 /**
  * Normalize HF output
  */
-export function toNsfwScores(entries: any[]): NsfwScores {
+export function toNsfwScores(entries: HuggingFaceNsfwEntry[]): NsfwScores {
   let pornography = 0;
   let sensual = 0;
   let normal = 0;

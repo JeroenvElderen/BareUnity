@@ -356,3 +356,33 @@
 }
 
 .visibilityGroup { display:flex; flex-wrap:wrap; gap:0.35rem; }
+@media (max-width: 939px) {
+  .pageSection {
+    padding: 0.8rem 0.75rem 1.4rem;
+  }
+
+  .header {
+    border-radius: var(--radius-lg);
+    padding: 0.85rem;
+  }
+
+  .quickStats {
+    display: flex;
+    overflow-x: auto;
+    padding-bottom: 0.25rem;
+  }
+
+  .quickStats article {
+    min-width: 9rem;
+  }
+
+  .navPanel {
+    position: sticky;
+    top: calc(4.25rem + env(safe-area-inset-top, 0px));
+    z-index: 20;
+  }
+
+  .sectionHeading {
+    display: grid;
+  }
+}

@@ -5,6 +5,7 @@ import {
   toNsfwScores,
   inferContextSignals,
   applyBusinessPolicy,
+  type HuggingFaceNsfwEntry,
 } from "@/lib/nsfw";
 
 export const runtime = "nodejs";
@@ -109,7 +110,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let payload: any;
+    let payload: unknown;
 
     try {
       payload = JSON.parse(trimmed);
@@ -128,7 +129,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ✅ Stage 1
-    const scores = toNsfwScores(payload);
+    const scores = toNsfwScores(payload as HuggingFaceNsfwEntry[]);
 
     // ✅ Stage 2
     const signals = inferContextSignals(scores);
@@ -155,7 +156,7 @@ export async function POST(request: NextRequest) {
       sexualSeverityReason: severity.reason,
       inferredSignals: signals,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("FATAL:", err);
 
     return NextResponse.json(

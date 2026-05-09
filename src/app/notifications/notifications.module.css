@@ -257,3 +257,43 @@
     justify-content: flex-start;
   }
 }
+
+@media (max-width: 700px) {
+  .page {
+    padding: 0.85rem 0.75rem 1.4rem;
+  }
+
+  .hero,
+  .notification {
+    border-radius: var(--radius-lg);
+  }
+
+  .actions,
+  .ctaWrap {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .stats {
+    display: flex;
+    overflow-x: auto;
+    padding-bottom: 0.25rem;
+    scroll-snap-type: x proximity;
+  }
+
+  .statCard {
+    min-width: 9rem;
+    scroll-snap-align: start;
+  }
+
+  .notification {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .meta {
+    grid-column: 1 / -1;
+    align-items: stretch;
+  }
+}

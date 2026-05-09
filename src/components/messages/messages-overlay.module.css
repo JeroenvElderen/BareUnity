@@ -188,3 +188,21 @@
     max-height: 42dvh;
   }
 }
+@media (max-width: 900px) {
+  .header {
+    padding-top: calc(0.85rem + env(safe-area-inset-top, 0px));
+  }
+
+  .columnLeft {
+    max-height: 34dvh;
+    background: rgb(var(--bg-soft) / 0.56);
+  }
+
+  .bubble {
+    max-width: 88%;
+  }
+
+  .composer {
+    grid-template-columns: 1fr;
+  }
+}

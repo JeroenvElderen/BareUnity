@@ -329,3 +329,25 @@
     grid-template-columns: 1fr;
   }
 }
+
+@media (max-width: 640px) {
+  .statsGrid {
+    display: flex;
+    overflow-x: auto;
+    padding-bottom: 0.25rem;
+  }
+
+  .statCard {
+    min-width: 8.8rem;
+  }
+
+  .cardHeader,
+  .actions {
+    display: grid;
+  }
+
+  .approveButton,
+  .rejectButton {
+    width: 100%;
+  }
+}

@@ -197,3 +197,42 @@
     border-top: 1px solid var(--border, rgba(255, 255, 255, 0.1));
   }
 }
+.panel,
+.desktopDock {
+  background: rgb(var(--card) / 0.94);
+  border-color: rgb(var(--border));
+  box-shadow: var(--shadow-card);
+}
+
+@media (max-width: 900px) {
+  .page {
+    padding: 0.75rem;
+    background: transparent;
+  }
+
+  .layout {
+    gap: 0.75rem;
+  }
+
+  .panel {
+    padding: 0.75rem;
+    border-radius: var(--radius-lg);
+  }
+
+  .layout > .panel:first-child {
+    max-height: 18rem;
+    overflow-y: auto;
+  }
+
+  .messageList {
+    max-height: 52dvh;
+  }
+
+  .bubble {
+    max-width: 88%;
+  }
+
+  .composer {
+    grid-template-columns: 1fr;
+  }
+}
