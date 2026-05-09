@@ -152,7 +152,7 @@ export function GeneralRoom() {
         } satisfies RoomMessage;
       });
 
-    setMessages(parsedMessages);
+      setMessages(parsedMessages);
 
       if (!onlineMembers.length) {
         const uniqueFromMessages = Array.from(new Set(parsedMessages.map((message) => message.author)));
@@ -335,7 +335,7 @@ export function GeneralRoom() {
                   <span className={message.role === "moderator" ? styles.modBadge : styles.memberBadge}>{message.role}</span>
                   <time>{message.time}</time>
                 </p>
-                <p>{message.body}</p>
+                <p className={styles.messageBody}>{message.body}</p>
               </div>
             </article>
           ))}

@@ -9,6 +9,8 @@ const output = process.env.SCREENSHOT_PATH ?? 'artifacts/screenshots/home.png';
 const fullPage = (process.env.SCREENSHOT_FULL_PAGE ?? 'true').toLowerCase() !== 'false';
 const browserPath = process.env.SCREENSHOT_BROWSER_PATH;
 const browserChannel = process.env.SCREENSHOT_BROWSER_CHANNEL;
+const viewportWidth = Number.parseInt(process.env.SCREENSHOT_VIEWPORT_WIDTH ?? '1440', 10);
+const viewportHeight = Number.parseInt(process.env.SCREENSHOT_VIEWPORT_HEIGHT ?? '900', 10);
 
 const launchOptions = { headless: true };
 
@@ -88,7 +90,7 @@ try {
 }
 
 try {
-  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  const page = await browser.newPage({ viewport: { width: viewportWidth, height: viewportHeight } });
   await page.goto(url, { waitUntil: 'networkidle', timeout: 60_000 });
 
   await mkdir(path.dirname(output), { recursive: true });

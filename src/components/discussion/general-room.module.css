@@ -1,5 +1,8 @@
 .roomShell {
   display: grid;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
   gap: 1rem;
   border-radius: 1.2rem;
   border: 1px solid rgb(var(--border));
@@ -12,9 +15,14 @@
 
 .roomHeader {
   display: flex;
+  min-width: 0;
   justify-content: space-between;
   gap: 1rem;
   align-items: flex-start;
+}
+
+.roomHeader > div {
+  min-width: 0;
 }
 
 .roomLabel {
@@ -28,6 +36,7 @@
 
 .roomTitle {
   display: inline-flex;
+  max-width: 100%;
   align-items: center;
   gap: 0.45rem;
   margin: 0;
@@ -36,6 +45,7 @@
 }
 
 .roomDescription {
+  overflow-wrap: anywhere;
   margin: 0.58rem 0 0;
   color: rgb(var(--muted));
   max-width: 64ch;
@@ -44,6 +54,7 @@
 
 .roomMeta {
   display: flex;
+  min-width: 0;
   align-items: center;
   gap: 0.55rem;
   flex-wrap: wrap;
@@ -77,6 +88,7 @@
 
 .roomBody {
   display: grid;
+  min-width: 0;
   grid-template-columns: 1fr 230px;
   gap: 0.9rem;
   align-items: start;
@@ -84,6 +96,7 @@
 
 .messagesPanel {
   display: grid;
+  min-width: 0;
   align-content: start;
   gap: 0.68rem;
   min-height: 280px;
@@ -94,6 +107,7 @@
 
 .messageCard {
   display: grid;
+  min-width: 0;
   grid-template-columns: auto 1fr;
   gap: 0.62rem;
   border-radius: 0.95rem;
@@ -117,6 +131,7 @@
 
 .messageContent {
   display: grid;
+  min-width: 0;
   gap: 0.35rem;
   color: rgb(var(--text));
 }
@@ -126,11 +141,19 @@
 }
 
 .messageMeta {
-  display: inline-flex;
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.45rem;
   font-size: 0.82rem;
   color: rgb(var(--muted));
+}
+
+.messageMeta :global(button),
+.messageMeta :global(a) {
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .messageMeta strong {
@@ -156,7 +179,15 @@
   color: rgb(var(--text-strong));
 }
 
+.messageBody {
+  line-height: 1.48;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
 .onlinePanel {
+  min-width: 0;
   border-radius: 0.95rem;
   border: 1px solid rgb(var(--border));
   background: rgb(var(--card) / 0.86);
@@ -232,10 +263,12 @@
 
 .composerWrap {
   position: relative;
+  min-width: 0;
 }
 
 .emojiTray {
   position: absolute;
+  max-width: calc(100vw - 2rem);
   right: 0.35rem;
   bottom: calc(100% + 0.45rem);
   z-index: 10;
@@ -351,6 +384,10 @@
   .roomMeta {
     justify-content: flex-start;
   }
+
+  .roomMeta span:last-child {
+    display: none;
+  }
 }
 
 .statusInfo {
@@ -379,33 +416,154 @@
 
 @media (max-width: 640px) {
   .roomShell {
+    gap: 0.75rem;
     border-radius: var(--radius-lg);
-    padding: 0.75rem;
+    padding: 0.7rem;
   }
 
   .roomHeader {
     display: grid;
+    gap: 0.65rem;
+  }
+
+  .roomTitle {
+    font-size: 1.15rem;
+  }
+
+  .roomDescription {
+    margin-top: 0.45rem;
+    font-size: 0.9rem;
+  }
+
+  .roomMeta {
+    gap: 0.4rem;
+  }
+
+  .roomMeta span {
+    padding: 0.3rem 0.52rem;
+    font-size: 0.75rem;
   }
 
   .roomBody {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.7rem;
   }
 
   .onlinePanel {
-    max-height: 5.75rem;
-    overflow-y: auto;
+    order: -1;
+    max-height: none;
+    overflow: hidden;
+    padding: 0.56rem;
+  }
+
+  .onlineTitle {
+    margin-bottom: 0.4rem;
+    text-align: left;
   }
 
   .onlinePanel ul {
     display: flex;
+    gap: 0.4rem;
     overflow-x: auto;
+    max-height: none;
+    padding: 0 0 0.15rem;
+    scrollbar-width: thin;
   }
 
   .onlinePanel li {
-    min-width: 2.75rem;
+    min-width: max-content;
+    padding: 0.3rem 0.45rem 0.3rem 0.32rem;
+    justify-content: flex-start;
+    white-space: nowrap;
+  }
+
+  .onlineName {
+    display: inline;
+    max-width: 8rem;
+  }
+
+  .onlineInitials {
+    width: 1.55rem;
+    height: 1.55rem;
+    font-size: 0.6rem;
+  }
+
+  .messagesPanel {
+    max-height: min(58dvh, 31rem);
+    padding-right: 0;
+    overscroll-behavior: contain;
+  }
+
+  .messageCard {
+    grid-template-columns: 1.9rem minmax(0, 1fr);
+    gap: 0.52rem;
+    border-radius: 0.82rem;
+    padding: 0.62rem;
+  }
+
+  .avatar {
+    width: 1.9rem;
+    height: 1.9rem;
+    border-radius: 0.55rem;
+    font-size: 0.62rem;
+  }
+
+  .messageMeta {
+    gap: 0.32rem;
+    font-size: 0.76rem;
+  }
+
+  .modBadge,
+  .memberBadge {
+    padding: 0.1rem 0.38rem;
+    font-size: 0.62rem;
+  }
+
+  .messageBody {
+    font-size: 0.92rem;
+  }
+
+  .composerWrap {
+    position: sticky;
+    bottom: calc(0.45rem + env(safe-area-inset-bottom, 0px));
+    z-index: 12;
   }
 
   .composer {
     border-radius: 1rem;
+    box-shadow: 0 12px 28px rgb(2 6 23 / 0.18);
+  }
+
+  .emojiTray {
+    left: 0;
+    right: 0;
+    justify-content: space-between;
+    border-radius: 1rem;
+  }
+}
+
+@media (max-width: 390px) {
+  .roomShell {
+    padding: 0.58rem;
+  }
+
+  .roomDescription {
+    font-size: 0.84rem;
+  }
+
+  .roomMeta span {
+    font-size: 0.72rem;
+  }
+
+  .messagesPanel {
+    max-height: min(55dvh, 28rem);
+  }
+
+  .messageCard {
+    grid-template-columns: 1fr;
+  }
+
+  .avatar {
+    display: none;
   }
 }
