@@ -1,7 +1,15 @@
 import { NextResponse } from "next/server";
 
-import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase-admin";
-import { buildProfileSnapshotPayload, EMPTY_PROFILE_SNAPSHOT, getProfileSnapshotSourceVersion, type ProfileSnapshotPayload } from "@/lib/profile-snapshot";
+import {
+  createSupabaseAdminClient,
+  isSupabaseAdminConfigured,
+} from "@/lib/supabase-admin";
+import {
+  buildProfileSnapshotPayload,
+  EMPTY_PROFILE_SNAPSHOT,
+  getProfileSnapshotSourceVersion,
+  type ProfileSnapshotPayload,
+} from "@/lib/profile-snapshot";
 import { readServerCache, writeServerCache } from "@/lib/server-user-cache";
 import { loadViewerIdFromRequest } from "@/lib/viewer";
 
@@ -18,27 +26,40 @@ function isMissingRpcFunctionError(error: unknown) {
   return error.code === "PGRST202";
 }
 
-async function fetchSnapshotViaRpc(userId: string): Promise<ProfileSnapshotPayload | null> {
+async function fetchSnapshotViaRpc(
+  userId: string,
+): Promise<ProfileSnapshotPayload | null> {
   if (!isSupabaseAdminConfigured) return null;
-  if (isRpcProfileSnapshotKnownMissing && Date.now() < nextRpcProfileSnapshotRetryAt) {
+  if (
+    isRpcProfileSnapshotKnownMissing &&
+    Date.now() < nextRpcProfileSnapshotRetryAt
+  ) {
     return null;
   }
 
   try {
     const supabaseAdmin = createSupabaseAdminClient();
-    const { data, error } = await supabaseAdmin.rpc("rpc_get_profile_snapshot", {
-      p_user_id: userId,
-    });
+    const { data, error } = await supabaseAdmin.rpc(
+      "rpc_get_profile_snapshot",
+      {
+        p_user_id: userId,
+      },
+    );
 
     if (error) {
       if (isMissingRpcFunctionError(error)) {
         isRpcProfileSnapshotKnownMissing = true;
         nextRpcProfileSnapshotRetryAt = Date.now() + RPC_MISSING_RETRY_MS;
-        console.warn("rpc_get_profile_snapshot is unavailable in this database; falling back to Prisma snapshot");
+        console.warn(
+          "rpc_get_profile_snapshot is unavailable in this database; falling back to Prisma snapshot",
+        );
         return null;
       }
 
-      console.warn("rpc_get_profile_snapshot failed; falling back to Prisma snapshot", error);
+      console.warn(
+        "rpc_get_profile_snapshot failed; falling back to Prisma snapshot",
+        error,
+      );
       return null;
     }
 
@@ -53,11 +74,16 @@ async function fetchSnapshotViaRpc(userId: string): Promise<ProfileSnapshotPaylo
     if (isMissingRpcFunctionError(error)) {
       isRpcProfileSnapshotKnownMissing = true;
       nextRpcProfileSnapshotRetryAt = Date.now() + RPC_MISSING_RETRY_MS;
-      console.warn("rpc_get_profile_snapshot is unavailable in this database; falling back to Prisma snapshot");
+      console.warn(
+        "rpc_get_profile_snapshot is unavailable in this database; falling back to Prisma snapshot",
+      );
       return null;
     }
-    
-    console.warn("rpc_get_profile_snapshot unavailable; falling back to Prisma snapshot", error);
+
+    console.warn(
+      "rpc_get_profile_snapshot unavailable; falling back to Prisma snapshot",
+      error,
+    );
     return null;
   }
 }
@@ -85,7 +111,9 @@ export async function GET(request: Request) {
       });
     }
 
-    const payload = (await fetchSnapshotViaRpc(viewerId)) ?? (await buildProfileSnapshotPayload(viewerId));
+    const payload =
+      (await fetchSnapshotViaRpc(viewerId)) ??
+      (await buildProfileSnapshotPayload(viewerId, viewerId));
 
     await writeServerCache({
       userId: viewerId,

@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 
-import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase-admin";
+import {
+  createSupabaseAdminClient,
+  isSupabaseAdminConfigured,
+} from "@/lib/supabase-admin";
 import { loadViewerIdFromRequest } from "@/lib/viewer";
 import { db } from "@/server/db";
 
@@ -79,14 +82,18 @@ async function listAllMediaObjects(): Promise<SupabaseListEntry[]> {
     let offset = 0;
 
     while (true) {
-      const { data, error } = await supabaseAdmin.storage.from("media").list(directory, {
-        limit: 100,
-        offset,
-        sortBy: { column: "name", order: "asc" },
-      });
+      const { data, error } = await supabaseAdmin.storage
+        .from("media")
+        .list(directory, {
+          limit: 100,
+          offset,
+          sortBy: { column: "name", order: "asc" },
+        });
 
       if (error) {
-        throw new Error(`Unable to list media directory ${directory}: ${error.message}`);
+        throw new Error(
+          `Unable to list media directory ${directory}: ${error.message}`,
+        );
       }
 
       if (!data?.length) break;
@@ -130,14 +137,16 @@ async function buildGalleryFromStorage(): Promise<GalleryStorageItem[]> {
   const entries = objects
     .map((entry) => ({
       path: entry.name,
-      createdAt: entry.created_at ?? entry.updated_at ?? "1970-01-01T00:00:00.000Z",
+      createdAt:
+        entry.created_at ?? entry.updated_at ?? "1970-01-01T00:00:00.000Z",
     }))
     .filter((entry) => IMAGE_EXTENSION_PATTERN.test(entry.path))
     .filter((entry) => !storyPaths.has(entry.path))
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     .map((entry) => {
       const ownerIdSegment = entry.path.split("/")[1] ?? "";
-      const normalizedOwnerId = ownerIdSegment.match(/^[0-9a-fA-F-]{36}$/)?.[0] ?? "";
+      const normalizedOwnerId =
+        ownerIdSegment.match(/^[0-9a-fA-F-]{36}$/)?.[0] ?? "";
 
       return {
         id: `media-${entry.path}`,
@@ -151,18 +160,40 @@ async function buildGalleryFromStorage(): Promise<GalleryStorageItem[]> {
     });
 
   const ownerIds = Array.from(
-    new Set(entries.map((entry) => entry.ownerId).filter((ownerId) => ownerId.length > 0)),
+    new Set(
+      entries
+        .map((entry) => entry.ownerId)
+        .filter((ownerId) => ownerId.length > 0),
+    ),
   );
-  const profileRows = ownerIds.length
-    ? await db.profiles.findMany({
-        where: { id: { in: ownerIds } },
-        select: { id: true, username: true },
-      })
-    : [];
-  const usernameByOwnerId = new Map(profileRows.map((profile) => [profile.id, profile.username]));
+  const [profileRows, settingsRows] = ownerIds.length
+    ? await Promise.all([
+        db.profiles.findMany({
+          where: { id: { in: ownerIds } },
+          select: { id: true, username: true },
+        }),
+        db.profile_settings.findMany({
+          where: { user_id: { in: ownerIds } },
+          select: { user_id: true, add_post_images_to_gallery: true },
+        }),
+      ])
+    : [[], []];
+  const usernameByOwnerId = new Map(
+    profileRows.map((profile) => [profile.id, profile.username]),
+  );
+  const postImagesInGalleryByOwnerId = new Map(
+    settingsRows.map((settings) => [
+      settings.user_id,
+      settings.add_post_images_to_gallery,
+    ]),
+  );
+  const visibleEntries = entries.filter((entry) => {
+    if (!entry.path.startsWith("posts/")) return true;
+    return postImagesInGalleryByOwnerId.get(entry.ownerId) ?? true;
+  });
 
   const signedItems = await Promise.all(
-    entries.map(async (entry) => {
+    visibleEntries.map(async (entry) => {
       const { data, error } = await supabaseAdmin.storage
         .from("media")
         .createSignedUrl(entry.src, 60 * 60 * 24 * 7, {
@@ -183,13 +214,20 @@ async function buildGalleryFromStorage(): Promise<GalleryStorageItem[]> {
     }),
   );
 
-  return signedItems.filter((item): item is GalleryStorageItem => Boolean(item));
+  return signedItems.filter((item): item is GalleryStorageItem =>
+    Boolean(item),
+  );
 }
 
-async function loadLikeStats(paths: string[], viewerId: string | null): Promise<Map<string, GalleryLikeStats>> {
+async function loadLikeStats(
+  paths: string[],
+  viewerId: string | null,
+): Promise<Map<string, GalleryLikeStats>> {
   if (paths.length === 0) return new Map();
 
-  const likeRows = await db.$queryRaw<Array<{ image_path: string; like_count: number }>>(Prisma.sql`
+  const likeRows = await db.$queryRaw<
+    Array<{ image_path: string; like_count: number }>
+  >(Prisma.sql`
     select image_path, count(*)::int as like_count
     from public.gallery_image_likes
     where image_path in (${Prisma.join(paths)})
@@ -206,7 +244,9 @@ async function loadLikeStats(paths: string[], viewerId: string | null): Promise<
     : [];
 
   const likedByViewer = new Set(viewerLikedPaths.map((row) => row.image_path));
-  const likeCountByPath = new Map(likeRows.map((row) => [row.image_path, Number(row.like_count) || 0]));
+  const likeCountByPath = new Map(
+    likeRows.map((row) => [row.image_path, Number(row.like_count) || 0]),
+  );
 
   return new Map(
     paths.map((path) => [
@@ -231,7 +271,7 @@ export async function GET(request: Request) {
       payload.map((item) => item.path),
       viewerId,
     );
-    
+
     return NextResponse.json({
       items: payload.map((item) => ({
         id: item.id,

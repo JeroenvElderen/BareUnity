@@ -1,5 +1,61 @@
 import { db } from "@/server/db";
 
+type OptionState = "No-one" | "Friends only" | "Everyone";
+
+type VisibilityContext = {
+  isOwner: boolean;
+  isFriend: boolean;
+};
+
+function normalizeStoredOptionStates(
+  value: unknown,
+): Record<string, OptionState> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+
+  const states: Record<string, OptionState> = {};
+  for (const [key, state] of Object.entries(value)) {
+    if (
+      state === "No-one" ||
+      state === "Friends only" ||
+      state === "Everyone"
+    ) {
+      states[key] = state;
+    }
+  }
+  return states;
+}
+
+function canViewState(
+  state: OptionState | undefined,
+  context: VisibilityContext,
+) {
+  const level = state ?? "Everyone";
+  if (context.isOwner) return true;
+  if (level === "Everyone") return true;
+  if (level === "Friends only") return context.isFriend;
+  return false;
+}
+
+async function getViewerContext(
+  targetUserId: string,
+  viewerId?: string | null,
+): Promise<VisibilityContext> {
+  const isOwner = Boolean(viewerId && viewerId === targetUserId);
+  if (!viewerId || isOwner) return { isOwner, isFriend: false };
+
+  const friendship = await db.friendships.findFirst({
+    where: {
+      OR: [
+        { user_id: viewerId, friend_user_id: targetUserId },
+        { user_id: targetUserId, friend_user_id: viewerId },
+      ],
+    },
+    select: { id: true },
+  });
+
+  return { isOwner, isFriend: Boolean(friendship) };
+}
+
 export type ProfileSnapshotProfile = {
   id: string;
   username: string;
@@ -32,7 +88,10 @@ export const EMPTY_PROFILE_SNAPSHOT: ProfileSnapshotPayload = {
   stats: { posts: 0, friends: 0, comments: 0 },
 };
 
-export async function buildProfileSnapshotPayload(userId: string): Promise<ProfileSnapshotPayload> {
+export async function buildProfileSnapshotPayload(
+  userId: string,
+  viewerId?: string | null,
+): Promise<ProfileSnapshotPayload> {
   const profile = await db.profiles.findUnique({
     where: { id: userId },
     select: {
@@ -47,7 +106,15 @@ export async function buildProfileSnapshotPayload(userId: string): Promise<Profi
 
   if (!profile) return EMPTY_PROFILE_SNAPSHOT;
 
-  const [posts, settings, postsCount, friendships, commentsCount] = await Promise.all([
+  const [
+    viewerContext,
+    posts,
+    settings,
+    postsCount,
+    friendships,
+    commentsCount,
+  ] = await Promise.all([
+    getViewerContext(profile.id, viewerId),
     db.posts.findMany({
       where: {
         author_id: profile.id,
@@ -66,7 +133,7 @@ export async function buildProfileSnapshotPayload(userId: string): Promise<Profi
     }),
     db.profile_settings.findUnique({
       where: { user_id: profile.id },
-      select: { interests: true },
+      select: { interests: true, setting_control_states: true },
     }),
     db.posts.count({
       where: {
@@ -88,12 +155,40 @@ export async function buildProfileSnapshotPayload(userId: string): Promise<Profi
     }),
   ]);
 
+  const settingStates = normalizeStoredOptionStates(
+    settings?.setting_control_states,
+  );
+  const profileVisibility = settingStates["privacy.Profile visibility"];
+
+  if (!canViewState(profileVisibility, viewerContext)) {
+    return EMPTY_PROFILE_SNAPSHOT;
+  }
+
+  const canViewDisplayName = canViewState(
+    settingStates["account.Display name visibility"],
+    viewerContext,
+  );
+  const canViewLocation = canViewState(
+    settingStates["privacy.Location precision"],
+    viewerContext,
+  );
+
   const uniqueFriendIds = new Set(
-    friendships.map((friendship) => (friendship.user_id === profile.id ? friendship.friend_user_id : friendship.user_id)).filter(Boolean),
+    friendships
+      .map((friendship) =>
+        friendship.user_id === profile.id
+          ? friendship.friend_user_id
+          : friendship.user_id,
+      )
+      .filter(Boolean),
   );
 
   return {
-    profile,
+    profile: {
+      ...profile,
+      display_name: canViewDisplayName ? profile.display_name : null,
+      location: canViewLocation ? profile.location : null,
+    },
     posts: posts.map((post) => ({
       ...post,
       created_at: post.created_at?.toISOString() ?? null,
@@ -107,47 +202,63 @@ export async function buildProfileSnapshotPayload(userId: string): Promise<Profi
   };
 }
 
-export async function getProfileSnapshotSourceVersion(userId: string): Promise<string> {
-  const [profile, latestPost, latestFriendship, latestComment, settings] = await Promise.all([
-    db.profiles.findUnique({
-      where: { id: userId },
-      select: { id: true, username: true, display_name: true, bio: true, avatar_url: true, location: true },
-    }),
-    db.posts.findFirst({
-      where: {
-        author_id: userId,
-        OR: [{ post_type: null }, { post_type: { not: "story" } }],
-      },
-      orderBy: { created_at: "desc" },
-      select: { id: true, created_at: true },
-    }),
-    db.friendships.findFirst({
-      where: {
-        OR: [{ user_id: userId }, { friend_user_id: userId }],
-      },
-      orderBy: { created_at: "desc" },
-      select: { id: true, created_at: true },
-    }),
-    db.comments.findFirst({
-      where: { author_id: userId },
-      orderBy: { created_at: "desc" },
-      select: { id: true, created_at: true },
-    }),
-    db.profile_settings.findUnique({
-      where: { user_id: userId },
-      select: { updated_at: true, interests: true },
-    }),
-  ]);
+export async function getProfileSnapshotSourceVersion(
+  userId: string,
+): Promise<string> {
+  const [profile, latestPost, latestFriendship, latestComment, settings] =
+    await Promise.all([
+      db.profiles.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          username: true,
+          display_name: true,
+          bio: true,
+          avatar_url: true,
+          location: true,
+        },
+      }),
+      db.posts.findFirst({
+        where: {
+          author_id: userId,
+          OR: [{ post_type: null }, { post_type: { not: "story" } }],
+        },
+        orderBy: { created_at: "desc" },
+        select: { id: true, created_at: true },
+      }),
+      db.friendships.findFirst({
+        where: {
+          OR: [{ user_id: userId }, { friend_user_id: userId }],
+        },
+        orderBy: { created_at: "desc" },
+        select: { id: true, created_at: true },
+      }),
+      db.comments.findFirst({
+        where: { author_id: userId },
+        orderBy: { created_at: "desc" },
+        select: { id: true, created_at: true },
+      }),
+      db.profile_settings.findUnique({
+        where: { user_id: userId },
+        select: {
+          updated_at: true,
+          interests: true,
+          setting_control_states: true,
+        },
+      }),
+    ]);
 
   return JSON.stringify({
     profile,
     latestPostId: latestPost?.id ?? null,
     latestPostCreatedAt: latestPost?.created_at?.toISOString() ?? null,
     latestFriendshipId: latestFriendship?.id ?? null,
-    latestFriendshipCreatedAt: latestFriendship?.created_at?.toISOString() ?? null,
+    latestFriendshipCreatedAt:
+      latestFriendship?.created_at?.toISOString() ?? null,
     latestCommentId: latestComment?.id ?? null,
     latestCommentCreatedAt: latestComment?.created_at?.toISOString() ?? null,
     settingsUpdatedAt: settings?.updated_at?.toISOString() ?? null,
     interests: settings?.interests ?? [],
+    optionStates: settings?.setting_control_states ?? {},
   });
 }
