@@ -371,3 +371,41 @@
   cursor: not-allowed;
   opacity: 0.55;
 }
+.roomShell,
+.messageCard,
+.onlinePanel {
+  box-shadow: var(--shadow-card);
+}
+
+@media (max-width: 640px) {
+  .roomShell {
+    border-radius: var(--radius-lg);
+    padding: 0.75rem;
+  }
+
+  .roomHeader {
+    display: grid;
+  }
+
+  .roomBody {
+    grid-template-columns: 1fr;
+  }
+
+  .onlinePanel {
+    max-height: 5.75rem;
+    overflow-y: auto;
+  }
+
+  .onlinePanel ul {
+    display: flex;
+    overflow-x: auto;
+  }
+
+  .onlinePanel li {
+    min-width: 2.75rem;
+  }
+
+  .composer {
+    border-radius: 1rem;
+  }
+}

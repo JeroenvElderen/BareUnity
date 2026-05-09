@@ -54,3 +54,24 @@
   color: rgb(var(--brand-2));
   font-weight: 700;
 }
+.card {
+  box-shadow: var(--shadow-card);
+}
+
+@media (max-width: 700px) {
+  .page {
+    padding: 0.85rem 0.75rem 1.5rem;
+  }
+
+  .grid {
+    display: flex;
+    overflow-x: auto;
+    padding-bottom: 0.35rem;
+    scroll-snap-type: x proximity;
+  }
+
+  .card {
+    min-width: min(19rem, 86vw);
+    scroll-snap-align: start;
+  }
+}

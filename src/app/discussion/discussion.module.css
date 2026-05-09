@@ -5,3 +5,8 @@
   display: grid;
   align-content: start;
 }
+@media (max-width: 700px) {
+  .page {
+    padding: 0.75rem;
+  }
+}

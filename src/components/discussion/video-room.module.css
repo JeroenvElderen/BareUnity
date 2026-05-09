@@ -286,3 +286,30 @@
     flex: 1 1 calc(50% - 0.42rem);
   }
 }
+.roomShell,
+.localStage,
+.remoteTile,
+.participantTile {
+  box-shadow: var(--shadow-card);
+}
+
+@media (max-width: 700px) {
+  .roomShell {
+    border-radius: var(--radius-lg);
+    padding: 0.75rem;
+  }
+
+  .videoGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .participantStrip {
+    display: flex;
+    overflow-x: auto;
+    padding-bottom: 0.25rem;
+  }
+
+  .participantTile {
+    min-width: 7.5rem;
+  }
+}

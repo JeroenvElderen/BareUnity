@@ -73,3 +73,41 @@
     padding: 1.5rem 1.5rem calc(1.5rem + env(safe-area-inset-bottom, 0px));
   }
 }
+/* Responsive shell refresh: keep mobile simple and reserve rich side content for desktop. */
+.feedLayout {
+  max-width: 1440px;
+  margin-inline: auto;
+}
+
+.feedHeader {
+  box-shadow: var(--shadow-card);
+}
+
+@media (max-width: 639px) {
+  .feedLayout {
+    padding: 0.8rem 0.75rem calc(1.5rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .feedHeader {
+    gap: 0.65rem;
+    border-radius: var(--radius-lg) !important;
+    padding: 0.78rem !important;
+  }
+
+  .feedHeaderControls {
+    grid-template-columns: 1fr;
+    background: transparent;
+    border: 0;
+    padding: 0;
+  }
+
+  .feedHeaderControls > :global(button) {
+    min-height: 2.65rem;
+  }
+}
+
+@media (min-width: 1100px) {
+  .feedLayout {
+    padding: 1.5rem clamp(1.25rem, 2vw, 2rem) calc(1.5rem + env(safe-area-inset-bottom, 0px));
+  }
+}

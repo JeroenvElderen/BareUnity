@@ -112,3 +112,55 @@
   .titleBarModern { flex-direction: column; }
   .policyGrid { grid-template-columns: 1fr; }
 }
+
+.titleBarModern,
+.descriptionBlock article,
+.ratingCard,
+.servicesBlock,
+.policySection {
+  box-shadow: var(--shadow-card);
+}
+
+@media (max-width: 680px) {
+  .page {
+    padding: 0.85rem 0.75rem 1.5rem;
+  }
+
+  .shell {
+    gap: 0.85rem;
+  }
+
+  .breadcrumbs {
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  .titleBarModern {
+    border-radius: var(--radius-lg);
+    padding: 0.9rem;
+  }
+
+  .bookNowBtn {
+    width: 100%;
+    text-align: center;
+  }
+
+  .galleryModern {
+    display: flex;
+    overflow-x: auto;
+    gap: 0.65rem;
+    padding-bottom: 0.3rem;
+    scroll-snap-type: x proximity;
+  }
+
+  .heroPhoto,
+  .subPhoto {
+    flex: 0 0 min(82vw, 22rem);
+    min-height: 14rem;
+    scroll-snap-align: start;
+  }
+
+  .policyList {
+    grid-template-columns: 1fr;
+  }
+}
