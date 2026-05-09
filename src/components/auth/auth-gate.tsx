@@ -76,6 +76,7 @@ const BACKGROUND_ROUTES_TO_PREFETCH = [
   "/admin",
   "/admin/applications",
   "/admin/reports",
+  "/admin/feedback",
 ];
 const PRE_LOGIN_DATA_ENDPOINTS = [
   "/api/homefeed",

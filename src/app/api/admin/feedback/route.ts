@@ -13,19 +13,10 @@ export async function GET(request: NextRequest) {
 
   const supabaseAdmin = createSupabaseAdminClient();
   const { data, error } = await supabaseAdmin
-    .from("reports")
-    .select(`
-      id,
-      reason,
-      created_at,
-      post_id,
-      comment_id,
-      profiles:profiles!reports_reporter_id_fkey (id, username, display_name),
-      posts:posts (id, title, content),
-      comments:comments (id, content)
-    `)
+    .from("feedback_messages")
+    .select("id, category, message, status, page_url, user_agent, user_email, user_id, created_at")
     .order("created_at", { ascending: false });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ reports: data ?? [] });
+  return NextResponse.json({ feedback: data ?? [] });
 }

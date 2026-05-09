@@ -9,6 +9,12 @@ const sections = [
     cta: "Open applications",
   },
   {
+    title: "User feedback",
+    description: "Read ideas, bug reports, and questions sent from the floating in-app feedback bubble.",
+    href: "/admin/feedback",
+    cta: "Open feedback",
+  },
+  {
     title: "User reports",
     description: "Track flagged posts and comments that need moderation follow-up.",
     href: "/admin/reports",
