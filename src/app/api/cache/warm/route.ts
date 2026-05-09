@@ -1,9 +1,18 @@
 import { NextResponse } from "next/server";
 
-import { buildHomeFeedPayload, getHomeFeedSourceVersion } from "@/lib/homefeed-server";
-import { buildProfileSnapshotPayload, getProfileSnapshotSourceVersion } from "@/lib/profile-snapshot";
+import {
+  buildHomeFeedPayload,
+  getHomeFeedSourceVersion,
+} from "@/lib/homefeed-server";
+import {
+  buildProfileSnapshotPayload,
+  getProfileSnapshotSourceVersion,
+} from "@/lib/profile-snapshot";
 import { writeServerCache } from "@/lib/server-user-cache";
-import { buildSettingsSnapshotPayload, getSettingsSnapshotSourceVersion } from "@/lib/settings-snapshot";
+import {
+  buildSettingsSnapshotPayload,
+  getSettingsSnapshotSourceVersion,
+} from "@/lib/settings-snapshot";
 import { db } from "@/server/db";
 
 const MAX_USERS_TO_WARM = 100;
@@ -53,7 +62,7 @@ export async function POST(request: Request) {
 
       const [profileSourceVersion, profilePayload] = await Promise.all([
         getProfileSnapshotSourceVersion(user.id),
-        buildProfileSnapshotPayload(user.id),
+        buildProfileSnapshotPayload(user.id, user.id),
       ]);
 
       await writeServerCache({
@@ -81,7 +90,8 @@ export async function POST(request: Request) {
 
       warmedCount += 1;
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown warmup failure";
+      const message =
+        error instanceof Error ? error.message : "Unknown warmup failure";
       errors.push({ userId: user.id, message });
     }
   }

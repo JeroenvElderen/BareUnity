@@ -35,7 +35,9 @@ export async function GET(request: Request, context: RouteContext) {
     });
 
     if (!targetProfile) {
-      const [normalizedMatch] = await db.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+      const [normalizedMatch] = await db.$queryRaw<
+        Array<{ id: string }>
+      >(Prisma.sql`
         select p.id
         from public.profiles p
         where regexp_replace(
@@ -56,12 +58,15 @@ export async function GET(request: Request, context: RouteContext) {
         targetProfile = normalizedMatch;
       }
     }
-    
+
     if (!targetProfile) {
       return NextResponse.json({ error: "Member not found" }, { status: 404 });
     }
 
-    const payload = await buildProfileSnapshotPayload(targetProfile.id);
+    const payload = await buildProfileSnapshotPayload(
+      targetProfile.id,
+      viewerId,
+    );
     return NextResponse.json(payload, {
       headers: {
         "x-bareunity-member-profile": "ok",
@@ -69,6 +74,9 @@ export async function GET(request: Request, context: RouteContext) {
     });
   } catch (error) {
     console.error("Unable to load member profile snapshot", error);
-    return NextResponse.json({ error: "Unable to load member profile" }, { status: 503 });
+    return NextResponse.json(
+      { error: "Unable to load member profile" },
+      { status: 503 },
+    );
   }
 }

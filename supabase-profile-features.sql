@@ -43,6 +43,7 @@ alter table public.profile_settings add column if not exists pronouns text;
 alter table public.profile_settings add column if not exists communication_preferences jsonb default '["Direct messages"]'::jsonb;
 alter table public.profile_settings add column if not exists profile_sections jsonb default '{"about": true, "links": true, "milestones": true, "skills": true}'::jsonb;
 alter table public.profile_settings add column if not exists section_visibility jsonb default '{"about": "public", "links": "public", "milestones": "followers_only", "skills": "public", "portfolio": "public", "timeline": "followers_only"}'::jsonb;
+alter table public.profile_settings add column if not exists setting_control_states jsonb not null default '{}'::jsonb;
 alter table public.profile_settings add column if not exists featured_post_ids jsonb default '[]'::jsonb;
 alter table public.profile_settings add column if not exists identity_badges jsonb default '[]'::jsonb;
 alter table public.profile_settings add column if not exists timeline_highlights jsonb default '[]'::jsonb;

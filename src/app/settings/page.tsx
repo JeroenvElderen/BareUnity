@@ -10,19 +10,33 @@ import { UsernameChangeModal } from "@/components/settings/username-change-modal
 import { AppSidebar } from "@/components/sidebar/sidebar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { buildUserScopedCacheKey, readCachedValue, writeCachedValue } from "@/lib/client-cache";
+import {
+  buildUserScopedCacheKey,
+  readCachedValue,
+  writeCachedValue,
+} from "@/lib/client-cache";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import layoutStyles from "../page.module.css";
 import styles from "./settings.module.css";
 
 type OptionState = "No-one" | "Friends only" | "Everyone";
+type BooleanState = "No" | "Yes";
 
-type SettingOption = {
-  key: string;
-  label: string;
-  detail: string;
-  state: OptionState;
-};
+type SettingOption =
+  | {
+      key: string;
+      label: string;
+      detail: string;
+      state: OptionState;
+      control?: "visibility";
+    }
+  | {
+      key: string;
+      label: string;
+      detail: string;
+      state: BooleanState;
+      control: "boolean";
+    };
 
 type SettingSection = {
   key: string;
@@ -37,15 +51,41 @@ const settingSections: SettingSection[] = [
   {
     key: "profile",
     title: "Profile & Login",
-    subtitle: "Direct controls for username, email, password, and account recovery.",
+    subtitle:
+      "Direct controls for username, email, password, and account recovery.",
     pill: "Profile",
     tone: "calm",
     options: [
-      { key: "Username", label: "Username", detail: "Change your @handle used in search and mentions.", state: "Everyone" },
-      { key: "Primary email", label: "Primary email", detail: "Update your sign-in email and verification address.", state: "Everyone" },
-      { key: "Password reset", label: "Password reset", detail: "Rotate password and invalidate older credentials.", state: "Everyone" },
-      { key: "Recovery keys", label: "Recovery keys", detail: "Generate backup keys for account recovery.", state: "Everyone" },
-      { key: "Connected devices", label: "Connected devices", detail: "Review and remove active sessions.", state: "Everyone" },
+      {
+        key: "Username",
+        label: "Username",
+        detail: "Change your @handle used in search and mentions.",
+        state: "Everyone",
+      },
+      {
+        key: "Primary email",
+        label: "Primary email",
+        detail: "Update your sign-in email and verification address.",
+        state: "Everyone",
+      },
+      {
+        key: "Password reset",
+        label: "Password reset",
+        detail: "Rotate password and invalidate older credentials.",
+        state: "Everyone",
+      },
+      {
+        key: "Recovery keys",
+        label: "Recovery keys",
+        detail: "Generate backup keys for account recovery.",
+        state: "Everyone",
+      },
+      {
+        key: "Connected devices",
+        label: "Connected devices",
+        detail: "Review and remove active sessions.",
+        state: "Everyone",
+      },
     ],
   },
   {
@@ -55,11 +95,36 @@ const settingSections: SettingSection[] = [
     pill: "Account",
     tone: "calm",
     options: [
-      { key: "Display name visibility", label: "Display name visibility", detail: "Show your chosen name in public spaces.", state: "Everyone" },
-      { key: "Profile verification badge", label: "Profile verification badge", detail: "Display trust verification on your profile.", state: "Everyone" },
-      { key: "Two-factor authentication", label: "Two-factor authentication", detail: "Require a second login verification step.", state: "Everyone" },
-      { key: "Login alerts", label: "Login alerts", detail: "Get notified when your account is accessed from a new device.", state: "Everyone" },
-      { key: "Session management", label: "Session management", detail: "Allow remote logout from other active devices.", state: "Everyone" },
+      {
+        key: "Display name visibility",
+        label: "Display name visibility",
+        detail: "Show your chosen name in public spaces.",
+        state: "Everyone",
+      },
+      {
+        key: "Profile verification badge",
+        label: "Profile verification badge",
+        detail: "Display trust verification on your profile.",
+        state: "Everyone",
+      },
+      {
+        key: "Two-factor authentication",
+        label: "Two-factor authentication",
+        detail: "Require a second login verification step.",
+        state: "Everyone",
+      },
+      {
+        key: "Login alerts",
+        label: "Login alerts",
+        detail: "Get notified when your account is accessed from a new device.",
+        state: "Everyone",
+      },
+      {
+        key: "Session management",
+        label: "Session management",
+        detail: "Allow remote logout from other active devices.",
+        state: "Everyone",
+      },
     ],
   },
   {
@@ -69,26 +134,82 @@ const settingSections: SettingSection[] = [
     pill: "Consent",
     tone: "sun",
     options: [
-      { key: "Block DMs from non-connections", label: "Block DMs from non-connections", detail: "Only connected members can message you.", state: "Everyone" },
-      { key: "Meetup invite approval", label: "Meetup invite approval", detail: "Manually approve each event invitation.", state: "Everyone" },
-      { key: "Boundary card in new chats", label: "Boundary card in new chats", detail: "Auto-share your comfort preferences in first contact.", state: "Everyone" },
-      { key: "Voice/video call permission", label: "Voice/video call permission", detail: "Only friends can request live calls.", state: "Friends only" },
-      { key: "Tag approval", label: "Tag approval", detail: "Require approval before you are tagged in posts.", state: "Everyone" },
+      {
+        key: "Block DMs from non-connections",
+        label: "Block DMs from non-connections",
+        detail: "Only connected members can message you.",
+        state: "Everyone",
+      },
+      {
+        key: "Meetup invite approval",
+        label: "Meetup invite approval",
+        detail: "Manually approve each event invitation.",
+        state: "Everyone",
+      },
+      {
+        key: "Boundary card in new chats",
+        label: "Boundary card in new chats",
+        detail: "Auto-share your comfort preferences in first contact.",
+        state: "Everyone",
+      },
+      {
+        key: "Voice/video call permission",
+        label: "Voice/video call permission",
+        detail: "Only friends can request live calls.",
+        state: "Friends only",
+      },
+      {
+        key: "Tag approval",
+        label: "Tag approval",
+        detail: "Require approval before you are tagged in posts.",
+        state: "Everyone",
+      },
     ],
   },
   {
     key: "privacy",
     title: "Privacy",
-    subtitle: "Visibility controls that directly affect your personal exposure.",
+    subtitle:
+      "Visibility controls that directly affect your personal exposure.",
     pill: "Privacy",
     tone: "sea",
     options: [
-      { key: "Profile visibility", label: "Profile visibility", detail: "Who can view your full profile page.", state: "Everyone" },
-      { key: "Location precision", label: "Location precision", detail: "Share only broad region instead of exact location.", state: "No-one" },
-      { key: "Online status", label: "Online status", detail: "Show when you are currently online.", state: "No-one" },
-      { key: "Read receipts", label: "Read receipts", detail: "Let others know you have seen their messages.", state: "No-one" },
-      { key: "Saved posts visibility", label: "Saved posts visibility", detail: "Allow others to see your saved items.", state: "No-one" },
-      { key: "Search indexing", label: "Search indexing", detail: "Allow profile snippets in public search engines.", state: "No-one" },
+      {
+        key: "Profile visibility",
+        label: "Profile visibility",
+        detail: "Who can view your full profile page.",
+        state: "Everyone",
+      },
+      {
+        key: "Location precision",
+        label: "Location precision",
+        detail: "Share only broad region instead of exact location.",
+        state: "No-one",
+      },
+      {
+        key: "Online status",
+        label: "Online status",
+        detail: "Show when you are currently online.",
+        state: "No-one",
+      },
+      {
+        key: "Read receipts",
+        label: "Read receipts",
+        detail: "Let others know you have seen their messages.",
+        state: "No-one",
+      },
+      {
+        key: "Saved posts visibility",
+        label: "Saved posts visibility",
+        detail: "Allow others to see your saved items.",
+        state: "No-one",
+      },
+      {
+        key: "Search indexing",
+        label: "Search indexing",
+        detail: "Allow profile snippets in public search engines.",
+        state: "No-one",
+      },
     ],
   },
   {
@@ -98,11 +219,36 @@ const settingSections: SettingSection[] = [
     pill: "Safety",
     tone: "sun",
     options: [
-      { key: "Sensitive media blur", label: "Sensitive media blur", detail: "Blur sensitive media previews by default.", state: "Everyone" },
-      { key: "Harassment phrase detection", label: "Harassment phrase detection", detail: "Auto-flag abusive language in interactions.", state: "Everyone" },
-      { key: "Keyword blocklist", label: "Keyword blocklist", detail: "Hide comments containing blocked words.", state: "Everyone" },
-      { key: "Trusted circles only", label: "Trusted circles only", detail: "Limit interaction to verified/trusted members.", state: "Friends only" },
-      { key: "Emergency support shortcut", label: "Emergency support shortcut", detail: "Show quick-report and support actions in chats.", state: "Everyone" },
+      {
+        key: "Sensitive media blur",
+        label: "Sensitive media blur",
+        detail: "Blur sensitive media previews by default.",
+        state: "Everyone",
+      },
+      {
+        key: "Harassment phrase detection",
+        label: "Harassment phrase detection",
+        detail: "Auto-flag abusive language in interactions.",
+        state: "Everyone",
+      },
+      {
+        key: "Keyword blocklist",
+        label: "Keyword blocklist",
+        detail: "Hide comments containing blocked words.",
+        state: "Everyone",
+      },
+      {
+        key: "Trusted circles only",
+        label: "Trusted circles only",
+        detail: "Limit interaction to verified/trusted members.",
+        state: "Friends only",
+      },
+      {
+        key: "Emergency support shortcut",
+        label: "Emergency support shortcut",
+        detail: "Show quick-report and support actions in chats.",
+        state: "Everyone",
+      },
     ],
   },
   {
@@ -112,11 +258,36 @@ const settingSections: SettingSection[] = [
     pill: "Alerts",
     tone: "calm",
     options: [
-      { key: "Security alerts", label: "Security alerts", detail: "Immediate alerts for account-risk events.", state: "Everyone" },
-      { key: "Direct message mentions", label: "Direct message mentions", detail: "Get notified when someone directly mentions you.", state: "Everyone" },
-      { key: "Booking changes", label: "Booking changes", detail: "Alerts for booking updates and schedule changes.", state: "Everyone" },
-      { key: "Event reminders", label: "Event reminders", detail: "Reminder before events and check-ins.", state: "Everyone" },
-      { key: "Weekly digest", label: "Weekly digest", detail: "Single summary instead of frequent feed alerts.", state: "Everyone" },
+      {
+        key: "Security alerts",
+        label: "Security alerts",
+        detail: "Immediate alerts for account-risk events.",
+        state: "Everyone",
+      },
+      {
+        key: "Direct message mentions",
+        label: "Direct message mentions",
+        detail: "Get notified when someone directly mentions you.",
+        state: "Everyone",
+      },
+      {
+        key: "Booking changes",
+        label: "Booking changes",
+        detail: "Alerts for booking updates and schedule changes.",
+        state: "Everyone",
+      },
+      {
+        key: "Event reminders",
+        label: "Event reminders",
+        detail: "Reminder before events and check-ins.",
+        state: "Everyone",
+      },
+      {
+        key: "Weekly digest",
+        label: "Weekly digest",
+        detail: "Single summary instead of frequent feed alerts.",
+        state: "Everyone",
+      },
     ],
   },
   {
@@ -126,11 +297,44 @@ const settingSections: SettingSection[] = [
     pill: "Discovery",
     tone: "earth",
     options: [
-      { key: "Wellness-first ranking", label: "Wellness-first ranking", detail: "Prioritize educational and wellness naturist content.", state: "Everyone" },
-      { key: "Family-safe mode", label: "Family-safe mode", detail: "Filter content to keep feed family-appropriate.", state: "Everyone" },
-      { key: "Hide sponsored posts", label: "Hide sponsored posts", detail: "Reduce promotional content in your main feed.", state: "Everyone" },
-      { key: "Nearby circles", label: "Nearby circles", detail: "Recommend local communities and trusted hosts.", state: "Everyone" },
-      { key: "Retreat recommendations", label: "Retreat recommendations", detail: "Show relevant naturist retreats and events.", state: "Everyone" },
+      {
+        key: "Wellness-first ranking",
+        label: "Wellness-first ranking",
+        detail: "Prioritize educational and wellness naturist content.",
+        state: "Everyone",
+      },
+      {
+        key: "Family-safe mode",
+        label: "Family-safe mode",
+        detail: "Filter content to keep feed family-appropriate.",
+        state: "Everyone",
+      },
+      {
+        key: "Hide sponsored posts",
+        label: "Hide sponsored posts",
+        detail: "Reduce promotional content in your main feed.",
+        state: "Everyone",
+      },
+      {
+        key: "Nearby circles",
+        label: "Nearby circles",
+        detail: "Recommend local communities and trusted hosts.",
+        state: "Everyone",
+      },
+      {
+        key: "Retreat recommendations",
+        label: "Retreat recommendations",
+        detail: "Show relevant naturist retreats and events.",
+        state: "Everyone",
+      },
+      {
+        key: "Post images in gallery",
+        label: "Add post images to gallery",
+        detail:
+          "Choose whether images attached to your feed posts can appear in the public Gallery.",
+        state: "Yes",
+        control: "boolean",
+      },
     ],
   },
 ];
@@ -141,13 +345,50 @@ type ProfileSecurityCache = {
   username: string;
   email: string;
   recoveryKeys: string[];
+  addPostImagesToGallery: boolean;
+  optionStates: Record<string, OptionState>;
 };
 
-function getCachedProfileSecurity(cacheKey: string) {
-  return readCachedValue<ProfileSecurityCache>(cacheKey, PROFILE_SECURITY_CACHE_MAX_AGE_MS);
+function buildDefaultOptionStates() {
+  const seeded: Record<string, OptionState> = {};
+  for (const section of settingSections) {
+    for (const option of section.options) {
+      if (option.control === "boolean") continue;
+      seeded[`${section.key}.${option.key}`] = option.state;
+    }
+  }
+  return seeded;
 }
 
-function getOptionCardVariant(index: number): "frame" | "split" | "glow" | "band" {
+function normalizeOptionStates(value: unknown) {
+  const defaults = buildDefaultOptionStates();
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return defaults;
+  }
+
+  for (const [key, state] of Object.entries(value)) {
+    if (
+      state === "No-one" ||
+      state === "Friends only" ||
+      state === "Everyone"
+    ) {
+      defaults[key] = state;
+    }
+  }
+
+  return defaults;
+}
+
+function getCachedProfileSecurity(cacheKey: string) {
+  return readCachedValue<ProfileSecurityCache>(
+    cacheKey,
+    PROFILE_SECURITY_CACHE_MAX_AGE_MS,
+  );
+}
+
+function getOptionCardVariant(
+  index: number,
+): "frame" | "split" | "glow" | "band" {
   const pattern = index % 4;
   if (pattern === 2) return "glow";
   if (pattern === 3) return "band";
@@ -174,43 +415,121 @@ function getStateClass(state: OptionState) {
 }
 
 export default function SettingsPage() {
-  const [profileSecurityCacheKey] = useState(() => buildUserScopedCacheKey("settings:profile-security"));
-  const cachedProfileSecurity = getCachedProfileSecurity(profileSecurityCacheKey);
-  const [activeSectionKey, setActiveSectionKey] = useState(settingSections[0]?.key ?? "profile");
+  const [profileSecurityCacheKey] = useState(() =>
+    buildUserScopedCacheKey("settings:profile-security"),
+  );
+  const cachedProfileSecurity = getCachedProfileSecurity(
+    profileSecurityCacheKey,
+  );
+  const [activeSectionKey, setActiveSectionKey] = useState(
+    settingSections[0]?.key ?? "profile",
+  );
   const [isUsernameModalOpen, setIsUsernameModalOpen] = useState(false);
   const [isSavingUsername, setIsSavingUsername] = useState(false);
-  const [currentUsername, setCurrentUsername] = useState(cachedProfileSecurity?.username ?? "member");
-  const [currentEmail, setCurrentEmail] = useState(cachedProfileSecurity?.email ?? "member@example.com");
-  const [usernameUpdateError, setUsernameUpdateError] = useState<string | null>(null);
-  const [usernameUpdateStatus, setUsernameUpdateStatus] = useState<string | null>(null);
+  const [currentUsername, setCurrentUsername] = useState(
+    cachedProfileSecurity?.username ?? "member",
+  );
+  const [currentEmail, setCurrentEmail] = useState(
+    cachedProfileSecurity?.email ?? "member@example.com",
+  );
+  const [usernameUpdateError, setUsernameUpdateError] = useState<string | null>(
+    null,
+  );
+  const [usernameUpdateStatus, setUsernameUpdateStatus] = useState<
+    string | null
+  >(null);
   const [isPrimaryEmailModalOpen, setIsPrimaryEmailModalOpen] = useState(false);
   const [isSavingPrimaryEmail, setIsSavingPrimaryEmail] = useState(false);
-  const [primaryEmailUpdateError, setPrimaryEmailUpdateError] = useState<string | null>(null);
-  const [primaryEmailUpdateStatus, setPrimaryEmailUpdateStatus] = useState<string | null>(null);
+  const [primaryEmailUpdateError, setPrimaryEmailUpdateError] = useState<
+    string | null
+  >(null);
+  const [primaryEmailUpdateStatus, setPrimaryEmailUpdateStatus] = useState<
+    string | null
+  >(null);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [isSavingPassword, setIsSavingPassword] = useState(false);
-  const [passwordUpdateError, setPasswordUpdateError] = useState<string | null>(null);
-  const [passwordUpdateStatus, setPasswordUpdateStatus] = useState<string | null>(null);
+  const [passwordUpdateError, setPasswordUpdateError] = useState<string | null>(
+    null,
+  );
+  const [passwordUpdateStatus, setPasswordUpdateStatus] = useState<
+    string | null
+  >(null);
   const [isRecoveryKeysModalOpen, setIsRecoveryKeysModalOpen] = useState(false);
   const [isSavingRecoveryKeys, setIsSavingRecoveryKeys] = useState(false);
-  const [recoveryKeys, setRecoveryKeys] = useState<string[]>(cachedProfileSecurity?.recoveryKeys ?? []);
-  const [recoveryKeysError, setRecoveryKeysError] = useState<string | null>(null);
-  const [recoveryKeysStatus, setRecoveryKeysStatus] = useState<string | null>(null);
-  const [optionStates, setOptionStates] = useState<Record<string, OptionState>>(() => {
-    const seeded: Record<string, OptionState> = {};
-    for (const section of settingSections) for (const option of section.options) seeded[`${section.key}.${option.key}`] = option.state;
-    return seeded;
-  });
+  const [recoveryKeys, setRecoveryKeys] = useState<string[]>(
+    cachedProfileSecurity?.recoveryKeys ?? [],
+  );
+  const [recoveryKeysError, setRecoveryKeysError] = useState<string | null>(
+    null,
+  );
+  const [recoveryKeysStatus, setRecoveryKeysStatus] = useState<string | null>(
+    null,
+  );
+  const [addPostImagesToGallery, setAddPostImagesToGallery] = useState(
+    cachedProfileSecurity?.addPostImagesToGallery ?? true,
+  );
+  const [galleryPreferenceStatus, setGalleryPreferenceStatus] = useState<
+    string | null
+  >(null);
+  const [galleryPreferenceError, setGalleryPreferenceError] = useState<
+    string | null
+  >(null);
+  const [optionStates, setOptionStates] = useState<Record<string, OptionState>>(
+    () => normalizeOptionStates(cachedProfileSecurity?.optionStates),
+  );
 
-  const setOptionVisibility = (sectionKey: string, optionKey: string, value: OptionState) => {
-    setOptionStates((current) => ({ ...current, [`${sectionKey}.${optionKey}`]: value }));
+  const handleOptionVisibilityChange = async (
+    sectionKey: string,
+    optionKey: string,
+    value: OptionState,
+  ) => {
+    const settingKey = `${sectionKey}.${optionKey}`;
+    const nextStates = { ...optionStates, [settingKey]: value };
+    setOptionStates(nextStates);
+    setGalleryPreferenceStatus(null);
+    setGalleryPreferenceError(null);
+    persistProfileSecurityCache({ optionStates: nextStates });
+
+    if (!isSupabaseConfigured) {
+      setGalleryPreferenceStatus("Setting saved locally.");
+      return;
+    }
+
+    const { data } = await supabase.auth.getUser();
+    if (!data.user) {
+      setGalleryPreferenceError("You need to be signed in to update settings.");
+      return;
+    }
+
+    const { error } = await supabase.from("profile_settings").upsert(
+      {
+        user_id: data.user.id,
+        setting_control_states: nextStates,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id" },
+    );
+
+    if (error) {
+      setGalleryPreferenceError(
+        error.message || "Could not update setting right now.",
+      );
+      return;
+    }
+
+    setGalleryPreferenceStatus("Setting saved.");
   };
 
-  const persistProfileSecurityCache = (nextValues: Partial<ProfileSecurityCache>) => {
+  const persistProfileSecurityCache = (
+    nextValues: Partial<ProfileSecurityCache>,
+  ) => {
     writeCachedValue<ProfileSecurityCache>(profileSecurityCacheKey, {
       username: nextValues.username ?? currentUsername,
       email: nextValues.email ?? currentEmail,
       recoveryKeys: nextValues.recoveryKeys ?? recoveryKeys,
+      addPostImagesToGallery:
+        nextValues.addPostImagesToGallery ?? addPostImagesToGallery,
+      optionStates: nextValues.optionStates ?? optionStates,
     });
   };
 
@@ -225,32 +544,59 @@ export default function SettingsPage() {
       } = await supabase.auth.getUser();
       if (!user) return;
 
-      const [profileResult] = await Promise.all([
+      const [profileResult, settingsResult] = await Promise.all([
         supabase
           .from("profiles")
           .select("username")
           .eq("id", user.id)
           .maybeSingle<{ username: string | null }>(),
+        supabase
+          .from("profile_settings")
+          .select(
+            "recovery_keys, add_post_images_to_gallery, setting_control_states",
+          )
+          .eq("user_id", user.id)
+          .maybeSingle<{
+            recovery_keys: string[] | null;
+            add_post_images_to_gallery: boolean | null;
+            setting_control_states: Record<string, OptionState> | null;
+          }>(),
       ]);
 
       if (profileResult.error) return;
+      if (settingsResult.error) return;
 
       const snapshot: ProfileSecurityCache = {
         username: profileResult.data?.username?.trim() || "member",
         email: user.email?.trim() || "member@example.com",
-        recoveryKeys: [],
+        recoveryKeys: Array.isArray(settingsResult.data?.recovery_keys)
+          ? settingsResult.data.recovery_keys
+          : [],
+        addPostImagesToGallery:
+          settingsResult.data?.add_post_images_to_gallery ?? true,
+        optionStates: normalizeOptionStates(
+          settingsResult.data?.setting_control_states,
+        ),
       };
 
       if (!isMounted) return;
 
       setCurrentUsername(snapshot.username || "member");
       setCurrentEmail(snapshot.email || "member@example.com");
-      setRecoveryKeys(Array.isArray(snapshot.recoveryKeys) ? snapshot.recoveryKeys : []);
+      setRecoveryKeys(
+        Array.isArray(snapshot.recoveryKeys) ? snapshot.recoveryKeys : [],
+      );
+      setAddPostImagesToGallery(snapshot.addPostImagesToGallery);
+      setOptionStates(snapshot.optionStates);
 
       writeCachedValue<ProfileSecurityCache>(profileSecurityCacheKey, {
         username: snapshot.username || "member",
         email: snapshot.email || "member@example.com",
-        recoveryKeys: Array.isArray(snapshot.recoveryKeys) ? snapshot.recoveryKeys : [],
+        recoveryKeys: Array.isArray(snapshot.recoveryKeys)
+          ? snapshot.recoveryKeys
+          : [],
+        addPostImagesToGallery: snapshot.addPostImagesToGallery,
+        optionStates: snapshot.optionStates,
       });
     };
 
@@ -262,13 +608,20 @@ export default function SettingsPage() {
   }, [profileSecurityCacheKey]);
 
   const activeSection = useMemo(
-    () => settingSections.find((section) => section.key === activeSectionKey) ?? settingSections[0],
+    () =>
+      settingSections.find((section) => section.key === activeSectionKey) ??
+      settingSections[0],
     [activeSectionKey],
   );
 
-  const totalOptions = settingSections.reduce((acc, section) => acc + section.options.length, 0);
+  const totalOptions = settingSections.reduce(
+    (acc, section) => acc + section.options.length,
+    0,
+  );
   const enabledCount = settingSections.reduce(
-    (acc, section) => acc + section.options.filter((option) => option.state !== "No-one").length,
+    (acc, section) =>
+      acc +
+      section.options.filter((option) => option.state !== "No-one").length,
     0,
   );
 
@@ -285,13 +638,16 @@ export default function SettingsPage() {
       setIsSavingPrimaryEmail(false);
       setIsPrimaryEmailModalOpen(false);
       setPrimaryEmailUpdateStatus("Primary email updated locally.");
+      persistProfileSecurityCache({ email: normalizedNext });
       return;
     }
 
     const { data } = await supabase.auth.getUser();
     if (!data.user) {
       setIsSavingPrimaryEmail(false);
-      setPrimaryEmailUpdateError("You need to be signed in to update your email.");
+      setPrimaryEmailUpdateError(
+        "You need to be signed in to update your email.",
+      );
       return;
     }
 
@@ -300,7 +656,9 @@ export default function SettingsPage() {
     setIsSavingPrimaryEmail(false);
 
     if (error) {
-      setPrimaryEmailUpdateError(error.message || "Could not update your primary email right now.");
+      setPrimaryEmailUpdateError(
+        error.message || "Could not update your primary email right now.",
+      );
       return;
     }
 
@@ -310,7 +668,10 @@ export default function SettingsPage() {
     persistProfileSecurityCache({ email: normalizedNext });
   };
 
-  const handlePasswordSave = async (oldPassword: string, newPassword: string) => {
+  const handlePasswordSave = async (
+    oldPassword: string,
+    newPassword: string,
+  ) => {
     const normalizedOld = oldPassword.trim();
     const normalizedNew = newPassword.trim();
     if (!normalizedOld || !normalizedNew) return;
@@ -329,7 +690,9 @@ export default function SettingsPage() {
     const { data: userData } = await supabase.auth.getUser();
     if (!userData.user || !userData.user.email) {
       setIsSavingPassword(false);
-      setPasswordUpdateError("You need to be signed in to reset your password.");
+      setPasswordUpdateError(
+        "You need to be signed in to reset your password.",
+      );
       return;
     }
 
@@ -340,16 +703,22 @@ export default function SettingsPage() {
 
     if (authError) {
       setIsSavingPassword(false);
-      setPasswordUpdateError(authError.message || "Your old password is incorrect.");
+      setPasswordUpdateError(
+        authError.message || "Your old password is incorrect.",
+      );
       return;
     }
 
-    const { error: updateError } = await supabase.auth.updateUser({ password: normalizedNew });
+    const { error: updateError } = await supabase.auth.updateUser({
+      password: normalizedNew,
+    });
 
     setIsSavingPassword(false);
 
     if (updateError) {
-      setPasswordUpdateError(updateError.message || "Could not reset your password right now.");
+      setPasswordUpdateError(
+        updateError.message || "Could not reset your password right now.",
+      );
       return;
     }
 
@@ -376,16 +745,23 @@ export default function SettingsPage() {
     const { data } = await supabase.auth.getUser();
     if (!data.user) {
       setIsSavingUsername(false);
-      setUsernameUpdateError("You need to be signed in to update your username.");
+      setUsernameUpdateError(
+        "You need to be signed in to update your username.",
+      );
       return;
     }
 
-    const { error } = await supabase.from("profiles").update({ username: normalizedNext }).eq("id", data.user.id);
+    const { error } = await supabase
+      .from("profiles")
+      .update({ username: normalizedNext })
+      .eq("id", data.user.id);
 
     setIsSavingUsername(false);
 
     if (error) {
-      setUsernameUpdateError(error.message || "Could not update username right now.");
+      setUsernameUpdateError(
+        error.message || "Could not update username right now.",
+      );
       return;
     }
 
@@ -406,7 +782,53 @@ export default function SettingsPage() {
         })
         .join("");
 
-    return Array.from({ length: 10 }).map(() => `${makePart()}-${makePart()}-${makePart()}`);
+    return Array.from({ length: 10 }).map(
+      () => `${makePart()}-${makePart()}-${makePart()}`,
+    );
+  };
+
+  const handleGalleryPreferenceChange = async (nextValue: boolean) => {
+    setAddPostImagesToGallery(nextValue);
+    setGalleryPreferenceStatus(null);
+    setGalleryPreferenceError(null);
+    persistProfileSecurityCache({ addPostImagesToGallery: nextValue });
+
+    if (!isSupabaseConfigured) {
+      setGalleryPreferenceStatus(
+        `Post images will ${nextValue ? "appear" : "not appear"} in Gallery locally.`,
+      );
+      return;
+    }
+
+    const { data } = await supabase.auth.getUser();
+    if (!data.user) {
+      setGalleryPreferenceError(
+        "You need to be signed in to update gallery preferences.",
+      );
+      return;
+    }
+
+    const { error } = await supabase.from("profile_settings").upsert(
+      {
+        user_id: data.user.id,
+        add_post_images_to_gallery: nextValue,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id" },
+    );
+
+    if (error) {
+      setAddPostImagesToGallery(!nextValue);
+      persistProfileSecurityCache({ addPostImagesToGallery: !nextValue });
+      setGalleryPreferenceError(
+        error.message || "Could not update gallery preference right now.",
+      );
+      return;
+    }
+
+    setGalleryPreferenceStatus(
+      `Post images will ${nextValue ? "appear" : "not appear"} in Gallery.`,
+    );
   };
 
   const handleRecoveryKeysGenerate = async () => {
@@ -426,7 +848,9 @@ export default function SettingsPage() {
     const { data } = await supabase.auth.getUser();
     if (!data.user) {
       setIsSavingRecoveryKeys(false);
-      setRecoveryKeysError("You need to be signed in to generate recovery keys.");
+      setRecoveryKeysError(
+        "You need to be signed in to generate recovery keys.",
+      );
       return;
     }
 
@@ -435,6 +859,7 @@ export default function SettingsPage() {
         user_id: data.user.id,
         recovery_keys: nextRecoveryKeys,
         recovery_keys_generated_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       },
       { onConflict: "user_id" },
     );
@@ -442,7 +867,9 @@ export default function SettingsPage() {
     setIsSavingRecoveryKeys(false);
 
     if (error) {
-      setRecoveryKeysError(error.message || "Could not generate recovery keys right now.");
+      setRecoveryKeysError(
+        error.message || "Could not generate recovery keys right now.",
+      );
       return;
     }
 
@@ -464,8 +891,9 @@ export default function SettingsPage() {
               <p className={styles.eyebrow}>Account Control Center</p>
               <h1>Settings & Security</h1>
               <p className={styles.subhead}>
-                A redesigned command center for profile controls, privacy boundaries, and trust settings. Use the left
-                rail to jump between sections and review controls in context.
+                A redesigned command center for profile controls, privacy
+                boundaries, and trust settings. Use the left rail to jump
+                between sections and review controls in context.
               </p>
             </div>
             <div className={styles.quickStats}>
@@ -507,7 +935,7 @@ export default function SettingsPage() {
                   </button>
                 ))}
               </div>
-              
+
               <label className={styles.subjectSelectWrap}>
                 <span>Jump to section</span>
                 <select
@@ -524,34 +952,71 @@ export default function SettingsPage() {
               </label>
             </aside>
 
-            <Card className={`${styles.card} ${getToneClass(activeSection.tone)}`}>
+            <Card
+              className={`${styles.card} ${getToneClass(activeSection.tone)}`}
+            >
               <CardContent className={styles.cardContent}>
                 <div className={styles.sectionHeading}>
                   <div>
                     <p className={styles.sectionPill}>{activeSection.pill}</p>
                     <h2>{activeSection.title}</h2>
-                    <p className={styles.sectionSubtitle}>{activeSection.subtitle}</p>
+                    <p className={styles.sectionSubtitle}>
+                      {activeSection.subtitle}
+                    </p>
                   </div>
-                  <Badge variant="outline">{activeSection.options.length} controls</Badge>
+                  <Badge variant="outline">
+                    {activeSection.options.length} controls
+                  </Badge>
                 </div>
 
                 <div className={styles.statusStack}>
-                  {usernameUpdateStatus ? <p className={styles.statusNote}>{usernameUpdateStatus}</p> : null}
-                  {primaryEmailUpdateStatus ? <p className={styles.statusNote}>{primaryEmailUpdateStatus}</p> : null}
-                  {passwordUpdateStatus ? <p className={styles.statusNote}>{passwordUpdateStatus}</p> : null}
-                  {recoveryKeysStatus ? <p className={styles.statusNote}>{recoveryKeysStatus}</p> : null}
+                  {usernameUpdateStatus ? (
+                    <p className={styles.statusNote}>{usernameUpdateStatus}</p>
+                  ) : null}
+                  {primaryEmailUpdateStatus ? (
+                    <p className={styles.statusNote}>
+                      {primaryEmailUpdateStatus}
+                    </p>
+                  ) : null}
+                  {passwordUpdateStatus ? (
+                    <p className={styles.statusNote}>{passwordUpdateStatus}</p>
+                  ) : null}
+                  {recoveryKeysStatus ? (
+                    <p className={styles.statusNote}>{recoveryKeysStatus}</p>
+                  ) : null}
+                  {galleryPreferenceStatus ? (
+                    <p className={styles.statusNote}>
+                      {galleryPreferenceStatus}
+                    </p>
+                  ) : null}
+                  {galleryPreferenceError ? (
+                    <p className={styles.errorNote}>{galleryPreferenceError}</p>
+                  ) : null}
                 </div>
 
                 <div className={styles.optionList}>
                   {activeSection.options.map((option, index) => {
-                    const isUsernameOption = activeSection.key === "profile" && option.label === "Username";
-                    const isPrimaryEmailOption = activeSection.key === "profile" && option.label === "Primary email";
-                    const isPasswordOption = activeSection.key === "profile" && option.label === "Password reset";
-                    const isRecoveryKeysOption = activeSection.key === "profile" && option.label === "Recovery keys";
+                    const isUsernameOption =
+                      activeSection.key === "profile" &&
+                      option.label === "Username";
+                    const isPrimaryEmailOption =
+                      activeSection.key === "profile" &&
+                      option.label === "Primary email";
+                    const isPasswordOption =
+                      activeSection.key === "profile" &&
+                      option.label === "Password reset";
+                    const isRecoveryKeysOption =
+                      activeSection.key === "profile" &&
+                      option.label === "Recovery keys";
 
                     const variant = getOptionCardVariant(index);
 
-                    if (isUsernameOption || isPrimaryEmailOption || isPasswordOption || isRecoveryKeysOption) {
+                    if (
+                      isUsernameOption ||
+                      isPrimaryEmailOption ||
+                      isPasswordOption ||
+                      isRecoveryKeysOption
+                    ) {
                       return (
                         <SettingsOptionCard
                           key={option.key}
@@ -583,7 +1048,45 @@ export default function SettingsPage() {
                             setPasswordUpdateError(null);
                             setIsPasswordModalOpen(true);
                           }}
-                          stateNode={<span className={`${styles.statePill} ${styles.stateOn}`}>Manage</span>}
+                          stateNode={
+                            <span
+                              className={`${styles.statePill} ${styles.stateOn}`}
+                            >
+                              Manage
+                            </span>
+                          }
+                        />
+                      );
+                    }
+
+                    if (option.control === "boolean") {
+                      const current = addPostImagesToGallery ? "Yes" : "No";
+
+                      return (
+                        <SettingsOptionCard
+                          key={option.key}
+                          label={option.label}
+                          detail={option.detail}
+                          variant={variant}
+                          badge="Preference"
+                          stateNode={
+                            <div className={styles.visibilityGroup}>
+                              {(["No", "Yes"] as const).map((level) => (
+                                <button
+                                  key={level}
+                                  type="button"
+                                  className={`${styles.statePill} ${current === level ? (level === "Yes" ? styles.stateOn : styles.statePrivate) : styles.stateOff}`}
+                                  onClick={() => {
+                                    void handleGalleryPreferenceChange(
+                                      level === "Yes",
+                                    );
+                                  }}
+                                >
+                                  {level}
+                                </button>
+                              ))}
+                            </div>
+                          }
                         />
                       );
                     }
@@ -595,7 +1098,34 @@ export default function SettingsPage() {
                         detail={option.detail}
                         variant={variant}
                         badge="Status"
-                        stateNode={<div className={styles.visibilityGroup}>{(["No-one", "Friends only", "Everyone"] as const).map((level) => { const current = optionStates[`${activeSection.key}.${option.key}`] ?? option.state; return (<button key={level} type="button" className={`${styles.statePill} ${current === level ? getStateClass(level) : styles.stateOff}`} onClick={() => setOptionVisibility(activeSection.key, option.key, level)}>{level}</button>); })}</div>}
+                        stateNode={
+                          <div className={styles.visibilityGroup}>
+                            {(
+                              ["No-one", "Friends only", "Everyone"] as const
+                            ).map((level) => {
+                              const current =
+                                optionStates[
+                                  `${activeSection.key}.${option.key}`
+                                ] ?? option.state;
+                              return (
+                                <button
+                                  key={level}
+                                  type="button"
+                                  className={`${styles.statePill} ${current === level ? getStateClass(level) : styles.stateOff}`}
+                                  onClick={() => {
+                                    void handleOptionVisibilityChange(
+                                      activeSection.key,
+                                      option.key,
+                                      level,
+                                    );
+                                  }}
+                                >
+                                  {level}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        }
                       />
                     );
                   })}
