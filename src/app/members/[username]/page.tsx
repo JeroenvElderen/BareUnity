@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { getActiveCacheUser, loadCachedThenRefresh, readCachedValue } from "@/lib/client-cache";
 import { sendFriendRequestToProfile } from "@/lib/friend-requests";
+import { promptAndSubmitReport } from "@/lib/reporting";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { normalizeUsername } from "@/lib/username";
 import layoutStyles from "../../page.module.css";
@@ -109,6 +110,7 @@ export default function MemberProfilePage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"posts" | "about">("posts");
   const [friendRequestStatus, setFriendRequestStatus] = useState<string | null>(null);
+  const [reportStatus, setReportStatus] = useState<string | null>(null);
   const [isRequesting, setIsRequesting] = useState(false);
   const [viewerId, setViewerId] = useState<string | null>(null);
 
@@ -190,6 +192,14 @@ export default function MemberProfilePage() {
     setIsRequesting(false);
   };
 
+  const reportPost = async (postId: string) => {
+    const result = await promptAndSubmitReport({ targetType: "post", targetId: postId, label: "post" });
+    if (!result.message) return;
+
+    setReportStatus(result.message);
+    window.setTimeout(() => setReportStatus(null), 4500);
+  };
+
   const isSelfProfile = Boolean(profile?.id && viewerId && profile.id === viewerId);
 
   return (
@@ -236,6 +246,7 @@ export default function MemberProfilePage() {
 
               <p className="rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))/0.65] p-3 text-sm text-[rgb(var(--text))] md:text-base">{bio}</p>
               {friendRequestStatus ? <p className="text-sm text-[rgb(var(--muted))]">{friendRequestStatus}</p> : null}
+              {reportStatus ? <p className="text-sm text-[rgb(var(--muted))]">{reportStatus}</p> : null}
 
               {loadError ? (
                 <section className="rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-4 text-sm text-[rgb(var(--muted))]">
@@ -295,10 +306,13 @@ export default function MemberProfilePage() {
                               className="h-40 w-full object-cover"
                             />
                           ) : null}
-                          <div className="space-y-1 p-3">
+                          <div className="space-y-2 p-3">
                             <p className="text-[10px] font-semibold uppercase tracking-wide text-[rgb(var(--muted))]">{toReadableDate(post.created_at)}</p>
                             <h3 className="line-clamp-2 text-base font-bold text-[rgb(var(--text-strong))]">{post.title?.trim() || "Untitled post"}</h3>
                             <p className="line-clamp-3 text-sm text-[rgb(var(--muted))]">{post.content?.trim() || "No description added."}</p>
+                            <Button size="sm" variant="outline" onClick={() => void reportPost(post.id)}>
+                              Report post
+                            </Button>
                           </div>
                         </article>
                       ))}

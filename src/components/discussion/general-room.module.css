@@ -179,6 +179,24 @@
   color: rgb(var(--text-strong));
 }
 
+
+.reportButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22rem;
+  border: 0;
+  background: transparent;
+  color: rgb(190 68 68);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  padding: 0;
+}
+
+.reportButton:hover {
+  text-decoration: underline;
+}
+
 .messageBody {
   line-height: 1.48;
   overflow-wrap: anywhere;
@@ -519,7 +537,25 @@
     font-size: 0.62rem;
   }
 
-  .messageBody {
+  
+.reportButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22rem;
+  border: 0;
+  background: transparent;
+  color: rgb(190 68 68);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  padding: 0;
+}
+
+.reportButton:hover {
+  text-decoration: underline;
+}
+
+.messageBody {
     font-size: 0.92rem;
   }
 

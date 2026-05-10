@@ -8,6 +8,7 @@ import { MapSpotPopup } from "@/components/explore/map-spot-popup";
 import { Button } from "@/components/ui/button";
 import { buildUserScopedCacheKey, loadCachedThenRefresh } from "@/lib/client-cache";
 import { takePrefetchedRouteData } from "@/lib/prefetched-route-data";
+import { promptAndSubmitReport } from "@/lib/reporting";
 import { supabase } from "@/lib/supabase";
 
 type Spot = {
@@ -391,6 +392,7 @@ export function MapStageClient() {
   const [selectedSpot, setSelectedSpot] = useState<Spot | null>(null);
   const [isCheckingIn, setIsCheckingIn] = useState(false);
   const [checkInError, setCheckInError] = useState<string | null>(null);
+  const [spotReportStatus, setSpotReportStatus] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState<ExploreFilterMode>("all");
   const [locationForm, setLocationForm] = useState<CreateLocationFormState>(INITIAL_LOCATION_FORM);
@@ -1047,6 +1049,16 @@ export function MapStageClient() {
     }
   }
 
+  async function handleSpotReport() {
+    if (!selectedSpot?.id) return;
+
+    const result = await promptAndSubmitReport({ targetType: "map_spot", targetId: selectedSpot.id, label: "map spot" });
+    if (!result.message) return;
+
+    setSpotReportStatus(result.message);
+    window.setTimeout(() => setSpotReportStatus(null), 4500);
+  }
+
   function beginMapPicking() {
     setIsPickingFromMap(true);
   }
@@ -1260,8 +1272,13 @@ export function MapStageClient() {
             checkInCount={selectedSpot.checkInCount ?? 0}
             isCheckingIn={isCheckingIn}
             checkInError={checkInError}
+            reportStatus={spotReportStatus}
             onCheckIn={() => void handleSpotCheckIn()}
-            onClose={() => setSelectedSpot(null)}
+            onReport={() => void handleSpotReport()}
+            onClose={() => {
+              setSelectedSpot(null);
+              setSpotReportStatus(null);
+            }}
           />
         </div>
       ) : null}

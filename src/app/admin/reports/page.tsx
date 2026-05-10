@@ -37,6 +37,8 @@ function reportLabel(report: Report) {
   if (targetType === "story") return "Story report";
   if (targetType === "user") return "Member report";
   if (targetType === "media") return "Media report";
+  if (targetType === "message") return "Message report";
+  if (targetType === "map_spot") return "Map spot report";
   if (targetType === "comment") return "Comment report";
   if (targetType === "post") return "Post report";
   return "Report";
@@ -45,6 +47,8 @@ function reportLabel(report: Report) {
 function targetSummary(report: Report) {
   if (report.target_type === "user") return `Member: ${profileName(report.target_profile)}`;
   if (report.target_type === "media") return `Media path: ${report.target_id || "Unknown media"}`;
+  if (report.target_type === "message") return `Message ID: ${report.target_id || "Unknown message"}`;
+  if (report.target_type === "map_spot") return `Map spot ID: ${report.target_id || "Unknown spot"}`;
   if (report.comments) return `Comment by ${profileName(report.comment_author_profile)}: ${report.comments.content || "Empty comment"}`;
   if (report.posts) {
     const postType = report.target_type === "story" || report.posts.post_type === "story" ? "Story" : "Post";

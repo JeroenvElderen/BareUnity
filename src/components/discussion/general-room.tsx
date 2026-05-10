@@ -1,9 +1,10 @@
 "use client";
 
-import { Hash, Mic, Paperclip, Send, Smile, Users } from "lucide-react";
+import { Flag, Hash, Mic, Paperclip, Send, Smile, Users } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
 import { supabase } from "@/lib/supabase";
+import { promptAndSubmitReport } from "@/lib/reporting";
 import { UsernameActionPopup } from "@/components/social/username-action-popup";
 
 import styles from "./general-room.module.css";
@@ -81,6 +82,7 @@ export function GeneralRoom() {
   const [isEmojiOpen, setIsEmojiOpen] = useState(false);
   const [lastUpdatedLabel, setLastUpdatedLabel] = useState<string>("--:--");
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [reportStatus, setReportStatus] = useState<string | null>(null);
 
   const loadRoomData = useCallback(async () => {
     setLoadError(null);
@@ -288,6 +290,15 @@ export function GeneralRoom() {
     setIsEmojiOpen(false);
   };
 
+  const reportMessage = async (messageId: string) => {
+    const result = await promptAndSubmitReport({ targetType: "message", targetId: messageId, label: "message" });
+    if (!result.message) return;
+
+    setReportStatus(result.message);
+    window.setTimeout(() => setReportStatus(null), 4500);
+  };
+
+
   const submitMessage = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     await sendMessage();
@@ -304,6 +315,7 @@ export function GeneralRoom() {
           </h1>
           <p className={styles.roomDescription}>{roomDescription}</p>
           {loadError ? <p className={styles.statusError}>{loadError}</p> : null}
+          {reportStatus ? <p className={styles.statusInfo}>{reportStatus}</p> : null}
         </div>
 
         <div className={styles.roomMeta}>
@@ -334,6 +346,12 @@ export function GeneralRoom() {
                   />
                   <span className={message.role === "moderator" ? styles.modBadge : styles.memberBadge}>{message.role}</span>
                   <time>{message.time}</time>
+                  {message.authorId !== viewerId ? (
+                    <button type="button" className={styles.reportButton} onClick={() => void reportMessage(message.id)}>
+                      <Flag size={12} aria-hidden />
+                      Report
+                    </button>
+                  ) : null}
                 </p>
                 <p className={styles.messageBody}>{message.body}</p>
               </div>

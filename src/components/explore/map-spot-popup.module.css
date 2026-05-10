@@ -260,6 +260,23 @@
   transform: none;
 }
 
+
+.secondaryCta {
+  width: 100%;
+  border: 1px solid rgb(190 68 68 / 0.42);
+  border-radius: 16px;
+  background: rgb(190 68 68 / 0.08);
+  color: rgb(190 68 68);
+  cursor: pointer;
+  font-size: 0.92rem;
+  font-weight: 800;
+  padding: 0.76rem 1rem;
+}
+
+.secondaryCta:hover {
+  background: rgb(190 68 68 / 0.13);
+}
+
 .helperText {
   margin: 0;
   text-align: center;
@@ -273,6 +290,17 @@
   border-radius: 14px;
   background: rgb(190 68 68 / 0.1);
   color: rgb(190 68 68);
+  padding: 0.72rem 0.82rem;
+  font-size: 0.84rem;
+  line-height: 1.4;
+}
+
+
+.status {
+  margin: -0.35rem 0 0;
+  border-radius: 14px;
+  background: rgb(var(--bg-soft) / 0.8);
+  color: rgb(var(--muted));
   padding: 0.72rem 0.82rem;
   font-size: 0.84rem;
   line-height: 1.4;
