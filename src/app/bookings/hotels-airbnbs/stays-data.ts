@@ -15,6 +15,8 @@ export type Listing = {
   description: string;
   websiteUrl: string;
   address: string;
+  mapLatitude?: number;
+  mapLongitude?: number;
   checkInWindow: string;
   gallery: string[];
   policies: Array<{
@@ -23,7 +25,10 @@ export type Listing = {
   }>;
 };
 
-const DATA_FILE_PATH = path.join(process.cwd(), "src/app/bookings/hotels-airbnbs/stays-data-store.json");
+const DATA_FILE_PATH = path.join(
+  process.cwd(),
+  "src/app/bookings/hotels-airbnbs/stays-data-store.json",
+);
 
 async function readListingsFromDisk() {
   const raw = await readFile(DATA_FILE_PATH, "utf8");

@@ -1053,10 +1053,10 @@ export function MapStageClient() {
 
       {open ? (
         <div
-          className={`fixed inset-0 z-40 flex justify-center overflow-hidden ${
+          className={`fixed inset-0 z-40 flex justify-center overflow-y-auto overscroll-contain ${
             isPickingFromMap
               ? "pointer-events-none items-start bg-transparent p-3 pt-[calc(0.75rem+env(safe-area-inset-top,0px))] sm:p-6"
-              : "items-end bg-black/45 p-0 sm:items-center sm:p-6"
+              : "items-start bg-black/45 px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] pt-[calc(0.5rem+env(safe-area-inset-top,0px))] sm:items-center sm:p-6"
           }`}
         >
           {isPickingFromMap ? (
@@ -1076,12 +1076,12 @@ export function MapStageClient() {
           ) : null}
 
           {!isPickingFromMap ? (
-            <div className="flex max-h-[100dvh] w-full flex-col overflow-hidden rounded-t-3xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] shadow-2xl sm:max-h-[calc(100dvh-3rem)] sm:max-w-5xl sm:rounded-2xl">
-            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-[rgb(var(--border))] px-4 py-4 sm:px-5">
+            <div className="my-auto flex max-h-[calc(100dvh-1rem)] w-full flex-col overflow-hidden rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] shadow-2xl sm:max-h-[calc(100dvh-3rem)] sm:max-w-5xl">
+            <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[rgb(var(--border))] px-4 py-3 sm:gap-4 sm:px-5 sm:py-4">
               <div>
                 <h3 className="m-0 text-base font-semibold text-[rgb(var(--text-strong))]">Create location</h3>
                 <p className="mt-1 text-sm text-[rgb(var(--muted))]">
-                  Add comprehensive details so people understand access, vibe, safety, and local expectations.
+                  Pick the spot first, then add details so people understand access, vibe, safety, and local expectations.
                 </p>
               </div>
               <Button type="button" variant="outline" onClick={closeCreateLocationModal}>
@@ -1093,14 +1093,14 @@ export function MapStageClient() {
               <div className="grid min-h-0 flex-1 gap-5 overflow-y-auto px-4 py-4 sm:px-5 lg:grid-cols-2">
               <div className="grid gap-2 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))/0.45] p-3 text-xs text-[rgb(var(--muted))] sm:grid-cols-3 lg:col-span-2">
                 <p className="m-0">
-                  <strong className="text-[rgb(var(--text-strong))]">1. Basics</strong>
-                  <br />
-                  Name + clear description
-                </p>
-                <p className="m-0">
-                  <strong className="text-[rgb(var(--text-strong))]">2. Pin location</strong>
+                  <strong className="text-[rgb(var(--text-strong))]">1. Pin location</strong>
                   <br />
                   Search or click on map
+                </p>
+                <p className="m-0">
+                  <strong className="text-[rgb(var(--text-strong))]">2. Basics</strong>
+                  <br />
+                  Name + clear description
                 </p>
                 <p className="m-0">
                   <strong className="text-[rgb(var(--text-strong))]">3. Helpful details</strong>
@@ -1108,46 +1108,6 @@ export function MapStageClient() {
                   Access, safety, amenities
                 </p>
               </div>
-
-              <section className="grid gap-3 rounded-xl border border-[rgb(var(--border))] p-4 md:grid-cols-2">
-                <div className="md:col-span-2">
-                  <h4 className="m-0 text-sm font-semibold text-[rgb(var(--text-strong))]">Basics</h4>
-                  <p className="mt-1 text-xs text-[rgb(var(--muted))]">
-                    Keep this short and factual so people understand the place quickly.
-                  </p>
-                </div>
-                <label className="space-y-1 md:col-span-2">
-                  <span className="text-xs font-medium text-[rgb(var(--muted))]">Location name *</span>
-                  <input
-                    value={locationForm.name}
-                    required
-                    onChange={(event) => updateLocationField("name", event.target.value)}
-                    placeholder="e.g. Sunset Cove Naturist Beach"
-                    className="w-full rounded-lg border border-[rgb(var(--border))] bg-transparent px-3 py-2 text-sm outline-none ring-[rgb(var(--brand))] transition focus:ring-2"
-                  />
-                </label>
-                <label className="space-y-1 md:col-span-2">
-                  <span className="text-xs font-medium text-[rgb(var(--muted))]">Short description *</span>
-                  <input
-                    value={locationForm.shortDescription}
-                    required
-                    onChange={(event) => updateLocationField("shortDescription", event.target.value)}
-                    placeholder="1 sentence summary for map popup"
-                    className="w-full rounded-lg border border-[rgb(var(--border))] bg-transparent px-3 py-2 text-sm outline-none ring-[rgb(var(--brand))] transition focus:ring-2"
-                  />
-                </label>
-                <label className="space-y-1 md:col-span-2">
-                  <span className="text-xs font-medium text-[rgb(var(--muted))]">Full description *</span>
-                  <textarea
-                    value={locationForm.fullDescription}
-                    required
-                    onChange={(event) => updateLocationField("fullDescription", event.target.value)}
-                    placeholder="Share atmosphere, etiquette, how busy it gets, and any known restrictions."
-                    rows={4}
-                    className="w-full rounded-lg border border-[rgb(var(--border))] bg-transparent px-3 py-2 text-sm outline-none ring-[rgb(var(--brand))] transition focus:ring-2"
-                  />
-                </label>
-              </section>
 
               <section className="grid gap-3 rounded-xl border border-[rgb(var(--border))] p-4 md:grid-cols-2">
                 <div className="md:col-span-2">
@@ -1240,6 +1200,46 @@ export function MapStageClient() {
                     value={locationForm.region}
                     onChange={(event) => updateLocationField("region", event.target.value)}
                     placeholder="California"
+                    className="w-full rounded-lg border border-[rgb(var(--border))] bg-transparent px-3 py-2 text-sm outline-none ring-[rgb(var(--brand))] transition focus:ring-2"
+                  />
+                </label>
+              </section>
+
+              <section className="grid gap-3 rounded-xl border border-[rgb(var(--border))] p-4 md:grid-cols-2">
+                <div className="md:col-span-2">
+                  <h4 className="m-0 text-sm font-semibold text-[rgb(var(--text-strong))]">Basics</h4>
+                  <p className="mt-1 text-xs text-[rgb(var(--muted))]">
+                    Keep this short and factual so people understand the place quickly.
+                  </p>
+                </div>
+                <label className="space-y-1 md:col-span-2">
+                  <span className="text-xs font-medium text-[rgb(var(--muted))]">Location name *</span>
+                  <input
+                    value={locationForm.name}
+                    required
+                    onChange={(event) => updateLocationField("name", event.target.value)}
+                    placeholder="e.g. Sunset Cove Naturist Beach"
+                    className="w-full rounded-lg border border-[rgb(var(--border))] bg-transparent px-3 py-2 text-sm outline-none ring-[rgb(var(--brand))] transition focus:ring-2"
+                  />
+                </label>
+                <label className="space-y-1 md:col-span-2">
+                  <span className="text-xs font-medium text-[rgb(var(--muted))]">Short description *</span>
+                  <input
+                    value={locationForm.shortDescription}
+                    required
+                    onChange={(event) => updateLocationField("shortDescription", event.target.value)}
+                    placeholder="1 sentence summary for map popup"
+                    className="w-full rounded-lg border border-[rgb(var(--border))] bg-transparent px-3 py-2 text-sm outline-none ring-[rgb(var(--brand))] transition focus:ring-2"
+                  />
+                </label>
+                <label className="space-y-1 md:col-span-2">
+                  <span className="text-xs font-medium text-[rgb(var(--muted))]">Full description *</span>
+                  <textarea
+                    value={locationForm.fullDescription}
+                    required
+                    onChange={(event) => updateLocationField("fullDescription", event.target.value)}
+                    placeholder="Share atmosphere, etiquette, how busy it gets, and any known restrictions."
+                    rows={4}
                     className="w-full rounded-lg border border-[rgb(var(--border))] bg-transparent px-3 py-2 text-sm outline-none ring-[rgb(var(--brand))] transition focus:ring-2"
                   />
                 </label>
