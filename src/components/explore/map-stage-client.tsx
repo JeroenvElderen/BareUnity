@@ -1199,6 +1199,21 @@ export function MapStageClient() {
   }, [isPickingRequestFromMap, requestOpen]);
 
   useEffect(() => {
+    if (!selectedSpot) return;
+
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverscroll = document.documentElement.style.overscrollBehavior;
+
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overscrollBehavior = "none";
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overscrollBehavior = previousHtmlOverscroll;
+    };
+  }, [selectedSpot]);
+
+  useEffect(() => {
     const map = mapRef.current;
     if (!map || !open || !isPickingFromMap) return;
 
@@ -1260,7 +1275,13 @@ export function MapStageClient() {
       ) : null}
       
       {selectedSpot ? (
-        <div className="absolute inset-0 z-[90] grid place-items-start justify-items-center overflow-y-auto overscroll-contain bg-black/40 p-3 pt-6 sm:p-4 sm:pt-8">
+        <div
+          className="fixed inset-0 z-[90] grid place-items-center justify-items-center overflow-hidden overscroll-none bg-black/40 p-3 sm:p-4"
+          style={{
+            paddingTop: "max(0.75rem, env(safe-area-inset-top, 0px))",
+            paddingBottom: "max(0.75rem, env(safe-area-inset-bottom, 0px))",
+          }}
+        >
           <MapSpotPopup
             name={selectedSpot.name}
             description={selectedSpot.description}
