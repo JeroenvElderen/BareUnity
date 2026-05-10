@@ -4,21 +4,54 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import styles from "./page.module.css";
 
+type ProfileSummary = { id: string; username: string | null; display_name: string | null };
+
 type Report = {
   id: string;
   reason: string | null;
   created_at: string;
   post_id: string | null;
   comment_id: string | null;
-  profiles: { id: string; username: string | null; display_name: string | null } | null;
-  posts: { id: string; title: string | null; content: string | null } | null;
-  comments: { id: string; content: string | null } | null;
+  target_type: string | null;
+  target_id: string | null;
+  profiles: ProfileSummary | null;
+  posts: { id: string; title: string | null; content: string | null; media_url: string | null; post_type: string | null; author_id: string | null } | null;
+  comments: { id: string; content: string | null; author_id: string | null } | null;
+  target_profile: ProfileSummary | null;
+  post_author_profile: ProfileSummary | null;
+  comment_author_profile: ProfileSummary | null;
 };
 
 function prettyDate(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "Unknown";
   return date.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+function profileName(profile: ProfileSummary | null | undefined) {
+  return profile?.display_name?.trim() || profile?.username || "Unknown";
+}
+
+function reportLabel(report: Report) {
+  const targetType = report.target_type || (report.comment_id ? "comment" : report.post_id ? "post" : "other");
+  if (targetType === "story") return "Story report";
+  if (targetType === "user") return "Member report";
+  if (targetType === "media") return "Media report";
+  if (targetType === "comment") return "Comment report";
+  if (targetType === "post") return "Post report";
+  return "Report";
+}
+
+function targetSummary(report: Report) {
+  if (report.target_type === "user") return `Member: ${profileName(report.target_profile)}`;
+  if (report.target_type === "media") return `Media path: ${report.target_id || "Unknown media"}`;
+  if (report.comments) return `Comment by ${profileName(report.comment_author_profile)}: ${report.comments.content || "Empty comment"}`;
+  if (report.posts) {
+    const postType = report.target_type === "story" || report.posts.post_type === "story" ? "Story" : "Post";
+    const text = report.posts.title || report.posts.content || report.posts.media_url || "Untitled post";
+    return `${postType} by ${profileName(report.post_author_profile)}: ${text}`;
+  }
+  return `Target: ${report.target_type || "other"}${report.target_id ? ` · ${report.target_id}` : ""}`;
 }
 
 export default function AdminReportsPage() {
@@ -66,8 +99,8 @@ export default function AdminReportsPage() {
         <header className={styles.header}>
           <div>
             <p className={styles.eyebrow}>🌿 BareUnity • Admin Studio</p>
-            <h1 className={styles.title}>Flagged Content Queue</h1>
-            <p className={styles.subtitle}>Review member reports for posts and comments in one place.</p>
+            <h1 className={styles.title}>Reports Queue</h1>
+            <p className={styles.subtitle}>Review member reports for posts, comments, profiles, stories, and gallery media in one place.</p>
           </div>
           <button className={styles.refreshButton} onClick={() => void loadReports()}>Refresh</button>
         </header>
@@ -77,21 +110,22 @@ export default function AdminReportsPage() {
         {isLoading ? (
           <p className={styles.empty}>Loading reports…</p>
         ) : reports.length === 0 ? (
-          <p className={styles.empty}>No flagged content right now.</p>
+          <p className={styles.empty}>No reports right now.</p>
         ) : (
           <div className={styles.list}>
             {reports.map((report) => (
               <article key={report.id} className={styles.card}>
                 <div className={styles.cardHeader}>
-                  <strong>{report.comment_id ? "Comment report" : "Post report"}</strong>
+                  <div>
+                    <strong>{reportLabel(report)}</strong>
+                    <p className={styles.targetType}>{report.target_type || "legacy"}</p>
+                  </div>
                   <span>{prettyDate(report.created_at)}</span>
                 </div>
                 <p className={styles.reason}>Reason: {report.reason || "No reason provided"}</p>
-                <p className={styles.meta}>
-                  Reporter: {report.profiles?.display_name || report.profiles?.username || "Unknown"}
-                </p>
-                {report.posts ? <p className={styles.content}>Post: {report.posts.title || report.posts.content || "Untitled post"}</p> : null}
-                {report.comments ? <p className={styles.content}>Comment: {report.comments.content || "Empty comment"}</p> : null}
+                <p className={styles.meta}>Reporter: {profileName(report.profiles)}</p>
+                <p className={styles.content}>{targetSummary(report)}</p>
+                {report.posts?.media_url ? <p className={styles.mediaUrl}>Media URL: {report.posts.media_url}</p> : null}
               </article>
             ))}
           </div>

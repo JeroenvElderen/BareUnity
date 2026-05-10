@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type MouseEvent, type PointerEvent } from "react";
-import { ChevronDown, Ellipsis, Heart, MessageCircle, Pencil, Trash2, X } from "lucide-react";
+import { ChevronDown, Ellipsis, Flag, Heart, MessageCircle, Pencil, Trash2, X } from "lucide-react";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { AppSidebar } from "@/components/sidebar/sidebar";
@@ -14,6 +14,7 @@ import { buildUserScopedCacheKey, hasFreshCachedValue, readCachedValue, writeCac
 import type { HomeFeedComment, HomeFeedFriend, HomeFeedPayload, HomeFeedPost, HomeFeedStory } from "@/lib/homefeed";
 import { sanitizeImageUpload } from "@/lib/image";
 import { HOME_FEED_REALTIME_TABLES, subscribeToTables } from "@/lib/realtime";
+import { promptAndSubmitReport, type ReportTargetType } from "@/lib/reporting";
 import { takePrefetchedRouteData } from "@/lib/prefetched-route-data";
 import { supabase } from "@/lib/supabase";
 import styles from "./page.module.css";
@@ -145,6 +146,7 @@ export default function HomePage() {
   const [storyTimeRemainingMs, setStoryTimeRemainingMs] = useState(STORY_VIEW_MS);
   const [isStoryTimerPaused, setStoryTimerPaused] = useState(false);
   const [seenStoryIds, setSeenStoryIds] = useState<Set<string>>(() => new Set());
+  const [reportStatus, setReportStatus] = useState("");
   const storyTimerStartedAtRef = useRef<number | null>(null);
   const storyHoldStartedAtRef = useRef<number | null>(null);
   const suppressStoryTapRef = useRef(false);
@@ -620,6 +622,13 @@ export default function HomePage() {
     goToPreviousStory();
   };
 
+  const reportItem = async (targetType: ReportTargetType, targetId: string | null | undefined, label: string) => {
+    const result = await promptAndSubmitReport({ targetType, targetId, label });
+    if (!result.message) return;
+    setReportStatus(result.message);
+    window.setTimeout(() => setReportStatus(""), 4500);
+  };
+
   const closeComposer = () => {
     setComposerOpen(false);
     setComposerKind(null);
@@ -668,6 +677,10 @@ export default function HomePage() {
               </Button>
             </div>
           </header>
+
+          {reportStatus ? (
+            <p className="mb-4 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] px-3 py-2 text-sm text-[rgb(var(--text-strong))]">{reportStatus}</p>
+          ) : null}
 
           <div className="grid gap-4 xl:grid-cols-[minmax(0,2.3fr)_minmax(280px,1fr)]">
             <div className="space-y-4">
@@ -873,6 +886,10 @@ export default function HomePage() {
                           {post.comments.length} comments
                         </Badge>
                       </button>
+                      <Button size="sm" variant="outline" onClick={() => void reportItem("post", post.id, "post")}>
+                        <Flag className="mr-1 h-4 w-4" />
+                        Report
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -1094,17 +1111,31 @@ export default function HomePage() {
                   <p className="text-xs text-white/80">{activeStory.posted}</p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  closeStory();
-                }}
-                aria-label="Close story"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-white/50 text-white hover:bg-[rgb(var(--card)/0.15)]"
-              >
-                <X className="h-4 w-4" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    void reportItem("story", activeStory.postId, "story");
+                  }}
+                  aria-label="Report story"
+                  className="inline-flex h-9 items-center gap-1 rounded-md border border-white/50 px-3 text-xs font-semibold text-white hover:bg-[rgb(var(--card)/0.15)]"
+                >
+                  <Flag className="h-4 w-4" />
+                  Report
+                </button>
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    closeStory();
+                  }}
+                  aria-label="Close story"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-white/50 text-white hover:bg-[rgb(var(--card)/0.15)]"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
             </div>
             <div className="relative min-h-0 flex-1 overflow-hidden rounded-2xl bg-black/40">
               {activeStory.imageUrl ? (
@@ -1159,6 +1190,14 @@ export default function HomePage() {
                   />
                 ) : null}
                 {activePost.text ? <p className="mt-1 whitespace-pre-line text-sm text-[rgb(var(--text))]">{activePost.text}</p> : null}
+                <button
+                  type="button"
+                  className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-rose-600 hover:underline"
+                  onClick={() => void reportItem("post", activePost.id, "post")}
+                >
+                  <Flag className="h-3.5 w-3.5" />
+                  Report post
+                </button>
               </div>
               <div className="space-y-2 pb-4">
                 {rootCommentsForPost(activePost).map((comment) => {
@@ -1187,11 +1226,16 @@ export default function HomePage() {
                                 <p className="text-sm text-[rgb(var(--text))] break-words [overflow-wrap:anywhere]">{node.content}</p>
                               </div>
                             </div>
-                            {feed.viewerId && node.authorId === feed.viewerId ? (
-                              <button type="button" onClick={() => openDeleteModal(activePost.id, node.id)} className="text-xs font-medium text-rose-600 hover:underline">
-                                Delete
+                            <div className="flex shrink-0 items-center gap-2">
+                              {feed.viewerId && node.authorId === feed.viewerId ? (
+                                <button type="button" onClick={() => openDeleteModal(activePost.id, node.id)} className="text-xs font-medium text-rose-600 hover:underline">
+                                  Delete
+                                </button>
+                              ) : null}
+                              <button type="button" onClick={() => void reportItem("comment", node.id, "comment")} className="text-xs font-medium text-rose-600 hover:underline">
+                                Report
                               </button>
-                            ) : null}
+                            </div>
                           </div>
                           <div className="mt-1 pl-10">
                             <button

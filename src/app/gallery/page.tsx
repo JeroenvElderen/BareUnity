@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type ChangeEventHandler, type TouchEvent } from "react";
-import { Heart } from "lucide-react";
+import { Flag, Heart } from "lucide-react";
 import NextImage from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -10,6 +10,7 @@ import { AppSidebar } from "@/components/sidebar/sidebar";
 import { buildUserScopedCacheKey, loadCachedThenRefresh } from "@/lib/client-cache";
 import { takePrefetchedRouteData } from "@/lib/prefetched-route-data";
 import { GALLERY_REALTIME_TABLES, subscribeToTables } from "@/lib/realtime";
+import { promptAndSubmitReport } from "@/lib/reporting";
 import layoutStyles from "../page.module.css";
 import styles from "./gallery.module.css";
 import { supabase } from "@/lib/supabase";
@@ -122,6 +123,7 @@ export default function GalleryPage() {
   const [isLoading, setIsLoading] = useState(() => prefetchedItems.length === 0);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [reportStatus, setReportStatus] = useState<string | null>(null);
   const fullscreenTouchStartRef = useRef<{ x: number; y: number } | null>(null);
   const fullscreenSwipeHandledRef = useRef(false);
   const [fullscreenSwipeOffset, setFullscreenSwipeOffset] = useState(0);
@@ -411,6 +413,13 @@ export default function GalleryPage() {
     }
   };
 
+  const reportMedia = async (item: GalleryItem) => {
+    const result = await promptAndSubmitReport({ targetType: "media", targetId: item.path, label: "media item" });
+    if (!result.message) return;
+    setReportStatus(result.message);
+    window.setTimeout(() => setReportStatus(null), 4500);
+  };
+
   const handleFullscreenTouchStart = (event: TouchEvent) => {
     if (showSwipeInstructions) return;
 
@@ -499,6 +508,7 @@ export default function GalleryPage() {
           </div>
         </header>
         {uploadError ? <p className={styles.uploadError}>{uploadError}</p> : null}
+        {reportStatus ? <p className={styles.reportStatus}>{reportStatus}</p> : null}
         {!isLoading && items.length === 0 ? (
           <div className={styles.emptyState}>
             <p>No gallery media found yet.</p>
@@ -541,6 +551,14 @@ export default function GalleryPage() {
                     <Heart className={styles.likeIcon} />
                     <span className={styles.likeCount}>{item.likeCount}</span>
                   </button>
+                  <button
+                    type="button"
+                    className={styles.reportButton}
+                    aria-label={`Report ${item.title}`}
+                    onClick={() => void reportMedia(item)}
+                  >
+                    <Flag className={styles.likeIcon} />
+                  </button>
                 <Link href={`/members/${encodeURIComponent(item.username)}`} className={styles.username}>
                     @{item.username}
                   </Link>
@@ -561,6 +579,18 @@ export default function GalleryPage() {
           onTouchMove={handleFullscreenTouchMove}
           onTouchEnd={handleFullscreenTouchEnd}
         >
+          <button
+            type="button"
+            className={styles.fullscreenReport}
+            aria-label="Report fullscreen media"
+            onClick={(event) => {
+              event.stopPropagation();
+              void reportMedia(activeItem);
+            }}
+          >
+            <Flag aria-hidden />
+            Report
+          </button>
           <button
             type="button"
             className={styles.fullscreenClose}

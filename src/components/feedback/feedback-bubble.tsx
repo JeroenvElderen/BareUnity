@@ -1,16 +1,16 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { MessageCircle, Send, X } from "lucide-react";
+import { Bug, HelpCircle, Lightbulb, MessageCircle, MoreHorizontal, Send, Sparkles, X } from "lucide-react";
 
 import { supabase } from "@/lib/supabase";
 import styles from "./feedback-bubble.module.css";
 
 const categories = [
-  { value: "idea", label: "Idea" },
-  { value: "bug", label: "Bug" },
-  { value: "question", label: "Question" },
-  { value: "other", label: "Other" },
+  { value: "idea", label: "Idea", description: "Share a feature or polish request.", Icon: Lightbulb },
+  { value: "bug", label: "Bug", description: "Report something broken or confusing.", Icon: Bug },
+  { value: "question", label: "Question", description: "Ask about BareUnity or your account.", Icon: HelpCircle },
+  { value: "other", label: "Other", description: "Anything else we should know.", Icon: MoreHorizontal },
 ] as const;
 
 type FeedbackState = "idle" | "sending" | "sent" | "error";
@@ -90,10 +90,15 @@ export function FeedbackBubble() {
     <div className={styles.wrapper}>
       {isOpen ? (
         <section className={styles.panel} aria-labelledby="feedback-title">
+          <div className={styles.glow} aria-hidden="true" />
           <div className={styles.header}>
-            <div>
-              <p className={styles.eyebrow}>Feedback</p>
+            <div className={styles.titleBlock}>
+              <span className={styles.badge}>
+                <Sparkles size={14} />
+                Feedback
+              </span>
               <h2 id="feedback-title">How can BareUnity improve?</h2>
+              <p>Send a quick note directly to the admin team — ideas, bugs, and moments that could feel better.</p>
             </div>
             <button className={styles.iconButton} type="button" aria-label="Close feedback" onClick={() => setIsOpen(false)}>
               <X size={18} />
@@ -101,22 +106,32 @@ export function FeedbackBubble() {
           </div>
 
           <form className={styles.form} onSubmit={submitFeedback}>
-            <label className={styles.label} htmlFor="feedback-category">
-              Topic
-              <select
-                id="feedback-category"
-                className={styles.select}
-                value={category}
-                onChange={(event) => setCategory(event.target.value as typeof category)}
-              >
-                {categories.map((item) => (
-                  <option key={item.value} value={item.value}>{item.label}</option>
+            <fieldset className={styles.topicGroup}>
+              <legend>Choose a topic</legend>
+              <div className={styles.topicGrid}>
+                {categories.map(({ value, label, description, Icon }) => (
+                  <label key={value} className={styles.topicCard} data-selected={category === value}>
+                    <input
+                      type="radio"
+                      name="feedback-category"
+                      value={value}
+                      checked={category === value}
+                      onChange={() => setCategory(value)}
+                    />
+                    <span className={styles.topicIcon}>
+                      <Icon size={18} />
+                    </span>
+                    <span>
+                      <strong>{label}</strong>
+                      <small>{description}</small>
+                    </span>
+                  </label>
                 ))}
-              </select>
-            </label>
+              </div>
+            </fieldset>
 
             <label className={styles.label} htmlFor="feedback-message">
-              Message
+              <span>Message</span>
               <textarea
                 id="feedback-message"
                 className={styles.textarea}
@@ -125,16 +140,16 @@ export function FeedbackBubble() {
                   setMessage(event.target.value);
                   if (status !== "sending") setStatus("idle");
                 }}
-                placeholder="Tell the admin what happened, what you expected, or what would make the community better."
+                placeholder="What happened? What did you expect? What would make the community feel better?"
                 maxLength={1200}
                 required
               />
             </label>
 
             <div className={styles.footerRow}>
-              <span className={styles.count}>{message.length}/1200</span>
+              <span className={styles.count}>{message.length}/1200 characters</span>
               <button className={styles.submitButton} type="submit" disabled={status === "sending" || message.trim().length < 10}>
-                {status === "sending" ? "Sending…" : "Send"}
+                {status === "sending" ? "Sending…" : "Send feedback"}
                 <Send size={16} />
               </button>
             </div>
