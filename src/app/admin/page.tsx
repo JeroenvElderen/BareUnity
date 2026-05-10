@@ -32,6 +32,12 @@ const sections = [
     href: "/admin/stays",
     cta: "Add stay",
   },
+  {
+    title: "Location requests",
+    description: "Review member-requested map locations, then create approved markers and stay follow-ups.",
+    href: "/admin/locations",
+    cta: "Review requests",
+  },
 ];
 
 export default function AdminOverviewPage() {
