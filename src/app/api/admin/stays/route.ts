@@ -433,7 +433,7 @@ export async function POST(request: NextRequest) {
     try {
         await writeFile(
         DATA_FILE_PATH,
-        `${JSON.stringify(nextListing, null, 2)}\n`,
+        `${JSON.stringify(nextListings, null, 2)}\n`,
         "utf8",
       );
     } catch (error) {
