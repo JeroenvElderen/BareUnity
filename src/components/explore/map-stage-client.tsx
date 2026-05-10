@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Building2, Flame, Hotel, MapPin, TentTree, Trees, Umbrella } from "lucide-react";
 
@@ -17,7 +17,13 @@ type Spot = {
   latitude: number | string;
   longitude: number | string;
   privacy: "Public" | "Discreet" | string;
+  access_type?: string | null;
   terrain?: string | null;
+  safety_level?: string | null;
+  checkInCount?: number;
+  spotType?: string;
+  visitors?: string;
+  mood?: string;
 };
 type ExploreFilterMode = "all" | "nearby" | "quiet" | "events";
 type AccessType = "Public" | "Discreet" | "Private Club";
@@ -52,6 +58,16 @@ type CreateLocationFormState = {
   amenities: AmenityType[];
   tags: string;
   reporterNotes: string;
+};
+
+type LocationRequestFormState = {
+  placeName: string;
+  locationHint: string;
+  latitude: string;
+  longitude: string;
+  website: string;
+  isStay: boolean;
+  notes: string;
 };
 
 type LocationSearchResult = {
@@ -340,6 +356,16 @@ const INITIAL_LOCATION_FORM: CreateLocationFormState = {
   reporterNotes: "",
 };
 
+const INITIAL_LOCATION_REQUEST_FORM: LocationRequestFormState = {
+  placeName: "",
+  locationHint: "",
+  latitude: "",
+  longitude: "",
+  website: "",
+  isStay: false,
+  notes: "",
+};
+
 function formatCoordinate(value: string) {
   const num = Number(value);
   if (!Number.isFinite(num)) return "";
@@ -354,9 +380,17 @@ export function MapStageClient() {
   const renderedSpotIdsRef = useRef<Set<string>>(new Set());
   const selectionMarkerRef = useRef<MapLibreMarkerInstance | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
+  const [requestOpen, setRequestOpen] = useState(false);
+  const [isPickingRequestFromMap, setIsPickingRequestFromMap] = useState(false);
+  const [locationRequestForm, setLocationRequestForm] = useState<LocationRequestFormState>(INITIAL_LOCATION_REQUEST_FORM);
+  const [isResolvingLocationRequest, setIsResolvingLocationRequest] = useState(false);
+  const [isSubmittingLocationRequest, setIsSubmittingLocationRequest] = useState(false);
+  const [locationRequestFeedback, setLocationRequestFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [open, setOpen] = useState(false);
   const [isPickingFromMap, setIsPickingFromMap] = useState(false);
   const [selectedSpot, setSelectedSpot] = useState<Spot | null>(null);
+  const [isCheckingIn, setIsCheckingIn] = useState(false);
+  const [checkInError, setCheckInError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState<ExploreFilterMode>("all");
   const [locationForm, setLocationForm] = useState<CreateLocationFormState>(INITIAL_LOCATION_FORM);
@@ -364,7 +398,6 @@ export function MapStageClient() {
   const [locationSearchLoading, setLocationSearchLoading] = useState(false);
   const [locationSearchError, setLocationSearchError] = useState<string | null>(null);
   const [locationSearchResults, setLocationSearchResults] = useState<LocationSearchResult[]>([]);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isSubmittingLocation, setIsSubmittingLocation] = useState(false);
   const [submitFeedback, setSubmitFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [showLocationPrompt, setShowLocationPrompt] = useState(true);
@@ -373,29 +406,8 @@ export function MapStageClient() {
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const pendingSearchTermRef = useRef("");
   
-  const canCreateLocation = useMemo(() => isLoggedIn, [isLoggedIn]);
   const searchInputId = "explore-search";
   const searchSubmitButtonId = "explore-search-submit";
-
-  useEffect(() => {
-    let mounted = true;
-
-    void supabase.auth.getSession().then(({ data }) => {
-      if (!mounted) return;
-      setIsLoggedIn(Boolean(data.session?.user));
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsLoggedIn(Boolean(session?.user));
-    });
-
-    return () => {
-      mounted = false;
-      subscription.unsubscribe();
-    };
-  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -561,7 +573,7 @@ export function MapStageClient() {
     const map = mapRef.current;
     if (!map) return;
 
-    const lockMap = Boolean(selectedSpot) || (open && !isPickingFromMap);
+    const lockMap = Boolean(selectedSpot) || (open && !isPickingFromMap) || (requestOpen && !isPickingRequestFromMap);
 
     for (const interactionKey of MAP_LOCK_INTERACTIONS) {
       const interaction = map[interactionKey];
@@ -573,7 +585,7 @@ export function MapStageClient() {
         interaction.enable?.();
       }
     }
-  }, [isPickingFromMap, open, selectedSpot]);
+  }, [isPickingFromMap, isPickingRequestFromMap, open, requestOpen, selectedSpot]);
 
   function dismissLocationPrompt() {
     setShowLocationPrompt(false);
@@ -669,6 +681,7 @@ export function MapStageClient() {
 
     const markerElement = buildMarkerElement(spot.privacy, spot.terrain);
     markerElement.addEventListener("click", () => {
+      setCheckInError(null);
       setSelectedSpot(spot);
     });
 
@@ -858,6 +871,182 @@ export function MapStageClient() {
     clearLocationSearch();
   }
 
+  function updateLocationRequestField<K extends keyof LocationRequestFormState>(field: K, value: LocationRequestFormState[K]) {
+    setLocationRequestForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function setLocationRequestCoordinates(latitude: number, longitude: number) {
+    setLocationRequestForm((current) => ({
+      ...current,
+      latitude: latitude.toFixed(6),
+      longitude: longitude.toFixed(6),
+    }));
+  }
+
+  function beginLocationRequestMapPicking() {
+    setIsPickingRequestFromMap(true);
+  }
+
+  async function resolveLocationRequestCoordinatesFromText() {
+    const query = [locationRequestForm.placeName, locationRequestForm.locationHint]
+      .map((value) => value.trim())
+      .filter(Boolean)
+      .join(", ");
+
+    if (query.length < 2) {
+      setLocationRequestFeedback({ type: "error", message: "Type a location or stay name before finding coordinates." });
+      return;
+    }
+
+    setIsResolvingLocationRequest(true);
+    setLocationRequestFeedback(null);
+
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(query)}&limit=1`,
+        {
+          headers: {
+            Accept: "application/json",
+          },
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error(`Search failed (${response.status})`);
+      }
+
+      const payload = (await response.json()) as LocationSearchResult[];
+      const [firstResult] = payload;
+      if (!firstResult) {
+        setLocationRequestFeedback({ type: "error", message: "No coordinates found. Try a more specific name or pick on the map." });
+        return;
+      }
+
+      const coordinates = resolveSearchCoordinates(firstResult);
+      if (!coordinates) {
+        setLocationRequestFeedback({ type: "error", message: "That result did not include coordinates. Please pick on the map." });
+        return;
+      }
+
+      setLocationRequestCoordinates(coordinates.latitude, coordinates.longitude);
+      placeSelectionMarker(coordinates.latitude, coordinates.longitude);
+      mapRef.current?.flyTo?.({ center: [coordinates.longitude, coordinates.latitude], zoom: 11 });
+      setLocationRequestForm((current) => ({
+        ...current,
+        placeName: current.placeName.trim() ? current.placeName : resolveResultTitle(firstResult),
+        locationHint: current.locationHint.trim() ? current.locationHint : firstResult.display_name,
+      }));
+      setLocationRequestFeedback({ type: "success", message: "Coordinates found and attached to this request." });
+    } catch (error) {
+      console.error("Failed to resolve request coordinates", error);
+      setLocationRequestFeedback({
+        type: "error",
+        message: error instanceof Error ? error.message : "Could not find coordinates. Please pick on the map.",
+      });
+    } finally {
+      setIsResolvingLocationRequest(false);
+    }
+  }
+
+  function closeLocationRequestModal() {
+    setRequestOpen(false);
+    setIsPickingRequestFromMap(false);
+    setLocationRequestFeedback(null);
+  }
+
+  async function handleLocationRequestSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setLocationRequestFeedback(null);
+
+    if (!locationRequestForm.placeName.trim()) {
+      setLocationRequestFeedback({ type: "error", message: "Add the location or stay name first." });
+      return;
+    }
+
+    if (!locationRequestForm.locationHint.trim()) {
+      setLocationRequestFeedback({ type: "error", message: "Add a location hint so admins know where to review." });
+      return;
+    }
+
+    const requestLatitude = Number(locationRequestForm.latitude);
+    const requestLongitude = Number(locationRequestForm.longitude);
+    if (!Number.isFinite(requestLatitude) || !Number.isFinite(requestLongitude)) {
+      setLocationRequestFeedback({ type: "error", message: "Use Find coordinates or Pick on map before sending this request." });
+      return;
+    }
+
+    setIsSubmittingLocationRequest(true);
+
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      const response = await fetch("/api/map-spot-requests", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        body: JSON.stringify({
+          ...locationRequestForm,
+          placeName: locationRequestForm.placeName.trim(),
+          locationHint: locationRequestForm.locationHint.trim(),
+          latitude: requestLatitude,
+          longitude: requestLongitude,
+          website: locationRequestForm.website.trim(),
+          notes: locationRequestForm.notes.trim(),
+          pageUrl: window.location.href,
+        }),
+      });
+
+      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+      if (!response.ok) {
+        throw new Error(payload?.error ?? `Request failed (${response.status}).`);
+      }
+
+      setLocationRequestForm(INITIAL_LOCATION_REQUEST_FORM);
+      setLocationRequestFeedback({ type: "success", message: "Thanks — admins will review this and add the marker details." });
+    } catch (error) {
+      console.error("Failed to request location", error);
+      setLocationRequestFeedback({
+        type: "error",
+        message: error instanceof Error ? error.message : "Failed to submit location request.",
+      });
+    } finally {
+      setIsSubmittingLocationRequest(false);
+    }
+  }
+
+  async function handleSpotCheckIn() {
+    if (!selectedSpot || isCheckingIn) return;
+
+    setIsCheckingIn(true);
+    setCheckInError(null);
+
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      const response = await fetch(`/api/map-spots/${selectedSpot.id}/check-in`, {
+        method: "POST",
+        headers: {
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+      });
+
+      const payload = (await response.json().catch(() => null)) as { checkInCount?: number; error?: string } | null;
+      if (!response.ok) {
+        throw new Error(payload?.error ?? `Check-in failed (${response.status}).`);
+      }
+
+      const checkInCount = payload?.checkInCount ?? (selectedSpot.checkInCount ?? 0) + 1;
+      setSelectedSpot((current) => (current?.id === selectedSpot.id ? { ...current, checkInCount } : current));
+    } catch (error) {
+      console.error("Failed to check in", error);
+      setCheckInError(error instanceof Error ? error.message : "Failed to check in.");
+    } finally {
+      setIsCheckingIn(false);
+    }
+  }
+
   function beginMapPicking() {
     setIsPickingFromMap(true);
   }
@@ -966,6 +1155,39 @@ export function MapStageClient() {
 
   useEffect(() => {
     const map = mapRef.current;
+    if (!map || !requestOpen || !isPickingRequestFromMap) return;
+
+    const onClick = (event: MapClickEvent) => {
+      const latitude = event.lngLat?.lat;
+      const longitude = event.lngLat?.lng;
+      if (typeof latitude !== "number" || typeof longitude !== "number") return;
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+
+      setLocationRequestCoordinates(latitude, longitude);
+      placeSelectionMarker(latitude, longitude);
+      setIsPickingRequestFromMap(false);
+
+      void resolveTitleFromCoordinates(latitude, longitude)
+        .then((resolvedName) => {
+          if (!resolvedName) return;
+          setLocationRequestForm((current) => ({
+            ...current,
+            placeName: current.placeName.trim() ? current.placeName : resolvedName,
+          }));
+        })
+        .catch((error) => {
+          console.error("Failed to resolve request title from map click", error);
+        });
+    };
+
+    map.on("click", onClick);
+    return () => {
+      map.off("click", onClick);
+    };
+  }, [isPickingRequestFromMap, requestOpen]);
+
+  useEffect(() => {
+    const map = mapRef.current;
     if (!map || !open || !isPickingFromMap) return;
 
     const onClick = (event: MapClickEvent) => {
@@ -1031,6 +1253,14 @@ export function MapStageClient() {
             name={selectedSpot.name}
             description={selectedSpot.description}
             privacy={selectedSpot.privacy}
+            spotType={selectedSpot.spotType ?? selectedSpot.terrain ?? selectedSpot.access_type ?? "Location"}
+            visitors={selectedSpot.visitors ?? "Low"}
+            safety={selectedSpot.safety_level ?? "Trusted"}
+            mood={selectedSpot.mood ?? "Quiet"}
+            checkInCount={selectedSpot.checkInCount ?? 0}
+            isCheckingIn={isCheckingIn}
+            checkInError={checkInError}
+            onCheckIn={() => void handleSpotCheckIn()}
             onClose={() => setSelectedSpot(null)}
           />
         </div>
@@ -1045,23 +1275,156 @@ export function MapStageClient() {
       <div className="absolute bottom-3 left-3 z-20 sm:bottom-4 sm:left-4">
         <Button
           type="button"
-          onClick={() => {
-            setOpen(true);
-            setIsPickingFromMap(false);
-          }}
-          disabled={!canCreateLocation}
-          aria-label="Create location"
-          className="h-12 w-12 rounded-full bg-[rgb(var(--brand))] p-0 text-[rgb(var(--text-inverse))] shadow-[0_14px_34px_rgb(var(--brand)/0.28)] hover:bg-[rgb(var(--brand-2))] sm:h-auto sm:w-auto sm:px-4 sm:py-2"
+          onClick={() => setRequestOpen(true)}
+          aria-label="Request a location"
+          className="h-12 rounded-full bg-[rgb(var(--brand))] px-4 text-[rgb(var(--text-inverse))] shadow-[0_14px_34px_rgb(var(--brand)/0.28)] hover:bg-[rgb(var(--brand-2))]"
         >
           <MapPin size={20} aria-hidden="true" />
-          <span className="sr-only sm:not-sr-only sm:ml-2">Create location</span>
+          <span className="ml-2">Request location</span>
         </Button>
       </div>
 
-      {!canCreateLocation ? (
-        <p className="absolute bottom-3 left-[4.4rem] z-20 rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--card))/0.94] px-3 py-1 text-xs text-[rgb(var(--muted))] sm:bottom-4 sm:left-44">
-          Verified users only
-        </p>
+      {requestOpen && isPickingRequestFromMap ? (
+        <div className="pointer-events-none fixed inset-0 z-40 flex items-start justify-center bg-transparent p-3 pt-[calc(0.75rem+env(safe-area-inset-top,0px))] sm:p-6">
+          <div className="pointer-events-auto w-full max-w-3xl rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-3 shadow-xl">
+            <p className="m-0 text-sm text-[rgb(var(--text-strong))]">
+              Click the map where this requested place should appear. Latitude and longitude will be attached for admins.
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Button type="button" variant="outline" onClick={() => setIsPickingRequestFromMap(false)}>
+                Back to request
+              </Button>
+              <Button type="button" variant="outline" onClick={closeLocationRequestModal}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {requestOpen && !isPickingRequestFromMap ? (
+        <div className="fixed inset-0 z-40 grid place-items-center overflow-y-auto bg-black/45 p-4">
+          <form
+            className="w-full max-w-lg rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-5 shadow-2xl"
+            onSubmit={(event) => void handleLocationRequestSubmit(event)}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="m-0 text-lg font-semibold text-[rgb(var(--text-strong))]">Request a new location</h3>
+                <p className="mt-1 text-sm text-[rgb(var(--muted))]">
+                  Send the place to admins. They will verify it, fill in marker details, and create a stay listing if it is a stay.
+                </p>
+              </div>
+              <Button type="button" variant="outline" onClick={closeLocationRequestModal}>
+                Close
+              </Button>
+            </div>
+
+            <div className="mt-5 grid gap-4">
+              <label className="grid gap-1">
+                <span className="text-sm font-medium text-[rgb(var(--text-strong))]">Location or stay name *</span>
+                <input
+                  required
+                  value={locationRequestForm.placeName}
+                  onChange={(event) => updateLocationRequestField("placeName", event.target.value)}
+                  placeholder="e.g. Sunset Cove or Bare Valley Retreat"
+                  className="rounded-xl border border-[rgb(var(--border))] bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[rgb(var(--brand))]"
+                />
+              </label>
+
+              <label className="grid gap-1">
+                <span className="text-sm font-medium text-[rgb(var(--text-strong))]">Where is it? *</span>
+                <textarea
+                  required
+                  rows={3}
+                  value={locationRequestForm.locationHint}
+                  onChange={(event) => updateLocationRequestField("locationHint", event.target.value)}
+                  placeholder="City, country, address, coordinates, or any clue that helps admins find it."
+                  className="rounded-xl border border-[rgb(var(--border))] bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[rgb(var(--brand))]"
+                />
+              </label>
+
+              <section className="grid gap-2 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))/0.45] p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="m-0 text-sm font-medium text-[rgb(var(--text-strong))]">Map coordinates *</p>
+                    <p className="m-0 text-xs text-[rgb(var(--muted))]">Coordinates are attached automatically from search or a map click.</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="button" variant="outline" onClick={() => void resolveLocationRequestCoordinatesFromText()} disabled={isResolvingLocationRequest}>
+                      {isResolvingLocationRequest ? "Finding..." : "Find coordinates"}
+                    </Button>
+                    <Button type="button" variant="outline" onClick={beginLocationRequestMapPicking}>
+                      Pick on map
+                    </Button>
+                  </div>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--card))/0.58] px-3 py-2 text-sm">
+                    <span className="block text-xs font-medium text-[rgb(var(--muted))]">Latitude</span>
+                    <strong className="text-[rgb(var(--text-strong))]">{formatCoordinate(locationRequestForm.latitude) || "Not selected"}</strong>
+                  </div>
+                  <div className="rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--card))/0.58] px-3 py-2 text-sm">
+                    <span className="block text-xs font-medium text-[rgb(var(--muted))]">Longitude</span>
+                    <strong className="text-[rgb(var(--text-strong))]">{formatCoordinate(locationRequestForm.longitude) || "Not selected"}</strong>
+                  </div>
+                </div>
+              </section>
+
+              <label className="grid gap-1">
+                <span className="text-sm font-medium text-[rgb(var(--text-strong))]">Website or info link</span>
+                <input
+                  value={locationRequestForm.website}
+                  onChange={(event) => updateLocationRequestField("website", event.target.value)}
+                  placeholder="https://"
+                  className="rounded-xl border border-[rgb(var(--border))] bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[rgb(var(--brand))]"
+                />
+              </label>
+
+              <label className="flex items-center justify-between gap-3 rounded-xl border border-[rgb(var(--border))] p-3 text-sm text-[rgb(var(--text-strong))]">
+                <span>This is a hotel, resort, camping, or other stay</span>
+                <input
+                  type="checkbox"
+                  checked={locationRequestForm.isStay}
+                  onChange={(event) => updateLocationRequestField("isStay", event.target.checked)}
+                  className="h-4 w-4 accent-[rgb(var(--brand))]"
+                />
+              </label>
+
+              <label className="grid gap-1">
+                <span className="text-sm font-medium text-[rgb(var(--text-strong))]">Extra notes</span>
+                <textarea
+                  rows={3}
+                  value={locationRequestForm.notes}
+                  onChange={(event) => updateLocationRequestField("notes", event.target.value)}
+                  placeholder="Why should this be added? Anything admins should verify?"
+                  className="rounded-xl border border-[rgb(var(--border))] bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[rgb(var(--brand))]"
+                />
+              </label>
+            </div>
+
+            {locationRequestFeedback ? (
+              <p
+                className={`mt-4 rounded-xl px-3 py-2 text-sm ${
+                  locationRequestFeedback.type === "success"
+                    ? "bg-[rgb(24,132,84)/0.12] text-[rgb(24,132,84)]"
+                    : "bg-[rgb(190,68,68)/0.12] text-[rgb(190,68,68)]"
+                }`}
+              >
+                {locationRequestFeedback.message}
+              </p>
+            ) : null}
+
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setLocationRequestForm(INITIAL_LOCATION_REQUEST_FORM)}>
+                Reset
+              </Button>
+              <Button type="submit" disabled={isSubmittingLocationRequest}>
+                {isSubmittingLocationRequest ? "Sending..." : "Send request"}
+              </Button>
+            </div>
+          </form>
+        </div>
       ) : null}
 
       {open ? (

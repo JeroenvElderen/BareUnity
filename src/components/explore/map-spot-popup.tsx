@@ -4,6 +4,14 @@ type MapSpotPopupProps = {
   name: string;
   description: string;
   privacy: string;
+  spotType: string;
+  visitors: string;
+  safety: string;
+  mood: string;
+  checkInCount: number;
+  isCheckingIn?: boolean;
+  checkInError?: string | null;
+  onCheckIn?: () => void;
   onClose?: () => void;
 };
 
@@ -16,11 +24,22 @@ function getInitials(name: string) {
     .join("");
 }
 
-export function MapSpotPopup({ name, description, privacy, onClose }: MapSpotPopupProps) {
+export function MapSpotPopup({
+  name,
+  description,
+  privacy,
+  spotType,
+  visitors,
+  safety,
+  mood,
+  checkInCount,
+  isCheckingIn = false,
+  checkInError,
+  onCheckIn,
+  onClose,
+}: MapSpotPopupProps) {
   const isPublic = privacy === "Public";
   const initials = getInitials(name) || "SP";
-  const mood = isPublic ? "Active" : "Calm";
-  const checkIns = isPublic ? 24 : 9;
 
   return (
     <article className={styles.card}>
@@ -33,7 +52,7 @@ export function MapSpotPopup({ name, description, privacy, onClose }: MapSpotPop
           <div className={styles.avatar}>{initials}</div>
           <div>
             <h4 className={styles.heading}>{name}</h4>
-            <p className={styles.subheading}>Updated moments ago • Explore map</p>
+            <p className={styles.subheading}>Updated from community activity • Explore map</p>
           </div>
         </div>
       </header>
@@ -50,19 +69,24 @@ export function MapSpotPopup({ name, description, privacy, onClose }: MapSpotPop
           <div className={styles.fact}>
             <span className={styles.factIcon}>📍</span>
             <p className={styles.factLabel}>Type</p>
-            <p className={styles.factValue}>{isPublic ? "Open beach" : "Quiet retreat"}</p>
+            <p className={styles.factValue}>{spotType}</p>
           </div>
           <div className={styles.fact}>
             <span className={styles.factIcon}>👥</span>
             <p className={styles.factLabel}>Visitors</p>
-            <p className={styles.factValue}>{isPublic ? "Medium" : "Low"}</p>
+            <p className={styles.factValue}>{visitors}</p>
           </div>
           <div className={styles.fact}>
             <span className={styles.factIcon}>🛡️</span>
             <p className={styles.factLabel}>Safety</p>
-            <p className={styles.factValue}>Verified</p>
+            <p className={styles.factValue}>{safety}</p>
           </div>
         </section>
+
+        <button type="button" className={styles.cta} onClick={onCheckIn} disabled={isCheckingIn}>
+          {isCheckingIn ? "Checking in..." : "Check in here"}
+        </button>
+        {checkInError ? <p className={styles.error}>{checkInError}</p> : null}
 
         <div className={styles.metrics}>
           <div className={styles.metric}>
@@ -71,11 +95,11 @@ export function MapSpotPopup({ name, description, privacy, onClose }: MapSpotPop
           </div>
           <div className={styles.metric}>
             <p className={styles.metricLabel}>Safety</p>
-            <p className={styles.metricValue}>Trusted</p>
+            <p className={styles.metricValue}>{safety}</p>
           </div>
           <div className={styles.metric}>
             <p className={styles.metricLabel}>Check-ins</p>
-            <p className={styles.metricValue}>{checkIns}</p>
+            <p className={styles.metricValue}>{checkInCount}</p>
           </div>
         </div>
       </div>
