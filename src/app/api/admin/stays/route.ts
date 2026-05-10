@@ -47,6 +47,26 @@ type GeocodeResult = {
   lon?: string;
 };
 
+function uniqueGeocodeQueries(
+  listing: Pick<Listing, "address" | "placeName" | "country" | "name">,
+) {
+  const queryParts = [
+    [listing.address, listing.placeName, listing.country],
+    [listing.name, listing.placeName, listing.country],
+    [listing.name, listing.address],
+    [listing.name, listing.country],
+  ];
+
+  const seen = new Set<string>();
+  return queryParts
+    .map((parts) => parts.filter(Boolean).join(", ").trim())
+    .filter((query) => {
+      if (!query || seen.has(query.toLowerCase())) return false;
+      seen.add(query.toLowerCase());
+      return true;
+    });
+}
+
 function slugify(value: string) {
   return value
     .normalize("NFKD")
@@ -76,43 +96,45 @@ function validateCoordinates(latitude: number, longitude: number) {
 async function geocodeStayAddress(
   listing: Pick<Listing, "address" | "placeName" | "country" | "name">,
 ) {
-  const query = [listing.address, listing.placeName, listing.country]
-    .filter(Boolean)
-    .join(", ");
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 8000);
+  for (const query of uniqueGeocodeQueries(listing)) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
 
   try {
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(query)}`,
-      {
-        headers: {
-          Accept: "application/json",
-          "User-Agent":
-            "BareUnity stay marker geocoder (+https://bareunity.com)",
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=3&q=${encodeURIComponent(query)}`,
+        {
+          headers: {
+            Accept: "application/json",
+            "User-Agent":
+              "BareUnity stay marker geocoder (+https://bareunity.com)",
+          },
+          signal: controller.signal,
         },
-        signal: controller.signal,
-      },
     );
 
-    if (!response.ok) return null;
+        if (!response.ok) continue;
 
-    const results = (await response.json()) as GeocodeResult[];
-    const first = results[0];
-    if (!first) return null;
+        const results = (await response.json()) as GeocodeResult[];
+        for (const result of results) {
+        const latitude = Number(result.lat);
+        const longitude = Number(result.lon);
+        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) continue;
 
-    const latitude = Number(first.lat);
-    const longitude = Number(first.lon);
-    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
-
-    validateCoordinates(latitude, longitude);
-    return { latitude, longitude };
-  } catch (error) {
-    console.error(`Failed to geocode stay address for ${listing.name}`, error);
-    return null;
-  } finally {
-    clearTimeout(timeout);
+        validateCoordinates(latitude, longitude);
+        return { latitude, longitude };
+      }
+    } catch (error) {
+      console.error(
+        `Failed to geocode stay address for ${listing.name} with query "${query}"`,
+        error,
+      );
+    } finally {
+      clearTimeout(timeout);
+    }
   }
+
+  return null;
 }
 
 async function createStayMapSpotWithPrisma(
@@ -331,7 +353,7 @@ async function normalizeListing(
   if (!coordinates) {
     return {
       error:
-        "Could not automatically find map coordinates for this stay address. Check the address, place, and country before saving again.",
+        "Could not automatically find map coordinates for this stay. We tried the address and the stay name with its place and country. Check those details before saving again.",
     };
   }
 
@@ -404,14 +426,14 @@ export async function POST(request: NextRequest) {
   }
 
   if (CAN_WRITE_SOURCE_DATA) {
-    const nextListing = [...listings, listing].sort((a, b) =>
-    a.name.localeCompare(b.name),
+    const nextListings = [...listings, listing].sort((a, b) =>
+      a.name.localeCompare(b.name),
     );
 
     try {
         await writeFile(
-            DATA_FILE_PATH,
-        `${JSON.stringify(nextListings, null, 2)}\n`,
+        DATA_FILE_PATH,
+        `${JSON.stringify(nextListing, null, 2)}\n`,
         "utf8",
       );
     } catch (error) {
