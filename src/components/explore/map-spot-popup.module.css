@@ -1,7 +1,10 @@
 .card {
   width: min(540px, calc(100dvw - 2rem));
   max-width: 100%;
-  max-height: min(720px, calc(100dvh - 2rem));
+  max-height: min(
+    720px,
+    calc(100dvh - var(--spot-popup-top-offset, 1rem) - var(--spot-popup-bottom-offset, 1rem))
+  );
   border-radius: 30px;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -313,7 +316,7 @@
 @media (max-width: 640px) {
   .card {
     width: min(100%, calc(100vw - 1rem));
-    max-height: calc(100dvh - 1.5rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    max-height: calc(100dvh - var(--spot-popup-top-offset, 0.75rem) - var(--spot-popup-bottom-offset, 0.75rem));
     border-radius: 24px;
   }
 
@@ -347,7 +350,7 @@
 @media (max-width: 520px) {
   .card {
     width: min(100%, calc(100dvw - 0.75rem));
-    max-height: calc(100dvh - 1rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    max-height: calc(100dvh - var(--spot-popup-top-offset, 0.75rem) - var(--spot-popup-bottom-offset, 0.75rem));
     border-radius: 22px;
   }
 
