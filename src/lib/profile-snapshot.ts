@@ -1,3 +1,7 @@
+import {
+  findProfileSettingsControls,
+  findProfileSettingsSnapshot,
+} from "@/lib/profile-settings-compat";
 import { db } from "@/server/db";
 
 type OptionState = "No-one" | "Friends only" | "Everyone";
@@ -131,10 +135,7 @@ export async function buildProfileSnapshotPayload(
       orderBy: { created_at: "desc" },
       take: 30,
     }),
-    db.profile_settings.findUnique({
-      where: { user_id: profile.id },
-      select: { interests: true, setting_control_states: true },
-    }),
+    findProfileSettingsControls(profile.id),
     db.posts.count({
       where: {
         author_id: profile.id,
@@ -238,14 +239,7 @@ export async function getProfileSnapshotSourceVersion(
         orderBy: { created_at: "desc" },
         select: { id: true, created_at: true },
       }),
-      db.profile_settings.findUnique({
-        where: { user_id: userId },
-        select: {
-          updated_at: true,
-          interests: true,
-          setting_control_states: true,
-        },
-      }),
+      findProfileSettingsSnapshot(userId),
     ]);
 
   return JSON.stringify({

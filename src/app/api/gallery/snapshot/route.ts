@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 
+import { findGalleryPreferences } from "@/lib/profile-settings-compat";
 import {
   createSupabaseAdminClient,
   isSupabaseAdminConfigured,
@@ -172,10 +173,7 @@ async function buildGalleryFromStorage(): Promise<GalleryStorageItem[]> {
           where: { id: { in: ownerIds } },
           select: { id: true, username: true },
         }),
-        db.profile_settings.findMany({
-          where: { user_id: { in: ownerIds } },
-          select: { user_id: true, add_post_images_to_gallery: true },
-        }),
+        findGalleryPreferences(ownerIds),
       ])
     : [[], []];
   const usernameByOwnerId = new Map(

@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 
+import { findGalleryPreferences } from "@/lib/profile-settings-compat";
 import { db } from "@/server/db";
 
 export type GallerySnapshotItem = {
@@ -54,15 +55,9 @@ export async function buildGallerySnapshotPayload(): Promise<
         .filter((authorId): authorId is string => Boolean(authorId)),
     ),
   );
-  const hiddenAuthorSettings = authorIds.length
-    ? await db.profile_settings.findMany({
-        where: {
-          user_id: { in: authorIds },
-          add_post_images_to_gallery: false,
-        },
-        select: { user_id: true },
-      })
-    : [];
+  const hiddenAuthorSettings = (await findGalleryPreferences(authorIds)).filter(
+    (settings) => settings.add_post_images_to_gallery === false,
+  );
   const hiddenAuthorIds = new Set(
     hiddenAuthorSettings.map((settings) => settings.user_id),
   );

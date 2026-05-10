@@ -1,3 +1,4 @@
+import { findAccountSettingsSnapshot } from "@/lib/profile-settings-compat";
 import { db } from "@/server/db";
 
 export type SettingsSnapshotPayload = {
@@ -25,15 +26,7 @@ export async function buildSettingsSnapshotPayload(
       where: { id: userId },
       select: { username: true },
     }),
-    db.profile_settings.findUnique({
-      where: { user_id: userId },
-      select: {
-        recovery_keys: true,
-        add_post_images_to_gallery: true,
-        setting_control_states: true,
-        updated_at: true,
-      },
-    }),
+    findAccountSettingsSnapshot(userId),
   ]);
 
   return {
@@ -68,15 +61,7 @@ export async function getSettingsSnapshotSourceVersion(
       where: { id: userId },
       select: { username: true },
     }),
-    db.profile_settings.findUnique({
-      where: { user_id: userId },
-      select: {
-        recovery_keys: true,
-        add_post_images_to_gallery: true,
-        setting_control_states: true,
-        updated_at: true,
-      },
-    }),
+    findAccountSettingsSnapshot(userId),
   ]);
 
   return JSON.stringify({
