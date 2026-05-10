@@ -1260,7 +1260,7 @@ export function MapStageClient() {
       ) : null}
       
       {selectedSpot ? (
-        <div className="fixed inset-0 z-[90] grid place-items-center overflow-y-auto overscroll-contain bg-black/40 p-3 sm:p-4">
+        <div className="absolute inset-0 z-[90] grid place-items-start justify-items-center overflow-y-auto overscroll-contain bg-black/40 p-3 pt-6 sm:p-4 sm:pt-8">
           <MapSpotPopup
             name={selectedSpot.name}
             description={selectedSpot.description}
