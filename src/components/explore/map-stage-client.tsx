@@ -868,6 +868,16 @@ export function MapStageClient() {
       return;
     }
 
+    if (!locationForm.shortDescription.trim()) {
+      setSubmitFeedback({ type: "error", message: "A short description is required." });
+      return;
+    }
+
+    if (!locationForm.fullDescription.trim()) {
+      setSubmitFeedback({ type: "error", message: "A full description is required." });
+      return;
+    }
+
     if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
       setSubmitFeedback({ type: "error", message: "Please choose valid coordinates before submitting." });
       return;
@@ -1019,7 +1029,7 @@ export function MapStageClient() {
         </div>
       ) : null}
 
-      <div className="absolute bottom-3 left-3 z-20">
+      <div className="absolute bottom-3 left-3 z-20 sm:bottom-4 sm:left-4">
         <Button
           type="button"
           onClick={() => {
@@ -1027,23 +1037,31 @@ export function MapStageClient() {
             setIsPickingFromMap(false);
           }}
           disabled={!canCreateLocation}
-          className="rounded-full bg-[rgb(var(--brand))] text-[rgb(var(--text-inverse))] hover:bg-[rgb(var(--brand-2))]"
+          aria-label="Create location"
+          className="h-12 w-12 rounded-full bg-[rgb(var(--brand))] p-0 text-[rgb(var(--text-inverse))] shadow-[0_14px_34px_rgb(var(--brand)/0.28)] hover:bg-[rgb(var(--brand-2))] sm:h-auto sm:w-auto sm:px-4 sm:py-2"
         >
-          Create location
+          <MapPin size={20} aria-hidden="true" />
+          <span className="sr-only sm:not-sr-only sm:ml-2">Create location</span>
         </Button>
       </div>
 
       {!canCreateLocation ? (
-        <p className="absolute bottom-3 left-44 z-20 rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--card))/0.94] px-3 py-1 text-xs text-[rgb(var(--muted))]">
+        <p className="absolute bottom-3 left-[4.4rem] z-20 rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--card))/0.94] px-3 py-1 text-xs text-[rgb(var(--muted))] sm:bottom-4 sm:left-44">
           Verified users only
         </p>
       ) : null}
 
       {open ? (
-        <div className={`fixed inset-0 z-40 p-4 sm:p-6 ${isPickingFromMap ? "pointer-events-none bg-transparent" : "bg-black/45"}`}>
+        <div
+          className={`fixed inset-0 z-40 flex justify-center overflow-hidden ${
+            isPickingFromMap
+              ? "pointer-events-none items-start bg-transparent p-3 pt-[calc(0.75rem+env(safe-area-inset-top,0px))] sm:p-6"
+              : "items-end bg-black/45 p-0 sm:items-center sm:p-6"
+          }`}
+        >
           {isPickingFromMap ? (
-            <div className="pointer-events-auto mx-auto mb-3 w-full max-w-3xl rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-3 shadow-xl">
-              <p className="text-sm text-[rgb(var(--text-strong))]">
+            <div className="pointer-events-auto w-full max-w-3xl rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-3 shadow-xl">
+              <p className="m-0 text-sm text-[rgb(var(--text-strong))]">
                 Click the exact location on the map to fill latitude/longitude automatically.
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
@@ -1058,8 +1076,8 @@ export function MapStageClient() {
           ) : null}
 
           {!isPickingFromMap ? (
-            <div className="mx-auto max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-5 shadow-xl">
-            <div className="mb-4 flex items-start justify-between gap-4">
+            <div className="flex max-h-[100dvh] w-full flex-col overflow-hidden rounded-t-3xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] shadow-2xl sm:max-h-[calc(100dvh-3rem)] sm:max-w-5xl sm:rounded-2xl">
+            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-[rgb(var(--border))] px-4 py-4 sm:px-5">
               <div>
                 <h3 className="m-0 text-base font-semibold text-[rgb(var(--text-strong))]">Create location</h3>
                 <p className="mt-1 text-sm text-[rgb(var(--muted))]">
@@ -1071,8 +1089,9 @@ export function MapStageClient() {
               </Button>
             </div>
 
-            <form className="space-y-5" onSubmit={(event) => void handleLocationSubmit(event)}>
-              <div className="grid gap-2 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))/0.45] p-3 text-xs text-[rgb(var(--muted))] sm:grid-cols-3">
+            <form className="flex min-h-0 flex-1 flex-col" onSubmit={(event) => void handleLocationSubmit(event)}>
+              <div className="grid min-h-0 flex-1 gap-5 overflow-y-auto px-4 py-4 sm:px-5 lg:grid-cols-2">
+              <div className="grid gap-2 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))/0.45] p-3 text-xs text-[rgb(var(--muted))] sm:grid-cols-3 lg:col-span-2">
                 <p className="m-0">
                   <strong className="text-[rgb(var(--text-strong))]">1. Basics</strong>
                   <br />
@@ -1101,6 +1120,7 @@ export function MapStageClient() {
                   <span className="text-xs font-medium text-[rgb(var(--muted))]">Location name *</span>
                   <input
                     value={locationForm.name}
+                    required
                     onChange={(event) => updateLocationField("name", event.target.value)}
                     placeholder="e.g. Sunset Cove Naturist Beach"
                     className="w-full rounded-lg border border-[rgb(var(--border))] bg-transparent px-3 py-2 text-sm outline-none ring-[rgb(var(--brand))] transition focus:ring-2"
@@ -1110,6 +1130,7 @@ export function MapStageClient() {
                   <span className="text-xs font-medium text-[rgb(var(--muted))]">Short description *</span>
                   <input
                     value={locationForm.shortDescription}
+                    required
                     onChange={(event) => updateLocationField("shortDescription", event.target.value)}
                     placeholder="1 sentence summary for map popup"
                     className="w-full rounded-lg border border-[rgb(var(--border))] bg-transparent px-3 py-2 text-sm outline-none ring-[rgb(var(--brand))] transition focus:ring-2"
@@ -1119,6 +1140,7 @@ export function MapStageClient() {
                   <span className="text-xs font-medium text-[rgb(var(--muted))]">Full description *</span>
                   <textarea
                     value={locationForm.fullDescription}
+                    required
                     onChange={(event) => updateLocationField("fullDescription", event.target.value)}
                     placeholder="Share atmosphere, etiquette, how busy it gets, and any known restrictions."
                     rows={4}
@@ -1308,7 +1330,7 @@ export function MapStageClient() {
                 </div>
               </section>
 
-              <section className="grid gap-3 rounded-xl border border-[rgb(var(--border))] p-4 md:grid-cols-2">
+              <section className="grid gap-3 rounded-xl border border-[rgb(var(--border))] p-4 md:grid-cols-2 lg:col-span-2">
                 <div className="md:col-span-2">
                   <h4 className="m-0 text-sm font-semibold text-[rgb(var(--text-strong))]">Extra details</h4>
                   <p className="mt-1 text-xs text-[rgb(var(--muted))]">
@@ -1379,7 +1401,9 @@ export function MapStageClient() {
                 </label>
               </section>
 
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))/0.35] px-4 py-3">
+              </div>
+
+              <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))/0.75] px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] sm:px-5 sm:pb-3">
                 {submitFeedback ? (
                   <p
                     className={`text-xs ${
@@ -1393,10 +1417,11 @@ export function MapStageClient() {
                     Fields marked * are required. Submitted locations are added to the map immediately.
                   </p>
                 )}
-                <div className="flex gap-2">
+                <div className="flex w-full gap-2 sm:w-auto">
                   <Button
                     type="button"
                     variant="outline"
+                    className="flex-1 sm:flex-none"
                     onClick={() => {
                       setLocationForm(INITIAL_LOCATION_FORM);
                       clearLocationSearch();
@@ -1407,7 +1432,7 @@ export function MapStageClient() {
                   <Button
                     type="submit"
                     disabled={isSubmittingLocation}
-                    className="bg-[rgb(var(--brand))] text-[rgb(var(--text-inverse))]"
+                    className="flex-1 bg-[rgb(var(--brand))] text-[rgb(var(--text-inverse))] sm:flex-none"
                   >
                     {isSubmittingLocation ? "Submitting..." : "Submit location"}
                   </Button>
