@@ -11,7 +11,9 @@ type MapSpotPopupProps = {
   checkInCount: number;
   isCheckingIn?: boolean;
   checkInError?: string | null;
+  reportStatus?: string | null;
   onCheckIn?: () => void;
+  onReport?: () => void;
   onClose?: () => void;
 };
 
@@ -35,7 +37,9 @@ export function MapSpotPopup({
   checkInCount,
   isCheckingIn = false,
   checkInError,
+  reportStatus,
   onCheckIn,
+  onReport,
   onClose,
 }: MapSpotPopupProps) {
   const isPublic = privacy === "Public";
@@ -114,9 +118,13 @@ export function MapSpotPopup({
           <button type="button" className={styles.cta} onClick={onCheckIn} disabled={isCheckingIn}>
             {isCheckingIn ? "Checking in..." : "Check in here"}
           </button>
+          <button type="button" className={styles.secondaryCta} onClick={onReport}>
+            Report this spot
+          </button>
           <p className={styles.helperText}>Let others know this marker is active and up to date.</p>
         </div>
         {checkInError ? <p className={styles.error}>{checkInError}</p> : null}
+        {reportStatus ? <p className={styles.status}>{reportStatus}</p> : null}
       </div>
     </article>
   );

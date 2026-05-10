@@ -138,6 +138,13 @@ export function UsernameActionPopup({
     setIsSending(false);
   };
 
+  const reportUser = async () => {
+    setIsReporting(true);
+    const result = await promptAndSubmitReport({ targetType: "user", targetId: userId, label: "member" });
+    if (result.message) setStatus(result.message);
+    setIsReporting(false);
+  };
+
   const popup = isOpen ? (
     <div
       ref={popupRef}
@@ -163,16 +170,18 @@ export function UsernameActionPopup({
       >
         {isSelf ? "Send friend request (disabled)" : isSending ? "Sending request..." : "Send friend request"}
       </button>
+      <button
+        type="button"
+        disabled={isReporting || isSelf || !userId}
+        className="mt-1 w-full rounded-md px-2 py-1.5 text-left text-sm text-rose-600 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+        onClick={() => void reportUser()}
+        role="menuitem"
+      >
+        {isSelf ? "Report member (disabled)" : isReporting ? "Reporting member..." : "Report member"}
+      </button>
       {status ? <p className="mt-2 px-2 text-xs text-[rgb(var(--muted))]">{status}</p> : null}
     </div>
   ) : null;
-
-  const reportUser = async () => {
-    setIsReporting(true);
-    const result = await promptAndSubmitReport({ targetType: "user", targetId: userId, label: "member" });
-    if (result.message) setStatus(result.message);
-    setIsReporting(false);
-  };
 
   return (
     <span ref={rootRef} className="inline-flex items-center">
