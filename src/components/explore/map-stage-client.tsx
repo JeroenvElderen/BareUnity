@@ -5,6 +5,7 @@ import { createRoot } from "react-dom/client";
 import { Building2, Flame, Hotel, MapPin, TentTree, Trees, Umbrella } from "lucide-react";
 
 import { MapSpotPopup } from "@/components/explore/map-spot-popup";
+import overlayStyles from "./map-stage-client.module.css";
 import { Button } from "@/components/ui/button";
 import { buildUserScopedCacheKey, loadCachedThenRefresh } from "@/lib/client-cache";
 import { takePrefetchedRouteData } from "@/lib/prefetched-route-data";
@@ -1273,14 +1274,10 @@ export function MapStageClient() {
           </div>
         </div>
       ) : null}
-      
+
       {selectedSpot ? (
         <div
-          className="fixed inset-0 z-[90] grid place-items-center justify-items-center overflow-hidden overscroll-none bg-black/40 p-3 sm:p-4"
-          style={{
-            paddingTop: "max(0.75rem, env(safe-area-inset-top, 0px))",
-            paddingBottom: "max(0.75rem, env(safe-area-inset-bottom, 0px))",
-          }}
+          className={`${overlayStyles.spotPopupOverlay} fixed inset-0 z-[90] grid place-items-center justify-items-center overflow-hidden overscroll-none bg-black/40`}
         >
           <MapSpotPopup
             name={selectedSpot.name}
