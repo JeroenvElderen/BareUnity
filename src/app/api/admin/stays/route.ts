@@ -1,8 +1,11 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { writeFile } from "node:fs/promises";
 import path from "node:path";
 import { NextRequest, NextResponse } from "next/server";
 import { ensureStayAdmin } from "./auth";
-import type { Listing } from "@/app/bookings/hotels-airbnbs/stays-data";
+import {
+  getListings,
+  type Listing,
+} from "@/app/bookings/hotels-airbnbs/stays-data";
 import {
   createSupabaseAdminClient,
   isSupabaseAdminConfigured,
@@ -13,6 +16,8 @@ const DATA_FILE_PATH = path.join(
   process.cwd(),
   "src/app/bookings/hotels-airbnbs/stays-data-store.json",
 );
+const CAN_WRITE_SOURCE_DATA =
+  process.env.VERCEL !== "1" && !process.env.VERCEL_ENV;
 const STAY_TYPES = new Set<Listing["type"]>([
   "Hotel",
   "Entire place",
@@ -53,8 +58,7 @@ function slugify(value: string) {
 }
 
 async function readListings() {
-  const raw = await readFile(DATA_FILE_PATH, "utf8");
-  return JSON.parse(raw) as Listing[];
+  return getListings();
 }
 
 function cleanStringArray(values: unknown) {
@@ -208,6 +212,53 @@ async function createStayMapSpot(listing: Listing, coordinates: Coordinates) {
   }
 }
 
+async function createStayRecordWithSupabase(listing: Listing) {
+  if (!isSupabaseAdminConfigured) {
+    throw new Error(
+      "Supabase admin env vars missing. Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.",
+    );
+  }
+
+  const supabaseAdmin = createSupabaseAdminClient();
+  const { error } = await supabaseAdmin.from("stays").insert({
+    slug: listing.slug,
+    name: listing.name,
+    country: listing.country,
+    place_name: listing.placeName,
+    type: listing.type,
+    rating: listing.rating,
+    price: listing.price,
+    badge: listing.badge,
+    vibe: listing.vibe,
+    amenities: listing.amenities,
+    description: listing.description,
+    website_url: listing.websiteUrl,
+    address: listing.address,
+    map_latitude: listing.mapLatitude,
+    map_longitude: listing.mapLongitude,
+    check_in_window: listing.checkInWindow,
+    gallery: listing.gallery,
+    policies: listing.policies,
+  });
+
+  if (error) {
+    throw new Error(
+      `${error.message}. Create or update public.stays with supabase-stays.sql before saving imported stays in production.`,
+    );
+  }
+}
+
+async function deleteStayRecordWithSupabase(slug: string) {
+  if (!isSupabaseAdminConfigured) return;
+
+  const supabaseAdmin = createSupabaseAdminClient();
+  const { error } = await supabaseAdmin
+    .from("stays")
+    .delete()
+    .eq("slug", slug);
+  if (error) console.error("Failed to roll back Supabase stay record", error);
+}
+
 async function normalizeListing(
   body: StayBody,
 ): Promise<{ normalized?: NormalizedStay; error?: string }> {
@@ -316,11 +367,32 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  let savedStayRecord = false;
+  if (!CAN_WRITE_SOURCE_DATA) {
+    try {
+      await createStayRecordWithSupabase(listing);
+      savedStayRecord = true;
+    } catch (error) {
+      console.error("Failed to save stay record to Supabase", error);
+      return NextResponse.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Could not save this stay to the Supabase stays table.",
+        },
+        { status: 500 },
+      );
+    }
+  }
+
   let markerId: string;
   try {
     const marker = await createStayMapSpot(listing, coordinates);
     markerId = marker.id;
   } catch (error) {
+    if (savedStayRecord) await deleteStayRecordWithSupabase(listing.slug);
+
     console.error("Failed to create Explore marker for stay", error);
     return NextResponse.json(
       {
@@ -331,14 +403,28 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const nextListings = [...listings, listing].sort((a, b) =>
+  if (CAN_WRITE_SOURCE_DATA) {
+    const nextListing = [...listings, listing].sort((a, b) =>
     a.name.localeCompare(b.name),
-  );
-  await writeFile(
-    DATA_FILE_PATH,
-    `${JSON.stringify(nextListings, null, 2)}\n`,
-    "utf8",
-  );
+    );
+
+    try {
+        await writeFile(
+            DATA_FILE_PATH,
+        `${JSON.stringify(nextListings, null, 2)}\n`,
+        "utf8",
+      );
+    } catch (error) {
+      console.error("Failed to update local stays data store", error);
+      return NextResponse.json(
+        {
+          error:
+            "The Explore map marker was created, but the local stays data store could not be updated.",
+        },
+        { status: 500 },
+      );
+    }
+  }
 
   return NextResponse.json({ ok: true, listing, markerId });
 }

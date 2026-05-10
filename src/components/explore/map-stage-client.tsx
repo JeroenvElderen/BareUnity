@@ -170,34 +170,47 @@ function terrainIconComponent(terrain: Spot["terrain"]) {
 function buildMarkerElement(privacy: Spot["privacy"], terrain: Spot["terrain"]) {
   const marker = document.createElement("button");
   marker.type = "button";
-  marker.style.width = "24px";
-  marker.style.height = "24px";
+  marker.style.width = "44px";
+  marker.style.height = "44px";
+  marker.style.minWidth = "44px";
+  marker.style.minHeight = "44px";
   marker.style.display = "grid";
   marker.style.placeItems = "center";
   marker.style.padding = "0";
+  marker.style.border = "0";
   marker.style.borderRadius = "999px";
-  marker.style.border = "1px solid rgba(255, 255, 255, 0.72)";
-  marker.style.boxShadow = "0 8px 16px rgba(0, 0, 0, 0.22)";
-  marker.style.backdropFilter = "blur(1.5px)";
+  marker.style.background = "transparent";
+  marker.style.cursor = "pointer";
+  marker.style.lineHeight = "1";
+  marker.style.setProperty("-webkit-tap-highlight-color", "transparent");
 
   const isPublic = privacy === "Public";
-  marker.style.background = isPublic
-    ? "linear-gradient(145deg, rgba(250, 205, 102, 0.98), rgba(236, 165, 66, 0.98))"
-    : "linear-gradient(145deg, rgba(16, 146, 112, 0.98), rgba(13, 108, 92, 0.98))";
   marker.style.color = isPublic ? "rgba(90, 51, 0, 0.92)" : "rgba(225, 255, 242, 0.96)";
 
+  const markerBadge = document.createElement("span");
+  markerBadge.style.width = "30px";
+  markerBadge.style.height = "30px";
+  markerBadge.style.display = "grid";
+  markerBadge.style.placeItems = "center";
+  markerBadge.style.borderRadius = "999px";
+  markerBadge.style.border = "1px solid rgba(255, 255, 255, 0.72)";
+  markerBadge.style.background = isPublic
+    ? "linear-gradient(145deg, rgba(250, 205, 102, 0.98), rgba(236, 165, 66, 0.98))"
+    : "linear-gradient(145deg, rgba(16, 146, 112, 0.98), rgba(13, 108, 92, 0.98))";
+  markerBadge.style.boxShadow = "0 8px 18px rgba(0, 0, 0, 0.26)";
+  markerBadge.style.backdropFilter = "blur(1.5px)";
+
   const icon = document.createElement("span");
-  icon.style.width = "13px";
-  icon.style.height = "13px";
+  icon.style.width = "15px";
+  icon.style.height = "15px";
   icon.style.display = "inline-grid";
   icon.style.placeItems = "center";
   icon.style.filter = "drop-shadow(0 1px 0 rgba(0,0,0,0.12))";
 
   const Icon = terrainIconComponent(terrain);
-  createRoot(icon).render(<Icon size={13} strokeWidth={2.25} />);
-  marker.appendChild(icon);
-
-  marker.style.lineHeight = "1";
+  createRoot(icon).render(<Icon size={15} strokeWidth={2.35} />);
+  markerBadge.appendChild(icon);
+  marker.appendChild(markerBadge);
 
   return marker;
 }
