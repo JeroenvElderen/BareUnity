@@ -5,10 +5,32 @@
   padding: var(--spot-popup-top-offset) 0.75rem var(--spot-popup-bottom-offset);
 }
 
+.requestOverlay {
+  --request-form-top-offset: max(0.75rem, env(safe-area-inset-top, 0px));
+  --request-form-bottom-offset: max(0.75rem, env(safe-area-inset-bottom, 0px));
+
+  padding: var(--request-form-top-offset) 0.75rem var(--request-form-bottom-offset);
+}
+
+.requestForm {
+  max-height: calc(100dvh - var(--request-form-top-offset, 0.75rem) - var(--request-form-bottom-offset, 0.75rem));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable both-edges;
+  -webkit-overflow-scrolling: touch;
+}
+
 @media (min-width: 640px) {
   .spotPopupOverlay {
     --spot-popup-top-offset: max(1rem, env(safe-area-inset-top, 0px));
     --spot-popup-bottom-offset: max(1rem, env(safe-area-inset-bottom, 0px));
+
+    padding-inline: 1rem;
+  }
+
+  .requestOverlay {
+    --request-form-top-offset: max(1rem, env(safe-area-inset-top, 0px));
+    --request-form-bottom-offset: max(1rem, env(safe-area-inset-bottom, 0px));
 
     padding-inline: 1rem;
   }
@@ -17,5 +39,9 @@
 @media (max-width: 1099px) {
   .spotPopupOverlay {
     --spot-popup-top-offset: calc(5.85rem + env(safe-area-inset-top, 0px));
+  }
+
+  .requestOverlay {
+    --request-form-top-offset: calc(5.85rem + env(safe-area-inset-top, 0px));
   }
 }
