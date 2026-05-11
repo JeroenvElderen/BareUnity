@@ -20,47 +20,71 @@ import { AppNotificationType, useUIStore } from "@/stores/ui-store";
 import layoutStyles from "../page.module.css";
 import styles from "./notifications.module.css";
 
-const relativeTimeFormatter = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+const relativeTimeFormatter = new Intl.RelativeTimeFormat("en", {
+  numeric: "auto",
+});
 
 function formatRelativeTime(timestamp: string) {
   const diffMs = new Date(timestamp).getTime() - Date.now();
   const diffMinutes = Math.round(diffMs / 60000);
 
-  if (Math.abs(diffMinutes) < 60) return relativeTimeFormatter.format(diffMinutes, "minute");
+  if (Math.abs(diffMinutes) < 60)
+    return relativeTimeFormatter.format(diffMinutes, "minute");
 
   const diffHours = Math.round(diffMinutes / 60);
-  if (Math.abs(diffHours) < 48) return relativeTimeFormatter.format(diffHours, "hour");
+  if (Math.abs(diffHours) < 48)
+    return relativeTimeFormatter.format(diffHours, "hour");
 
   const diffDays = Math.round(diffHours / 24);
   return relativeTimeFormatter.format(diffDays, "day");
 }
 
 function getTypeIcon(type: AppNotificationType) {
-  if (type === "post-like" || type === "gallery-like") return <Heart size={16} aria-hidden />;
-  if (type === "post-comment" || type === "general-message") return <MessageCircleMore size={16} aria-hidden />;
+  if (type === "post-like" || type === "gallery-like")
+    return <Heart size={16} aria-hidden />;
+  if (type === "post-comment" || type === "general-message")
+    return <MessageCircleMore size={16} aria-hidden />;
   if (type === "video-visitor") return <Users size={16} aria-hidden />;
-  if (type === "map-entry") return <MapPin size={16} aria-hidden />;
+  if (type === "map-entry" || type === "admin-location")
+    return <MapPin size={16} aria-hidden />;
   if (type === "friend-request") return <UserPlus size={16} aria-hidden />;
-  if (type === "admin-report" || type === "admin-registration") return <ShieldAlert size={16} aria-hidden />;
+  if (
+    type === "admin-report" ||
+    type === "admin-registration" ||
+    type === "admin-feedback" ||
+    type === "admin-verification"
+  )
+    return <ShieldAlert size={16} aria-hidden />;
   return <MessagesSquare size={16} aria-hidden />;
 }
 
 export default function NotificationsPage() {
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
   const notifications = useUIStore((state) => state.notifications);
-  const notificationItems = useMemo(() => (Array.isArray(notifications) ? notifications : []), [notifications]);
-  const markNotificationAsRead = useUIStore((state) => state.markNotificationAsRead);
-  const markAllNotificationsAsRead = useUIStore((state) => state.markAllNotificationsAsRead);
+  const notificationItems = useMemo(
+    () => (Array.isArray(notifications) ? notifications : []),
+    [notifications],
+  );
+  const markNotificationAsRead = useUIStore(
+    (state) => state.markNotificationAsRead,
+  );
+  const markAllNotificationsAsRead = useUIStore(
+    (state) => state.markAllNotificationsAsRead,
+  );
 
   const unreadCount = useMemo(
-    () => notificationItems.filter((notification) => notification.unread).length,
+    () =>
+      notificationItems.filter((notification) => notification.unread).length,
     [notificationItems],
   );
 
   const readCount = notificationItems.length - unreadCount;
 
   const visibleNotifications = useMemo(
-    () => (showUnreadOnly ? notificationItems.filter((notification) => notification.unread) : notificationItems),
+    () =>
+      showUnreadOnly
+        ? notificationItems.filter((notification) => notification.unread)
+        : notificationItems,
     [notificationItems, showUnreadOnly],
   );
 
@@ -74,7 +98,9 @@ export default function NotificationsPage() {
             <p className={styles.eyebrow}>Stay in sync</p>
             <h1 className={styles.title}>Notifications</h1>
             <p className={styles.subtitle}>
-              A cleaner inbox designed to match the rest of your platform: likes, comments, messages, room activity, map entries, and admin alerts in one stream.
+              A cleaner inbox designed to match the rest of your platform:
+              likes, comments, messages, room activity, map entries, and admin
+              alerts in one stream.
             </p>
           </div>
 
@@ -88,7 +114,12 @@ export default function NotificationsPage() {
               {showUnreadOnly ? "Showing unread" : "All notifications"}
             </button>
 
-            <button type="button" className={styles.markButton} onClick={markAllNotificationsAsRead} disabled={unreadCount === 0}>
+            <button
+              type="button"
+              className={styles.markButton}
+              onClick={markAllNotificationsAsRead}
+              disabled={unreadCount === 0}
+            >
               <CheckCheck size={16} aria-hidden />
               Mark all as read
             </button>
@@ -125,7 +156,9 @@ export default function NotificationsPage() {
                 className={`${styles.notification} ${notification.unread ? styles.unread : ""}`}
                 aria-live="polite"
               >
-                <div className={styles.iconWrap}>{getTypeIcon(notification.type)}</div>
+                <div className={styles.iconWrap}>
+                  {getTypeIcon(notification.type)}
+                </div>
 
                 <div className={styles.body}>
                   <div className={styles.topRow}>
@@ -136,14 +169,25 @@ export default function NotificationsPage() {
                 </div>
 
                 <div className={styles.meta}>
-                  {notification.unread ? <Badge className={styles.unreadBadge}>Unread</Badge> : <Badge>Read</Badge>}
+                  {notification.unread ? (
+                    <Badge className={styles.unreadBadge}>Unread</Badge>
+                  ) : (
+                    <Badge>Read</Badge>
+                  )}
                   <div className={styles.ctaWrap}>
                     {notification.targetHref ? (
-                      <Link href={notification.targetHref} className={styles.toggleButton}>
+                      <Link
+                        href={notification.targetHref}
+                        className={styles.toggleButton}
+                      >
                         Open
                       </Link>
                     ) : null}
-                    <button type="button" onClick={() => markNotificationAsRead(notification.id)} className={styles.toggleButton}>
+                    <button
+                      type="button"
+                      onClick={() => markNotificationAsRead(notification.id)}
+                      className={styles.toggleButton}
+                    >
                       Mark as read
                     </button>
                   </div>
