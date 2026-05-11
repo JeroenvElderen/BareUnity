@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Bug, HelpCircle, Lightbulb, MessageCircle, MoreHorizontal, Send, Sparkles, X } from "lucide-react";
 
+import { MessagesPanelContent } from "@/components/messages/messages-overlay";
 import { supabase } from "@/lib/supabase";
 import styles from "./feedback-bubble.module.css";
 
@@ -14,10 +15,12 @@ const categories = [
 ] as const;
 
 type FeedbackState = "idle" | "sending" | "sent" | "error";
+type PopupTab = "feedback" | "messages";
 
 export function FeedbackBubble() {
   const [isOpen, setIsOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [activeTab, setActiveTab] = useState<PopupTab>("feedback");
   const [category, setCategory] = useState<(typeof categories)[number]["value"]>("idea");
   const [message, setMessage] = useState("");
   const [status, setStatus] = useState<FeedbackState>("idle");
@@ -89,74 +92,103 @@ export function FeedbackBubble() {
   return (
     <div className={styles.wrapper}>
       {isOpen ? (
-        <section className={styles.panel} aria-labelledby="feedback-title">
+        <section className={styles.panel} data-active-tab={activeTab} aria-labelledby="contact-popup-title">
           <div className={styles.glow} aria-hidden="true" />
           <div className={styles.header}>
             <div className={styles.titleBlock}>
               <span className={styles.badge}>
                 <Sparkles size={14} />
-                Feedback
+                Community desk
               </span>
-              <h2 id="feedback-title">How can BareUnity improve?</h2>
-              <p>Send a quick note directly to the admin team — ideas, bugs, and moments that could feel better.</p>
+              <h2 id="contact-popup-title">Feedback & messages</h2>
+              <p>Send notes to the admin team or chat privately with friends from the same quick-access popup.</p>
             </div>
-            <button className={styles.iconButton} type="button" aria-label="Close feedback" onClick={() => setIsOpen(false)}>
+            <button className={styles.iconButton} type="button" aria-label="Close contact popup" onClick={() => setIsOpen(false)}>
               <X size={18} />
             </button>
           </div>
 
-          <form className={styles.form} onSubmit={submitFeedback}>
-            <fieldset className={styles.topicGroup}>
-              <legend>Choose a topic</legend>
-              <div className={styles.topicGrid}>
-                {categories.map(({ value, label, description, Icon }) => (
-                  <label key={value} className={styles.topicCard} data-selected={category === value}>
-                    <input
-                      type="radio"
-                      name="feedback-category"
-                      value={value}
-                      checked={category === value}
-                      onChange={() => setCategory(value)}
-                    />
-                    <span className={styles.topicIcon}>
-                      <Icon size={18} />
-                    </span>
-                    <span>
-                      <strong>{label}</strong>
-                      <small>{description}</small>
-                    </span>
-                  </label>
-                ))}
+          <div className={styles.tabs} role="tablist" aria-label="Contact popup sections">
+            <button
+              className={styles.tabButton}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === "feedback"}
+              aria-controls="feedback-panel"
+              onClick={() => setActiveTab("feedback")}
+            >
+              Feedback
+            </button>
+            <button
+              className={styles.tabButton}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === "messages"}
+              aria-controls="messages-panel"
+              onClick={() => setActiveTab("messages")}
+            >
+              Messages
+            </button>
+          </div>
+
+          {activeTab === "feedback" ? (
+            <form id="feedback-panel" className={styles.form} role="tabpanel" onSubmit={submitFeedback}>
+              <fieldset className={styles.topicGroup}>
+                <legend>Choose a topic</legend>
+                <div className={styles.topicGrid}>
+                  {categories.map(({ value, label, description, Icon }) => (
+                    <label key={value} className={styles.topicCard} data-selected={category === value}>
+                      <input
+                        type="radio"
+                        name="feedback-category"
+                        value={value}
+                        checked={category === value}
+                        onChange={() => setCategory(value)}
+                      />
+                      <span className={styles.topicIcon}>
+                        <Icon size={18} />
+                      </span>
+                      <span>
+                        <strong>{label}</strong>
+                        <small>{description}</small>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+
+              <label className={styles.label} htmlFor="feedback-message">
+                <span>Message</span>
+                <textarea
+                  id="feedback-message"
+                  className={styles.textarea}
+                  value={message}
+                  onChange={(event) => {
+                    setMessage(event.target.value);
+                    if (status !== "sending") setStatus("idle");
+                  }}
+                  placeholder="What happened? What did you expect? What would make the community feel better?"
+                  maxLength={1200}
+                  required
+                />
+              </label>
+
+              <div className={styles.footerRow}>
+                <span className={styles.count}>{message.length}/1200 characters</span>
+                <button className={styles.submitButton} type="submit" disabled={status === "sending" || message.trim().length < 10}>
+                  {status === "sending" ? "Sending…" : "Send feedback"}
+                  <Send size={16} />
+                </button>
               </div>
-            </fieldset>
 
-            <label className={styles.label} htmlFor="feedback-message">
-              <span>Message</span>
-              <textarea
-                id="feedback-message"
-                className={styles.textarea}
-                value={message}
-                onChange={(event) => {
-                  setMessage(event.target.value);
-                  if (status !== "sending") setStatus("idle");
-                }}
-                placeholder="What happened? What did you expect? What would make the community feel better?"
-                maxLength={1200}
-                required
-              />
-            </label>
-
-            <div className={styles.footerRow}>
-              <span className={styles.count}>{message.length}/1200 characters</span>
-              <button className={styles.submitButton} type="submit" disabled={status === "sending" || message.trim().length < 10}>
-                {status === "sending" ? "Sending…" : "Send feedback"}
-                <Send size={16} />
-              </button>
+              {status === "sent" ? <p className={styles.success}>Thanks — your feedback was sent to the admin panel.</p> : null}
+              {status === "error" ? <p className={styles.error}>{error}</p> : null}
+            </form>
+          ) : (
+            <div id="messages-panel" className={styles.messagesPanel} role="tabpanel">
+              <MessagesPanelContent />
             </div>
-
-            {status === "sent" ? <p className={styles.success}>Thanks — your feedback was sent to the admin panel.</p> : null}
-            {status === "error" ? <p className={styles.error}>{error}</p> : null}
-          </form>
+          )}
         </section>
       ) : null}
 
@@ -164,7 +196,7 @@ export function FeedbackBubble() {
         className={styles.bubble}
         type="button"
         aria-expanded={isOpen}
-        aria-controls="feedback-title"
+        aria-controls="contact-popup-title"
         onClick={() => {
           setIsOpen((current) => !current);
           setStatus("idle");
@@ -172,7 +204,7 @@ export function FeedbackBubble() {
         }}
       >
         <MessageCircle size={22} />
-        <span>Feedback</span>
+        <span>Feedback & messages</span>
       </button>
     </div>
   );

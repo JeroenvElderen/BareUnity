@@ -53,9 +53,7 @@ function orderedPair(left: string, right: string) {
   return left < right ? [left, right] : [right, left];
 }
 
-export function MessagesOverlay() {
-  const isMessagesOpen = useUIStore((state) => state.isMessagesOpen);
-  const closeMessages = useUIStore((state) => state.closeMessages);
+export function MessagesPanelContent() {
   const [viewerId, setViewerId] = useState<string | null>(null);
   const [friendIds, setFriendIds] = useState<string[]>([]);
   const [people, setPeople] = useState<ProfileRow[]>([]);
@@ -361,24 +359,11 @@ export function MessagesOverlay() {
     await Promise.all([loadMessages(activeConversationId), loadInbox(viewerId)]);
   };
 
-  if (!isMessagesOpen) return null;
-
   if (!viewerId && !isLoading) {
     return (
-      <>
-        <button className={styles.backdrop} type="button" aria-label="Close messages" onClick={closeMessages} />
-        <section className={styles.panel} aria-label="Messages overlay">
-          <header className={styles.header}>
-            <h2>Messages</h2>
-            <button className={styles.closeButton} type="button" aria-label="Close messages" onClick={closeMessages}>
-              ✕
-            </button>
-          </header>
-          <div className={styles.column}>
-            <p className={styles.empty}>Please sign in to use direct messages.</p>
-          </div>
-        </section>
-      </>
+      <div className={styles.column}>
+        <p className={styles.empty}>Please sign in to use direct messages.</p>
+      </div>
     );
   }
 
@@ -386,18 +371,8 @@ export function MessagesOverlay() {
   const startableFriends = people.filter((person) => !conversationsByFriendId.has(person.id));
 
   return (
-    <>
-      <button className={styles.backdrop} type="button" aria-label="Close messages" onClick={closeMessages} />
-      <section className={styles.panel} aria-label="Messages overlay">
-        <header className={styles.header}>
-          <h2>Messages</h2>
-          <button className={styles.closeButton} type="button" aria-label="Close messages" onClick={closeMessages}>
-            ✕
-          </button>
-        </header>
-
-        <div className={styles.content}>
-          <aside className={`${styles.column} ${styles.columnLeft}`}>
+    <div className={styles.content}>
+      <aside className={`${styles.column} ${styles.columnLeft}`}>
             {errorMessage ? <p className={styles.empty}>{errorMessage}</p> : null}
             <h3 className={styles.title}>Chats</h3>
             <ul className={styles.conversationList}>
@@ -430,9 +405,9 @@ export function MessagesOverlay() {
                 <li className={styles.empty}>You already have chats with all friends.</li>
               ) : null}
             </ul>
-          </aside>
+      </aside>
 
-          <section className={`${styles.column} ${styles.chatShell}`}>
+      <section className={`${styles.column} ${styles.chatShell}`}>
             <header>
               <h3 className={styles.title}>{activeConversation ? activeConversation.otherUserName : "Pick a chat"}</h3>
             </header>
@@ -467,8 +442,28 @@ export function MessagesOverlay() {
                 Send
               </button>
             </form>
-          </section>
-        </div>
+      </section>
+    </div>
+  );
+}
+
+export function MessagesOverlay() {
+  const isMessagesOpen = useUIStore((state) => state.isMessagesOpen);
+  const closeMessages = useUIStore((state) => state.closeMessages);
+
+  if (!isMessagesOpen) return null;
+
+  return (
+    <>
+      <button className={styles.backdrop} type="button" aria-label="Close messages" onClick={closeMessages} />
+      <section className={styles.panel} aria-label="Messages overlay">
+        <header className={styles.header}>
+          <h2>Messages</h2>
+          <button className={styles.closeButton} type="button" aria-label="Close messages" onClick={closeMessages}>
+            ✕
+          </button>
+        </header>
+        <MessagesPanelContent />
       </section>
     </>
   );
