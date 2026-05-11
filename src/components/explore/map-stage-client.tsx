@@ -1215,6 +1215,21 @@ export function MapStageClient() {
   }, [selectedSpot]);
 
   useEffect(() => {
+    if (!requestOpen || isPickingRequestFromMap) return;
+
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverscroll = document.documentElement.style.overscrollBehavior;
+
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overscrollBehavior = "none";
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overscrollBehavior = previousHtmlOverscroll;
+    };
+  }, [isPickingRequestFromMap, requestOpen]);
+
+  useEffect(() => {
     const map = mapRef.current;
     if (!map || !open || !isPickingFromMap) return;
 
@@ -1338,9 +1353,11 @@ export function MapStageClient() {
       ) : null}
 
       {requestOpen && !isPickingRequestFromMap ? (
-        <div className="fixed inset-0 z-40 grid place-items-center overflow-y-auto bg-black/45 p-4">
+        <div
+          className={`${overlayStyles.requestOverlay} fixed inset-0 z-[90] grid place-items-center justify-items-center overflow-hidden overscroll-none bg-black/45`}
+        >
           <form
-            className="w-full max-w-lg rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-5 shadow-2xl"
+            className={`${overlayStyles.requestForm} w-full max-w-lg rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-5 shadow-2xl`}
             onSubmit={(event) => void handleLocationRequestSubmit(event)}
           >
             <div className="flex items-start justify-between gap-3">
