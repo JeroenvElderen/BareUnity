@@ -42,8 +42,17 @@
   border-radius: 10px;
   display: grid;
   place-items: center;
-  background: linear-gradient(135deg, rgb(var(--brand)), rgb(var(--brand-2)));
-  color: rgb(var(--text-inverse));
+  overflow: hidden;
+  background: rgb(var(--card) / 0.82);
+  box-shadow:
+    inset 0 0 0 1px rgb(var(--border)),
+    0 8px 18px rgb(var(--brand) / 0.14);
+}
+
+.logoImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .mobileMenuButton {

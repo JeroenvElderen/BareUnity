@@ -18,9 +18,22 @@
 }
 
 .brand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  margin: 0 auto;
   text-align: center;
   font-size: 0.95rem;
   color: rgb(var(--brand-2));
+}
+
+.brandLogo {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.7rem;
+  object-fit: cover;
+  box-shadow: 0 8px 18px rgb(var(--brand) / 0.16);
 }
 
 .card {

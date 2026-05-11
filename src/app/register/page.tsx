@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -185,7 +186,17 @@ export default function RegisterPage() {
   return (
     <main className={styles.page}>
       <section className={styles.shell}>
-        <p className={styles.brand}>🌿 BareUnity • Naturist Community</p>
+        <p className={styles.brand}>
+          <Image
+            src="/logo.png"
+            alt=""
+            width={1254}
+            height={1254}
+            className={styles.brandLogo}
+            priority
+          />
+          <span>BareUnity • Naturist Community</span>
+        </p>
         <article className={styles.card}>
           <h1 className={styles.title}>Join safely and set your comfort level</h1>
           <p className={styles.subtitle}>
