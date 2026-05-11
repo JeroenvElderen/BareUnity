@@ -2,9 +2,13 @@ import { type NextRequest, NextResponse } from "next/server";
 
 import { ensureStayAdmin } from "@/app/api/admin/stays/auth";
 
-import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase-admin";
+import {
+  createSupabaseAdminClient,
+  isSupabaseAdminConfigured,
+} from "@/lib/supabase-admin";
 import { loadViewerIdFromRequest } from "@/lib/viewer";
 import { db } from "@/server/db";
+import { ensureMemberCanAct } from "@/lib/action-access";
 
 type MapSpotPayload = {
   id: string;
@@ -70,21 +74,42 @@ type NormalizedMapSpotPayload = {
 };
 
 function detailsRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
 }
 
 function numberFromDetails(details: Record<string, unknown>, key: string) {
   const value = details[key];
-  const numberValue = typeof value === "number" ? value : typeof value === "string" ? Number(value) : 0;
-  return Number.isFinite(numberValue) && numberValue > 0 ? Math.floor(numberValue) : 0;
+  const numberValue =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number(value)
+        : 0;
+  return Number.isFinite(numberValue) && numberValue > 0
+    ? Math.floor(numberValue)
+    : 0;
 }
 
-function resolveSpotType(spot: { terrain: string | null; access_type?: string | null; tags?: string[]; details?: unknown }) {
+function resolveSpotType(spot: {
+  terrain: string | null;
+  access_type?: string | null;
+  tags?: string[];
+  details?: unknown;
+}) {
   const details = detailsRecord(spot.details);
-  const explicitType = typeof details.type === "string" ? details.type.trim() : "";
-  const source = typeof details.source === "string" ? details.source.trim() : "";
+  const explicitType =
+    typeof details.type === "string" ? details.type.trim() : "";
+  const source =
+    typeof details.source === "string" ? details.source.trim() : "";
   if (explicitType) return explicitType;
-  if (source === "stay-listing" || spot.tags?.some((tag) => tag.toLowerCase() === "stays" || tag.toLowerCase() === "stay")) {
+  if (
+    source === "stay-listing" ||
+    spot.tags?.some(
+      (tag) => tag.toLowerCase() === "stays" || tag.toLowerCase() === "stay",
+    )
+  ) {
     return "Stays";
   }
   return spot.terrain || spot.access_type || "Location";
@@ -96,26 +121,31 @@ function resolveVisitors(checkInCount: number) {
   return "Low";
 }
 
-function resolveMood(spot: { privacy: string; access_type?: string | null }, checkInCount: number) {
+function resolveMood(
+  spot: { privacy: string; access_type?: string | null },
+  checkInCount: number,
+) {
   const access = `${spot.privacy} ${spot.access_type ?? ""}`.toLowerCase();
   if (access.includes("discreet") || access.includes("private")) return "Calm";
   return checkInCount >= 12 ? "Active" : "Quiet";
 }
 
-function normalizeSpotPayload<T extends {
-  id: string;
-  name: string;
-  description: string;
-  latitude: number;
-  longitude: number;
-  privacy: string;
-  access_type?: string | null;
-  terrain: string | null;
-  safety_level?: string | null;
-  amenities?: string[];
-  tags?: string[];
-  details?: unknown;
-}>(spot: T): MapSpotPayload {
+function normalizeSpotPayload<
+  T extends {
+    id: string;
+    name: string;
+    description: string;
+    latitude: number;
+    longitude: number;
+    privacy: string;
+    access_type?: string | null;
+    terrain: string | null;
+    safety_level?: string | null;
+    amenities?: string[];
+    tags?: string[];
+    details?: unknown;
+  },
+>(spot: T): MapSpotPayload {
   const details = detailsRecord(spot.details);
   const checkInCount = numberFromDetails(details, "checkIns");
 
@@ -134,7 +164,9 @@ function toOptionalString(value: unknown) {
   return normalized.length ? normalized : null;
 }
 
-function normalizeCreatePayload(input: CreateMapSpotPayload): NormalizedMapSpotPayload {
+function normalizeCreatePayload(
+  input: CreateMapSpotPayload,
+): NormalizedMapSpotPayload {
   const name = typeof input.name === "string" ? input.name.trim() : "";
   const latitude = Number(input.latitude);
   const longitude = Number(input.longitude);
@@ -148,7 +180,10 @@ function normalizeCreatePayload(input: CreateMapSpotPayload): NormalizedMapSpotP
   }
 
   const tags = Array.isArray(input.tags)
-    ? input.tags.filter((value): value is string => typeof value === "string").map((tag) => tag.trim()).filter(Boolean)
+    ? input.tags
+        .filter((value): value is string => typeof value === "string")
+        .map((tag) => tag.trim())
+        .filter(Boolean)
     : [];
   const amenities = Array.isArray(input.amenities)
     ? input.amenities
@@ -168,7 +203,8 @@ function normalizeCreatePayload(input: CreateMapSpotPayload): NormalizedMapSpotP
     region: toOptionalString(input.region),
     accessType: toOptionalString(input.accessType) ?? "Public",
     terrain: toOptionalString(input.terrain) ?? "Beach",
-    clothingPolicy: toOptionalString(input.clothingPolicy) ?? "Clothing optional",
+    clothingPolicy:
+      toOptionalString(input.clothingPolicy) ?? "Clothing optional",
     safetyLevel: toOptionalString(input.safetyLevel) ?? "Beginner friendly",
     bestSeason: toOptionalString(input.bestSeason) ?? "Summer",
     entryFee: toOptionalString(input.entryFee),
@@ -207,7 +243,9 @@ async function fetchSpotsWithSupabaseAdmin(): Promise<MapSpotPayload[]> {
   const supabaseAdmin = createSupabaseAdminClient();
   const { data, error } = await supabaseAdmin
     .from("naturist_map_spots")
-    .select("id, name, description, latitude, longitude, privacy, access_type, terrain, safety_level, amenities, tags, details")
+    .select(
+      "id, name, description, latitude, longitude, privacy, access_type, terrain, safety_level, amenities, tags, details",
+    )
     .order("created_at", { ascending: false })
     .limit(500);
 
@@ -215,14 +253,22 @@ async function fetchSpotsWithSupabaseAdmin(): Promise<MapSpotPayload[]> {
     throw new Error(`Supabase fallback failed: ${error.message}`);
   }
 
-  return ((data ?? []) as Array<Omit<MapSpotPayload, "checkInCount" | "spotType" | "visitors" | "mood">>).map(normalizeSpotPayload);
+  return (
+    (data ?? []) as Array<
+      Omit<MapSpotPayload, "checkInCount" | "spotType" | "visitors" | "mood">
+    >
+  ).map(normalizeSpotPayload);
 }
 
-async function createSpotWithPrisma(payload: NormalizedMapSpotPayload, submittedBy: string) {
+async function createSpotWithPrisma(
+  payload: NormalizedMapSpotPayload,
+  submittedBy: string,
+) {
   return db.naturist_map_spots.create({
     data: {
       name: payload.name,
-      description: payload.fullDescription || payload.shortDescription || payload.name,
+      description:
+        payload.fullDescription || payload.shortDescription || payload.name,
       short_description: payload.shortDescription,
       latitude: payload.latitude,
       longitude: payload.longitude,
@@ -264,13 +310,17 @@ async function createSpotWithPrisma(payload: NormalizedMapSpotPayload, submitted
   });
 }
 
-async function createSpotWithSupabaseAdmin(payload: NormalizedMapSpotPayload, submittedBy: string) {
+async function createSpotWithSupabaseAdmin(
+  payload: NormalizedMapSpotPayload,
+  submittedBy: string,
+) {
   const supabaseAdmin = createSupabaseAdminClient();
   const { data, error } = await supabaseAdmin
     .from("naturist_map_spots")
     .insert({
       name: payload.name,
-      description: payload.fullDescription || payload.shortDescription || payload.name,
+      description:
+        payload.fullDescription || payload.shortDescription || payload.name,
       short_description: payload.shortDescription,
       latitude: payload.latitude,
       longitude: payload.longitude,
@@ -331,7 +381,10 @@ export async function GET() {
         const spots = await fetchSpotsWithSupabaseAdmin();
         return NextResponse.json({ spots, source: "supabase-admin-fallback" });
       } catch (supabaseError) {
-        console.error("Failed to fetch map spots with Supabase admin fallback", supabaseError);
+        console.error(
+          "Failed to fetch map spots with Supabase admin fallback",
+          supabaseError,
+        );
       }
     }
 
@@ -353,8 +406,14 @@ export async function POST(request: NextRequest) {
   try {
     const viewerId = await loadViewerIdFromRequest(request);
     if (!viewerId) {
-      return NextResponse.json({ error: "You must be logged in to submit a map spot." }, { status: 401 });
+      return NextResponse.json(
+        { error: "You must be logged in to submit a map spot." },
+        { status: 401 },
+      );
     }
+
+    const actionAccessError = await ensureMemberCanAct(viewerId);
+    if (actionAccessError) return actionAccessError;
 
     const rawPayload = (await request.json()) as CreateMapSpotPayload;
     const payload = normalizeCreatePayload(rawPayload);
@@ -368,9 +427,15 @@ export async function POST(request: NextRequest) {
       if (isSupabaseAdminConfigured) {
         try {
           const created = await createSpotWithSupabaseAdmin(payload, viewerId);
-          return NextResponse.json({ id: created.id, source: "supabase-admin-fallback" }, { status: 201 });
+          return NextResponse.json(
+            { id: created.id, source: "supabase-admin-fallback" },
+            { status: 201 },
+          );
         } catch (supabaseError) {
-          console.error("Failed to create map spot with Supabase admin fallback", supabaseError);
+          console.error(
+            "Failed to create map spot with Supabase admin fallback",
+            supabaseError,
+          );
         }
       }
 

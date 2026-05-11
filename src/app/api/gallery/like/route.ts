@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import { db } from "@/server/db";
 import { loadViewerIdFromRequest } from "@/lib/viewer";
+import { ensureMemberCanAct } from "@/lib/action-access";
 
 type LikePayload = {
   imagePath?: unknown;
@@ -19,15 +20,24 @@ export async function POST(request: Request) {
   try {
     const viewerId = await loadViewerIdFromRequest(request);
     if (!viewerId) {
-      return NextResponse.json({ error: "Please sign in to like gallery images." }, { status: 401 });
+      return NextResponse.json(
+        { error: "Please sign in to like gallery images." },
+        { status: 401 },
+      );
     }
+
+    const actionAccessError = await ensureMemberCanAct(viewerId);
+    if (actionAccessError) return actionAccessError;
 
     const payload = (await request.json().catch(() => ({}))) as LikePayload;
     const imagePath = normalizeImagePath(payload.imagePath);
     const liked = payload.liked === true;
 
     if (!imagePath) {
-      return NextResponse.json({ error: "Missing image path." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Missing image path." },
+        { status: 400 },
+      );
     }
 
     if (liked) {
@@ -44,7 +54,9 @@ export async function POST(request: Request) {
       `);
     }
 
-    const [countRow] = await db.$queryRaw<Array<{ like_count: number }>>(Prisma.sql`
+    const [countRow] = await db.$queryRaw<
+      Array<{ like_count: number }>
+    >(Prisma.sql`
       select count(*)::int as like_count
       from public.gallery_image_likes
       where image_path = ${imagePath}
@@ -57,6 +69,9 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error("Unable to update gallery like", error);
-    return NextResponse.json({ error: "Could not update like right now." }, { status: 503 });
+    return NextResponse.json(
+      { error: "Could not update like right now." },
+      { status: 503 },
+    );
   }
 }

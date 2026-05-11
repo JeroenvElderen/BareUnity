@@ -4,6 +4,10 @@ import { Flag, Hash, Mic, Paperclip, Send, Smile, Users } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
 import { supabase } from "@/lib/supabase";
+import {
+  canCurrentUserAct,
+  VIEW_ONLY_ACTION_MESSAGE,
+} from "@/lib/client-action-access";
 import { promptAndSubmitReport } from "@/lib/reporting";
 import { UsernameActionPopup } from "@/components/social/username-action-popup";
 
@@ -54,7 +58,10 @@ const messageTimeFormatter = new Intl.DateTimeFormat("en-US", {
   minute: "2-digit",
 });
 
-function profileDisplayName(profile: DbProfile | null | undefined, fallback = "member") {
+function profileDisplayName(
+  profile: DbProfile | null | undefined,
+  fallback = "member",
+) {
   if (!profile) return fallback;
   return profile.display_name || profile.username || fallback;
 }
@@ -96,8 +103,12 @@ export function GeneralRoom() {
           .from("profiles")
           .select("display_name,username")
           .eq("id", user.id)
-          .maybeSingle<{ display_name: string | null; username: string | null }>();
-        const viewerName = viewerProfile?.display_name || viewerProfile?.username || "member";
+          .maybeSingle<{
+            display_name: string | null;
+            username: string | null;
+          }>();
+        const viewerName =
+          viewerProfile?.display_name || viewerProfile?.username || "member";
         setViewerPresenceName(viewerName);
       } else {
         setViewerPresenceName("member");
@@ -125,7 +136,9 @@ export function GeneralRoom() {
 
       const { data: messageRows, error: messagesError } = await supabase
         .from("channel_messages")
-        .select("id,body,created_at,author_id,profiles:profiles(id,username,display_name,avatar_url)")
+        .select(
+          "id,body,created_at,author_id,profiles:profiles(id,username,display_name,avatar_url)",
+        )
         .eq("channel_id", channelData.id)
         .order("created_at", { ascending: true })
         .limit(120)
@@ -138,9 +151,13 @@ export function GeneralRoom() {
       }
 
       const parsedMessages = (messageRows ?? []).map((message) => {
-        const profile = Array.isArray(message.profiles) ? message.profiles[0] : message.profiles;
+        const profile = Array.isArray(message.profiles)
+          ? message.profiles[0]
+          : message.profiles;
         const author = profileDisplayName(profile);
-        const isModerator = channelData.created_by ? message.author_id === channelData.created_by : false;
+        const isModerator = channelData.created_by
+          ? message.author_id === channelData.created_by
+          : false;
 
         return {
           id: message.id,
@@ -157,7 +174,9 @@ export function GeneralRoom() {
       setMessages(parsedMessages);
 
       if (!onlineMembers.length) {
-        const uniqueFromMessages = Array.from(new Set(parsedMessages.map((message) => message.author)));
+        const uniqueFromMessages = Array.from(
+          new Set(parsedMessages.map((message) => message.author)),
+        );
         const bootstrappedMembers = uniqueFromMessages.map((name, index) => ({
           userId: `bootstrap-${index}`,
           name,
@@ -191,7 +210,12 @@ export function GeneralRoom() {
       .channel(`discussion-room-${channel.id}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "channel_messages", filter: `channel_id=eq.${channel.id}` },
+        {
+          event: "*",
+          schema: "public",
+          table: "channel_messages",
+          filter: `channel_id=eq.${channel.id}`,
+        },
         () => {
           void loadRoomData();
         },
@@ -208,11 +232,14 @@ export function GeneralRoom() {
     if (!channel?.id || !viewerId) return;
 
     const presenceKey = viewerId;
-    const onlineChannel = supabase.channel(`discussion-room-online-${channel.id}`, {
-      config: {
-        presence: { key: presenceKey },
+    const onlineChannel = supabase.channel(
+      `discussion-room-online-${channel.id}`,
+      {
+        config: {
+          presence: { key: presenceKey },
+        },
       },
-    });
+    );
 
     onlineChannel
       .on("presence", { event: "sync" }, () => {
@@ -254,7 +281,8 @@ export function GeneralRoom() {
     };
   }, [channel?.id, viewerId, viewerPresenceName]);
 
-  const canSend = Boolean(channel?.id && viewerId && draft.trim()) && !isSending;
+  const canSend =
+    Boolean(channel?.id && viewerId && draft.trim()) && !isSending;
 
   const roomDescription = useMemo(() => {
     if (channel?.description?.trim()) return channel.description;
@@ -263,6 +291,11 @@ export function GeneralRoom() {
 
   const sendMessage = async () => {
     if (!channel?.id || !viewerId || !draft.trim() || isSending) return;
+
+    if (!(await canCurrentUserAct(viewerId))) {
+      setLoadError(VIEW_ONLY_ACTION_MESSAGE);
+      return;
+    }
 
     setIsSending(true);
 
@@ -278,7 +311,9 @@ export function GeneralRoom() {
     }
 
     if (error) {
-      setLoadError("Could not send message. Check Supabase RLS for channel_messages.");
+      setLoadError(
+        "Could not send message. Check Supabase RLS for channel_messages.",
+      );
     }
 
     setIsSending(false);
@@ -291,13 +326,16 @@ export function GeneralRoom() {
   };
 
   const reportMessage = async (messageId: string) => {
-    const result = await promptAndSubmitReport({ targetType: "message", targetId: messageId, label: "message" });
+    const result = await promptAndSubmitReport({
+      targetType: "message",
+      targetId: messageId,
+      label: "message",
+    });
     if (!result.message) return;
 
     setReportStatus(result.message);
     window.setTimeout(() => setReportStatus(null), 4500);
   };
-
 
   const submitMessage = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -315,7 +353,9 @@ export function GeneralRoom() {
           </h1>
           <p className={styles.roomDescription}>{roomDescription}</p>
           {loadError ? <p className={styles.statusError}>{loadError}</p> : null}
-          {reportStatus ? <p className={styles.statusInfo}>{reportStatus}</p> : null}
+          {reportStatus ? (
+            <p className={styles.statusInfo}>{reportStatus}</p>
+          ) : null}
         </div>
 
         <div className={styles.roomMeta}>
@@ -329,8 +369,14 @@ export function GeneralRoom() {
 
       <div className={styles.roomBody}>
         <div className={styles.messagesPanel}>
-          {isLoading ? <p className={styles.statusInfo}>Loading messages…</p> : null}
-          {!isLoading && !messages.length ? <p className={styles.statusInfo}>No messages yet. Start the conversation.</p> : null}
+          {isLoading ? (
+            <p className={styles.statusInfo}>Loading messages…</p>
+          ) : null}
+          {!isLoading && !messages.length ? (
+            <p className={styles.statusInfo}>
+              No messages yet. Start the conversation.
+            </p>
+          ) : null}
           {messages.map((message) => (
             <article key={message.id} className={styles.messageCard}>
               <div className={styles.avatar} aria-hidden>
@@ -344,10 +390,22 @@ export function GeneralRoom() {
                     displayName={message.author}
                     triggerClassName="font-semibold underline-offset-2 hover:underline"
                   />
-                  <span className={message.role === "moderator" ? styles.modBadge : styles.memberBadge}>{message.role}</span>
+                  <span
+                    className={
+                      message.role === "moderator"
+                        ? styles.modBadge
+                        : styles.memberBadge
+                    }
+                  >
+                    {message.role}
+                  </span>
                   <time>{message.time}</time>
                   {message.authorId !== viewerId ? (
-                    <button type="button" className={styles.reportButton} onClick={() => void reportMessage(message.id)}>
+                    <button
+                      type="button"
+                      className={styles.reportButton}
+                      onClick={() => void reportMessage(message.id)}
+                    >
                       <Flag size={12} aria-hidden />
                       Report
                     </button>
@@ -376,16 +434,30 @@ export function GeneralRoom() {
 
       <div className={styles.composerWrap}>
         {isEmojiOpen ? (
-          <div className={styles.emojiTray} role="listbox" aria-label="Emoji picker">
+          <div
+            className={styles.emojiTray}
+            role="listbox"
+            aria-label="Emoji picker"
+          >
             {quickEmojis.map((emoji) => (
-              <button key={emoji} type="button" onClick={() => addEmojiToDraft(emoji)} aria-label={`Add ${emoji}`}>
+              <button
+                key={emoji}
+                type="button"
+                onClick={() => addEmojiToDraft(emoji)}
+                aria-label={`Add ${emoji}`}
+              >
                 {emoji}
               </button>
             ))}
           </div>
         ) : null}
         <form className={styles.composer} onSubmit={submitMessage}>
-          <button type="button" className={styles.attachButton} aria-label="Attach media" disabled>
+          <button
+            type="button"
+            className={styles.attachButton}
+            aria-label="Attach media"
+            disabled
+          >
             <Paperclip size={16} aria-hidden />
           </button>
           <input
@@ -406,10 +478,20 @@ export function GeneralRoom() {
           >
             <Smile size={16} aria-hidden />
           </button>
-          <button type="button" className={styles.voiceButton} aria-label="Voice note" disabled>
+          <button
+            type="button"
+            className={styles.voiceButton}
+            aria-label="Voice note"
+            disabled
+          >
             <Mic size={16} aria-hidden />
           </button>
-          <button type="submit" className={styles.sendButton} aria-label="Send message" disabled={!canSend}>
+          <button
+            type="submit"
+            className={styles.sendButton}
+            aria-label="Send message"
+            disabled={!canSend}
+          >
             <Send size={16} aria-hidden />
           </button>
         </form>

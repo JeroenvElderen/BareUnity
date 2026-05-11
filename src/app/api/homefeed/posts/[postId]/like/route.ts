@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { db } from "@/server/db";
 import { loadViewerIdFromRequest } from "@/lib/viewer";
+import { ensureMemberCanAct } from "@/lib/action-access";
 
-export async function GET(request: Request, context: { params: Promise<{ postId: string }> }) {
+export async function GET(
+  request: Request,
+  context: { params: Promise<{ postId: string }> },
+) {
   const viewerId = await loadViewerIdFromRequest(request);
   if (!viewerId) {
     return NextResponse.json({ error: "No profile found." }, { status: 400 });
@@ -19,7 +23,10 @@ export async function GET(request: Request, context: { params: Promise<{ postId:
   }
 
   if (post.author_id !== viewerId) {
-    return NextResponse.json({ error: "Only the post owner can view likes." }, { status: 403 });
+    return NextResponse.json(
+      { error: "Only the post owner can view likes." },
+      { status: 403 },
+    );
   }
 
   const likes = await db.post_votes.findMany({
@@ -40,17 +47,29 @@ export async function GET(request: Request, context: { params: Promise<{ postId:
   return NextResponse.json({
     likes: likes.map((like) => ({
       userId: like.user_id,
-      name: like.profiles?.display_name?.trim() || like.profiles?.username || "Community member",
+      name:
+        like.profiles?.display_name?.trim() ||
+        like.profiles?.username ||
+        "Community member",
       avatarUrl: like.profiles?.avatar_url ?? null,
     })),
   });
 }
 
-export async function POST(request: Request, context: { params: Promise<{ postId: string }> }) {
+export async function POST(
+  request: Request,
+  context: { params: Promise<{ postId: string }> },
+) {
   const viewerId = await loadViewerIdFromRequest(request);
   if (!viewerId) {
-    return NextResponse.json({ error: "No profile found for liking posts." }, { status: 400 });
+    return NextResponse.json(
+      { error: "No profile found for liking posts." },
+      { status: 400 },
+    );
   }
+
+  const actionAccessError = await ensureMemberCanAct(viewerId);
+  if (actionAccessError) return actionAccessError;
 
   const { postId } = await context.params;
 

@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 
-import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase-admin";
+import {
+  createSupabaseAdminClient,
+  isSupabaseAdminConfigured,
+} from "@/lib/supabase-admin";
 import { loadViewerIdFromRequest } from "@/lib/viewer";
 import { db } from "@/server/db";
+import { ensureMemberCanAct } from "@/lib/action-access";
 
 type RouteContext = {
   params: Promise<{ spotId: string }>;
@@ -11,12 +15,19 @@ type RouteContext = {
 type DetailsRecord = Record<string, unknown>;
 
 function asDetailsRecord(value: unknown): DetailsRecord {
-  return value && typeof value === "object" && !Array.isArray(value) ? (value as DetailsRecord) : {};
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as DetailsRecord)
+    : {};
 }
 
 function readCheckIns(details: DetailsRecord) {
   const rawValue = details.checkIns;
-  const value = typeof rawValue === "number" ? rawValue : typeof rawValue === "string" ? Number(rawValue) : 0;
+  const value =
+    typeof rawValue === "number"
+      ? rawValue
+      : typeof rawValue === "string"
+        ? Number(rawValue)
+        : 0;
   return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
 }
 
@@ -53,7 +64,8 @@ async function incrementWithSupabaseAdmin(spotId: string) {
     .eq("id", spotId)
     .single();
 
-  if (readError) throw new Error(`Supabase fallback read failed: ${readError.message}`);
+  if (readError)
+    throw new Error(`Supabase fallback read failed: ${readError.message}`);
 
   const details = asDetailsRecord(spot?.details);
   const checkIns = readCheckIns(details) + 1;
@@ -68,22 +80,32 @@ async function incrementWithSupabaseAdmin(spotId: string) {
     })
     .eq("id", spotId);
 
-  if (updateError) throw new Error(`Supabase fallback update failed: ${updateError.message}`);
+  if (updateError)
+    throw new Error(`Supabase fallback update failed: ${updateError.message}`);
   return checkIns;
 }
 
 export async function POST(request: Request, context: RouteContext) {
   const viewerId = await loadViewerIdFromRequest(request);
   if (!viewerId) {
-    return NextResponse.json({ error: "You must be logged in to check in." }, { status: 401 });
+    return NextResponse.json(
+      { error: "You must be logged in to check in." },
+      { status: 401 },
+    );
   }
+
+  const actionAccessError = await ensureMemberCanAct(viewerId);
+  if (actionAccessError) return actionAccessError;
 
   const { spotId } = await context.params;
 
   try {
     const checkIns = await incrementWithPrisma(spotId);
     if (checkIns === null) {
-      return NextResponse.json({ error: "Map spot not found." }, { status: 404 });
+      return NextResponse.json(
+        { error: "Map spot not found." },
+        { status: 404 },
+      );
     }
 
     return NextResponse.json({ checkInCount: checkIns });
@@ -93,12 +115,21 @@ export async function POST(request: Request, context: RouteContext) {
     if (isSupabaseAdminConfigured) {
       try {
         const checkIns = await incrementWithSupabaseAdmin(spotId);
-        return NextResponse.json({ checkInCount: checkIns, source: "supabase-admin-fallback" });
+        return NextResponse.json({
+          checkInCount: checkIns,
+          source: "supabase-admin-fallback",
+        });
       } catch (supabaseError) {
-        console.error("Failed to check in with Supabase admin fallback", supabaseError);
+        console.error(
+          "Failed to check in with Supabase admin fallback",
+          supabaseError,
+        );
       }
     }
 
-    return NextResponse.json({ error: "Unable to save check-in." }, { status: 500 });
+    return NextResponse.json(
+      { error: "Unable to save check-in." },
+      { status: 500 },
+    );
   }
 }

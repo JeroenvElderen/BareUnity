@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 
-import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase-admin";
+import {
+  createSupabaseAdminClient,
+  isSupabaseAdminConfigured,
+} from "@/lib/supabase-admin";
 import { loadViewerIdFromRequest } from "@/lib/viewer";
+import { ensureMemberCanAct } from "@/lib/action-access";
 
 const ALLOWED_IMAGE_TYPES = new Set([
   "image/jpeg",
@@ -33,8 +37,14 @@ export async function POST(request: Request) {
     const viewerId = await loadViewerIdFromRequest(request);
 
     if (!viewerId) {
-      return NextResponse.json({ error: "Please sign in before uploading." }, { status: 401 });
+      return NextResponse.json(
+        { error: "Please sign in before uploading." },
+        { status: 401 },
+      );
     }
+
+    const actionAccessError = await ensureMemberCanAct(viewerId);
+    if (actionAccessError) return actionAccessError;
 
     if (!isSupabaseAdminConfigured) {
       return NextResponse.json(
@@ -46,22 +56,30 @@ export async function POST(request: Request) {
     const formData = await request.formData();
     const upload = formData.get("image");
     if (!(upload instanceof File)) {
-      return NextResponse.json({ error: "Please choose an image file to upload." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Please choose an image file to upload." },
+        { status: 400 },
+      );
     }
 
     const contentType = upload.type.toLowerCase();
     if (!ALLOWED_IMAGE_TYPES.has(contentType)) {
-      return NextResponse.json({ error: "Unsupported file type. Please upload an image." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Unsupported file type. Please upload an image." },
+        { status: 400 },
+      );
     }
 
     const extension = getImageExtension(contentType);
     const storagePath = `gallery/${viewerId}/${Date.now()}-${crypto.randomUUID()}.${extension}`;
     const buffer = Buffer.from(await upload.arrayBuffer());
     const supabaseAdmin = createSupabaseAdminClient();
-    const { error } = await supabaseAdmin.storage.from("media").upload(storagePath, buffer, {
-      contentType,
-      upsert: false,
-    });
+    const { error } = await supabaseAdmin.storage
+      .from("media")
+      .upload(storagePath, buffer, {
+        contentType,
+        upsert: false,
+      });
 
     if (error) {
       throw new Error(error.message);
@@ -70,6 +88,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("Unable to upload gallery image", error);
-    return NextResponse.json({ error: "Gallery upload is unavailable right now." }, { status: 503 });
+    return NextResponse.json(
+      { error: "Gallery upload is unavailable right now." },
+      { status: 503 },
+    );
   }
 }

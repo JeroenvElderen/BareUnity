@@ -1,19 +1,35 @@
 import { NextResponse } from "next/server";
 import { db } from "@/server/db";
 import { loadViewerIdFromRequest } from "@/lib/viewer";
+import { ensureMemberCanAct } from "@/lib/action-access";
 
-export async function POST(request: Request, context: { params: Promise<{ postId: string }> }) {
+export async function POST(
+  request: Request,
+  context: { params: Promise<{ postId: string }> },
+) {
   const viewerId = await loadViewerIdFromRequest(request);
   if (!viewerId) {
-    return NextResponse.json({ error: "No profile found for commenting." }, { status: 400 });
+    return NextResponse.json(
+      { error: "No profile found for commenting." },
+      { status: 400 },
+    );
   }
 
+  const actionAccessError = await ensureMemberCanAct(viewerId);
+  if (actionAccessError) return actionAccessError;
+
   const { postId } = await context.params;
-  const body = (await request.json()) as { content?: string; parentId?: string | null };
+  const body = (await request.json()) as {
+    content?: string;
+    parentId?: string | null;
+  };
 
   const content = body.content?.trim() ?? "";
   if (!content) {
-    return NextResponse.json({ error: "Comment content is required." }, { status: 400 });
+    return NextResponse.json(
+      { error: "Comment content is required." },
+      { status: 400 },
+    );
   }
 
   const parentId = body.parentId?.trim() || null;
@@ -24,7 +40,10 @@ export async function POST(request: Request, context: { params: Promise<{ postId
     });
 
     if (!parentComment || parentComment.post_id !== postId) {
-      return NextResponse.json({ error: "Parent comment not found for this post." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Parent comment not found for this post." },
+        { status: 400 },
+      );
     }
   }
 
@@ -50,13 +69,17 @@ export async function POST(request: Request, context: { params: Promise<{ postId
     },
   });
 
-  const authorName = comment.profiles?.display_name?.trim() || comment.profiles?.username || "Community member";
-  const authorFallback = authorName
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((word) => word[0]?.toUpperCase() ?? "")
-    .join("") || "BU";
+  const authorName =
+    comment.profiles?.display_name?.trim() ||
+    comment.profiles?.username ||
+    "Community member";
+  const authorFallback =
+    authorName
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((word) => word[0]?.toUpperCase() ?? "")
+      .join("") || "BU";
 
   return NextResponse.json({
     comment: {
