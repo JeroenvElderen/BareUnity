@@ -67,7 +67,7 @@ const bookingItems: readonly NavLinkItem[] = [
 ];
 
 const workspaceItems = [
-  { icon: Bell, label: "Notifications", badge: "0" },
+  { icon: Bell, label: "Notifications", href: "/notifications", badge: "0" },
   { icon: Users, label: "Members", href: "/members" },
   { icon: Settings, label: "Settings", href: "/settings" },
   { icon: ScrollText, label: "Policies", href: "/policies" },
@@ -138,9 +138,7 @@ export function AppSidebar() {
   const [isAdmin, setIsAdmin] = useState(false);
   const isAdminSection = pathname?.startsWith("/admin") ?? false;
   const [isAdminOpen, setIsAdminOpen] = useState(isAdminSection);
-  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [activeToasts, setActiveToasts] = useState<AppNotification[]>([]);
-  const notificationsRef = useRef<HTMLDivElement | null>(null);
   const seenNotificationIdsRef = useRef(new Set<string>());
   const hasSeenInitialNotificationsRef = useRef(false);
   const hasRequestedSystemNotificationPermissionRef = useRef(false);
@@ -160,9 +158,6 @@ export function AppSidebar() {
   const pushNotification = useUIStore((state) => state.pushNotification);
   const markNotificationAsRead = useUIStore(
     (state) => state.markNotificationAsRead,
-  );
-  const markAllNotificationsAsRead = useUIStore(
-    (state) => state.markAllNotificationsAsRead,
   );
   const unreadNotifications = notifications.filter(
     (notification) => notification.unread,
@@ -224,19 +219,6 @@ export function AppSidebar() {
       subscription.unsubscribe();
     };
   }, []);
-
-  useEffect(() => {
-    if (!isNotificationsOpen) return;
-
-    const handleOutsideClick = (event: MouseEvent) => {
-      if (!notificationsRef.current) return;
-      if (notificationsRef.current.contains(event.target as Node)) return;
-      setIsNotificationsOpen(false);
-    };
-
-    document.addEventListener("mousedown", handleOutsideClick);
-    return () => document.removeEventListener("mousedown", handleOutsideClick);
-  }, [isNotificationsOpen]);
 
   useEffect(() => {
     seenNotificationIdsRef.current.clear();
@@ -847,98 +829,29 @@ export function AppSidebar() {
               </div>
 
               {workspaceItems.map(({ icon: Icon, label, href, badge }) => {
-                if (label === "Notifications") {
-                  return (
-                    <div
-                      key={label}
-                      className={styles.notificationPopoverWrap}
-                      ref={notificationsRef}
-                    >
-                      <button
-                        type="button"
-                        className={`${styles.navItem} ${styles.dropdownTrigger}`}
-                        onClick={() => {
-                          void requestSystemNotificationPermission();
-                          setIsNotificationsOpen((current) => !current);
-                        }}
-                        aria-expanded={isNotificationsOpen}
-                      >
-                        <span className={styles.itemLeft}>
-                          <Icon size={18} aria-hidden />
-                          <span>{label}</span>
-                        </span>
-                        <span className={styles.badge}>
-                          {unreadNotifications > 0
-                            ? unreadNotifications
-                            : badge}
-                        </span>
-                      </button>
-
-                      {isNotificationsOpen ? (
-                        <div
-                          className={styles.notificationsPopup}
-                          role="dialog"
-                          aria-label="Notifications popup"
-                        >
-                          <div className={styles.notificationsHeader}>
-                            <strong>Notifications</strong>
-                            <button
-                              type="button"
-                              className={styles.notificationsClearButton}
-                              onClick={markAllNotificationsAsRead}
-                              disabled={unreadNotifications === 0}
-                            >
-                              Mark all read
-                            </button>
-                          </div>
-                          <div className={styles.notificationsList}>
-                            {notifications.map((notification) => (
-                              <button
-                                type="button"
-                                key={notification.id}
-                                onClick={() => {
-                                  markNotificationAsRead(notification.id);
-                                  if (notification.targetHref) {
-                                    setIsNotificationsOpen(false);
-                                    void router.push(notification.targetHref);
-                                  }
-                                }}
-                                className={`${styles.notificationItem} ${notification.unread ? styles.notificationUnread : ""}`}
-                              >
-                                <span>
-                                  <strong>{notification.title}</strong>
-                                  <small>{notification.detail}</small>
-                                </span>
-                                <em>
-                                  {formatRelativeTime(notification.timestamp)}
-                                </em>
-                              </button>
-                            ))}
-                          </div>
-                          <Link
-                            href="/notifications"
-                            className={styles.notificationsFooterLink}
-                          >
-                            Open full notifications page
-                          </Link>
-                        </div>
-                      ) : null}
-                    </div>
-                  );
-                }
+                const isNotificationsItem = label === "Notifications";
+                const itemBadge =
+                  isNotificationsItem && unreadNotifications > 0
+                    ? String(unreadNotifications)
+                    : badge;
 
                 return (
                   <Link
                     key={label}
                     href={href ?? "#"}
                     className={`${styles.navItem} ${href && pathname === href ? styles.active : ""}`}
+                    onClick={
+                      isNotificationsItem
+                        ? () => void requestSystemNotificationPermission()
+                        : undefined
+                    }
                   >
                     <span className={styles.itemLeft}>
                       <Icon size={18} aria-hidden />
                       <span>{label}</span>
                     </span>
-                    {badge ? (
-                      <span className={styles.badge}>{badge}</span>
+                    {itemBadge ? (
+                      <span className={styles.badge}>{itemBadge}</span>
                     ) : null}
                   </Link>
                 );
