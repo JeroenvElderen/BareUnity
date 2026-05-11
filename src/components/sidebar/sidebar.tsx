@@ -479,7 +479,7 @@ export function AppSidebar() {
         }
         if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
           const detail = error?.message?.trim() || "Supabase Realtime channel failed to stay connected.";
-          console.error("Realtime notifications channel issue", {
+          console.debug("Realtime notifications channel issue", {
             status,
             channel: channel.topic,
             detail,
@@ -489,7 +489,7 @@ export function AppSidebar() {
             pushLiveNotification(
               createNotification(
                 "Notifications offline",
-                "Live alerts disconnected. Open DevTools for the exact realtime error.",
+                "Live alerts disconnected. We'll keep trying in the background.",
                 "general-message",
               ),
             );

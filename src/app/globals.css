@@ -2,6 +2,8 @@
 
 * {
   box-sizing: border-box;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none;
 }
 
 :root {
@@ -140,18 +142,9 @@ textarea {
 }
 
 ::-webkit-scrollbar {
-  width: 0.7rem;
-  height: 0.7rem;
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgb(var(--brand) / 0.34);
-  border: 2px solid rgb(var(--bg));
-  border-radius: 999px;
-}
-
-::-webkit-scrollbar-track {
-  background: rgb(var(--bg) / 0.58);
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 @media (max-width: 720px) {
