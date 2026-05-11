@@ -3,6 +3,10 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
 import { supabase } from "@/lib/supabase";
+import {
+  canCurrentUserAct,
+  VIEW_ONLY_ACTION_MESSAGE,
+} from "@/lib/client-action-access";
 import { subscribeToSocialGraphUpdates } from "@/lib/social-graph-events";
 import { useUIStore } from "@/stores/ui-store";
 
@@ -42,7 +46,10 @@ type ConversationPreview = {
   updatedAt: string;
 };
 
-const timeFormatter = new Intl.DateTimeFormat("en-US", { hour: "2-digit", minute: "2-digit" });
+const timeFormatter = new Intl.DateTimeFormat("en-US", {
+  hour: "2-digit",
+  minute: "2-digit",
+});
 
 function displayName(profile: ProfileRow | undefined) {
   if (!profile) return "Unknown user";
@@ -58,14 +65,19 @@ export function MessagesPanelContent() {
   const [friendIds, setFriendIds] = useState<string[]>([]);
   const [people, setPeople] = useState<ProfileRow[]>([]);
   const [conversations, setConversations] = useState<ConversationPreview[]>([]);
-  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [activeConversationId, setActiveConversationId] = useState<
+    string | null
+  >(null);
   const [messages, setMessages] = useState<MessageRow[]>([]);
   const [draft, setDraft] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const activeConversation = useMemo(
-    () => conversations.find((conversation) => conversation.id === activeConversationId) ?? null,
+    () =>
+      conversations.find(
+        (conversation) => conversation.id === activeConversationId,
+      ) ?? null,
     [activeConversationId, conversations],
   );
 
@@ -103,7 +115,11 @@ export function MessagesPanelContent() {
       }
 
       const friendUserIds = Array.from(
-        new Set((friendsResponse.data ?? []).map((row) => row.friend_user_id).filter((value): value is string => Boolean(value))),
+        new Set(
+          (friendsResponse.data ?? [])
+            .map((row) => row.friend_user_id)
+            .filter((value): value is string => Boolean(value)),
+        ),
       );
 
       setFriendIds(friendUserIds);
@@ -141,16 +157,26 @@ export function MessagesPanelContent() {
       const peopleRows = (profilesResponse.data ?? []) as ProfileRow[];
       setPeople(peopleRows);
 
-      const profileById = new Map(peopleRows.map((profile) => [profile.id, profile]));
+      const profileById = new Map(
+        peopleRows.map((profile) => [profile.id, profile]),
+      );
       const allowedFriendIds = new Set(friendUserIds);
-      const conversationRows = ((conversationsResponse.data ?? []) as ConversationRow[]).filter((conversation) => {
-        const otherUserId = conversation.user_a === currentViewerId ? conversation.user_b : conversation.user_a;
+      const conversationRows = (
+        (conversationsResponse.data ?? []) as ConversationRow[]
+      ).filter((conversation) => {
+        const otherUserId =
+          conversation.user_a === currentViewerId
+            ? conversation.user_b
+            : conversation.user_a;
         return allowedFriendIds.has(otherUserId);
       });
 
       const nextConversations = conversationRows
         .map((conversation) => {
-          const otherUserId = conversation.user_a === currentViewerId ? conversation.user_b : conversation.user_a;
+          const otherUserId =
+            conversation.user_a === currentViewerId
+              ? conversation.user_b
+              : conversation.user_a;
           return {
             id: conversation.id,
             otherUserId,
@@ -158,7 +184,11 @@ export function MessagesPanelContent() {
             updatedAt: conversation.updated_at,
           } satisfies ConversationPreview;
         })
-        .sort((left, right) => new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime());
+        .sort(
+          (left, right) =>
+            new Date(right.updatedAt).getTime() -
+            new Date(left.updatedAt).getTime(),
+        );
 
       setConversations(nextConversations);
       setActiveConversationId((current) => {
@@ -201,7 +231,12 @@ export function MessagesPanelContent() {
       .channel(`dm-messages-${activeConversationId}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "dm_messages", filter: `conversation_id=eq.${activeConversationId}` },
+        {
+          event: "*",
+          schema: "public",
+          table: "dm_messages",
+          filter: `conversation_id=eq.${activeConversationId}`,
+        },
         () => {
           void loadMessages(activeConversationId);
         },
@@ -220,28 +255,48 @@ export function MessagesPanelContent() {
       .channel(`dm-inbox-${viewerId}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "friendships", filter: `user_id=eq.${viewerId}` },
+        {
+          event: "*",
+          schema: "public",
+          table: "friendships",
+          filter: `user_id=eq.${viewerId}`,
+        },
         () => {
           void loadInbox(viewerId);
         },
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "friendships", filter: `friend_user_id=eq.${viewerId}` },
+        {
+          event: "*",
+          schema: "public",
+          table: "friendships",
+          filter: `friend_user_id=eq.${viewerId}`,
+        },
         () => {
           void loadInbox(viewerId);
         },
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "dm_conversations", filter: `user_a=eq.${viewerId}` },
+        {
+          event: "*",
+          schema: "public",
+          table: "dm_conversations",
+          filter: `user_a=eq.${viewerId}`,
+        },
         () => {
           void loadInbox(viewerId);
         },
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "dm_conversations", filter: `user_b=eq.${viewerId}` },
+        {
+          event: "*",
+          schema: "public",
+          table: "dm_conversations",
+          filter: `user_b=eq.${viewerId}`,
+        },
         () => {
           void loadInbox(viewerId);
         },
@@ -258,7 +313,7 @@ export function MessagesPanelContent() {
           }
           void loadInbox(viewerId);
         },
-      ) 
+      )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "profiles" },
@@ -288,6 +343,10 @@ export function MessagesPanelContent() {
 
   const startConversation = async (targetUserId: string) => {
     if (!viewerId) return;
+    if (!(await canCurrentUserAct(viewerId))) {
+      setErrorMessage(VIEW_ONLY_ACTION_MESSAGE);
+      return;
+    }
     if (!friendIds.includes(targetUserId)) {
       setErrorMessage("Direct messages are only available between friends.");
       return;
@@ -326,7 +385,14 @@ export function MessagesPanelContent() {
   const sendMessage = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!viewerId || !activeConversationId) return;
-    if (!activeConversation || !friendIds.includes(activeConversation.otherUserId)) {
+    if (!(await canCurrentUserAct(viewerId))) {
+      setErrorMessage(VIEW_ONLY_ACTION_MESSAGE);
+      return;
+    }
+    if (
+      !activeConversation ||
+      !friendIds.includes(activeConversation.otherUserId)
+    ) {
       setErrorMessage("Direct messages are only available between friends.");
       return;
     }
@@ -356,7 +422,10 @@ export function MessagesPanelContent() {
       setErrorMessage("Message sent, but failed to bump conversation time.");
     }
 
-    await Promise.all([loadMessages(activeConversationId), loadInbox(viewerId)]);
+    await Promise.all([
+      loadMessages(activeConversationId),
+      loadInbox(viewerId),
+    ]);
   };
 
   if (!viewerId && !isLoading) {
@@ -367,81 +436,119 @@ export function MessagesPanelContent() {
     );
   }
 
-  const conversationsByFriendId = new Set(conversations.map((conversation) => conversation.otherUserId));
-  const startableFriends = people.filter((person) => !conversationsByFriendId.has(person.id));
+  const conversationsByFriendId = new Set(
+    conversations.map((conversation) => conversation.otherUserId),
+  );
+  const startableFriends = people.filter(
+    (person) => !conversationsByFriendId.has(person.id),
+  );
 
   return (
     <div className={styles.content}>
       <aside className={`${styles.column} ${styles.columnLeft}`}>
-            {errorMessage ? <p className={styles.empty}>{errorMessage}</p> : null}
-            <h3 className={styles.title}>Chats</h3>
-            <ul className={styles.conversationList}>
-              {conversations.map((conversation) => (
-                <li key={conversation.id}>
-                  <button
-                    className={`${styles.rowButton} ${conversation.id === activeConversationId ? styles.rowButtonActive : ""}`}
-                    type="button"
-                    onClick={() => openConversation(conversation.id)}
-                  >
-                    <strong>{conversation.otherUserName}</strong>
-                    <p className={styles.meta}>Updated {timeFormatter.format(new Date(conversation.updatedAt))}</p>
-                  </button>
-                </li>
-              ))}
-              {!conversations.length && !isLoading ? <li className={styles.empty}>No chats yet.</li> : null}
-            </ul>
+        {errorMessage ? <p className={styles.empty}>{errorMessage}</p> : null}
+        <h3 className={styles.title}>Chats</h3>
+        <ul className={styles.conversationList}>
+          {conversations.map((conversation) => (
+            <li key={conversation.id}>
+              <button
+                className={`${styles.rowButton} ${conversation.id === activeConversationId ? styles.rowButtonActive : ""}`}
+                type="button"
+                onClick={() => openConversation(conversation.id)}
+              >
+                <strong>{conversation.otherUserName}</strong>
+                <p className={styles.meta}>
+                  Updated{" "}
+                  {timeFormatter.format(new Date(conversation.updatedAt))}
+                </p>
+              </button>
+            </li>
+          ))}
+          {!conversations.length && !isLoading ? (
+            <li className={styles.empty}>No chats yet.</li>
+          ) : null}
+        </ul>
 
-            <h4 className={styles.subtitle}>Start new chat</h4>
-            <ul className={styles.userList}>
-              {startableFriends.map((person) => (
-                <li key={person.id}>
-                  <button className={styles.rowButton} type="button" onClick={() => void startConversation(person.id)}>
-                    {displayName(person)}
-                  </button>
-                </li>
-              ))}
-              {!people.length && !isLoading ? <li className={styles.empty}>Add friends to start messaging.</li> : null}
-              {!startableFriends.length && people.length > 0 && !isLoading ? (
-                <li className={styles.empty}>You already have chats with all friends.</li>
-              ) : null}
-            </ul>
+        <h4 className={styles.subtitle}>Start new chat</h4>
+        <ul className={styles.userList}>
+          {startableFriends.map((person) => (
+            <li key={person.id}>
+              <button
+                className={styles.rowButton}
+                type="button"
+                onClick={() => void startConversation(person.id)}
+              >
+                {displayName(person)}
+              </button>
+            </li>
+          ))}
+          {!people.length && !isLoading ? (
+            <li className={styles.empty}>Add friends to start messaging.</li>
+          ) : null}
+          {!startableFriends.length && people.length > 0 && !isLoading ? (
+            <li className={styles.empty}>
+              You already have chats with all friends.
+            </li>
+          ) : null}
+        </ul>
       </aside>
 
       <section className={`${styles.column} ${styles.chatShell}`}>
-            <header>
-              <h3 className={styles.title}>{activeConversation ? activeConversation.otherUserName : "Pick a chat"}</h3>
-            </header>
+        <header>
+          <h3 className={styles.title}>
+            {activeConversation
+              ? activeConversation.otherUserName
+              : "Pick a chat"}
+          </h3>
+        </header>
 
-            <ul className={styles.messageList}>
-              {activeConversationId
-                ? messages.map((message) => (
-                    <li
-                      key={message.id}
-                      className={`${styles.bubble} ${message.sender_id === viewerId ? styles.mine : styles.theirs}`}
-                      aria-label={message.sender_id === viewerId ? "Your message" : "Incoming message"}
-                    >
-                      <p>{message.body}</p>
-                      <p className={styles.meta}>{timeFormatter.format(new Date(message.created_at))}</p>
-                    </li>
-                  ))
-                : null}
-              {!messages.length && activeConversationId ? <li className={styles.empty}>No messages yet. Say hi 👋</li> : null}
-              {!activeConversationId ? <li className={styles.empty}>Choose a chat to start messaging.</li> : null}
-            </ul>
+        <ul className={styles.messageList}>
+          {activeConversationId
+            ? messages.map((message) => (
+                <li
+                  key={message.id}
+                  className={`${styles.bubble} ${message.sender_id === viewerId ? styles.mine : styles.theirs}`}
+                  aria-label={
+                    message.sender_id === viewerId
+                      ? "Your message"
+                      : "Incoming message"
+                  }
+                >
+                  <p>{message.body}</p>
+                  <p className={styles.meta}>
+                    {timeFormatter.format(new Date(message.created_at))}
+                  </p>
+                </li>
+              ))
+            : null}
+          {!messages.length && activeConversationId ? (
+            <li className={styles.empty}>No messages yet. Say hi 👋</li>
+          ) : null}
+          {!activeConversationId ? (
+            <li className={styles.empty}>Choose a chat to start messaging.</li>
+          ) : null}
+        </ul>
 
-            <form className={styles.composer} onSubmit={sendMessage}>
-              <input
-                type="text"
-                placeholder={activeConversationId ? "Write a message" : "Select conversation first"}
-                value={draft}
-                onChange={(event) => setDraft(event.target.value)}
-                maxLength={1200}
-                disabled={!activeConversationId}
-              />
-              <button type="submit" disabled={!activeConversationId || !draft.trim()}>
-                Send
-              </button>
-            </form>
+        <form className={styles.composer} onSubmit={sendMessage}>
+          <input
+            type="text"
+            placeholder={
+              activeConversationId
+                ? "Write a message"
+                : "Select conversation first"
+            }
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            maxLength={1200}
+            disabled={!activeConversationId}
+          />
+          <button
+            type="submit"
+            disabled={!activeConversationId || !draft.trim()}
+          >
+            Send
+          </button>
+        </form>
       </section>
     </div>
   );
@@ -455,11 +562,21 @@ export function MessagesOverlay() {
 
   return (
     <>
-      <button className={styles.backdrop} type="button" aria-label="Close messages" onClick={closeMessages} />
+      <button
+        className={styles.backdrop}
+        type="button"
+        aria-label="Close messages"
+        onClick={closeMessages}
+      />
       <section className={styles.panel} aria-label="Messages overlay">
         <header className={styles.header}>
           <h2>Messages</h2>
-          <button className={styles.closeButton} type="button" aria-label="Close messages" onClick={closeMessages}>
+          <button
+            className={styles.closeButton}
+            type="button"
+            aria-label="Close messages"
+            onClick={closeMessages}
+          >
             ✕
           </button>
         </header>

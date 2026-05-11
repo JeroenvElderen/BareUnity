@@ -2,17 +2,27 @@ import { NextResponse } from "next/server";
 
 import { loadViewerIdFromRequest } from "@/lib/viewer";
 import { db } from "@/server/db";
+import { ensureMemberCanAct } from "@/lib/action-access";
 
-export async function POST(request: Request, context: { params: Promise<{ requestId: string }> }) {
+export async function POST(
+  request: Request,
+  context: { params: Promise<{ requestId: string }> },
+) {
   try {
     const viewerId = await loadViewerIdFromRequest(request);
     if (!viewerId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const actionAccessError = await ensureMemberCanAct(viewerId);
+    if (actionAccessError) return actionAccessError;
+
     const { requestId } = await context.params;
     if (!requestId?.trim()) {
-      return NextResponse.json({ error: "Missing request id" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Missing request id" },
+        { status: 400 },
+      );
     }
 
     const accepted = await db.$transaction(async (tx) => {
@@ -44,7 +54,12 @@ export async function POST(request: Request, context: { params: Promise<{ reques
         });
       }
 
-      const [receiverProfile, senderProfile, forwardFriendship, reverseFriendship] = await Promise.all([
+      const [
+        receiverProfile,
+        senderProfile,
+        forwardFriendship,
+        reverseFriendship,
+      ] = await Promise.all([
         tx.profiles.findUnique({
           where: { id: viewerId },
           select: { username: true },
@@ -70,7 +85,10 @@ export async function POST(request: Request, context: { params: Promise<{ reques
       ]);
 
       const receiverUsername = receiverProfile?.username?.trim() || "member";
-      const senderUsername = senderProfile?.username?.trim() || friendRequest.sender_username || "member";
+      const senderUsername =
+        senderProfile?.username?.trim() ||
+        friendRequest.sender_username ||
+        "member";
 
       if (!forwardFriendship?.id) {
         await tx.friendships.create({
@@ -99,15 +117,24 @@ export async function POST(request: Request, context: { params: Promise<{ reques
 
     if (!accepted.ok) {
       if (accepted.reason === "not_found") {
-        return NextResponse.json({ error: "Friend request not found." }, { status: 404 });
+        return NextResponse.json(
+          { error: "Friend request not found." },
+          { status: 404 },
+        );
       }
 
-      return NextResponse.json({ error: "This friend request cannot be accepted." }, { status: 409 });
+      return NextResponse.json(
+        { error: "This friend request cannot be accepted." },
+        { status: 409 },
+      );
     }
 
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("Unable to accept friend request", error);
-    return NextResponse.json({ error: "Unable to accept friend request." }, { status: 503 });
+    return NextResponse.json(
+      { error: "Unable to accept friend request." },
+      { status: 503 },
+    );
   }
 }

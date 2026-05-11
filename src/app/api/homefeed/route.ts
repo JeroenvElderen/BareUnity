@@ -1,10 +1,18 @@
 import { NextResponse } from "next/server";
 import { db } from "@/server/db";
-import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase-admin";
+import {
+  createSupabaseAdminClient,
+  isSupabaseAdminConfigured,
+} from "@/lib/supabase-admin";
 import { loadViewerIdFromRequest } from "@/lib/viewer";
 import { type HomeFeedPayload } from "@/lib/homefeed";
-import { buildHomeFeedPayload, fallbackFeed, getHomeFeedSourceVersion } from "@/lib/homefeed-server";
+import {
+  buildHomeFeedPayload,
+  fallbackFeed,
+  getHomeFeedSourceVersion,
+} from "@/lib/homefeed-server";
 import { readServerCache, writeServerCache } from "@/lib/server-user-cache";
+import { ensureMemberCanAct } from "@/lib/action-access";
 
 const IMAGE_DATA_URL_PATTERN = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/;
 
@@ -52,16 +60,22 @@ async function uploadMediaDataUrl(args: {
   const fileName = `${args.viewerId}/${args.kind}-${Date.now()}-${crypto.randomUUID()}.${extension}`;
   const storagePath = `posts/${fileName}`;
   const supabaseAdmin = createSupabaseAdminClient();
-  const { error } = await supabaseAdmin.storage.from("media").upload(storagePath, buffer, {
-    contentType: mimeType,
-    upsert: false,
-  });
+  const { error } = await supabaseAdmin.storage
+    .from("media")
+    .upload(storagePath, buffer, {
+      contentType: mimeType,
+      upsert: false,
+    });
 
   if (error) {
-    throw new Error(`Could not upload image to Supabase Storage: ${error.message}`);
+    throw new Error(
+      `Could not upload image to Supabase Storage: ${error.message}`,
+    );
   }
 
-  const { data } = supabaseAdmin.storage.from("media").getPublicUrl(storagePath);
+  const { data } = supabaseAdmin.storage
+    .from("media")
+    .getPublicUrl(storagePath);
   return data.publicUrl;
 }
 
@@ -84,7 +98,7 @@ export async function GET(request: Request) {
         key: cacheKey,
       });
 
-    if (cached && cached.sourceVersion === sourceVersion) {
+      if (cached && cached.sourceVersion === sourceVersion) {
         return NextResponse.json(cached.value, {
           headers: {
             "x-bareunity-cache": "hit",
@@ -93,7 +107,10 @@ export async function GET(request: Request) {
         });
       }
     } catch (cacheReadError) {
-      console.warn("Home feed cache read skipped (cache store unavailable)", cacheReadError);
+      console.warn(
+        "Home feed cache read skipped (cache store unavailable)",
+        cacheReadError,
+      );
     }
 
     const payload = await buildHomeFeedPayload(viewerId);
@@ -109,10 +126,13 @@ export async function GET(request: Request) {
           ttlSeconds: 60 * 15,
         });
       } catch (cacheWriteError) {
-        console.warn("Home feed cache write skipped (cache store unavailable)", cacheWriteError);
+        console.warn(
+          "Home feed cache write skipped (cache store unavailable)",
+          cacheWriteError,
+        );
       }
     }
-  
+
     return NextResponse.json(payload);
   } catch (error) {
     console.error("Unable to load home feed", error);
@@ -125,8 +145,14 @@ export async function POST(request: Request) {
     const viewerId = await loadViewerIdFromRequest(request);
 
     if (!viewerId) {
-      return NextResponse.json({ error: "No profile found to publish as." }, { status: 400 });
+      return NextResponse.json(
+        { error: "No profile found to publish as." },
+        { status: 400 },
+      );
     }
+
+    const actionAccessError = await ensureMemberCanAct(viewerId);
+    if (actionAccessError) return actionAccessError;
 
     const body = (await request.json()) as {
       title?: string;
@@ -147,7 +173,10 @@ export async function POST(request: Request) {
 
     if (kind === "story") {
       if (!persistedMediaUrl) {
-        return NextResponse.json({ error: "A story image is required." }, { status: 400 });
+        return NextResponse.json(
+          { error: "A story image is required." },
+          { status: 400 },
+        );
       }
 
       await db.posts.create({
@@ -165,7 +194,10 @@ export async function POST(request: Request) {
     }
 
     if (!title || (!content && !persistedMediaUrl)) {
-      return NextResponse.json({ error: "A title and post content or image are required." }, { status: 400 });
+      return NextResponse.json(
+        { error: "A title and post content or image are required." },
+        { status: 400 },
+      );
     }
 
     await db.posts.create({
@@ -179,8 +211,11 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({ ok: true });
-    } catch (error) {
+  } catch (error) {
     console.error("Unable to publish to home feed", error);
-    return NextResponse.json({ error: "Home feed is unavailable right now." }, { status: 503 });
+    return NextResponse.json(
+      { error: "Home feed is unavailable right now." },
+      { status: 503 },
+    );
   }
 }

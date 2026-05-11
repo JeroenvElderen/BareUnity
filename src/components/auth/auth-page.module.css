@@ -4,8 +4,16 @@
   place-items: center;
   padding: 2rem 1rem;
   background:
-    radial-gradient(circle at 20% 0%, rgb(var(--accent-soft) / 0.42), transparent 50%),
-    radial-gradient(circle at 100% 100%, rgb(var(--brand-2) / 0.2), transparent 40%),
+    radial-gradient(
+      circle at 20% 0%,
+      rgb(var(--accent-soft) / 0.42),
+      transparent 50%
+    ),
+    radial-gradient(
+      circle at 100% 100%,
+      rgb(var(--brand-2) / 0.2),
+      transparent 40%
+    ),
     rgb(var(--bg));
   color: rgb(var(--text));
 }
@@ -139,7 +147,11 @@
   font: inherit;
   font-weight: 700;
   color: rgb(var(--text));
-  background: linear-gradient(135deg, rgb(var(--accent)), rgb(var(--accent-soft)));
+  background: linear-gradient(
+    135deg,
+    rgb(var(--accent)),
+    rgb(var(--accent-soft))
+  );
   cursor: pointer;
 }
 
@@ -230,4 +242,44 @@
   padding: 0.2rem 0.5rem;
   font-size: 0.75rem;
   cursor: pointer;
+}
+.choiceGrid {
+  border: 1px solid rgb(var(--border));
+  border-radius: 14px;
+  padding: 0.85rem;
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  background: rgb(var(--bg-soft) / 0.35);
+}
+
+.choiceCard {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.7rem;
+  align-items: flex-start;
+  border: 1px solid rgb(var(--border));
+  border-radius: 12px;
+  padding: 0.85rem;
+  background: rgb(var(--card) / 0.72);
+  cursor: pointer;
+}
+
+.choiceCardActive {
+  border-color: rgb(var(--brand) / 0.72);
+  box-shadow: 0 0 0 3px rgb(var(--brand) / 0.12);
+}
+
+.choiceCard input {
+  margin-top: 0.2rem;
+}
+
+.choiceCard span {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.choiceCard small {
+  color: rgb(var(--muted));
+  line-height: 1.45;
 }

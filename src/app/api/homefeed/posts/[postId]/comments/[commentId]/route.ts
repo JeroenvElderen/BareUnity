@@ -1,12 +1,22 @@
 import { NextResponse } from "next/server";
 import { db } from "@/server/db";
 import { loadViewerIdFromRequest } from "@/lib/viewer";
+import { ensureMemberCanAct } from "@/lib/action-access";
 
-export async function DELETE(request: Request, context: { params: Promise<{ postId: string; commentId: string }> }) {
+export async function DELETE(
+  request: Request,
+  context: { params: Promise<{ postId: string; commentId: string }> },
+) {
   const viewerId = await loadViewerIdFromRequest(request);
   if (!viewerId) {
-    return NextResponse.json({ error: "No profile found for deleting comments." }, { status: 400 });
+    return NextResponse.json(
+      { error: "No profile found for deleting comments." },
+      { status: 400 },
+    );
   }
+
+  const actionAccessError = await ensureMemberCanAct(viewerId);
+  if (actionAccessError) return actionAccessError;
 
   const { postId, commentId } = await context.params;
 
@@ -20,7 +30,10 @@ export async function DELETE(request: Request, context: { params: Promise<{ post
   }
 
   if (comment.author_id !== viewerId) {
-    return NextResponse.json({ error: "You can only delete your own comments." }, { status: 403 });
+    return NextResponse.json(
+      { error: "You can only delete your own comments." },
+      { status: 403 },
+    );
   }
 
   await db.$transaction([
