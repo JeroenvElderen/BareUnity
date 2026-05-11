@@ -189,7 +189,7 @@ export async function PATCH(
 
     const { error: settingsError } = await supabaseAdmin
       .from("profile_settings")
-      .update({ onboarding_completed: true })
+      .update({ user_role: "newcomer", onboarding_completed: true })
       .eq("user_id", userId);
 
     if (settingsError) {

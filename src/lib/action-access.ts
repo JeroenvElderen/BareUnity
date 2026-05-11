@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/server/db";
 
 export const VIEW_ONLY_ACTION_ERROR =
-  "Your account is view-only until ID verification is approved. You can browse, but actions are locked.";
+  "Your Visitor Pass lets you browse and preview BareUnity, but posting, messaging, friend requests, check-ins, and submissions require ID verification.";
 
 type ActionAccessRow = {
   onboarding_completed: boolean | null;

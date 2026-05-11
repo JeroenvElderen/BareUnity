@@ -151,7 +151,6 @@ export function AppSidebar() {
     return isColorModePreference(stored) ? stored : "system";
   });
   const videoVisitorsRef = useRef(new Set<string>());
-  const hasRealtimeFailureNoticeRef = useRef(false);
   const notifications = useUIStore((state) => state.notifications);
   const clearNotifications = useUIStore((state) => state.clearNotifications);
   const setNotifications = useUIStore((state) => state.setNotifications);
@@ -645,10 +644,7 @@ export function AppSidebar() {
 
     channels.forEach((channel) => {
       void channel.subscribe((status, error) => {
-        if (status === "SUBSCRIBED") {
-          hasRealtimeFailureNoticeRef.current = false;
-          return;
-        }
+        if (status === "SUBSCRIBED") return;
         if (status === "CLOSED" && isCleaningUp) {
           return;
         }
@@ -665,16 +661,6 @@ export function AppSidebar() {
             channel: channel.topic,
             detail,
           });
-          if (!hasRealtimeFailureNoticeRef.current) {
-            hasRealtimeFailureNoticeRef.current = true;
-            pushLiveNotification(
-              createNotification(
-                "Notifications offline",
-                "Live alerts disconnected. We'll keep trying in the background.",
-                "general-message",
-              ),
-            );
-          }
         }
       });
     });

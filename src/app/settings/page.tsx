@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
 
 import { PasswordResetModal } from "@/components/settings/password-reset-modal";
 import { PrimaryEmailModal } from "@/components/settings/primary-email-modal";
@@ -349,6 +349,45 @@ type ProfileSecurityCache = {
   optionStates: Record<string, OptionState>;
 };
 
+type VerificationApplicationDefaults = {
+  legalName: string;
+  displayName: string;
+  dateOfBirth: string;
+  country: string;
+  membershipType: string;
+};
+
+type VerificationApplicationSnapshot = {
+  eligible: boolean;
+  status: string;
+  defaults: VerificationApplicationDefaults;
+};
+
+type VerificationApplicationForm = VerificationApplicationDefaults & {
+  idType: string;
+  motivation: string;
+  idDocument: File | null;
+  isAdultConfirmed: boolean;
+  isConsentConfirmed: boolean;
+  isPolicyConfirmed: boolean;
+  isPhotoRuleConfirmed: boolean;
+};
+
+const emptyVerificationApplicationForm: VerificationApplicationForm = {
+  legalName: "",
+  displayName: "",
+  dateOfBirth: "",
+  country: "",
+  membershipType: "",
+  idType: "",
+  motivation: "",
+  idDocument: null,
+  isAdultConfirmed: false,
+  isConsentConfirmed: false,
+  isPolicyConfirmed: false,
+  isPhotoRuleConfirmed: false,
+};
+
 function buildDefaultOptionStates() {
   const seeded: Record<string, OptionState> = {};
   for (const section of settingSections) {
@@ -477,6 +516,15 @@ export default function SettingsPage() {
   const [optionStates, setOptionStates] = useState<Record<string, OptionState>>(
     () => normalizeOptionStates(cachedProfileSecurity?.optionStates),
   );
+  const [verificationSnapshot, setVerificationSnapshot] =
+    useState<VerificationApplicationSnapshot | null>(null);
+  const [verificationForm, setVerificationForm] =
+    useState<VerificationApplicationForm>(emptyVerificationApplicationForm);
+  const [isSubmittingVerification, setIsSubmittingVerification] = useState(false);
+  const [verificationStatusMessage, setVerificationStatusMessage] =
+    useState<string | null>(null);
+  const [verificationErrorMessage, setVerificationErrorMessage] =
+    useState<string | null>(null);
 
   const handleOptionVisibilityChange = async (
     sectionKey: string,
@@ -598,6 +646,26 @@ export default function SettingsPage() {
         addPostImagesToGallery: snapshot.addPostImagesToGallery,
         optionStates: snapshot.optionStates,
       });
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+
+      if (!accessToken || !isMounted) return;
+
+      const verificationResponse = await fetch("/api/verification/apply", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+
+      if (!verificationResponse.ok || !isMounted) return;
+
+      const verificationData =
+        (await verificationResponse.json()) as VerificationApplicationSnapshot;
+
+      setVerificationSnapshot(verificationData);
+      setVerificationForm((prev) => ({
+        ...prev,
+        ...verificationData.defaults,
+      }));
     };
 
     void loadSnapshot();
@@ -831,6 +899,91 @@ export default function SettingsPage() {
     );
   };
 
+  const handleVerificationApplicationSubmit = async (
+    event: FormEvent<HTMLFormElement>,
+  ) => {
+    event.preventDefault();
+    setVerificationStatusMessage(null);
+    setVerificationErrorMessage(null);
+
+    if (!verificationForm.idDocument) {
+      setVerificationErrorMessage("Upload a government ID document to apply.");
+      return;
+    }
+
+    setIsSubmittingVerification(true);
+
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+
+      if (!accessToken) {
+        setVerificationErrorMessage("Sign in again to submit verification.");
+        return;
+      }
+
+      const payload = new FormData();
+      payload.set("legalName", verificationForm.legalName);
+      payload.set("displayName", verificationForm.displayName);
+      payload.set("dateOfBirth", verificationForm.dateOfBirth);
+      payload.set("country", verificationForm.country);
+      payload.set("membershipType", verificationForm.membershipType);
+      payload.set("idType", verificationForm.idType);
+      payload.set("motivation", verificationForm.motivation);
+      payload.set("idDocument", verificationForm.idDocument);
+      payload.set(
+        "isAdultConfirmed",
+        String(verificationForm.isAdultConfirmed),
+      );
+      payload.set(
+        "isConsentConfirmed",
+        String(verificationForm.isConsentConfirmed),
+      );
+      payload.set(
+        "isPolicyConfirmed",
+        String(verificationForm.isPolicyConfirmed),
+      );
+      payload.set(
+        "isPhotoRuleConfirmed",
+        String(verificationForm.isPhotoRuleConfirmed),
+      );
+
+      const response = await fetch("/api/verification/apply", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: payload,
+      });
+      const data = (await response.json()) as {
+        error?: string;
+        message?: string;
+        status?: string;
+      };
+
+      if (!response.ok) {
+        setVerificationErrorMessage(
+          data.error ?? "Could not submit verification right now.",
+        );
+        return;
+      }
+
+      setVerificationSnapshot((prev) =>
+        prev
+          ? { ...prev, eligible: false, status: data.status ?? "pending" }
+          : prev,
+      );
+      setVerificationStatusMessage(
+        data.message ?? "Verification application submitted for review.",
+      );
+      setVerificationForm((prev) => ({ ...prev, idDocument: null }));
+    } catch {
+      setVerificationErrorMessage(
+        "Something went wrong while submitting verification.",
+      );
+    } finally {
+      setIsSubmittingVerification(false);
+    }
+  };
+
   const handleRecoveryKeysGenerate = async () => {
     setIsSavingRecoveryKeys(true);
     setRecoveryKeysError(null);
@@ -911,6 +1064,234 @@ export default function SettingsPage() {
               </article>
             </div>
           </header>
+
+          {verificationSnapshot?.status === "pending" ? (
+            <section className={styles.verificationPanel} id="verification">
+              <div>
+                <p className={styles.sectionPill}>Verification review</p>
+                <h2>Your ID verification is pending</h2>
+                <p>
+                  Keep browsing as a visitor while the team reviews your
+                  application. Posting, commenting, messaging, friend requests,
+                  check-ins, and creation forms unlock after approval.
+                </p>
+              </div>
+              <span className={`${styles.statePill} ${styles.stateLimited}`}>
+                Pending
+              </span>
+            </section>
+          ) : null}
+
+          {verificationSnapshot?.eligible ? (
+            <section className={styles.verificationPanel} id="verification">
+              <div className={styles.verificationIntro}>
+                <p className={styles.sectionPill}>Visitor upgrade</p>
+                <h2>Apply for ID verification</h2>
+                <p>
+                  This form is only for registered Visitor Pass accounts. Submit
+                  your ID for manual review to unlock posting, comments,
+                  messaging, friend requests, check-ins, and creation forms after
+                  approval.
+                </p>
+              </div>
+
+              <form
+                className={styles.verificationForm}
+                onSubmit={handleVerificationApplicationSubmit}
+              >
+                <div className={styles.verificationGrid}>
+                  <label className={styles.formField}>
+                    <span>Legal full name</span>
+                    <input
+                      value={verificationForm.legalName}
+                      onChange={(event) =>
+                        setVerificationForm((prev) => ({
+                          ...prev,
+                          legalName: event.target.value,
+                        }))
+                      }
+                      required
+                    />
+                  </label>
+                  <label className={styles.formField}>
+                    <span>Display name</span>
+                    <input
+                      value={verificationForm.displayName}
+                      onChange={(event) =>
+                        setVerificationForm((prev) => ({
+                          ...prev,
+                          displayName: event.target.value,
+                        }))
+                      }
+                      required
+                    />
+                  </label>
+                  <label className={styles.formField}>
+                    <span>Date of birth</span>
+                    <input
+                      type="date"
+                      value={verificationForm.dateOfBirth}
+                      onChange={(event) =>
+                        setVerificationForm((prev) => ({
+                          ...prev,
+                          dateOfBirth: event.target.value,
+                        }))
+                      }
+                      required
+                    />
+                  </label>
+                  <label className={styles.formField}>
+                    <span>Country</span>
+                    <input
+                      value={verificationForm.country}
+                      onChange={(event) =>
+                        setVerificationForm((prev) => ({
+                          ...prev,
+                          country: event.target.value,
+                        }))
+                      }
+                      required
+                    />
+                  </label>
+                  <label className={styles.formField}>
+                    <span>Membership type</span>
+                    <select
+                      value={verificationForm.membershipType}
+                      onChange={(event) =>
+                        setVerificationForm((prev) => ({
+                          ...prev,
+                          membershipType: event.target.value,
+                        }))
+                      }
+                      required
+                    >
+                      <option value="" disabled>
+                        Choose membership
+                      </option>
+                      <option>Individual</option>
+                      <option>Couple / household</option>
+                      <option>Family</option>
+                      <option>Community organizer</option>
+                    </select>
+                  </label>
+                  <label className={styles.formField}>
+                    <span>Government ID type</span>
+                    <select
+                      value={verificationForm.idType}
+                      onChange={(event) =>
+                        setVerificationForm((prev) => ({
+                          ...prev,
+                          idType: event.target.value,
+                        }))
+                      }
+                      required
+                    >
+                      <option value="" disabled>
+                        Choose ID type
+                      </option>
+                      <option>Passport</option>
+                      <option>Driver&apos;s license</option>
+                      <option>National ID card</option>
+                    </select>
+                  </label>
+                </div>
+
+                <label className={styles.formField}>
+                  <span>Upload government ID (JPG, PNG, WEBP, PDF • max 10MB)</span>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,application/pdf"
+                    onChange={(event) =>
+                      setVerificationForm((prev) => ({
+                        ...prev,
+                        idDocument: event.target.files?.[0] ?? null,
+                      }))
+                    }
+                    required
+                  />
+                  <small>
+                    Your ID is only used for manual review and is never shown on
+                    your profile.
+                  </small>
+                </label>
+
+                <label className={styles.formField}>
+                  <span>Why are you joining this community? (30+ chars)</span>
+                  <textarea
+                    value={verificationForm.motivation}
+                    onChange={(event) =>
+                      setVerificationForm((prev) => ({
+                        ...prev,
+                        motivation: event.target.value,
+                      }))
+                    }
+                    minLength={30}
+                    placeholder="Share your naturist values, boundaries, and what respectful participation means to you."
+                    required
+                  />
+                </label>
+
+                <div className={styles.confirmationGrid}>
+                  {[
+                    [
+                      "isAdultConfirmed",
+                      "I confirm I am 18+ and applying with my own ID.",
+                    ],
+                    [
+                      "isConsentConfirmed",
+                      "I agree to consent-first, respectful community behavior.",
+                    ],
+                    [
+                      "isPhotoRuleConfirmed",
+                      "I will not screenshot, save, or share member media without consent.",
+                    ],
+                    [
+                      "isPolicyConfirmed",
+                      "I understand full participation starts only after approval.",
+                    ],
+                  ].map(([key, label]) => (
+                    <label key={key} className={styles.confirmationRow}>
+                      <input
+                        type="checkbox"
+                        checked={
+                          Boolean(
+                            verificationForm[
+                              key as keyof VerificationApplicationForm
+                            ],
+                          )
+                        }
+                        onChange={(event) =>
+                          setVerificationForm((prev) => ({
+                            ...prev,
+                            [key]: event.target.checked,
+                          }))
+                        }
+                        required
+                      />
+                      <span>{label}</span>
+                    </label>
+                  ))}
+                </div>
+
+                {verificationStatusMessage ? (
+                  <p className={styles.statusNote}>{verificationStatusMessage}</p>
+                ) : null}
+                {verificationErrorMessage ? (
+                  <p className={styles.errorNote}>{verificationErrorMessage}</p>
+                ) : null}
+
+                <button
+                  className={styles.verificationSubmit}
+                  type="submit"
+                  disabled={isSubmittingVerification}
+                >
+                  {isSubmittingVerification
+                    ? "Submitting for review..."
+                    : "Submit ID verification"}
+                </button>
+              </form>
+            </section>
+          ) : null}
 
           <div className={styles.dashboardGrid}>
             <aside className={styles.navPanel} aria-label="Settings subjects">

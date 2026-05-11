@@ -8,6 +8,7 @@ import { MapSpotPopup } from "@/components/explore/map-spot-popup";
 import overlayStyles from "./map-stage-client.module.css";
 import { Button } from "@/components/ui/button";
 import { buildUserScopedCacheKey, loadCachedThenRefresh } from "@/lib/client-cache";
+import { canCurrentUserAct, VIEW_ONLY_ACTION_MESSAGE } from "@/lib/client-action-access";
 import { takePrefetchedRouteData } from "@/lib/prefetched-route-data";
 import { promptAndSubmitReport } from "@/lib/reporting";
 import { supabase } from "@/lib/supabase";
@@ -388,6 +389,7 @@ export function MapStageClient() {
   const [isResolvingLocationRequest, setIsResolvingLocationRequest] = useState(false);
   const [isSubmittingLocationRequest, setIsSubmittingLocationRequest] = useState(false);
   const [locationRequestFeedback, setLocationRequestFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [isViewerActionLocked, setViewerActionLocked] = useState(false);
   const [open, setOpen] = useState(false);
   const [isPickingFromMap, setIsPickingFromMap] = useState(false);
   const [selectedSpot, setSelectedSpot] = useState<Spot | null>(null);
@@ -411,6 +413,38 @@ export function MapStageClient() {
   
   const searchInputId = "explore-search";
   const searchSubmitButtonId = "explore-search-submit";
+
+  useEffect(() => {
+    let isMounted = true;
+
+    void supabase.auth.getUser().then(async ({ data }) => {
+      const user = data.user;
+      if (!user) {
+        if (isMounted) setViewerActionLocked(true);
+        return;
+      }
+
+      const canAct = await canCurrentUserAct(user.id);
+      if (isMounted) setViewerActionLocked(!canAct);
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  function getLockedActionFeedback(action: string) {
+    return `${VIEW_ONLY_ACTION_MESSAGE} Verify with ID to ${action}.`;
+  }
+
+  function openLocationRequestModal() {
+    if (isViewerActionLocked) {
+      setLocationRequestFeedback({ type: "error", message: getLockedActionFeedback("request new locations") });
+      return;
+    }
+
+    setRequestOpen(true);
+  }
 
   useEffect(() => {
     let mounted = true;
@@ -961,6 +995,11 @@ export function MapStageClient() {
     event.preventDefault();
     setLocationRequestFeedback(null);
 
+    if (isViewerActionLocked) {
+      setLocationRequestFeedback({ type: "error", message: getLockedActionFeedback("request new locations") });
+      return;
+    }
+
     if (!locationRequestForm.placeName.trim()) {
       setLocationRequestFeedback({ type: "error", message: "Add the location or stay name first." });
       return;
@@ -1022,6 +1061,11 @@ export function MapStageClient() {
   async function handleSpotCheckIn() {
     if (!selectedSpot || isCheckingIn) return;
 
+    if (isViewerActionLocked) {
+      setCheckInError(getLockedActionFeedback("check in to locations"));
+      return;
+    }
+
     setIsCheckingIn(true);
     setCheckInError(null);
 
@@ -1061,6 +1105,11 @@ export function MapStageClient() {
   }
 
   function beginMapPicking() {
+    if (isViewerActionLocked) {
+      setSubmitFeedback({ type: "error", message: getLockedActionFeedback("create locations") });
+      return;
+    }
+
     setIsPickingFromMap(true);
   }
 
@@ -1074,6 +1123,11 @@ export function MapStageClient() {
   async function handleLocationSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitFeedback(null);
+
+    if (isViewerActionLocked) {
+      setSubmitFeedback({ type: "error", message: getLockedActionFeedback("create locations") });
+      return;
+    }
 
     const latitude = Number(locationForm.latitude);
     const longitude = Number(locationForm.longitude);
@@ -1304,6 +1358,7 @@ export function MapStageClient() {
             mood={selectedSpot.mood ?? "Quiet"}
             checkInCount={selectedSpot.checkInCount ?? 0}
             isCheckingIn={isCheckingIn}
+            isActionLocked={isViewerActionLocked}
             checkInError={checkInError}
             reportStatus={spotReportStatus}
             onCheckIn={() => void handleSpotCheckIn()}
@@ -1325,12 +1380,12 @@ export function MapStageClient() {
       <div className="absolute bottom-3 left-3 z-20 sm:bottom-4 sm:left-4">
         <Button
           type="button"
-          onClick={() => setRequestOpen(true)}
-          aria-label="Request a location"
+          onClick={openLocationRequestModal}
+          aria-label={isViewerActionLocked ? "Verify with ID to request a location" : "Request a location"}
           className="h-12 rounded-full bg-[rgb(var(--brand))] px-4 text-[rgb(var(--text-inverse))] shadow-[0_14px_34px_rgb(var(--brand)/0.28)] hover:bg-[rgb(var(--brand-2))]"
         >
           <MapPin size={20} aria-hidden="true" />
-          <span className="ml-2">Request location</span>
+          <span className="ml-2">{isViewerActionLocked ? "Verify to request" : "Request location"}</span>
         </Button>
       </div>
 
@@ -1471,8 +1526,8 @@ export function MapStageClient() {
               <Button type="button" variant="outline" onClick={() => setLocationRequestForm(INITIAL_LOCATION_REQUEST_FORM)}>
                 Reset
               </Button>
-              <Button type="submit" disabled={isSubmittingLocationRequest}>
-                {isSubmittingLocationRequest ? "Sending..." : "Send request"}
+              <Button type="submit" disabled={isSubmittingLocationRequest || isViewerActionLocked}>
+                {isSubmittingLocationRequest ? "Sending..." : isViewerActionLocked ? "Verify to send" : "Send request"}
               </Button>
             </div>
           </form>
@@ -1859,10 +1914,10 @@ export function MapStageClient() {
                   </Button>
                   <Button
                     type="submit"
-                    disabled={isSubmittingLocation}
+                    disabled={isSubmittingLocation || isViewerActionLocked}
                     className="flex-1 bg-[rgb(var(--brand))] text-[rgb(var(--text-inverse))] sm:flex-none"
                   >
-                    {isSubmittingLocation ? "Submitting..." : "Submit location"}
+                    {isSubmittingLocation ? "Submitting..." : isViewerActionLocked ? "Verify to submit" : "Submit location"}
                   </Button>
                 </div>
               </div>

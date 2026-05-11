@@ -4,6 +4,7 @@ import {
   isSupabaseAdminConfigured,
 } from "@/lib/supabase-admin";
 import { normalizeUsername } from "@/lib/username";
+import { buildVisitorTrialMetadata } from "@/lib/visitor-trial";
 
 type RegisterBody = {
   fullName?: string;
@@ -281,6 +282,7 @@ export async function POST(req: Request) {
   }
 
   const supabaseAdmin = createSupabaseAdminClient();
+  const visitorTrialMetadata = isVerifiedApplication ? {} : buildVisitorTrialMetadata();
 
   const { data: createdUser, error: createUserError } =
     await supabaseAdmin.auth.admin.createUser({
@@ -299,6 +301,7 @@ export async function POST(req: Request) {
         account_access: accountAccess,
         verification_status: isVerifiedApplication ? "pending" : "unverified",
         motivation: isVerifiedApplication ? motivation : "",
+        ...visitorTrialMetadata,
       },
     });
 
@@ -395,6 +398,6 @@ export async function POST(req: Request) {
     ok: true,
     message: isVerifiedApplication
       ? "Account created with strict safety onboarding. Your profile remains in verification review before full access."
-      : "View-only account created. You can sign in to browse, but actions stay locked until you complete ID verification.",
+      : "Your 7-day Visitor Pass is ready. You can browse and preview BareUnity now; posting, messaging, friend requests, check-ins, and submissions unlock after ID verification.",
   });
 }

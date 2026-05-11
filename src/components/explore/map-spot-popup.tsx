@@ -10,6 +10,7 @@ type MapSpotPopupProps = {
   mood: string;
   checkInCount: number;
   isCheckingIn?: boolean;
+  isActionLocked?: boolean;
   checkInError?: string | null;
   reportStatus?: string | null;
   onCheckIn?: () => void;
@@ -36,6 +37,7 @@ export function MapSpotPopup({
   mood,
   checkInCount,
   isCheckingIn = false,
+  isActionLocked = false,
   checkInError,
   reportStatus,
   onCheckIn,
@@ -115,8 +117,8 @@ export function MapSpotPopup({
         </section>
 
         <div className={styles.actions}>
-          <button type="button" className={styles.cta} onClick={onCheckIn} disabled={isCheckingIn}>
-            {isCheckingIn ? "Checking in..." : "Check in here"}
+          <button type="button" className={styles.cta} onClick={onCheckIn} disabled={isCheckingIn || isActionLocked}>
+            {isCheckingIn ? "Checking in..." : isActionLocked ? "Verify to check in" : "Check in here"}
           </button>
           <button type="button" className={styles.secondaryCta} onClick={onReport}>
             Report this spot

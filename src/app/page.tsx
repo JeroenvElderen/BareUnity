@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type MouseEvent, type PointerEvent } from "react";
 import { ChevronDown, Ellipsis, Flag, Heart, MessageCircle, Pencil, Trash2, X } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { AppSidebar } from "@/components/sidebar/sidebar";
 import { UsernameActionPopup } from "@/components/social/username-action-popup";
@@ -17,6 +18,7 @@ import { HOME_FEED_REALTIME_TABLES, subscribeToTables } from "@/lib/realtime";
 import { promptAndSubmitReport, type ReportTargetType } from "@/lib/reporting";
 import { takePrefetchedRouteData } from "@/lib/prefetched-route-data";
 import { supabase } from "@/lib/supabase";
+import { getVisitorTrialStatus, type VisitorTrialStatus } from "@/lib/visitor-trial";
 import styles from "./page.module.css";
 
 function normalizePostText(text: string) {
@@ -97,6 +99,11 @@ function normalizeFeedPayload(payload: HomeFeedPayload | null | undefined): Home
 const HOME_FEED_CACHE_MAX_AGE_MS = 1000 * 60 * 15;
 const STORY_VIEW_MS = 7000;
 const STORY_HOLD_MIN_MS = 180;
+type ViewerActionSettings = {
+  onboarding_completed: boolean | null;
+  user_role: string | null;
+};
+
 type LikePreviewUser = {
   userId: string;
   name: string;
@@ -147,6 +154,8 @@ export default function HomePage() {
   const [isStoryTimerPaused, setStoryTimerPaused] = useState(false);
   const [seenStoryIds, setSeenStoryIds] = useState<Set<string>>(() => new Set());
   const [reportStatus, setReportStatus] = useState("");
+  const [visitorTrialStatus, setVisitorTrialStatus] = useState<VisitorTrialStatus | null>(null);
+  const [isViewerActionLocked, setViewerActionLocked] = useState(false);
   const storyTimerStartedAtRef = useRef<number | null>(null);
   const storyHoldStartedAtRef = useRef<number | null>(null);
   const suppressStoryTapRef = useRef(false);
@@ -240,6 +249,30 @@ export default function HomePage() {
       if (postImagePreview) URL.revokeObjectURL(postImagePreview);
     };
   }, [postImagePreview]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    void supabase.auth.getUser().then(async ({ data }) => {
+      const user = data.user;
+      if (!user || !isMounted) return;
+
+      setVisitorTrialStatus(getVisitorTrialStatus(user.user_metadata));
+
+      const { data: settings } = await supabase
+        .from("profile_settings")
+        .select("onboarding_completed,user_role")
+        .eq("user_id", user.id)
+        .maybeSingle<ViewerActionSettings>();
+
+      if (!isMounted) return;
+      setViewerActionLocked(!settings || settings.user_role === "view_only" || settings.onboarding_completed !== true);
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     return subscribeToTables({
@@ -629,6 +662,23 @@ export default function HomePage() {
     window.setTimeout(() => setReportStatus(""), 4500);
   };
 
+  const showActionLockedMessage = () => {
+    const visitorPrefix = visitorTrialStatus?.isActive
+      ? `Your Visitor Pass has ${visitorTrialStatus.daysRemaining} day${visitorTrialStatus.daysRemaining === 1 ? "" : "s"} left for browsing and previewing.`
+      : "Visitor and pending accounts can browse BareUnity.";
+    setReportStatus(`${visitorPrefix} Verify with ID to post, comment, message, send friend requests, check in, or submit places.`);
+    window.setTimeout(() => setReportStatus(""), 6500);
+  };
+
+  const openComposer = () => {
+    if (isViewerActionLocked) {
+      showActionLockedMessage();
+      return;
+    }
+
+    setComposerOpen(true);
+  };
+
   const closeComposer = () => {
     setComposerOpen(false);
     setComposerKind(null);
@@ -672,11 +722,26 @@ export default function HomePage() {
               >
                 For you
               </button>
-              <Button size="sm" onClick={() => setComposerOpen(true)} className={styles.feedCreateButton}>
-                Create
+              <Button size="sm" onClick={openComposer} className={styles.feedCreateButton}>
+                {isViewerActionLocked ? "Verify to create" : "Create"}
               </Button>
             </div>
           </header>
+
+          {visitorTrialStatus?.isVisitorTrial ? (
+            <div className={styles.visitorTrialBanner}>
+              <div>
+                <p className={styles.visitorTrialEyebrow}>7-day Visitor Pass</p>
+                <h2>{visitorTrialStatus.isActive ? `${visitorTrialStatus.daysRemaining} day${visitorTrialStatus.daysRemaining === 1 ? "" : "s"} of browsing left` : "Visitor Pass ended"}</h2>
+                <p>
+                  Preview feeds, profiles, places, and community value. Member-impacting actions stay locked until ID verification protects the community.
+                </p>
+              </div>
+              <Link href="/settings#verification" className={styles.visitorTrialLink}>
+                Verification settings
+              </Link>
+            </div>
+          ) : null}
 
           {reportStatus ? (
             <p className="mb-4 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] px-3 py-2 text-sm text-[rgb(var(--text-strong))]">{reportStatus}</p>

@@ -77,7 +77,8 @@ export default function RegisterPage() {
   }, [router]);
 
   const isVerifiedApplication = form.accountAccess === "verified";
-
+  const accountAccessLabel = isVerifiedApplication ? "Verified member" : "7-day Visitor Pass";
+  
   const quizScore = useMemo(() => {
     const answers = [
       form.quizAnswerRespect,
@@ -435,9 +436,9 @@ export default function RegisterPage() {
                 <span>
                   <strong>Verified with ID</strong>
                   <small>
-                    Upload a government ID for manual review. After approval,
-                    you can post, comment, like, message, request friendships,
-                    check in, and submit places.
+                    Upload a government ID to unlock full member participation:
+                    post, comment, like, message, request friendships, check in,
+                    and submit places once verification is complete.
                   </small>
                 </span>
               </label>
@@ -460,15 +461,26 @@ export default function RegisterPage() {
                   }
                 />
                 <span>
-                  <strong>Not verified / view-only</strong>
+                  <strong>7-day Visitor Pass</strong>
                   <small>
-                    No ID upload is needed. You can sign in and see platform
-                    content, but you cannot take actions until you upgrade to
-                    verified review.
+                    No ID upload is needed. Browse and preview the community for
+                    7 days; posting, messaging, friend requests, check-ins, and
+                    submissions stay locked until ID verification.
                   </small>
                 </span>
               </label>
             </fieldset>
+
+            {!isVerifiedApplication ? (
+              <div className={styles.trialBanner}>
+                <strong>Your Visitor Pass includes 7 days of browsing.</strong>
+                <span>
+                  You can explore feeds, profiles, places, and community value.
+                  To interact with members or publish content, switch to
+                  Verified with ID anytime.
+                </span>
+              </div>
+            ) : null}
 
             <p className={styles.sectionLabel}>C. Safety checks</p>
             {isVerifiedApplication ? (
@@ -726,7 +738,7 @@ export default function RegisterPage() {
                 ? "Submitting registration..."
                 : isVerifiedApplication
                   ? "Create account and submit for review"
-                  : "Create view-only account"}
+                  : "Start 7-day Visitor Pass"}
             </button>
 
             {status ? <p className={styles.help}>{status}</p> : null}
@@ -748,9 +760,9 @@ export default function RegisterPage() {
         </article>
 
         <p className={styles.legal}>
-          Verified accounts remain in manual review before full privileges are
-          granted. View-only accounts can browse immediately but cannot take
-          actions until verified.
+          {accountAccessLabel} keeps BareUnity consent-first: visitors can
+          preview the community for 7 days, while member-impacting actions stay
+          reserved for verified accounts.
         </p>
       </section>
     </main>
