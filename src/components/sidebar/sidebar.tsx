@@ -25,15 +25,23 @@ import {
   X,
 } from "lucide-react";
 
+import { LOCATION_REQUEST_PREFIX } from "@/lib/location-requests";
 import { logoutUser } from "@/lib/logout";
-import { applyColorMode, COLOR_MODE_STORAGE_KEY, ColorModePreference, isColorModePreference } from "@/lib/color-mode";
+import {
+  applyColorMode,
+  COLOR_MODE_STORAGE_KEY,
+  ColorModePreference,
+  isColorModePreference,
+} from "@/lib/color-mode";
 import { supabase } from "@/lib/supabase";
 import { AppNotification, useUIStore } from "@/stores/ui-store";
 import { SidebarProfileLink } from "./profile-link";
 import styles from "./sidebar.module.css";
 
 const ADMIN_EMAIL = "jeroen.vanelderen@hotmail.com";
-const SYSTEM_NOTIFICATION_PERMISSION_REQUESTED_KEY = "bareunity_system_notification_permission_requested";
+const SYSTEM_NOTIFICATION_PERMISSION_REQUESTED_KEY =
+  "bareunity_system_notification_permission_requested";
+const NOTIFICATION_POLL_INTERVAL_MS = 30_000;
 
 type NavItem = {
   icon: typeof Home;
@@ -65,16 +73,20 @@ const workspaceItems = [
   { icon: ScrollText, label: "Policies", href: "/policies" },
 ] satisfies readonly NavItem[];
 
-const relativeTimeFormatter = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+const relativeTimeFormatter = new Intl.RelativeTimeFormat("en", {
+  numeric: "auto",
+});
 
 function formatRelativeTime(timestamp: string) {
   const diffMs = new Date(timestamp).getTime() - Date.now();
   const diffMinutes = Math.round(diffMs / 60000);
 
-  if (Math.abs(diffMinutes) < 60) return relativeTimeFormatter.format(diffMinutes, "minute");
+  if (Math.abs(diffMinutes) < 60)
+    return relativeTimeFormatter.format(diffMinutes, "minute");
 
   const diffHours = Math.round(diffMinutes / 60);
-  if (Math.abs(diffHours) < 48) return relativeTimeFormatter.format(diffHours, "hour");
+  if (Math.abs(diffHours) < 48)
+    return relativeTimeFormatter.format(diffHours, "hour");
 
   const diffDays = Math.round(diffHours / 24);
   return relativeTimeFormatter.format(diffDays, "day");
@@ -119,7 +131,9 @@ export function AppSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isRoomsOpen, setIsRoomsOpen] = useState(pathname === "/discussion" || pathname === "/video-room");
+  const [isRoomsOpen, setIsRoomsOpen] = useState(
+    pathname === "/discussion" || pathname === "/video-room",
+  );
   const [isBookingsOpen, setIsBookingsOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const isAdminSection = pathname?.startsWith("/admin") ?? false;
@@ -142,19 +156,42 @@ export function AppSidebar() {
   const hasRealtimeFailureNoticeRef = useRef(false);
   const notifications = useUIStore((state) => state.notifications);
   const clearNotifications = useUIStore((state) => state.clearNotifications);
+  const setNotifications = useUIStore((state) => state.setNotifications);
   const pushNotification = useUIStore((state) => state.pushNotification);
-  const markNotificationAsRead = useUIStore((state) => state.markNotificationAsRead);
-  const markAllNotificationsAsRead = useUIStore((state) => state.markAllNotificationsAsRead);
-  const unreadNotifications = notifications.filter((notification) => notification.unread).length;
-  const isUserOnlineInPlatform = useCallback(() => {
-    if (typeof window === "undefined") return false;
-    return navigator.onLine && document.visibilityState === "visible" && document.hasFocus();
+  const markNotificationAsRead = useUIStore(
+    (state) => state.markNotificationAsRead,
+  );
+  const markAllNotificationsAsRead = useUIStore(
+    (state) => state.markAllNotificationsAsRead,
+  );
+  const unreadNotifications = notifications.filter(
+    (notification) => notification.unread,
+  ).length;
+  const requestSystemNotificationPermission = useCallback(async () => {
+    if (typeof window === "undefined") return;
+    if (!("Notification" in window)) return;
+    if (Notification.permission !== "default") return;
+
+    hasRequestedSystemNotificationPermissionRef.current = true;
+    const permission = await Notification.requestPermission();
+    if (permission === "default") {
+      hasRequestedSystemNotificationPermissionRef.current = false;
+      return;
+    }
+
+    window.localStorage.setItem(
+      SYSTEM_NOTIFICATION_PERMISSION_REQUESTED_KEY,
+      "true",
+    );
   }, []);
 
-  const pushLiveNotification = useCallback((notification: AppNotification) => {
-    if (!isUserOnlineInPlatform()) return;
-    pushNotification(notification);
-  }, [isUserOnlineInPlatform, pushNotification]);
+  const pushLiveNotification = useCallback(
+    (notification: AppNotification) => {
+      if (typeof window !== "undefined" && !window.navigator.onLine) return;
+      pushNotification(notification);
+    },
+    [pushNotification],
+  );
 
   const onLogout = async () => {
     await logoutUser();
@@ -213,12 +250,59 @@ export function AppSidebar() {
     if (Notification.permission !== "default") return;
     if (hasRequestedSystemNotificationPermissionRef.current) return;
     if (!viewerId) return;
-    if (window.localStorage.getItem(SYSTEM_NOTIFICATION_PERMISSION_REQUESTED_KEY) === "true") return;
+    if (
+      window.localStorage.getItem(
+        SYSTEM_NOTIFICATION_PERMISSION_REQUESTED_KEY,
+      ) === "true"
+    )
+      return;
 
-    hasRequestedSystemNotificationPermissionRef.current = true;
-    window.localStorage.setItem(SYSTEM_NOTIFICATION_PERMISSION_REQUESTED_KEY, "true");
-    void Notification.requestPermission();
-  }, [viewerId]);
+    void requestSystemNotificationPermission();
+  }, [requestSystemNotificationPermission, viewerId]);
+
+  useEffect(() => {
+    if (!viewerId) return;
+
+    let isMounted = true;
+    let isInitialFetch = true;
+
+    const loadNotifications = async () => {
+      try {
+        const response = await fetch("/api/notifications", {
+          cache: "no-store",
+        });
+        if (!response.ok) return;
+
+        const payload = (await response.json()) as {
+          notifications?: AppNotification[];
+        };
+        if (!isMounted || !Array.isArray(payload.notifications)) return;
+
+        if (isInitialFetch) {
+          payload.notifications.forEach((notification) => {
+            seenNotificationIdsRef.current.add(notification.id);
+          });
+          hasSeenInitialNotificationsRef.current = true;
+          isInitialFetch = false;
+        }
+
+        setNotifications(payload.notifications);
+      } catch (error) {
+        console.debug("Could not load notifications", error);
+      }
+    };
+
+    void loadNotifications();
+    const interval = window.setInterval(
+      () => void loadNotifications(),
+      NOTIFICATION_POLL_INTERVAL_MS,
+    );
+
+    return () => {
+      isMounted = false;
+      window.clearInterval(interval);
+    };
+  }, [setNotifications, viewerId]);
 
   useEffect(() => {
     if (!hasSeenInitialNotificationsRef.current) {
@@ -229,17 +313,25 @@ export function AppSidebar() {
       return;
     }
 
-    const freshNotifications = notifications.filter((notification) => !seenNotificationIdsRef.current.has(notification.id));
+    const freshNotifications = notifications.filter(
+      (notification) => !seenNotificationIdsRef.current.has(notification.id),
+    );
     if (!freshNotifications.length) return;
 
     freshNotifications.forEach((notification) => {
       seenNotificationIdsRef.current.add(notification.id);
     });
 
-    const unreadFreshNotifications = freshNotifications.filter((notification) => notification.unread);
+    const unreadFreshNotifications = freshNotifications.filter(
+      (notification) => notification.unread,
+    );
     if (!unreadFreshNotifications.length) return;
 
-    if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+    if (
+      typeof window !== "undefined" &&
+      "Notification" in window &&
+      Notification.permission === "granted"
+    ) {
       unreadFreshNotifications.forEach((notification) => {
         const browserNotification = new Notification(notification.title, {
           body: notification.detail,
@@ -255,14 +347,19 @@ export function AppSidebar() {
 
     setActiveToasts((current) => {
       const dedupedCurrent = current.filter(
-        (existingToast) => !unreadFreshNotifications.some((freshToast) => freshToast.id === existingToast.id),
+        (existingToast) =>
+          !unreadFreshNotifications.some(
+            (freshToast) => freshToast.id === existingToast.id,
+          ),
       );
       return [...unreadFreshNotifications, ...dedupedCurrent].slice(0, 3);
     });
 
     const timers = unreadFreshNotifications.map((notification) =>
       window.setTimeout(() => {
-        setActiveToasts((current) => current.filter((toast) => toast.id !== notification.id));
+        setActiveToasts((current) =>
+          current.filter((toast) => toast.id !== notification.id),
+        );
       }, 6500),
     );
 
@@ -297,7 +394,8 @@ export function AppSidebar() {
       if (typeof window === "undefined") return;
       if (!window.navigator.onLine) return;
       if (document.visibilityState === "hidden") return;
-      if (supabase.realtime.isConnected() || supabase.realtime.isConnecting()) return;
+      if (supabase.realtime.isConnected() || supabase.realtime.isConnecting())
+        return;
       supabase.realtime.connect();
     };
 
@@ -309,7 +407,7 @@ export function AppSidebar() {
       document.removeEventListener("visibilitychange", reconnectRealtime);
     };
   }, [viewerId]);
-  
+
   useEffect(() => {
     if (!viewerId) return;
 
@@ -318,58 +416,79 @@ export function AppSidebar() {
 
     const postVotesChannel = supabase
       .channel(`notifications-post-votes-${viewerId}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "post_votes" }, ({ new: row }) => {
-        const payload = row as { user_id?: string; post_id?: string };
-        if (!payload.post_id || payload.user_id === viewerId) return;
-        pushLiveNotification(
-          createNotification(
-            "New like on a post",
-            "Someone liked a post in the feed.",
-            "post-like",
-            `/?postId=${payload.post_id}`,
-          ),
-        );
-      });
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "post_votes" },
+        ({ new: row }) => {
+          const payload = row as { user_id?: string; post_id?: string };
+          if (!payload.post_id || payload.user_id === viewerId) return;
+          pushLiveNotification(
+            createNotification(
+              "New like on a post",
+              "Someone liked a post in the feed.",
+              "post-like",
+              `/?postId=${payload.post_id}`,
+            ),
+          );
+        },
+      );
     channels.push(postVotesChannel);
 
     const commentsChannel = supabase
       .channel(`notifications-comments-${viewerId}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "comments" }, ({ new: row }) => {
-        const payload = row as { author_id?: string; post_id?: string };
-        if (!payload.post_id || payload.author_id === viewerId) return;
-        pushLiveNotification(
-          createNotification(
-            "New comment",
-            "A new comment was added to a feed post.",
-            "post-comment",
-            `/?postId=${payload.post_id}`,
-          ),
-        );
-      });
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "comments" },
+        ({ new: row }) => {
+          const payload = row as { author_id?: string; post_id?: string };
+          if (!payload.post_id || payload.author_id === viewerId) return;
+          pushLiveNotification(
+            createNotification(
+              "New comment",
+              "A new comment was added to a feed post.",
+              "post-comment",
+              `/?postId=${payload.post_id}`,
+            ),
+          );
+        },
+      );
     channels.push(commentsChannel);
 
     const galleryLikesChannel = supabase
       .channel(`notifications-gallery-likes-${viewerId}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "gallery_image_likes" }, ({ new: row }) => {
-        const payload = row as { image_path?: string; user_id?: string };
-        if (!payload.image_path || payload.user_id === viewerId) return;
-        if (!payload.image_path.includes(`/gallery/${viewerId}/`) && !payload.image_path.includes(`gallery/${viewerId}/`)) return;
-        pushLiveNotification(
-          createNotification(
-            "New gallery like",
-            "Someone liked one of your gallery uploads.",
-            "gallery-like",
-            `/gallery?imagePath=${encodeURIComponent(payload.image_path)}`,
-          ),
-        );
-      });
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "gallery_image_likes" },
+        ({ new: row }) => {
+          const payload = row as { image_path?: string; user_id?: string };
+          if (!payload.image_path || payload.user_id === viewerId) return;
+          if (
+            !payload.image_path.includes(`/gallery/${viewerId}/`) &&
+            !payload.image_path.includes(`gallery/${viewerId}/`)
+          )
+            return;
+          pushLiveNotification(
+            createNotification(
+              "New gallery like",
+              "Someone liked one of your gallery uploads.",
+              "gallery-like",
+              `/gallery?imagePath=${encodeURIComponent(payload.image_path)}`,
+            ),
+          );
+        },
+      );
     channels.push(galleryLikesChannel);
 
     const friendRequestsChannel = supabase
       .channel(`notifications-friend-requests-${viewerId}`)
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "friend_requests", filter: `receiver_id=eq.${viewerId}` },
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "friend_requests",
+          filter: `receiver_id=eq.${viewerId}`,
+        },
         ({ new: row }) => {
           const payload = row as { sender_username?: string };
           pushLiveNotification(
@@ -386,18 +505,32 @@ export function AppSidebar() {
 
     const mapSpotsChannel = supabase
       .channel(`notifications-map-spots-${viewerId}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "naturist_map_spots" }, ({ new: row }) => {
-        const payload = row as { submitted_by?: string; name?: string };
-        if (payload.submitted_by === viewerId) return;
-        pushLiveNotification(
-          createNotification("New map entry", `${payload.name ?? "A new location"} was added to the map.`, "map-entry", "/explore"),
-        );
-      });
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "naturist_map_spots" },
+        ({ new: row }) => {
+          const payload = row as { submitted_by?: string; name?: string };
+          if (payload.submitted_by === viewerId) return;
+          pushLiveNotification(
+            createNotification(
+              "New map entry",
+              `${payload.name ?? "A new location"} was added to the map.`,
+              "map-entry",
+              "/explore",
+            ),
+          );
+        },
+      );
     channels.push(mapSpotsChannel);
 
-    const videoPresenceChannel = supabase.channel(`notifications-video-presence-${viewerId}`);
+    const videoPresenceChannel = supabase.channel(
+      `notifications-video-presence-${viewerId}`,
+    );
     videoPresenceChannel.on("presence", { event: "sync" }, () => {
-      const state = videoPresenceChannel.presenceState<{ user_id?: string; name?: string }>();
+      const state = videoPresenceChannel.presenceState<{
+        user_id?: string;
+        name?: string;
+      }>();
       const currentUsers = new Set<string>();
       Object.entries(state).forEach(([key, presences]) => {
         const current = presences[presences.length - 1];
@@ -423,7 +556,12 @@ export function AppSidebar() {
         .channel(`notifications-general-messages-${generalChannelId}`)
         .on(
           "postgres_changes",
-          { event: "INSERT", schema: "public", table: "channel_messages", filter: `channel_id=eq.${generalChannelId}` },
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "channel_messages",
+            filter: `channel_id=eq.${generalChannelId}`,
+          },
           ({ new: row }) => {
             const payload = row as { author_id?: string };
             if (payload.author_id === viewerId) return;
@@ -443,26 +581,84 @@ export function AppSidebar() {
     if (isAdmin) {
       const reportsChannel = supabase
         .channel("notifications-admin-reports")
-        .on("postgres_changes", { event: "INSERT", schema: "public", table: "reports" }, () => {
-          pushLiveNotification(
-            createNotification("New report", "A new moderation report needs review.", "admin-report", "/admin/reports"),
-          );
-        });
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "reports" },
+          () => {
+            pushLiveNotification(
+              createNotification(
+                "New report",
+                "A new moderation report needs review.",
+                "admin-report",
+                "/admin/reports",
+              ),
+            );
+          },
+        );
       channels.push(reportsChannel);
 
       const registrationsChannel = supabase
         .channel("notifications-admin-registrations")
-        .on("postgres_changes", { event: "INSERT", schema: "public", table: "profiles" }, () => {
-          pushLiveNotification(
-            createNotification(
-              "New registration",
-              "A new member account has been created.",
-              "admin-registration",
-              "/admin/users",
-            ),
-          );
-        });
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "profiles" },
+          () => {
+            pushLiveNotification(
+              createNotification(
+                "New registration",
+                "A new member account has been created.",
+                "admin-registration",
+                "/admin/users",
+              ),
+            );
+          },
+        );
       channels.push(registrationsChannel);
+
+      const feedbackChannel = supabase
+        .channel("notifications-admin-feedback")
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "feedback_messages" },
+          ({ new: row }) => {
+            const payload = row as { message?: string };
+            const isLocationRequest =
+              payload.message?.startsWith(LOCATION_REQUEST_PREFIX) ?? false;
+            pushLiveNotification(
+              createNotification(
+                isLocationRequest ? "New location request" : "New feedback",
+                isLocationRequest
+                  ? "A member submitted a location request."
+                  : "A member sent new feedback.",
+                isLocationRequest ? "admin-location" : "admin-feedback",
+                isLocationRequest ? "/admin/locations" : "/admin/feedback",
+              ),
+            );
+          },
+        );
+      channels.push(feedbackChannel);
+
+      const verificationChannel = supabase
+        .channel("notifications-admin-verifications")
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "verification_submissions",
+          },
+          () => {
+            pushLiveNotification(
+              createNotification(
+                "New verification request",
+                "A member is waiting for verification review.",
+                "admin-verification",
+                "/admin/applications",
+              ),
+            );
+          },
+        );
+      channels.push(verificationChannel);
     }
 
     channels.forEach((channel) => {
@@ -474,8 +670,14 @@ export function AppSidebar() {
         if (status === "CLOSED" && isCleaningUp) {
           return;
         }
-        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
-          const detail = error?.message?.trim() || "Supabase Realtime channel failed to stay connected.";
+        if (
+          status === "CHANNEL_ERROR" ||
+          status === "TIMED_OUT" ||
+          status === "CLOSED"
+        ) {
+          const detail =
+            error?.message?.trim() ||
+            "Supabase Realtime channel failed to stay connected.";
           console.debug("Realtime notifications channel issue", {
             status,
             channel: channel.topic,
@@ -504,7 +706,8 @@ export function AppSidebar() {
   }, [generalChannelId, isAdmin, pushLiveNotification, viewerId]);
 
   useEffect(() => {
-    if (typeof document === "undefined" || typeof window === "undefined") return;
+    if (typeof document === "undefined" || typeof window === "undefined")
+      return;
 
     applyColorMode(colorMode);
     window.localStorage.setItem(COLOR_MODE_STORAGE_KEY, colorMode);
@@ -527,170 +730,40 @@ export function AppSidebar() {
     <>
       <div className={styles.sidebarRail} aria-hidden />
       <aside className={styles.sidebar} aria-label="Main sidebar navigation">
-      <header className={styles.header}>
-        <div className={styles.logoMark} aria-hidden>
-          <Sparkles size={16} />
-        </div>
-        <div>
-          <h1>BareUnity</h1>
-          <p>Connect • Share • Be free</p>
-        </div>
-        <button
-          type="button"
-          className={styles.mobileMenuButton}
-          aria-label={isMobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
-          aria-expanded={isMobileMenuOpen}
-          onClick={() => setIsMobileMenuOpen((current) => !current)}
+        <header className={styles.header}>
+          <div className={styles.logoMark} aria-hidden>
+            <Sparkles size={16} />
+          </div>
+          <div>
+            <h1>BareUnity</h1>
+            <p>Connect • Share • Be free</p>
+          </div>
+          <button
+            type="button"
+            className={styles.mobileMenuButton}
+            aria-label={
+              isMobileMenuOpen
+                ? "Close navigation menu"
+                : "Open navigation menu"
+            }
+            aria-expanded={isMobileMenuOpen}
+            onClick={() => setIsMobileMenuOpen((current) => !current)}
+          >
+            {isMobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
+          </button>
+        </header>
+
+        <div
+          className={`${styles.menuContent} ${isMobileMenuOpen ? styles.menuContentOpen : ""}`}
         >
-          {isMobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
-        </button>
-      </header>
-
-      <div className={`${styles.menuContent} ${isMobileMenuOpen ? styles.menuContentOpen : ""}`}>
-        <section className={styles.section}>
-          <p className={styles.sectionLabel}>Discover</p>
-          <nav>
-            {primaryItems.map(({ icon: Icon, label, href, badge }) => (
-              <Link key={label} href={href} className={`${styles.navItem} ${pathname === href ? styles.active : ""}`}>
-                <span className={styles.itemLeft}>
-                  <Icon size={18} aria-hidden />
-                  <span>{label}</span>
-                </span>
-                {badge ? <span className={styles.badge}>{badge}</span> : null}
-              </Link>
-            ))}
-            <div className={styles.dropdown}>
-              <button
-                type="button"
-                className={`${styles.navItem} ${styles.dropdownTrigger}`}
-                onClick={() => setIsBookingsOpen((current) => !current)}
-                aria-expanded={isBookingsOpen}
-              >
-                <span className={styles.itemLeft}>
-                  <Building2 size={18} aria-hidden />
-                  <span>Bookings</span>
-                </span>
-                <ChevronDown className={isBookingsOpen ? styles.chevronOpen : ""} size={16} aria-hidden />
-              </button>
-
-              {isBookingsOpen && (
-                <div className={styles.dropdownList}>
-                  {bookingItems.map(({ icon: Icon, label, href }) => (
-                    <Link
-                      key={label}
-                      href={href}
-                      className={`${styles.navItem} ${styles.dropdownItem} ${pathname === href ? styles.active : ""}`}
-                    >
-                      <span className={styles.itemLeft}>
-                        <Icon size={16} aria-hidden />
-                        <span>{label}</span>
-                      </span>
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
-          </nav>
-        </section>
-
-        <section className={styles.section}>
-          <p className={styles.sectionLabel}>Naturist Circle</p>
-          <nav>
-            <div className={styles.dropdown}>
-              <button
-                type="button"
-                className={`${styles.navItem} ${styles.dropdownTrigger}`}
-                onClick={() => setIsRoomsOpen((current) => !current)}
-                aria-expanded={isRoomsOpen}
-              >
-                <span className={styles.itemLeft}>
-                  <Users size={18} aria-hidden />
-                  <span>Discussion Rooms</span>
-                </span>
-                <ChevronDown className={isRoomsOpen ? styles.chevronOpen : ""} size={16} aria-hidden />
-              </button>
-
-              {isRoomsOpen && (
-                <div className={styles.dropdownList}>
-                  {discussionRooms.map((room) => (
-                    <Link
-                      key={room.name}
-                      href={room.href}
-                      className={`${styles.navItem} ${styles.dropdownItem} ${pathname === room.href ? styles.active : ""}`}
-                    >
-                      {room.name}
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {workspaceItems.map(({ icon: Icon, label, href, badge }) => {
-              if (label === "Notifications") {
-                return (
-                  <div key={label} className={styles.notificationPopoverWrap} ref={notificationsRef}>
-                    <button
-                      type="button"
-                      className={`${styles.navItem} ${styles.dropdownTrigger}`}
-                      onClick={() => setIsNotificationsOpen((current) => !current)}
-                      aria-expanded={isNotificationsOpen}
-                    >
-                      <span className={styles.itemLeft}>
-                        <Icon size={18} aria-hidden />
-                        <span>{label}</span>
-                      </span>
-                      <span className={styles.badge}>{unreadNotifications > 0 ? unreadNotifications : badge}</span>
-                    </button>
-
-                    {isNotificationsOpen ? (
-                      <div className={styles.notificationsPopup} role="dialog" aria-label="Notifications popup">
-                        <div className={styles.notificationsHeader}>
-                          <strong>Notifications</strong>
-                          <button
-                            type="button"
-                            className={styles.notificationsClearButton}
-                            onClick={markAllNotificationsAsRead}
-                            disabled={unreadNotifications === 0}
-                          >
-                            Mark all read
-                          </button>
-                        </div>
-                        <div className={styles.notificationsList}>
-                          {notifications.map((notification) => (
-                            <button
-                              type="button"
-                              key={notification.id}
-                              onClick={() => {
-                                markNotificationAsRead(notification.id);
-                                if (notification.targetHref) {
-                                  setIsNotificationsOpen(false);
-                                  void router.push(notification.targetHref);
-                                }
-                              }}
-                              className={`${styles.notificationItem} ${notification.unread ? styles.notificationUnread : ""}`}
-                            >
-                              <span>
-                                <strong>{notification.title}</strong>
-                                <small>{notification.detail}</small>
-                              </span>
-                              <em>{formatRelativeTime(notification.timestamp)}</em>
-                            </button>
-                          ))}
-                        </div>
-                        <Link href="/notifications" className={styles.notificationsFooterLink}>
-                          Open full notifications page
-                        </Link>
-                      </div>
-                    ) : null}
-                  </div>
-                );
-              }
-
-              return (
+          <section className={styles.section}>
+            <p className={styles.sectionLabel}>Discover</p>
+            <nav>
+              {primaryItems.map(({ icon: Icon, label, href, badge }) => (
                 <Link
                   key={label}
-                  href={href ?? "#"}
-                  className={`${styles.navItem} ${href && pathname === href ? styles.active : ""}`}
+                  href={href}
+                  className={`${styles.navItem} ${pathname === href ? styles.active : ""}`}
                 >
                   <span className={styles.itemLeft}>
                     <Icon size={18} aria-hidden />
@@ -698,27 +771,28 @@ export function AppSidebar() {
                   </span>
                   {badge ? <span className={styles.badge}>{badge}</span> : null}
                 </Link>
-              );
-            })}
-
-            {isAdmin ? (
+              ))}
               <div className={styles.dropdown}>
                 <button
                   type="button"
                   className={`${styles.navItem} ${styles.dropdownTrigger}`}
-                  onClick={() => setIsAdminOpen((current) => !current)}
-                  aria-expanded={isAdminOpen || isAdminSection}
+                  onClick={() => setIsBookingsOpen((current) => !current)}
+                  aria-expanded={isBookingsOpen}
                 >
                   <span className={styles.itemLeft}>
-                    <ShieldCheck size={18} aria-hidden />
-                    <span>Admin</span>
+                    <Building2 size={18} aria-hidden />
+                    <span>Bookings</span>
                   </span>
-                  <ChevronDown className={isAdminOpen || isAdminSection ? styles.chevronOpen : ""} size={16} aria-hidden />
+                  <ChevronDown
+                    className={isBookingsOpen ? styles.chevronOpen : ""}
+                    size={16}
+                    aria-hidden
+                  />
                 </button>
 
-                {(isAdminOpen || isAdminSection) && (
+                {isBookingsOpen && (
                   <div className={styles.dropdownList}>
-                    {adminItems.map(({ icon: Icon, label, href }) => (
+                    {bookingItems.map(({ icon: Icon, label, href }) => (
                       <Link
                         key={label}
                         href={href}
@@ -733,60 +807,256 @@ export function AppSidebar() {
                   </div>
                 )}
               </div>
-            ) : null}
+            </nav>
+          </section>
 
-            <button type="button" className={styles.navItem} onClick={() => void onLogout()}>
-              <span className={styles.itemLeft}>
-                <LogOut size={18} aria-hidden />
-                <span>Log out</span>
-              </span>
-            </button>
+          <section className={styles.section}>
+            <p className={styles.sectionLabel}>Naturist Circle</p>
+            <nav>
+              <div className={styles.dropdown}>
+                <button
+                  type="button"
+                  className={`${styles.navItem} ${styles.dropdownTrigger}`}
+                  onClick={() => setIsRoomsOpen((current) => !current)}
+                  aria-expanded={isRoomsOpen}
+                >
+                  <span className={styles.itemLeft}>
+                    <Users size={18} aria-hidden />
+                    <span>Discussion Rooms</span>
+                  </span>
+                  <ChevronDown
+                    className={isRoomsOpen ? styles.chevronOpen : ""}
+                    size={16}
+                    aria-hidden
+                  />
+                </button>
 
-            <button
-              type="button"
-              className={`${styles.navItem} ${styles.themeToggleButton}`}
-              onClick={() => setColorMode((current) => nextColorModeLabel[current])}
-              aria-label={`Switch color mode to ${nextColorModeLabel[colorMode]}`}
-            >
-              <span className={styles.itemLeft}>
-                <SunMoon size={18} aria-hidden />
-                <span>Theme: {colorMode.charAt(0).toUpperCase() + colorMode.slice(1)}</span>
-              </span>
-            </button>
-          </nav>
-        </section>
-        <SidebarProfileLink className={styles.mobileProfileCard} />
-      </div>
+                {isRoomsOpen && (
+                  <div className={styles.dropdownList}>
+                    {discussionRooms.map((room) => (
+                      <Link
+                        key={room.name}
+                        href={room.href}
+                        className={`${styles.navItem} ${styles.dropdownItem} ${pathname === room.href ? styles.active : ""}`}
+                      >
+                        {room.name}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
 
-      {activeToasts.length ? (
-        <div className={styles.toastStack} aria-live="polite" aria-label="Notification toasts">
-          {activeToasts.map((notification) => (
-            <article key={notification.id} className={styles.toastCard}>
+              {workspaceItems.map(({ icon: Icon, label, href, badge }) => {
+                if (label === "Notifications") {
+                  return (
+                    <div
+                      key={label}
+                      className={styles.notificationPopoverWrap}
+                      ref={notificationsRef}
+                    >
+                      <button
+                        type="button"
+                        className={`${styles.navItem} ${styles.dropdownTrigger}`}
+                        onClick={() => {
+                          void requestSystemNotificationPermission();
+                          setIsNotificationsOpen((current) => !current);
+                        }}
+                        aria-expanded={isNotificationsOpen}
+                      >
+                        <span className={styles.itemLeft}>
+                          <Icon size={18} aria-hidden />
+                          <span>{label}</span>
+                        </span>
+                        <span className={styles.badge}>
+                          {unreadNotifications > 0
+                            ? unreadNotifications
+                            : badge}
+                        </span>
+                      </button>
+
+                      {isNotificationsOpen ? (
+                        <div
+                          className={styles.notificationsPopup}
+                          role="dialog"
+                          aria-label="Notifications popup"
+                        >
+                          <div className={styles.notificationsHeader}>
+                            <strong>Notifications</strong>
+                            <button
+                              type="button"
+                              className={styles.notificationsClearButton}
+                              onClick={markAllNotificationsAsRead}
+                              disabled={unreadNotifications === 0}
+                            >
+                              Mark all read
+                            </button>
+                          </div>
+                          <div className={styles.notificationsList}>
+                            {notifications.map((notification) => (
+                              <button
+                                type="button"
+                                key={notification.id}
+                                onClick={() => {
+                                  markNotificationAsRead(notification.id);
+                                  if (notification.targetHref) {
+                                    setIsNotificationsOpen(false);
+                                    void router.push(notification.targetHref);
+                                  }
+                                }}
+                                className={`${styles.notificationItem} ${notification.unread ? styles.notificationUnread : ""}`}
+                              >
+                                <span>
+                                  <strong>{notification.title}</strong>
+                                  <small>{notification.detail}</small>
+                                </span>
+                                <em>
+                                  {formatRelativeTime(notification.timestamp)}
+                                </em>
+                              </button>
+                            ))}
+                          </div>
+                          <Link
+                            href="/notifications"
+                            className={styles.notificationsFooterLink}
+                          >
+                            Open full notifications page
+                          </Link>
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                }
+
+                return (
+                  <Link
+                    key={label}
+                    href={href ?? "#"}
+                    className={`${styles.navItem} ${href && pathname === href ? styles.active : ""}`}
+                  >
+                    <span className={styles.itemLeft}>
+                      <Icon size={18} aria-hidden />
+                      <span>{label}</span>
+                    </span>
+                    {badge ? (
+                      <span className={styles.badge}>{badge}</span>
+                    ) : null}
+                  </Link>
+                );
+              })}
+
+              {isAdmin ? (
+                <div className={styles.dropdown}>
+                  <button
+                    type="button"
+                    className={`${styles.navItem} ${styles.dropdownTrigger}`}
+                    onClick={() => setIsAdminOpen((current) => !current)}
+                    aria-expanded={isAdminOpen || isAdminSection}
+                  >
+                    <span className={styles.itemLeft}>
+                      <ShieldCheck size={18} aria-hidden />
+                      <span>Admin</span>
+                    </span>
+                    <ChevronDown
+                      className={
+                        isAdminOpen || isAdminSection ? styles.chevronOpen : ""
+                      }
+                      size={16}
+                      aria-hidden
+                    />
+                  </button>
+
+                  {(isAdminOpen || isAdminSection) && (
+                    <div className={styles.dropdownList}>
+                      {adminItems.map(({ icon: Icon, label, href }) => (
+                        <Link
+                          key={label}
+                          href={href}
+                          className={`${styles.navItem} ${styles.dropdownItem} ${pathname === href ? styles.active : ""}`}
+                        >
+                          <span className={styles.itemLeft}>
+                            <Icon size={16} aria-hidden />
+                            <span>{label}</span>
+                          </span>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : null}
+
               <button
                 type="button"
-                className={styles.toastContentButton}
-                onClick={() => {
-                  markNotificationAsRead(notification.id);
-                  setActiveToasts((current) => current.filter((toast) => toast.id !== notification.id));
-                  void router.push("/notifications");
-                }}
+                className={styles.navItem}
+                onClick={() => void onLogout()}
               >
-                <strong>{notification.title}</strong>
-                <p>{notification.detail}</p>
-                <small>{formatRelativeTime(notification.timestamp)}</small>
+                <span className={styles.itemLeft}>
+                  <LogOut size={18} aria-hidden />
+                  <span>Log out</span>
+                </span>
               </button>
+
               <button
                 type="button"
-                className={styles.toastCloseButton}
-                onClick={() => setActiveToasts((current) => current.filter((toast) => toast.id !== notification.id))}
-                aria-label="Dismiss notification"
+                className={`${styles.navItem} ${styles.themeToggleButton}`}
+                onClick={() =>
+                  setColorMode((current) => nextColorModeLabel[current])
+                }
+                aria-label={`Switch color mode to ${nextColorModeLabel[colorMode]}`}
               >
-                <X size={14} aria-hidden />
+                <span className={styles.itemLeft}>
+                  <SunMoon size={18} aria-hidden />
+                  <span>
+                    Theme:{" "}
+                    {colorMode.charAt(0).toUpperCase() + colorMode.slice(1)}
+                  </span>
+                </span>
               </button>
-            </article>
-          ))}
+            </nav>
+          </section>
+          <SidebarProfileLink className={styles.mobileProfileCard} />
         </div>
-      ) : null}
+
+        {activeToasts.length ? (
+          <div
+            className={styles.toastStack}
+            aria-live="polite"
+            aria-label="Notification toasts"
+          >
+            {activeToasts.map((notification) => (
+              <article key={notification.id} className={styles.toastCard}>
+                <button
+                  type="button"
+                  className={styles.toastContentButton}
+                  onClick={() => {
+                    markNotificationAsRead(notification.id);
+                    setActiveToasts((current) =>
+                      current.filter((toast) => toast.id !== notification.id),
+                    );
+                    void router.push(
+                      notification.targetHref ?? "/notifications",
+                    );
+                  }}
+                >
+                  <strong>{notification.title}</strong>
+                  <p>{notification.detail}</p>
+                  <small>{formatRelativeTime(notification.timestamp)}</small>
+                </button>
+                <button
+                  type="button"
+                  className={styles.toastCloseButton}
+                  onClick={() =>
+                    setActiveToasts((current) =>
+                      current.filter((toast) => toast.id !== notification.id),
+                    )
+                  }
+                  aria-label="Dismiss notification"
+                >
+                  <X size={14} aria-hidden />
+                </button>
+              </article>
+            ))}
+          </div>
+        ) : null}
       </aside>
     </>
   );
