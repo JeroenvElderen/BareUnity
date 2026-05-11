@@ -20,7 +20,7 @@ type PopupTab = "feedback" | "messages";
 export function FeedbackBubble() {
   const [isOpen, setIsOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [activeTab, setActiveTab] = useState<PopupTab>("feedback");
+  const [activeTab, setActiveTab] = useState<PopupTab>("messages");
   const [category, setCategory] = useState<(typeof categories)[number]["value"]>("idea");
   const [message, setMessage] = useState("");
   const [status, setStatus] = useState<FeedbackState>("idle");
@@ -100,8 +100,7 @@ export function FeedbackBubble() {
                 <Sparkles size={14} />
                 Community desk
               </span>
-              <h2 id="contact-popup-title">Feedback & messages</h2>
-              <p>Send notes to the admin team or chat privately with friends from the same quick-access popup.</p>
+              <h2 id="contact-popup-title">Feedback & chats</h2>
             </div>
             <button className={styles.iconButton} type="button" aria-label="Close contact popup" onClick={() => setIsOpen(false)}>
               <X size={18} />
@@ -113,22 +112,23 @@ export function FeedbackBubble() {
               className={styles.tabButton}
               type="button"
               role="tab"
+              aria-selected={activeTab === "messages"}
+              aria-controls="messages-panel"
+              onClick={() => setActiveTab("messages")}
+            >
+              Chats
+            </button>
+            <button
+              className={styles.tabButton}
+              type="button"
+              role="tab"
               aria-selected={activeTab === "feedback"}
               aria-controls="feedback-panel"
               onClick={() => setActiveTab("feedback")}
             >
               Feedback
             </button>
-            <button
-              className={styles.tabButton}
-              type="button"
-              role="tab"
-              aria-selected={activeTab === "messages"}
-              aria-controls="messages-panel"
-              onClick={() => setActiveTab("messages")}
-            >
-              Messages
-            </button>
+            
           </div>
 
           {activeTab === "feedback" ? (
