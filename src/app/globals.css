@@ -101,6 +101,17 @@ canvas {
   max-width: 100%;
 }
 
+:root[data-image-access="visitor"] img,
+:root[data-image-access="visitor"] [style*="background-image"] {
+  filter: blur(18px);
+  transform: scale(1.015);
+  transform-origin: center;
+}
+
+:root[data-image-access="visitor"] img {
+  transition: filter 180ms ease;
+}
+
 button,
 a,
 input,

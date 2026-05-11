@@ -23,6 +23,13 @@ type AuthGateProps = {
   children: ReactNode;
 };
 
+type ViewerImageAccess = "visitor" | "verified";
+
+type ViewerAccessSettingsRow = {
+  onboarding_completed: boolean | null;
+  user_role: string | null;
+};
+
 type GallerySnapshotPayload = {
   items?: Array<{ src?: unknown }>;
 };
@@ -100,6 +107,7 @@ export function AuthGate({ children }: AuthGateProps) {
   const [isReady, setIsReady] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [viewerId, setViewerId] = useState<string | null>(null);
+  const [viewerImageAccess, setViewerImageAccess] = useState<ViewerImageAccess>("visitor");
   const [isHydratingApp, setIsHydratingApp] = useState(() => {
     if (typeof window === "undefined") return false;
     return window.sessionStorage.getItem(POST_LOGIN_LOADER_FLAG) === "true";
@@ -131,6 +139,24 @@ export function AuthGate({ children }: AuthGateProps) {
       image.loading = "eager";
       image.src = src;
     });
+  }, []);
+
+  const syncViewerImageAccess = useCallback(async (userId: string) => {
+    setViewerImageAccess("visitor");
+
+    const { data, error } = await supabase
+      .from("profile_settings")
+      .select("onboarding_completed,user_role")
+      .eq("user_id", userId)
+      .maybeSingle<ViewerAccessSettingsRow>();
+
+    if (error) {
+      console.warn("Could not load viewer image access state", error.message);
+      return;
+    }
+
+    const isVerifiedMember = data?.onboarding_completed === true && data.user_role !== "view_only";
+    setViewerImageAccess(isVerifiedMember ? "verified" : "visitor");
   }, []);
 
   const isPublicPath = useMemo(() => {
@@ -420,6 +446,45 @@ export function AuthGate({ children }: AuthGateProps) {
     mediaQuery.addEventListener("change", onPreferenceChange);
     return () => mediaQuery.removeEventListener("change", onPreferenceChange);
   }, []);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+
+    if (!isAuthenticated || isPublicPath) {
+      delete document.documentElement.dataset.imageAccess;
+      return;
+    }
+
+    document.documentElement.dataset.imageAccess = viewerImageAccess;
+
+    return () => {
+      delete document.documentElement.dataset.imageAccess;
+    };
+  }, [isAuthenticated, isPublicPath, viewerImageAccess]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !viewerId) {
+      setViewerImageAccess("visitor");
+      return;
+    }
+
+    void syncViewerImageAccess(viewerId);
+
+    const profileSettingsChannel = supabase
+      .channel(`viewer-image-access:${viewerId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "profile_settings", filter: `user_id=eq.${viewerId}` },
+        () => {
+          void syncViewerImageAccess(viewerId);
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(profileSettingsChannel);
+    };
+  }, [isAuthenticated, syncViewerImageAccess, viewerId]);
 
   useEffect(() => {
     if (!viewerId) return;
