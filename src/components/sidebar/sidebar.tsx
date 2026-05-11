@@ -1,5 +1,6 @@
 "use client";
 
+import NextImage from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -19,7 +20,6 @@ import {
   ScrollText,
   ShieldCheck,
   SunMoon,
-  Sparkles,
   Users,
   Waves,
   X,
@@ -714,7 +714,14 @@ export function AppSidebar() {
       <aside className={styles.sidebar} aria-label="Main sidebar navigation">
         <header className={styles.header}>
           <div className={styles.logoMark} aria-hidden>
-            <Sparkles size={16} />
+            <NextImage
+              src="/logo.png"
+              alt=""
+              width={1254}
+              height={1254}
+              className={styles.logoImage}
+              priority
+            />
           </div>
           <div>
             <h1>BareUnity</h1>

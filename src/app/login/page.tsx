@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -106,7 +107,17 @@ export default function LoginPage() {
   return (
     <main className={styles.page}>
       <section className={styles.shell}>
-        <p className={styles.brand}>🌿 BareUnity • Welcome back</p>
+        <p className={styles.brand}>
+          <Image
+            src="/logo.png"
+            alt=""
+            width={1254}
+            height={1254}
+            className={styles.brandLogo}
+            priority
+          />
+          <span>BareUnity • Welcome back</span>
+        </p>
         <article className={styles.card}>
           <h1 className={styles.title}>Sign in to your account</h1>
           <p className={styles.subtitle}>

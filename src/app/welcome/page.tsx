@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -22,7 +23,17 @@ export default function WelcomePage() {
     <main className={styles.main}>
       <div className={styles.aura} />
       <section className={styles.shell}>
-        <p className={styles.brand}>🌿 BareUnity • Naturist Community</p>
+        <p className={styles.brand}>
+          <Image
+            src="/logo.png"
+            alt=""
+            width={1254}
+            height={1254}
+            className={styles.brandLogo}
+            priority
+          />
+          <span>BareUnity • Naturist Community</span>
+        </p>
         <article className={styles.card}>
           <p className={styles.kicker}>Private • Consent-first • Real community</p>
           <h1 className={styles.title}>Welcome to BareUnity</h1>
