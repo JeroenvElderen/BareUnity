@@ -34,10 +34,7 @@ function buildNonceHeaders(req: NextRequest) {
 }
 
 function applySecurityHeaders(res: NextResponse, contentSecurityPolicy: string) {
-  res.headers.set(
-    "Content-Security-Policy-Report-Only",
-    contentSecurityPolicy,
-  );
+  res.headers.set("Content-Security-Policy", contentSecurityPolicy);
   res.headers.set(
     "Strict-Transport-Security",
     "max-age=63072000; includeSubDomains; preload",
