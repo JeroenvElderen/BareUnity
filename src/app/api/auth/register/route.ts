@@ -1,3 +1,4 @@
+import { createHash, createHmac, randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import {
   createSupabaseAdminClient,
@@ -37,6 +38,48 @@ const ALLOWED_UPLOAD_TYPES = new Set([
   "image/webp",
   "application/pdf",
 ]);
+const UPLOAD_EXTENSION_BY_TYPE: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "application/pdf": "pdf",
+};
+const SIGNATURE_VALIDATORS: Record<string, (buffer: Buffer) => boolean> = {
+  "image/jpeg": (buffer) =>
+    buffer.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff])),
+  "image/png": (buffer) =>
+    buffer
+      .subarray(0, 8)
+      .equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])),
+  "image/webp": (buffer) =>
+    buffer.subarray(0, 4).toString("ascii") === "RIFF" &&
+    buffer.subarray(8, 12).toString("ascii") === "WEBP",
+  "application/pdf": (buffer) =>
+    buffer.subarray(0, 5).toString("ascii") === "%PDF-",
+};
+
+function createDocumentFingerprint(buffer: Buffer) {
+  const pepper = process.env.VERIFICATION_DOCUMENT_HASH_PEPPER;
+
+  if (!pepper && process.env.NODE_ENV === "production") {
+    throw new Error(
+      "VERIFICATION_DOCUMENT_HASH_PEPPER must be set in production.",
+    );
+  }
+
+  if (pepper) {
+    const digest = createHmac("sha256", pepper).update(buffer).digest("hex");
+    return `hmac-sha256:${digest}`;
+  }
+
+  const digest = createHash("sha256").update(buffer).digest("hex");
+  return `sha256:${digest}`;
+}
+
+function hasValidFileSignature(contentType: string, buffer: Buffer) {
+  const validator = SIGNATURE_VALIDATORS[contentType];
+  return Boolean(validator?.(buffer));
+}
 
 function buildUsername(fullName: string, displayName: string) {
   const base =
@@ -281,8 +324,36 @@ export async function POST(req: Request) {
     );
   }
 
+  let idDocumentBuffer: Buffer | null = null;
+  let idDocumentFingerprint: string | null = null;
+
+  if (isVerifiedApplication && idDocument) {
+    idDocumentBuffer = Buffer.from(await idDocument.arrayBuffer());
+
+    if (!hasValidFileSignature(idDocument.type, idDocumentBuffer)) {
+      return NextResponse.json(
+        { error: "ID file contents do not match the declared file type." },
+        { status: 400 },
+      );
+    }
+
+    try {
+      idDocumentFingerprint = createDocumentFingerprint(idDocumentBuffer);
+    } catch (error) {
+      console.error("Verification document fingerprint config error", error);
+      return NextResponse.json(
+        {
+          error: "Server verification document security config is incomplete.",
+        },
+        { status: 500 },
+      );
+    }
+  }
+
   const supabaseAdmin = createSupabaseAdminClient();
-  const visitorTrialMetadata = isVerifiedApplication ? {} : buildVisitorTrialMetadata();
+  const visitorTrialMetadata = isVerifiedApplication
+    ? {}
+    : buildVisitorTrialMetadata();
 
   const { data: createdUser, error: createUserError } =
     await supabaseAdmin.auth.admin.createUser({
@@ -316,15 +387,13 @@ export async function POST(req: Request) {
   const username = buildUsername(fullName, displayName);
   let idDocumentPath: string | null = null;
 
-  if (isVerifiedApplication && idDocument) {
-    const safeFileName = idDocument.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-    idDocumentPath = `${userId}/id-${Date.now()}-${safeFileName}`;
-
-    const idBuffer = Buffer.from(await idDocument.arrayBuffer());
+  if (isVerifiedApplication && idDocument && idDocumentBuffer) {
+    const extension = UPLOAD_EXTENSION_BY_TYPE[idDocument.type] ?? "bin";
+    idDocumentPath = `${userId}/id-${Date.now()}-${randomUUID()}.${extension}`;
 
     const { error: uploadError } = await supabaseAdmin.storage
       .from("verification-documents")
-      .upload(idDocumentPath, idBuffer, {
+      .upload(idDocumentPath, idDocumentBuffer, {
         contentType: idDocument.type,
         upsert: false,
       });
@@ -370,7 +439,11 @@ export async function POST(req: Request) {
         consent_code_accepted: true,
         terms_accepted: true,
         status: "pending",
-        reviewer_notes: `intent=${motivation};id_document_path=${idDocumentPath}`,
+        reviewer_notes: JSON.stringify({
+          intent: motivation,
+          idDocumentPath,
+          idDocumentFingerprint,
+        }),
       })
     : { error: null };
 
