@@ -2,6 +2,10 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { buildContentSecurityPolicy } from "./lib/security-headers";
 
+const ALLOWED_API_ORIGINS = new Set([
+  "https://www.bareunity.com",
+  "https://bareunity.com",
+]);
 const DEFAULT_CORS_METHODS = "GET,POST,PUT,PATCH,DELETE,OPTIONS";
 const DEFAULT_CORS_HEADERS = "Authorization, Content-Type, X-Requested-With";
 
@@ -22,6 +26,7 @@ function buildNonceHeaders(req: NextRequest) {
   const contentSecurityPolicy = buildContentSecurityPolicy(nonce);
   const requestHeaders = new Headers(req.headers);
 
+  // Next.js reads this request header to nonce framework-managed scripts/styles.
   requestHeaders.set("Content-Security-Policy", contentSecurityPolicy);
   requestHeaders.set("x-nonce", nonce);
 
@@ -29,8 +34,27 @@ function buildNonceHeaders(req: NextRequest) {
 }
 
 function applySecurityHeaders(res: NextResponse, contentSecurityPolicy: string) {
-  res.headers.set("Content-Security-Policy", contentSecurityPolicy);
-  res.headers.set("Access-Control-Allow-Origin", "https://www.bareunity.com");
+  res.headers.set(
+    "Content-Security-Policy-Report-Only",
+    contentSecurityPolicy,
+  );
+  res.headers.set(
+    "Strict-Transport-Security",
+    "max-age=63072000; includeSubDomains; preload",
+  );
+  res.headers.set("X-Content-Type-Options", "nosniff");
+  res.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.headers.set("X-Frame-Options", "DENY");
+  res.headers.set("Cross-Origin-Opener-Policy", "same-origin");
+  res.headers.set("Cross-Origin-Resource-Policy", "same-origin");
+  res.headers.set(
+    "Permissions-Policy",
+    "camera=(), microphone=(), geolocation=(self), payment=(), usb=(), interest-cohort=()",
+  );
+  res.headers.set("X-Permitted-Cross-Domain-Policies", "none");
+  res.headers.set("Origin-Agent-Cluster", "?1");
+  res.headers.set("X-DNS-Prefetch-Control", "off");
+
   return res;
 }
 
@@ -133,40 +157,18 @@ function isLocalHostname(hostname: string) {
   );
 }
 
-function getConfiguredOrigins() {
-  return (process.env.APP_ALLOWED_ORIGINS ?? "")
-    .split(",")
-    .map((origin) => origin.trim().toLowerCase())
-    .filter(Boolean);
-}
-
-function isAllowedOrigin(req: NextRequest, origin: string | null) {
+function isAllowedApiOrigin(origin: string | null) {
   if (!origin) {
     return true;
   }
 
-  let parsedOrigin: URL;
-
-  try {
-    parsedOrigin = new URL(origin);
-  } catch {
-    return false;
-  }
-
-  const requestHostname = getRequestHostname(req);
-  const originHostname = parsedOrigin.hostname.toLowerCase();
-
-  if (originHostname === requestHostname) {
-    return true;
-  }
-
-  return getConfiguredOrigins().includes(origin.toLowerCase());
+  return ALLOWED_API_ORIGINS.has(origin);
 }
 
-function applyCorsHeaders(req: NextRequest, res: NextResponse) {
+function applyApiCorsHeaders(req: NextRequest, res: NextResponse) {
   const origin = req.headers.get("origin");
 
-  if (!origin || !isAllowedOrigin(req, origin)) {
+  if (!origin || !isAllowedApiOrigin(origin)) {
     return res;
   }
 
@@ -205,8 +207,9 @@ function buildHttpsUrl(req: NextRequest) {
   return secureUrl;
 }
 
-export function proxy(req: NextRequest) {
+export function middleware(req: NextRequest) {
   const { contentSecurityPolicy, requestHeaders } = buildNonceHeaders(req);
+
   if (shouldRedirectToHttps(req)) {
     return applySecurityHeaders(
       NextResponse.redirect(buildHttpsUrl(req), 308),
@@ -217,7 +220,7 @@ export function proxy(req: NextRequest) {
   if (req.nextUrl.pathname.startsWith("/api/")) {
     const origin = req.headers.get("origin");
 
-    if (!isAllowedOrigin(req, origin)) {
+    if (!isAllowedApiOrigin(origin)) {
       return applySecurityHeaders(
         NextResponse.json(
           { error: "Cross-origin request blocked." },
@@ -229,7 +232,7 @@ export function proxy(req: NextRequest) {
 
     if (req.method === "OPTIONS") {
       return applySecurityHeaders(
-        applyCorsHeaders(req, new NextResponse(null, { status: 204 })),
+        applyApiCorsHeaders(req, new NextResponse(null, { status: 204 })),
         contentSecurityPolicy,
       );
     }
@@ -239,7 +242,7 @@ export function proxy(req: NextRequest) {
 
       if (rateLimit.limited) {
         return applySecurityHeaders(
-          applyCorsHeaders(
+          applyApiCorsHeaders(
             req,
             buildRateLimitResponse(rateLimit.retryAfterSeconds),
           ),
@@ -261,11 +264,17 @@ export function proxy(req: NextRequest) {
 
   if (req.nextUrl.pathname.startsWith("/api/")) {
     res.headers.set("Cache-Control", "no-store");
+    return applySecurityHeaders(
+      applyApiCorsHeaders(req, res),
+      contentSecurityPolicy,
+    );
   }
 
-  return applySecurityHeaders(applyCorsHeaders(req, res), contentSecurityPolicy);
+  return applySecurityHeaders(res, contentSecurityPolicy);
 }
 
 export const config = {
-  matcher: ["/((?!.*\\..*).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|.*\\..*).*)",
+  ],
 };

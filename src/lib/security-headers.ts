@@ -1,21 +1,14 @@
 const supabaseHosts = ["https://*.supabase.co", "wss://*.supabase.co"];
 
-export function buildContentSecurityPolicy(scriptNonce?: string) {
+export function buildContentSecurityPolicy(nonce: string) {
   const isDevelopment = process.env.NODE_ENV !== "production";
   const scriptSources = [
     "script-src",
     "'self'",
-    ...(scriptNonce ? [`'nonce-${scriptNonce}'`, "'strict-dynamic'"] : []),
+    `'nonce-${nonce}'`,
+    "'strict-dynamic'",
     ...(isDevelopment ? ["'unsafe-eval'"] : []),
   ];
-
-  const styleSources = scriptNonce
-    ? [
-        "style-src 'self'",
-        `style-src-elem 'self' 'nonce-${scriptNonce}'`,
-        "style-src-attr 'none'",
-      ]
-    : ["style-src 'self'"];
 
   return [
     "default-src 'self'",
@@ -29,7 +22,7 @@ export function buildContentSecurityPolicy(scriptNonce?: string) {
     "media-src 'self' blob: https://*.supabase.co",
     scriptSources.join(" "),
     "script-src-attr 'none'",
-    ...styleSources,
+    `style-src 'self' 'nonce-${nonce}'`,
     "worker-src 'self' blob:",
     "manifest-src 'self'",
     "upgrade-insecure-requests",
