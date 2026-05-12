@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { buildContentSecurityPolicy } from "./lib/security-headers";
+
 const DEFAULT_CORS_METHODS = "GET,POST,PUT,PATCH,DELETE,OPTIONS";
 const DEFAULT_CORS_HEADERS = "Authorization, Content-Type, X-Requested-With";
 
@@ -8,6 +10,29 @@ const RATE_LIMIT_MAX_REQUESTS = 120;
 const STRICT_RATE_LIMIT_WINDOW_MS = 15 * 60_000;
 const STRICT_RATE_LIMIT_MAX_REQUESTS = 10;
 const rateLimitBuckets = new Map<string, { count: number; resetAt: number }>();
+
+function createNonce() {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return btoa(String.fromCharCode(...bytes));
+}
+
+function buildNonceHeaders(req: NextRequest) {
+  const nonce = createNonce();
+  const contentSecurityPolicy = buildContentSecurityPolicy(nonce);
+  const requestHeaders = new Headers(req.headers);
+
+  requestHeaders.set("Content-Security-Policy", contentSecurityPolicy);
+  requestHeaders.set("x-nonce", nonce);
+
+  return { contentSecurityPolicy, requestHeaders };
+}
+
+function applySecurityHeaders(res: NextResponse, contentSecurityPolicy: string) {
+  res.headers.set("Content-Security-Policy", contentSecurityPolicy);
+  res.headers.set("Access-Control-Allow-Origin", "https://www.bareunity.com");
+  return res;
+}
 
 function isMutatingApiRequest(req: NextRequest) {
   return (
@@ -181,31 +206,44 @@ function buildHttpsUrl(req: NextRequest) {
 }
 
 export function proxy(req: NextRequest) {
+  const { contentSecurityPolicy, requestHeaders } = buildNonceHeaders(req);
   if (shouldRedirectToHttps(req)) {
-    return NextResponse.redirect(buildHttpsUrl(req), 308);
+    return applySecurityHeaders(
+      NextResponse.redirect(buildHttpsUrl(req), 308),
+      contentSecurityPolicy,
+    );
   }
 
   if (req.nextUrl.pathname.startsWith("/api/")) {
     const origin = req.headers.get("origin");
 
     if (!isAllowedOrigin(req, origin)) {
-      return NextResponse.json(
-        { error: "Cross-origin request blocked." },
-        { status: 403 },
+      return applySecurityHeaders(
+        NextResponse.json(
+          { error: "Cross-origin request blocked." },
+          { status: 403 },
+        ),
+        contentSecurityPolicy,
       );
     }
 
     if (req.method === "OPTIONS") {
-      return applyCorsHeaders(req, new NextResponse(null, { status: 204 }));
+      return applySecurityHeaders(
+        applyCorsHeaders(req, new NextResponse(null, { status: 204 })),
+        contentSecurityPolicy,
+      );
     }
 
     if (isMutatingApiRequest(req)) {
       const rateLimit = consumeRateLimit(req);
 
       if (rateLimit.limited) {
-        return applyCorsHeaders(
-          req,
-          buildRateLimitResponse(rateLimit.retryAfterSeconds),
+        return applySecurityHeaders(
+          applyCorsHeaders(
+            req,
+            buildRateLimitResponse(rateLimit.retryAfterSeconds),
+          ),
+          contentSecurityPolicy,
         );
       }
     }
@@ -215,13 +253,17 @@ export function proxy(req: NextRequest) {
   // so middleware cannot reliably read auth state from cookies.
   // Enforcing redirects here causes successful login attempts to bounce back
   // to /login and look like a page refresh loop.
-  const res = NextResponse.next();
+  const res = NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  });
 
   if (req.nextUrl.pathname.startsWith("/api/")) {
     res.headers.set("Cache-Control", "no-store");
   }
 
-  return applyCorsHeaders(req, res);
+  return applySecurityHeaders(applyCorsHeaders(req, res), contentSecurityPolicy);
 }
 
 export const config = {

@@ -1,31 +1,8 @@
 import type { NextConfig } from "next";
 
-const isDevelopment = process.env.NODE_ENV !== "production";
-const supabaseHosts = ["https://*.supabase.co", "wss://*.supabase.co"];
-const scriptSources = [
-  "script-src",
-  "'self'",
-  "'unsafe-inline'",
-  ...(isDevelopment ? ["'unsafe-eval'"] : []),
-];
+import { buildContentSecurityPolicy } from "./src/lib/security-headers";
 
-const contentSecurityPolicy = [
-  "default-src 'self'",
-  "base-uri 'self'",
-  "object-src 'none'",
-  "frame-ancestors 'none'",
-  "form-action 'self'",
-  "img-src 'self' data: blob: https://picsum.photos https://images.unsplash.com https://*.supabase.co",
-  `connect-src 'self' ${supabaseHosts.join(" ")}`,
-  "font-src 'self' data:",
-  "media-src 'self' blob: https://*.supabase.co",
-  scriptSources.join(" "),
-  "script-src-attr 'none'",
-  "style-src 'self' 'unsafe-inline'",
-  "worker-src 'self' blob:",
-  "manifest-src 'self'",
-  "upgrade-insecure-requests",
-].join("; ");
+const contentSecurityPolicy = buildContentSecurityPolicy();
 
 const securityHeaders = [
   {
@@ -34,6 +11,7 @@ const securityHeaders = [
   },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "Content-Security-Policy", value: contentSecurityPolicy },
+  { key: "Access-Control-Allow-Origin", value: "https://www.bareunity.com" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
