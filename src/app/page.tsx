@@ -1161,11 +1161,7 @@ export default function HomePage() {
             <div className="mb-3 h-1.5 w-full overflow-hidden rounded-full bg-[rgb(var(--card)/0.25)]">
               <div
                 key={storyTimerCycle}
-                className="h-full rounded-full bg-[rgb(var(--card))]"
-                style={{
-                  animation: `story-progress ${STORY_VIEW_MS}ms linear forwards`,
-                  animationPlayState: isStoryTimerPaused ? "paused" : "running",
-                }}
+                className={`${styles.storyProgress} ${isStoryTimerPaused ? styles.storyProgressPaused : ""}`}
               />
             </div>
             <div className="mb-3 flex items-center justify-between text-white">
@@ -1213,12 +1209,6 @@ export default function HomePage() {
               </p>
             </div>
           </div>
-          <style jsx global>{`
-            @keyframes story-progress {
-              from { width: 0%; }
-              to { width: 100%; }
-            }
-          `}</style>
         </div>
       ) : null}
 

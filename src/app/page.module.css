@@ -174,3 +174,23 @@
     white-space: nowrap;
   }
 }
+.storyProgress {
+  height: 100%;
+  border-radius: 9999px;
+  background: rgb(var(--card));
+  animation: story-progress 7000ms linear forwards;
+}
+
+.storyProgressPaused {
+  animation-play-state: paused;
+}
+
+@keyframes story-progress {
+  from {
+    width: 0%;
+  }
+
+  to {
+    width: 100%;
+  }
+}
