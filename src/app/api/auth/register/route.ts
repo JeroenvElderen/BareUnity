@@ -26,6 +26,7 @@ type RegisterBody = {
   isConsentConfirmed?: boolean;
   isPolicyConfirmed?: boolean;
   isPhotoRuleConfirmed?: boolean;
+  isSensitiveIdDetailsHidden?: boolean;
 };
 
 const CONSENT_CODE = "NATURISM-FIRST";
@@ -201,6 +202,9 @@ export async function POST(req: Request) {
     .trim()
     .toUpperCase();
   const idDocument = getUploadedIdDocument(formData);
+  const isSensitiveIdDetailsHidden = parseBooleanValue(
+    getStringValue(formData, "isSensitiveIdDetailsHidden"),
+  );
 
   if (
     !fullName ||
@@ -228,6 +232,16 @@ export async function POST(req: Request) {
     return NextResponse.json(
       {
         error: "Upload an ID file (JPG, PNG, WEBP, or PDF) for manual review.",
+      },
+      { status: 400 },
+    );
+  }
+
+  if (isVerifiedApplication && !isSensitiveIdDetailsHidden) {
+    return NextResponse.json(
+      {
+        error:
+          "Confirm only your legal name, date of birth, and the official ID seal/logo/header remain visible.",
       },
       { status: 400 },
     );
@@ -443,6 +457,7 @@ export async function POST(req: Request) {
           intent: motivation,
           idDocumentPath,
           idDocumentFingerprint,
+          redactedDetailsConfirmed: isSensitiveIdDetailsHidden,
         }),
       })
     : { error: null };

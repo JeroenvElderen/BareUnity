@@ -120,6 +120,25 @@
   color: rgb(var(--muted));
 }
 
+.redactionBox {
+  border: 1px dashed rgb(var(--brand) / 0.42);
+  border-radius: 10px;
+  padding: 0.7rem 0.75rem;
+  background: rgb(var(--accent-soft) / 0.18);
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.redactionBox strong {
+  color: rgb(var(--text));
+}
+
+.redactionBox span {
+  color: rgb(var(--muted));
+}
+
 .sectionLabel {
   margin-top: 0.5rem;
   font-size: 0.88rem;

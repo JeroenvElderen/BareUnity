@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ensureAdminRequest } from "@/lib/request-auth";
-import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase-admin";
+import {
+  createSupabaseAdminClient,
+  isSupabaseAdminConfigured,
+} from "@/lib/supabase-admin";
 
 type VerificationRow = {
   user_id: string;
@@ -19,6 +22,19 @@ type VerificationRow = {
 function extractIdDocumentPath(reviewerNotes: string | null) {
   if (!reviewerNotes) return null;
 
+  if (reviewerNotes.trim().startsWith("{")) {
+    try {
+      const parsed = JSON.parse(reviewerNotes) as Record<string, unknown>;
+      const jsonPath = parsed.idDocumentPath;
+
+      if (typeof jsonPath === "string" && jsonPath.trim()) {
+        return jsonPath.trim();
+      }
+    } catch {
+      // Fall back to legacy key-value reviewer notes below.
+    }
+  }
+
   const marker = "id_document_path=";
   const start = reviewerNotes.indexOf(marker);
 
@@ -33,7 +49,10 @@ function extractIdDocumentPath(reviewerNotes: string | null) {
 
 export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured) {
-    return NextResponse.json({ error: "Supabase admin credentials are not configured." }, { status: 500 });
+    return NextResponse.json(
+      { error: "Supabase admin credentials are not configured." },
+      { status: 500 },
+    );
   }
 
   const adminResult = await ensureAdminRequest(request);
@@ -62,9 +81,10 @@ export async function GET(request: NextRequest) {
       let idDocumentUrl: string | null = null;
 
       if (idDocumentPath) {
-        const { data: signedData, error: signedError } = await supabaseAdmin.storage
-          .from("verification-documents")
-          .createSignedUrl(idDocumentPath, 60 * 15);
+        const { data: signedData, error: signedError } =
+          await supabaseAdmin.storage
+            .from("verification-documents")
+            .createSignedUrl(idDocumentPath, 60 * 15);
 
         if (!signedError) {
           idDocumentUrl = signedData.signedUrl;

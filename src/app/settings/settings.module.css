@@ -505,6 +505,73 @@
   max-width: 72ch;
 }
 
+.idSafetyCard {
+  border: 1px solid rgb(var(--brand) / 0.34);
+  border-radius: 1rem;
+  background:
+    radial-gradient(circle at 0% 0%, rgb(var(--brand) / 0.18), transparent 38%),
+    linear-gradient(
+      135deg,
+      rgb(var(--card) / 0.94),
+      rgb(var(--accent-soft) / 0.18)
+    );
+  padding: 0.9rem;
+  display: grid;
+  gap: 0.6rem;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.22);
+}
+
+.idSafetyCard > div {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.idSafetyIcon {
+  display: inline-grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border-radius: 999px;
+  background: rgb(var(--brand) / 0.16);
+}
+
+.idSafetyCard h3 {
+  margin: 0;
+  color: rgb(var(--text-strong));
+  font-size: 0.98rem;
+}
+
+.idSafetyCard ul {
+  margin: 0;
+  padding-left: 1.15rem;
+  color: rgb(var(--muted));
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.redactionGuide {
+  border: 1px dashed rgb(var(--brand) / 0.42);
+  border-radius: 0.95rem;
+  background: rgb(var(--brand) / 0.08);
+  padding: 0.75rem;
+  display: grid;
+  gap: 0.25rem;
+  color: rgb(var(--text));
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.redactionGuide strong {
+  color: rgb(var(--text-strong));
+}
+
+.redactionGuide span {
+  color: rgb(var(--muted));
+}
+
 .verificationForm {
   display: grid;
   gap: 0.95rem;
