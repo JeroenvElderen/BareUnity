@@ -371,6 +371,7 @@ type VerificationApplicationForm = VerificationApplicationDefaults & {
   isConsentConfirmed: boolean;
   isPolicyConfirmed: boolean;
   isPhotoRuleConfirmed: boolean;
+  isSensitiveIdDetailsHidden: boolean;
 };
 
 const emptyVerificationApplicationForm: VerificationApplicationForm = {
@@ -386,6 +387,7 @@ const emptyVerificationApplicationForm: VerificationApplicationForm = {
   isConsentConfirmed: false,
   isPolicyConfirmed: false,
   isPhotoRuleConfirmed: false,
+  isSensitiveIdDetailsHidden: false,
 };
 
 function buildDefaultOptionStates() {
@@ -950,6 +952,10 @@ export default function SettingsPage() {
         "isPhotoRuleConfirmed",
         String(verificationForm.isPhotoRuleConfirmed),
       );
+      payload.set(
+        "isSensitiveIdDetailsHidden",
+        String(verificationForm.isSensitiveIdDetailsHidden),
+      );
 
       const response = await fetch("/api/verification/apply", {
         method: "POST",
@@ -1108,6 +1114,35 @@ export default function SettingsPage() {
                 </p>
               </div>
 
+              <div
+                className={styles.idSafetyCard}
+                aria-label="How we protect your ID document"
+              >
+                <div>
+                  <span className={styles.idSafetyIcon}>🔒</span>
+                  <h3>How we protect your ID from fraud</h3>
+                </div>
+                <ul>
+                  <li>
+                    Only platform admins can open the upload through short-lived
+                    review links.
+                  </li>
+                  <li>
+                    Your ID is never shown on your public profile or shared with
+                    members.
+                  </li>
+                  <li>
+                    The uploaded file is automatically deleted after the
+                    approval or rejection decision.
+                  </li>
+                  <li>
+                    You can hide everything except your legal name, date of
+                    birth, and the official ID seal/logo/header needed to show
+                    the document is government-issued.
+                  </li>
+                </ul>
+              </div>
+
               <form
                 className={styles.verificationForm}
                 onSubmit={handleVerificationApplicationSubmit}
@@ -1225,9 +1260,42 @@ export default function SettingsPage() {
                     required
                   />
                   <small>
-                    Your ID is only used for manual review and is never shown on
-                    your profile.
+                    Uploading a redacted copy is preferred. Please keep only
+                    your legal name, date of birth, and the official ID
+                    seal/logo/header visible. Hide your photo, document numbers,
+                    barcodes, MRZ lines, handwritten signature, address, expiry,
+                    and all other details. Your ID is only used for manual
+                    review, never shown on your profile, and deleted from
+                    storage after a review decision.
                   </small>
+                </label>
+
+                <div className={styles.redactionGuide}>
+                  <strong>Before you upload, hide sensitive fields:</strong>
+                  <span>
+                    We only need your legal name, date of birth, and the
+                    official ID seal/logo/header that shows the document is
+                    government-issued. Everything else should be covered before
+                    upload.
+                  </span>
+                </div>
+
+                <label className={styles.confirmationRow}>
+                  <input
+                    type="checkbox"
+                    checked={verificationForm.isSensitiveIdDetailsHidden}
+                    onChange={(event) =>
+                      setVerificationForm((prev) => ({
+                        ...prev,
+                        isSensitiveIdDetailsHidden: event.target.checked,
+                      }))
+                    }
+                    required
+                  />
+                  <span>
+                    I have hidden everything except my legal name, date of
+                    birth, and the official ID seal/logo/header.
+                  </span>
                 </label>
 
                 <label className={styles.formField}>

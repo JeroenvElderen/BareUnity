@@ -31,6 +31,7 @@ type RegisterState = {
   isConsentConfirmed: boolean;
   isPolicyConfirmed: boolean;
   isPhotoRuleConfirmed: boolean;
+  isSensitiveIdDetailsHidden: boolean;
   idDocument: File | null;
 };
 
@@ -56,6 +57,7 @@ const initialState: RegisterState = {
   isConsentConfirmed: false,
   isPolicyConfirmed: false,
   isPhotoRuleConfirmed: false,
+  isSensitiveIdDetailsHidden: false,
   idDocument: null,
 };
 
@@ -77,8 +79,10 @@ export default function RegisterPage() {
   }, [router]);
 
   const isVerifiedApplication = form.accountAccess === "verified";
-  const accountAccessLabel = isVerifiedApplication ? "Verified member" : "7-day Visitor Pass";
-  
+  const accountAccessLabel = isVerifiedApplication
+    ? "Verified member"
+    : "7-day Visitor Pass";
+
   const quizScore = useMemo(() => {
     const answers = [
       form.quizAnswerRespect,
@@ -120,6 +124,7 @@ export default function RegisterPage() {
       form.membershipType.length > 0,
       !isVerifiedApplication || form.idType.length > 0,
       !isVerifiedApplication || form.idDocument !== null,
+      !isVerifiedApplication || form.isSensitiveIdDetailsHidden,
       !isVerifiedApplication || form.motivation.trim().length >= 30,
       form.consentCode === CONSENT_CODE,
       quizScore === 3,
@@ -144,6 +149,13 @@ export default function RegisterPage() {
     if (isVerifiedApplication && !form.idDocument) {
       setStatus(
         "Please upload a government ID file so our team can manually review and approve your account.",
+      );
+      return;
+    }
+
+    if (isVerifiedApplication && !form.isSensitiveIdDetailsHidden) {
+      setStatus(
+        "Please confirm only your legal name, date of birth, and the official ID seal/logo/header remain visible.",
       );
       return;
     }
@@ -177,6 +189,10 @@ export default function RegisterPage() {
       payload.set("isConsentConfirmed", String(form.isConsentConfirmed));
       payload.set("isPolicyConfirmed", String(form.isPolicyConfirmed));
       payload.set("isPhotoRuleConfirmed", String(form.isPhotoRuleConfirmed));
+      payload.set(
+        "isSensitiveIdDetailsHidden",
+        String(form.isSensitiveIdDetailsHidden),
+      );
 
       if (form.idDocument) {
         payload.set("idDocument", form.idDocument);
@@ -456,6 +472,7 @@ export default function RegisterPage() {
                       accountAccess: "viewOnly",
                       idType: "",
                       idDocument: null,
+                      isSensitiveIdDetailsHidden: false,
                       motivation: "",
                     }))
                   }
@@ -526,9 +543,39 @@ export default function RegisterPage() {
                     required={isVerifiedApplication}
                   />
                   <p className={styles.help}>
-                    Your ID is used only for manual reviewer verification and
-                    account approval. It is never shown on your profile.
+                    A redacted copy is preferred: keep only your legal name,
+                    date of birth, and the official ID seal/logo/header visible.
+                    Hide your photo, document numbers, barcodes, MRZ lines,
+                    handwritten signature, address, expiry, and all other
+                    details. It is never shown on your profile and is deleted
+                    after review.
                   </p>
+                </label>
+
+                <div className={styles.redactionBox}>
+                  <strong>Hide details we do not need</strong>
+                  <span>
+                    Please cover everything except legal name, date of birth,
+                    and the official ID seal/logo/header before uploading.
+                  </span>
+                </div>
+
+                <label className={styles.checkboxRow}>
+                  <input
+                    type="checkbox"
+                    checked={form.isSensitiveIdDetailsHidden}
+                    onChange={(event) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        isSensitiveIdDetailsHidden: event.target.checked,
+                      }))
+                    }
+                    required={isVerifiedApplication}
+                  />
+                  <span>
+                    I have hidden everything except my legal name, date of
+                    birth, and the official ID seal/logo/header.
+                  </span>
                 </label>
 
                 <label className={styles.field}>

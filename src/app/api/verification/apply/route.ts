@@ -49,8 +49,12 @@ function getMetadataString(metadata: Record<string, unknown>, key: string) {
   return typeof value === "string" ? value : "";
 }
 
-function buildReviewerNotes(motivation: string, idDocumentPath: string) {
-  return `intent=${motivation};id_document_path=${idDocumentPath}`;
+function buildReviewerNotes(
+  motivation: string,
+  idDocumentPath: string,
+  isSensitiveIdDetailsHidden: boolean,
+) {
+  return `intent=${motivation};id_document_path=${idDocumentPath};redacted_details_confirmed=${isSensitiveIdDetailsHidden}`;
 }
 
 async function getVerificationContext(userId: string) {
@@ -248,17 +252,23 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const isSensitiveIdDetailsHidden = getBooleanValue(
+    formData,
+    "isSensitiveIdDetailsHidden",
+  );
+
   const confirmationsAccepted =
     getBooleanValue(formData, "isAdultConfirmed") &&
     getBooleanValue(formData, "isConsentConfirmed") &&
     getBooleanValue(formData, "isPolicyConfirmed") &&
-    getBooleanValue(formData, "isPhotoRuleConfirmed");
+    getBooleanValue(formData, "isPhotoRuleConfirmed") &&
+    isSensitiveIdDetailsHidden;
 
   if (!confirmationsAccepted) {
     return NextResponse.json(
       {
         error:
-          "Confirm age, consent-first behavior, photo rules, and policy agreement before applying.",
+          "Confirm age, consent-first behavior, photo rules, policy agreement, and that only your legal name, date of birth, and official ID seal/logo/header remain visible.",
       },
       { status: 400 },
     );
@@ -298,7 +308,11 @@ export async function POST(request: NextRequest) {
       consent_code_accepted: true,
       terms_accepted: true,
       status: "pending",
-      reviewer_notes: buildReviewerNotes(motivation, idDocumentPath),
+      reviewer_notes: buildReviewerNotes(
+        motivation,
+        idDocumentPath,
+        isSensitiveIdDetailsHidden,
+      ),
       updated_at: new Date().toISOString(),
     });
 

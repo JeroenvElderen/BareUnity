@@ -1,14 +1,40 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ensureAdminRequest } from "@/lib/request-auth";
-import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase-admin";
+import {
+  createSupabaseAdminClient,
+  isSupabaseAdminConfigured,
+} from "@/lib/supabase-admin";
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL;
 
-function extractIdDocumentPath(reviewerNotes: string | null) {
+function parseReviewerNotesJson(reviewerNotes: string | null) {
+  if (!reviewerNotes?.trim().startsWith("{")) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(reviewerNotes) as Record<string, unknown>;
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function getReviewerNotesValue(
+  reviewerNotes: string | null,
+  marker: string,
+  jsonKey?: string,
+) {
+  const parsed = parseReviewerNotesJson(reviewerNotes);
+  const parsedValue = jsonKey ? parsed?.[jsonKey] : null;
+
+  if (typeof parsedValue === "string" && parsedValue.trim()) {
+    return parsedValue.trim();
+  }
+
   if (!reviewerNotes) return null;
 
-  const marker = "id_document_path=";
   const start = reviewerNotes.indexOf(marker);
 
   if (start < 0) {
@@ -20,17 +46,36 @@ function extractIdDocumentPath(reviewerNotes: string | null) {
   return (terminator >= 0 ? value.slice(0, terminator) : value).trim() || null;
 }
 
-function buildReviewerNotes(existingNotes: string | null, reviewerNote: string) {
+function extractIdDocumentPath(reviewerNotes: string | null) {
+  return getReviewerNotesValue(
+    reviewerNotes,
+    "id_document_path=",
+    "idDocumentPath",
+  );
+}
+
+function buildReviewerNotes(
+  existingNotes: string | null,
+  reviewerNote: string,
+  options: {
+    keepIdDocumentPath?: boolean;
+    markIdDocumentDeleted?: boolean;
+  } = {},
+) {
   const idDocumentPath = extractIdDocumentPath(existingNotes);
-  const intent = existingNotes?.match(/intent=([^;]+)/)?.[1]?.trim();
+  const intent = getReviewerNotesValue(existingNotes, "intent=", "intent");
   const notes: string[] = [];
 
   if (intent) {
     notes.push(`intent=${intent}`);
   }
 
-  if (idDocumentPath) {
+  if (idDocumentPath && options.keepIdDocumentPath !== false) {
     notes.push(`id_document_path=${idDocumentPath}`);
+  }
+
+  if (options.markIdDocumentDeleted) {
+    notes.push(`id_document_deleted_at=${new Date().toISOString()}`);
   }
 
   if (reviewerNote.trim()) {
@@ -42,11 +87,15 @@ function buildReviewerNotes(existingNotes: string | null, reviewerNote: string) 
 
 type VerificationDecision = "approved" | "rejected";
 
-async function sendVerificationDecisionEmail(to: string, decision: VerificationDecision) {
+async function sendVerificationDecisionEmail(
+  to: string,
+  decision: VerificationDecision,
+) {
   if (!RESEND_API_KEY || !RESEND_FROM_EMAIL) {
     return {
       sent: false,
-      reason: "Missing RESEND_API_KEY or RESEND_FROM_EMAIL environment variables.",
+      reason:
+        "Missing RESEND_API_KEY or RESEND_FROM_EMAIL environment variables.",
     } as const;
   }
 
@@ -89,7 +138,10 @@ export async function PATCH(
   { params }: { params: Promise<{ userId: string }> },
 ) {
   if (!isSupabaseAdminConfigured) {
-    return NextResponse.json({ error: "Supabase admin credentials are not configured." }, { status: 500 });
+    return NextResponse.json(
+      { error: "Supabase admin credentials are not configured." },
+      { status: 500 },
+    );
   }
 
   const adminResult = await ensureAdminRequest(request);
@@ -105,19 +157,29 @@ export async function PATCH(
   };
 
   if (!body.decision || !["approved", "rejected"].includes(body.decision)) {
-    return NextResponse.json({ error: "Decision must be approved or rejected." }, { status: 400 });
+    return NextResponse.json(
+      { error: "Decision must be approved or rejected." },
+      { status: 400 },
+    );
   }
 
   const supabaseAdmin = createSupabaseAdminClient();
-  const { data: userData, error: userLookupError } = await supabaseAdmin.auth.admin.getUserById(userId);
+  const { data: userData, error: userLookupError } =
+    await supabaseAdmin.auth.admin.getUserById(userId);
 
   if (userLookupError) {
-    return NextResponse.json({ error: userLookupError.message }, { status: 500 });
+    return NextResponse.json(
+      { error: userLookupError.message },
+      { status: 500 },
+    );
   }
 
   const userEmail = userData.user?.email?.trim().toLowerCase();
   if (!userEmail) {
-    return NextResponse.json({ error: "User email was not found for this account." }, { status: 404 });
+    return NextResponse.json(
+      { error: "User email was not found for this account." },
+      { status: 404 },
+    );
   }
 
   const { data: existing, error: existingError } = await supabaseAdmin
@@ -131,12 +193,37 @@ export async function PATCH(
   }
 
   if (!existing) {
-    return NextResponse.json({ error: "Application not found." }, { status: 404 });
+    return NextResponse.json(
+      { error: "Application not found." },
+      { status: 404 },
+    );
   }
 
-  const mergedReviewerNotes = buildReviewerNotes(existing.reviewer_notes, body.reviewerNote ?? "");
-
   if (body.decision === "approved") {
+    const idDocumentPath = extractIdDocumentPath(existing.reviewer_notes);
+
+    if (idDocumentPath) {
+      const { error: removeError } = await supabaseAdmin.storage
+        .from("verification-documents")
+        .remove([idDocumentPath]);
+
+      if (removeError) {
+        return NextResponse.json(
+          { error: removeError.message },
+          { status: 500 },
+        );
+      }
+    }
+
+    const mergedReviewerNotes = buildReviewerNotes(
+      existing.reviewer_notes,
+      body.reviewerNote ?? "",
+      {
+        keepIdDocumentPath: false,
+        markIdDocumentDeleted: Boolean(idDocumentPath),
+      },
+    );
+
     const { error: updateVerificationError } = await supabaseAdmin
       .from("verification_submissions")
       .update({
@@ -147,7 +234,10 @@ export async function PATCH(
       .eq("user_id", userId);
 
     if (updateVerificationError) {
-      return NextResponse.json({ error: updateVerificationError.message }, { status: 500 });
+      return NextResponse.json(
+        { error: updateVerificationError.message },
+        { status: 500 },
+      );
     }
 
     const { error: settingsError } = await supabaseAdmin
@@ -156,22 +246,56 @@ export async function PATCH(
       .eq("user_id", userId);
 
     if (settingsError) {
-      return NextResponse.json({ error: settingsError.message }, { status: 500 });
+      return NextResponse.json(
+        { error: settingsError.message },
+        { status: 500 },
+      );
     }
 
-    const { error: confirmEmailError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
-      email_confirm: true,
-    });
+    const { error: confirmEmailError } =
+      await supabaseAdmin.auth.admin.updateUserById(userId, {
+        email_confirm: true,
+      });
 
     if (confirmEmailError) {
-      return NextResponse.json({ error: confirmEmailError.message }, { status: 500 });
+      return NextResponse.json(
+        { error: confirmEmailError.message },
+        { status: 500 },
+      );
     }
 
-    const emailResult = await sendVerificationDecisionEmail(userEmail, "approved");
+    const emailResult = await sendVerificationDecisionEmail(
+      userEmail,
+      "approved",
+    );
     if (!emailResult.sent) {
       console.error("Failed to send approval email", emailResult.reason);
     }
   } else {
+    const idDocumentPath = extractIdDocumentPath(existing.reviewer_notes);
+
+    if (idDocumentPath) {
+      const { error: removeError } = await supabaseAdmin.storage
+        .from("verification-documents")
+        .remove([idDocumentPath]);
+
+      if (removeError) {
+        return NextResponse.json(
+          { error: removeError.message },
+          { status: 500 },
+        );
+      }
+    }
+
+    const mergedReviewerNotes = buildReviewerNotes(
+      existing.reviewer_notes,
+      body.reviewerNote ?? "",
+      {
+        keepIdDocumentPath: false,
+        markIdDocumentDeleted: Boolean(idDocumentPath),
+      },
+    );
+
     const { error: updateVerificationError } = await supabaseAdmin
       .from("verification_submissions")
       .update({
@@ -182,20 +306,25 @@ export async function PATCH(
       .eq("user_id", userId);
 
     if (updateVerificationError) {
-      return NextResponse.json({ error: updateVerificationError.message }, { status: 500 });
+      return NextResponse.json(
+        { error: updateVerificationError.message },
+        { status: 500 },
+      );
     }
 
-    const idDocumentPath = extractIdDocumentPath(existing.reviewer_notes);
-    if (idDocumentPath) {
-      await supabaseAdmin.storage.from("verification-documents").remove([idDocumentPath]);
-    }
-
-    const { error: deleteUserError } = await supabaseAdmin.auth.admin.deleteUser(userId);
+    const { error: deleteUserError } =
+      await supabaseAdmin.auth.admin.deleteUser(userId);
     if (deleteUserError) {
-      return NextResponse.json({ error: deleteUserError.message }, { status: 500 });
+      return NextResponse.json(
+        { error: deleteUserError.message },
+        { status: 500 },
+      );
     }
 
-    const emailResult = await sendVerificationDecisionEmail(userEmail, "rejected");
+    const emailResult = await sendVerificationDecisionEmail(
+      userEmail,
+      "rejected",
+    );
     if (!emailResult.sent) {
       console.error("Failed to send rejection email", emailResult.reason);
     }
