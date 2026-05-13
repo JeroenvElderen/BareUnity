@@ -22,6 +22,26 @@ type FormState = {
   reporterNotes: string;
 };
 
+type ImportCategory = "spa" | "activity";
+type LocationRequestType = "location" | "stay" | "spa" | "activity";
+
+type ImportDraft = {
+  name?: string;
+  shortDescription?: string;
+  fullDescription?: string;
+  latitude?: number;
+  longitude?: number;
+  locationHint?: string;
+  accessType?: string;
+  terrain?: string;
+  safetyLevel?: string;
+  website?: string;
+  amenities?: string[];
+  tags?: string[];
+  reporterNotes?: string;
+  warnings?: string[];
+};
+
 type LocationRequest = {
   id: string;
   status: string;
@@ -34,6 +54,7 @@ type LocationRequest = {
   latitude: number | null;
   longitude: number | null;
   website: string;
+  requestType: LocationRequestType;
   isStay: boolean;
   notes: string;
 };
@@ -54,6 +75,27 @@ const INITIAL_FORM: FormState = {
   reporterNotes: "",
 };
 
+const REQUEST_TYPE_LABELS: Record<LocationRequestType, string> = {
+  location: "Location",
+  stay: "Stay",
+  spa: "Spa",
+  activity: "Activity",
+};
+
+function terrainForRequestType(requestType: LocationRequestType) {
+  if (requestType === "stay") return "Stays";
+  if (requestType === "spa") return "Spa";
+  if (requestType === "activity") return "Activity";
+  return "Beach";
+}
+
+function tagForRequestType(requestType: LocationRequestType) {
+  if (requestType === "stay") return "stays";
+  if (requestType === "spa") return "spa, wellness, bookings";
+  if (requestType === "activity") return "activity, events, bookings";
+  return "";
+}
+
 function splitCommaList(value: string) {
   return value
     .split(",")
@@ -64,17 +106,32 @@ function splitCommaList(value: string) {
 function prettyDate(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "Unknown date";
-  return date.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  return date.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 export default function AdminLocationsPage() {
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [requests, setRequests] = useState<LocationRequest[]>([]);
-  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
+  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(
+    null,
+  );
   const [isLoadingRequests, setIsLoadingRequests] = useState(true);
   const [requestLoadError, setRequestLoadError] = useState("");
-  const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [feedback, setFeedback] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [importUrl, setImportUrl] = useState("");
+  const [importCategory, setImportCategory] = useState<ImportCategory>("spa");
+  const [isImporting, setIsImporting] = useState(false);
+  const [importWarnings, setImportWarnings] = useState<string[]>([]);
 
   const loadRequests = useCallback(async () => {
     setRequestLoadError("");
@@ -85,7 +142,9 @@ export default function AdminLocationsPage() {
     } = await supabase.auth.getSession();
 
     if (!session?.access_token) {
-      setRequestLoadError("Please sign in first. We could not verify your admin session.");
+      setRequestLoadError(
+        "Please sign in first. We could not verify your admin session.",
+      );
       setIsLoadingRequests(false);
       return;
     }
@@ -94,9 +153,14 @@ export default function AdminLocationsPage() {
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
 
-    const payload = (await response.json().catch(() => null)) as { requests?: LocationRequest[]; error?: string } | null;
+    const payload = (await response.json().catch(() => null)) as {
+      requests?: LocationRequest[];
+      error?: string;
+    } | null;
     if (!response.ok) {
-      setRequestLoadError(payload?.error ?? "Could not load location requests.");
+      setRequestLoadError(
+        payload?.error ?? "Could not load location requests.",
+      );
       setIsLoadingRequests(false);
       return;
     }
@@ -109,7 +173,10 @@ export default function AdminLocationsPage() {
     void loadRequests();
   }, [loadRequests]);
 
-  function updateField<K extends keyof FormState>(field: K, value: FormState[K]) {
+  function updateField<K extends keyof FormState>(
+    field: K,
+    value: FormState[K],
+  ) {
     setForm((current) => ({ ...current, [field]: value }));
   }
 
@@ -119,21 +186,107 @@ export default function AdminLocationsPage() {
       ...current,
       name: request.placeName,
       locationHint: request.locationHint,
-      latitude: typeof request.latitude === "number" ? request.latitude.toFixed(6) : current.latitude,
-      longitude: typeof request.longitude === "number" ? request.longitude.toFixed(6) : current.longitude,
+      latitude:
+        typeof request.latitude === "number"
+          ? request.latitude.toFixed(6)
+          : current.latitude,
+      longitude:
+        typeof request.longitude === "number"
+          ? request.longitude.toFixed(6)
+          : current.longitude,
       website: request.website,
-      terrain: request.isStay ? "Stays" : current.terrain,
-      tags: request.isStay ? "stays" : current.tags,
+      terrain:
+        request.requestType === "location"
+          ? current.terrain
+          : terrainForRequestType(request.requestType),
+      tags: tagForRequestType(request.requestType) || current.tags,
       reporterNotes: [
         `Requested by ${request.userEmail ?? "unknown member"}`,
         `Request ID: ${request.id}`,
-        request.isStay ? "Member marked this as a stay." : "Member marked this as a map location.",
+        `Member requested type: ${REQUEST_TYPE_LABELS[request.requestType]}.`,
         request.notes ? `Notes: ${request.notes}` : "",
       ]
         .filter(Boolean)
         .join("\n"),
     }));
-    setFeedback({ type: "success", message: "Request copied into the editor. Fill the remaining marker details before publishing." });
+    setFeedback({
+      type: "success",
+      message:
+        "Request copied into the editor. Fill the remaining marker details before publishing.",
+    });
+  }
+
+  function copyImportToEditor(draft: ImportDraft) {
+    setForm((current) => ({
+      ...current,
+      name: draft.name ?? current.name,
+      shortDescription: draft.shortDescription ?? current.shortDescription,
+      fullDescription: draft.fullDescription ?? current.fullDescription,
+      latitude:
+        typeof draft.latitude === "number"
+          ? draft.latitude.toFixed(6)
+          : current.latitude,
+      longitude:
+        typeof draft.longitude === "number"
+          ? draft.longitude.toFixed(6)
+          : current.longitude,
+      locationHint: draft.locationHint ?? current.locationHint,
+      accessType: draft.accessType ?? current.accessType,
+      terrain: draft.terrain ?? current.terrain,
+      safetyLevel: draft.safetyLevel ?? current.safetyLevel,
+      website: draft.website ?? current.website,
+      amenities: draft.amenities?.length
+        ? draft.amenities.join(", ")
+        : current.amenities,
+      tags: draft.tags?.length ? draft.tags.join(", ") : current.tags,
+      reporterNotes: draft.reporterNotes ?? current.reporterNotes,
+    }));
+  }
+
+  async function importBookingWebsite(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsImporting(true);
+    setFeedback(null);
+    setImportWarnings([]);
+
+    try {
+      const { data } = await supabase.auth.getSession();
+      const accessToken = data.session?.access_token;
+      if (!accessToken) {
+        throw new Error(
+          "Please sign in first. We could not verify your admin session.",
+        );
+      }
+
+      const response = await fetch(
+        `/api/admin/map-spots/import?category=${encodeURIComponent(importCategory)}&url=${encodeURIComponent(importUrl)}`,
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      );
+      const payload = (await response.json().catch(() => null)) as {
+        draft?: ImportDraft;
+        error?: string;
+      } | null;
+
+      if (!response.ok || !payload?.draft) {
+        throw new Error(payload?.error ?? "Could not import this website.");
+      }
+
+      copyImportToEditor(payload.draft);
+      setImportWarnings(payload.draft.warnings ?? []);
+      setFeedback({
+        type: "success",
+        message:
+          "Imported the website into the marker editor. Review everything before saving.",
+      });
+    } catch (error) {
+      setFeedback({
+        type: "error",
+        message:
+          error instanceof Error ? error.message : "Unable to import website.",
+      });
+    } finally {
+      setIsImporting(false);
+    }
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -143,7 +296,10 @@ export default function AdminLocationsPage() {
     const latitude = Number(form.latitude);
     const longitude = Number(form.longitude);
     if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-      setFeedback({ type: "error", message: "Enter valid numeric latitude and longitude values." });
+      setFeedback({
+        type: "error",
+        message: "Enter valid numeric latitude and longitude values.",
+      });
       return;
     }
 
@@ -174,14 +330,26 @@ export default function AdminLocationsPage() {
         }),
       });
 
-      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-      if (!response.ok) throw new Error(payload?.error ?? `Unable to create location (${response.status}).`);
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+      } | null;
+      if (!response.ok)
+        throw new Error(
+          payload?.error ?? `Unable to create location (${response.status}).`,
+        );
 
       setForm(INITIAL_FORM);
       setSelectedRequestId(null);
-      setFeedback({ type: "success", message: "Location marker added to the Explore map." });
+      setFeedback({
+        type: "success",
+        message: "Location marker added to the Explore map.",
+      });
     } catch (error) {
-      setFeedback({ type: "error", message: error instanceof Error ? error.message : "Unable to create location." });
+      setFeedback({
+        type: "error",
+        message:
+          error instanceof Error ? error.message : "Unable to create location.",
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -193,24 +361,41 @@ export default function AdminLocationsPage() {
         <aside className="rounded-3xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-5 shadow-2xl sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="m-0 text-xs font-bold uppercase tracking-[0.22em] text-[rgb(var(--brand))]">Member requests</p>
-              <h1 className="mt-3 text-2xl font-bold text-[rgb(var(--text-strong))]">Requested locations</h1>
+              <p className="m-0 text-xs font-bold uppercase tracking-[0.22em] text-[rgb(var(--brand))]">
+                Member requests
+              </p>
+              <h1 className="mt-3 text-2xl font-bold text-[rgb(var(--text-strong))]">
+                Requested locations
+              </h1>
               <p className="mt-2 text-sm text-[rgb(var(--muted))]">
-                Members only request places here. Admins decide whether to create the marker and whether it also needs a stay listing.
+                Members only request places here. Admins decide whether to
+                create the marker and whether it also needs a stay listing.
               </p>
             </div>
-            <Button type="button" variant="outline" onClick={() => void loadRequests()}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void loadRequests()}
+            >
               Refresh
             </Button>
           </div>
 
-          {requestLoadError ? <p className="mt-4 rounded-xl bg-[rgb(190,68,68)/0.12] p-3 text-sm text-[rgb(190,68,68)]">{requestLoadError}</p> : null}
+          {requestLoadError ? (
+            <p className="mt-4 rounded-xl bg-[rgb(190,68,68)/0.12] p-3 text-sm text-[rgb(190,68,68)]">
+              {requestLoadError}
+            </p>
+          ) : null}
 
           <div className="mt-5 grid gap-3">
             {isLoadingRequests ? (
-              <p className="rounded-xl border border-[rgb(var(--border))] p-3 text-sm text-[rgb(var(--muted))]">Loading requests…</p>
+              <p className="rounded-xl border border-[rgb(var(--border))] p-3 text-sm text-[rgb(var(--muted))]">
+                Loading requests…
+              </p>
             ) : requests.length === 0 ? (
-              <p className="rounded-xl border border-[rgb(var(--border))] p-3 text-sm text-[rgb(var(--muted))]">No location requests yet.</p>
+              <p className="rounded-xl border border-[rgb(var(--border))] p-3 text-sm text-[rgb(var(--muted))]">
+                No location requests yet.
+              </p>
             ) : (
               requests.map((request) => (
                 <article
@@ -223,24 +408,52 @@ export default function AdminLocationsPage() {
                 >
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
-                      <h2 className="m-0 text-base font-semibold text-[rgb(var(--text-strong))]">{request.placeName}</h2>
-                      <p className="mt-1 text-xs text-[rgb(var(--muted))]">{prettyDate(request.createdAt)} · {request.userEmail ?? "Unknown member"}</p>
+                      <h2 className="m-0 text-base font-semibold text-[rgb(var(--text-strong))]">
+                        {request.placeName}
+                      </h2>
+                      <p className="mt-1 text-xs text-[rgb(var(--muted))]">
+                        {prettyDate(request.createdAt)} ·{" "}
+                        {request.userEmail ?? "Unknown member"}
+                      </p>
                     </div>
-                    {request.isStay ? <span className="rounded-full bg-[rgb(var(--brand))/0.14] px-2 py-1 text-xs font-bold text-[rgb(var(--brand-2))]">Stay</span> : null}
+                    <span className="rounded-full bg-[rgb(var(--brand))/0.14] px-2 py-1 text-xs font-bold text-[rgb(var(--brand-2))]">
+                      {REQUEST_TYPE_LABELS[request.requestType]}
+                    </span>
                   </div>
-                  <p className="mt-3 whitespace-pre-wrap text-sm text-[rgb(var(--text))]">{request.locationHint}</p>
-                  {typeof request.latitude === "number" && typeof request.longitude === "number" ? (
+                  <p className="mt-3 whitespace-pre-wrap text-sm text-[rgb(var(--text))]">
+                    {request.locationHint}
+                  </p>
+                  {typeof request.latitude === "number" &&
+                  typeof request.longitude === "number" ? (
                     <p className="mt-2 text-sm font-semibold text-[rgb(var(--text-strong))]">
-                      Coordinates: {request.latitude.toFixed(6)}, {request.longitude.toFixed(6)}
+                      Coordinates: {request.latitude.toFixed(6)},{" "}
+                      {request.longitude.toFixed(6)}
                     </p>
                   ) : null}
-                  {request.website ? <p className="mt-2 text-sm"><a className="font-semibold text-[rgb(var(--brand-2))]" href={request.website}>{request.website}</a></p> : null}
-                  {request.notes ? <p className="mt-2 whitespace-pre-wrap text-sm text-[rgb(var(--muted))]">{request.notes}</p> : null}
+                  {request.website ? (
+                    <p className="mt-2 text-sm">
+                      <a
+                        className="font-semibold text-[rgb(var(--brand-2))]"
+                        href={request.website}
+                      >
+                        {request.website}
+                      </a>
+                    </p>
+                  ) : null}
+                  {request.notes ? (
+                    <p className="mt-2 whitespace-pre-wrap text-sm text-[rgb(var(--muted))]">
+                      {request.notes}
+                    </p>
+                  ) : null}
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <Button type="button" size="sm" onClick={() => copyRequestToEditor(request)}>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => copyRequestToEditor(request)}
+                    >
                       Use in marker editor
                     </Button>
-                    {request.isStay ? (
+                    {request.requestType === "stay" ? (
                       <Button asChild type="button" size="sm" variant="outline">
                         <Link href="/admin/stays">Open stay manager</Link>
                       </Button>
@@ -253,45 +466,162 @@ export default function AdminLocationsPage() {
         </aside>
 
         <section className="rounded-3xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-5 shadow-2xl sm:p-8">
-          <p className="m-0 text-xs font-bold uppercase tracking-[0.22em] text-[rgb(var(--brand))]">Admin map tools</p>
-          <h1 className="mt-3 text-3xl font-bold text-[rgb(var(--text-strong))]">Create approved marker</h1>
+          <p className="m-0 text-xs font-bold uppercase tracking-[0.22em] text-[rgb(var(--brand))]">
+            Admin map tools
+          </p>
+          <h1 className="mt-3 text-3xl font-bold text-[rgb(var(--text-strong))]">
+            Create approved marker
+          </h1>
           <p className="mt-2 max-w-2xl text-sm text-[rgb(var(--muted))]">
-            Fill in the verified marker details after reviewing a member request. If the request is a stay, publish this marker as
-            type <strong>Stays</strong> and complete the full accommodation record in the stay manager.
+            Fill in the verified marker details after reviewing a member
+            request. Stay, spa, and activity requests can be copied into the
+            editor, then published as approved map markers.
           </p>
 
-          <form className="mt-6 grid gap-5" onSubmit={(event) => void handleSubmit(event)}>
+          <form
+            className="mt-6 grid gap-4 rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))/0.45] p-4"
+            onSubmit={(event) => void importBookingWebsite(event)}
+          >
+            <div>
+              <p className="m-0 text-xs font-bold uppercase tracking-[0.18em] text-[rgb(var(--brand))]">
+                Website import
+              </p>
+              <h2 className="mt-2 text-xl font-bold text-[rgb(var(--text-strong))]">
+                Import spa or activity details
+              </h2>
+              <p className="mt-1 text-sm text-[rgb(var(--muted))]">
+                Paste a spa or activity website and we will prefill the marker
+                editor with name, description, location, website, amenities, and
+                tags.
+              </p>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px]">
+              <label className="grid gap-1">
+                <span className="text-sm font-medium">Website URL</span>
+                <input
+                  required
+                  type="url"
+                  value={importUrl}
+                  onChange={(event) => setImportUrl(event.target.value)}
+                  placeholder="https://"
+                  className="rounded-xl border border-[rgb(var(--border))] bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-[rgb(var(--brand))]"
+                />
+              </label>
+              <label className="grid gap-1">
+                <span className="text-sm font-medium">Import as</span>
+                <select
+                  value={importCategory}
+                  onChange={(event) =>
+                    setImportCategory(event.target.value as ImportCategory)
+                  }
+                  className="rounded-xl border border-[rgb(var(--border))] bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-[rgb(var(--brand))]"
+                >
+                  <option value="spa">Spa</option>
+                  <option value="activity">Activity</option>
+                </select>
+              </label>
+            </div>
+
+            {importWarnings.length ? (
+              <ul className="m-0 grid gap-1 rounded-xl bg-[rgb(206,143,47)/0.12] p-3 text-sm text-[rgb(145,93,24)]">
+                {importWarnings.map((warning) => (
+                  <li key={warning}>{warning}</li>
+                ))}
+              </ul>
+            ) : null}
+
+            <div>
+              <Button type="submit" disabled={isImporting}>
+                {isImporting ? "Importing..." : "Import website"}
+              </Button>
+            </div>
+          </form>
+
+          <form
+            className="mt-6 grid gap-5"
+            onSubmit={(event) => void handleSubmit(event)}
+          >
             <div className="grid gap-4 md:grid-cols-2">
               <label className="grid gap-1 md:col-span-2">
                 <span className="text-sm font-medium">Location name *</span>
-                <input required value={form.name} onChange={(event) => updateField("name", event.target.value)} className="rounded-xl border border-[rgb(var(--border))] bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-[rgb(var(--brand))]" />
+                <input
+                  required
+                  value={form.name}
+                  onChange={(event) => updateField("name", event.target.value)}
+                  className="rounded-xl border border-[rgb(var(--border))] bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-[rgb(var(--brand))]"
+                />
               </label>
               <label className="grid gap-1">
                 <span className="text-sm font-medium">Latitude *</span>
-                <input required value={form.latitude} onChange={(event) => updateField("latitude", event.target.value)} placeholder="37.7749" className="rounded-xl border border-[rgb(var(--border))] bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-[rgb(var(--brand))]" />
+                <input
+                  required
+                  value={form.latitude}
+                  onChange={(event) =>
+                    updateField("latitude", event.target.value)
+                  }
+                  placeholder="37.7749"
+                  className="rounded-xl border border-[rgb(var(--border))] bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-[rgb(var(--brand))]"
+                />
               </label>
               <label className="grid gap-1">
                 <span className="text-sm font-medium">Longitude *</span>
-                <input required value={form.longitude} onChange={(event) => updateField("longitude", event.target.value)} placeholder="-122.4194" className="rounded-xl border border-[rgb(var(--border))] bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-[rgb(var(--brand))]" />
+                <input
+                  required
+                  value={form.longitude}
+                  onChange={(event) =>
+                    updateField("longitude", event.target.value)
+                  }
+                  placeholder="-122.4194"
+                  className="rounded-xl border border-[rgb(var(--border))] bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-[rgb(var(--brand))]"
+                />
               </label>
               <label className="grid gap-1 md:col-span-2">
                 <span className="text-sm font-medium">Location hint</span>
-                <textarea rows={2} value={form.locationHint} onChange={(event) => updateField("locationHint", event.target.value)} className="rounded-xl border border-[rgb(var(--border))] bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-[rgb(var(--brand))]" />
+                <textarea
+                  rows={2}
+                  value={form.locationHint}
+                  onChange={(event) =>
+                    updateField("locationHint", event.target.value)
+                  }
+                  className="rounded-xl border border-[rgb(var(--border))] bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-[rgb(var(--brand))]"
+                />
               </label>
               <label className="grid gap-1 md:col-span-2">
                 <span className="text-sm font-medium">Short description *</span>
-                <input required value={form.shortDescription} onChange={(event) => updateField("shortDescription", event.target.value)} className="rounded-xl border border-[rgb(var(--border))] bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-[rgb(var(--brand))]" />
+                <input
+                  required
+                  value={form.shortDescription}
+                  onChange={(event) =>
+                    updateField("shortDescription", event.target.value)
+                  }
+                  className="rounded-xl border border-[rgb(var(--border))] bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-[rgb(var(--brand))]"
+                />
               </label>
               <label className="grid gap-1 md:col-span-2">
                 <span className="text-sm font-medium">Full description *</span>
-                <textarea required rows={4} value={form.fullDescription} onChange={(event) => updateField("fullDescription", event.target.value)} className="rounded-xl border border-[rgb(var(--border))] bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-[rgb(var(--brand))]" />
+                <textarea
+                  required
+                  rows={4}
+                  value={form.fullDescription}
+                  onChange={(event) =>
+                    updateField("fullDescription", event.target.value)
+                  }
+                  className="rounded-xl border border-[rgb(var(--border))] bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-[rgb(var(--brand))]"
+                />
               </label>
             </div>
 
             <div className="grid gap-4 md:grid-cols-3">
               <label className="grid gap-1">
                 <span className="text-sm font-medium">Access type</span>
-                <select value={form.accessType} onChange={(event) => updateField("accessType", event.target.value)} className="rounded-xl border border-[rgb(var(--border))] bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-[rgb(var(--brand))]">
+                <select
+                  value={form.accessType}
+                  onChange={(event) =>
+                    updateField("accessType", event.target.value)
+                  }
+                  className="rounded-xl border border-[rgb(var(--border))] bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-[rgb(var(--brand))]"
+                >
                   <option>Public</option>
                   <option>Discreet</option>
                   <option>Private Club</option>
@@ -299,19 +629,33 @@ export default function AdminLocationsPage() {
               </label>
               <label className="grid gap-1">
                 <span className="text-sm font-medium">Type / terrain</span>
-                <select value={form.terrain} onChange={(event) => updateField("terrain", event.target.value)} className="rounded-xl border border-[rgb(var(--border))] bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-[rgb(var(--brand))]">
+                <select
+                  value={form.terrain}
+                  onChange={(event) =>
+                    updateField("terrain", event.target.value)
+                  }
+                  className="rounded-xl border border-[rgb(var(--border))] bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-[rgb(var(--brand))]"
+                >
                   <option>Beach</option>
                   <option>Hot spring</option>
                   <option>Campground</option>
                   <option>Forest</option>
                   <option>Urban rooftop</option>
                   <option>Resort</option>
+                  <option>Spa</option>
+                  <option>Activity</option>
                   <option>Stays</option>
                 </select>
               </label>
               <label className="grid gap-1">
                 <span className="text-sm font-medium">Safety</span>
-                <select value={form.safetyLevel} onChange={(event) => updateField("safetyLevel", event.target.value)} className="rounded-xl border border-[rgb(var(--border))] bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-[rgb(var(--brand))]">
+                <select
+                  value={form.safetyLevel}
+                  onChange={(event) =>
+                    updateField("safetyLevel", event.target.value)
+                  }
+                  className="rounded-xl border border-[rgb(var(--border))] bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-[rgb(var(--brand))]"
+                >
                   <option>Beginner friendly</option>
                   <option>Trusted</option>
                   <option>Verified</option>
@@ -324,31 +668,74 @@ export default function AdminLocationsPage() {
             <div className="grid gap-4 md:grid-cols-2">
               <label className="grid gap-1">
                 <span className="text-sm font-medium">Website</span>
-                <input value={form.website} onChange={(event) => updateField("website", event.target.value)} placeholder="https://" className="rounded-xl border border-[rgb(var(--border))] bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-[rgb(var(--brand))]" />
+                <input
+                  value={form.website}
+                  onChange={(event) =>
+                    updateField("website", event.target.value)
+                  }
+                  placeholder="https://"
+                  className="rounded-xl border border-[rgb(var(--border))] bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-[rgb(var(--brand))]"
+                />
               </label>
               <label className="grid gap-1">
                 <span className="text-sm font-medium">Amenities</span>
-                <input value={form.amenities} onChange={(event) => updateField("amenities", event.target.value)} placeholder="Showers, Parking" className="rounded-xl border border-[rgb(var(--border))] bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-[rgb(var(--brand))]" />
+                <input
+                  value={form.amenities}
+                  onChange={(event) =>
+                    updateField("amenities", event.target.value)
+                  }
+                  placeholder="Showers, Parking"
+                  className="rounded-xl border border-[rgb(var(--border))] bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-[rgb(var(--brand))]"
+                />
               </label>
               <label className="grid gap-1">
                 <span className="text-sm font-medium">Tags</span>
-                <input value={form.tags} onChange={(event) => updateField("tags", event.target.value)} placeholder="quiet, social, stays" className="rounded-xl border border-[rgb(var(--border))] bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-[rgb(var(--brand))]" />
+                <input
+                  value={form.tags}
+                  onChange={(event) => updateField("tags", event.target.value)}
+                  placeholder="quiet, social, stays"
+                  className="rounded-xl border border-[rgb(var(--border))] bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-[rgb(var(--brand))]"
+                />
               </label>
               <label className="grid gap-1">
                 <span className="text-sm font-medium">Admin notes</span>
-                <textarea rows={3} value={form.reporterNotes} onChange={(event) => updateField("reporterNotes", event.target.value)} className="rounded-xl border border-[rgb(var(--border))] bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-[rgb(var(--brand))]" />
+                <textarea
+                  rows={3}
+                  value={form.reporterNotes}
+                  onChange={(event) =>
+                    updateField("reporterNotes", event.target.value)
+                  }
+                  className="rounded-xl border border-[rgb(var(--border))] bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-[rgb(var(--brand))]"
+                />
               </label>
             </div>
 
             {feedback ? (
-              <p className={feedback.type === "success" ? "text-sm text-[rgb(24,132,84)]" : "text-sm text-[rgb(190,68,68)]"}>
+              <p
+                className={
+                  feedback.type === "success"
+                    ? "text-sm text-[rgb(24,132,84)]"
+                    : "text-sm text-[rgb(190,68,68)]"
+                }
+              >
                 {feedback.message}
               </p>
             ) : null}
 
             <div className="flex flex-wrap gap-3">
-              <Button type="submit" disabled={isSubmitting}>{isSubmitting ? "Submitting..." : "Add marker"}</Button>
-              <Button type="button" variant="outline" onClick={() => { setForm(INITIAL_FORM); setSelectedRequestId(null); }}>Reset</Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Submitting..." : "Add marker"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setForm(INITIAL_FORM);
+                  setSelectedRequestId(null);
+                }}
+              >
+                Reset
+              </Button>
               {form.terrain === "Stays" ? (
                 <Button asChild type="button" variant="outline">
                   <Link href="/admin/stays">Finish stay listing</Link>

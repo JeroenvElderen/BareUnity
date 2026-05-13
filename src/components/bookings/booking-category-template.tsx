@@ -1,14 +1,26 @@
 import { AppSidebar } from "@/components/sidebar/sidebar";
 import layoutStyles from "@/app/page.module.css";
 import styles from "./booking-category-template.module.css";
+import {
+  type BookingRequestType,
+  RequestListingButton,
+} from "./request-listing-button";
 
 type BookingCategoryTemplateProps = {
   title: string;
   description: string;
   templates: readonly string[];
+  requestType?: BookingRequestType;
+  requestLabel?: string;
 };
 
-export function BookingCategoryTemplate({ title, description, templates }: BookingCategoryTemplateProps) {
+export function BookingCategoryTemplate({
+  title,
+  description,
+  templates,
+  requestType,
+  requestLabel,
+}: BookingCategoryTemplateProps) {
   return (
     <main className={layoutStyles.main}>
       <AppSidebar />
@@ -18,6 +30,12 @@ export function BookingCategoryTemplate({ title, description, templates }: Booki
           <header className={styles.header}>
             <h1>{title}</h1>
             <p>{description}</p>
+            {requestType ? (
+              <RequestListingButton
+                requestType={requestType}
+                label={requestLabel}
+              />
+            ) : null}
           </header>
 
           <article className={styles.panel}>

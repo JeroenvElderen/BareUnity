@@ -1,53 +1,65 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import styles from "./stays-list.module.css";
-import type { Listing } from "./stays-data";
-import { RequestListingButton } from "@/components/bookings/request-listing-button";
+import styles from "@/app/bookings/hotels-airbnbs/stays-list.module.css";
+import {
+  RequestListingButton,
+  type BookingRequestType,
+} from "./request-listing-button";
+import type { BookingListing } from "./booking-listing-types";
 
-type StaysListClientProps = {
-  listings: Listing[];
+type Props = {
+  listings: BookingListing[];
+  apiPath: string;
+  title: string;
+  subtitle: string;
+  requestType: BookingRequestType;
+  requestLabel: string;
+  priceLabel: string;
+  detailsBasePath?: string;
 };
 
 type SortOption = "rating" | "price-low" | "price-high";
 type RatingFilter = "4_5" | "4" | "3_5";
 type CountryOption = { country: string; count: number };
 
-export function StaysListClient({ listings }: StaysListClientProps) {
-  const [liveListings, setLiveListings] = useState<Listing[]>(listings);
-
-  useEffect(() => {
-    setLiveListings(listings);
-  }, [listings]);
+export function BookingListingsClient({
+  listings,
+  apiPath,
+  title,
+  subtitle,
+  requestType,
+  requestLabel,
+  priceLabel,
+  detailsBasePath,
+}: Props) {
+  const [liveListings, setLiveListings] = useState<BookingListing[]>(listings);
 
   useEffect(() => {
     const controller = new AbortController();
-
     const pullLatest = async () => {
       try {
-        const response = await fetch("/api/bookings/hotels-airbnbs", {
+        const response = await fetch(apiPath, {
           cache: "no-store",
           signal: controller.signal,
         });
         if (!response.ok) return;
-        const data = (await response.json()) as { listings?: Listing[] };
+        const data = (await response.json()) as { listings?: BookingListing[] };
         if (Array.isArray(data.listings)) setLiveListings(data.listings);
       } catch {
-        // silently ignore polling errors
+        // ignore polling errors
       }
     };
 
-    pullLatest();
+    void pullLatest();
     const intervalId = setInterval(pullLatest, 10000);
-
     return () => {
       controller.abort();
       clearInterval(intervalId);
     };
-  }, []);
+  }, [apiPath]);
 
-  const stayTypes = useMemo(
+  const listingTypes = useMemo(
     () => Array.from(new Set(liveListings.map((listing) => listing.type))),
     [liveListings],
   );
@@ -70,11 +82,11 @@ export function StaysListClient({ listings }: StaysListClientProps) {
   }, [liveListings]);
   const emptyTypeFilters = useMemo(
     () =>
-      Object.fromEntries(stayTypes.map((type) => [type, false])) as Record<
+      Object.fromEntries(listingTypes.map((type) => [type, false])) as Record<
         string,
         boolean
       >,
-    [stayTypes],
+    [listingTypes],
   );
   const [selectedCountry, setSelectedCountry] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("rating");
@@ -114,8 +126,6 @@ export function StaysListClient({ listings }: StaysListClientProps) {
     sortBy,
   ]);
 
-  const toggleType = (type: Listing["type"]) =>
-    setSelectedTypes((current) => ({ ...current, [type]: !current[type] }));
   const resetFilters = () => {
     setSelectedCountry("");
     setRatingFilter(null);
@@ -126,23 +136,23 @@ export function StaysListClient({ listings }: StaysListClientProps) {
     <div className={styles.shell}>
       <section className={styles.searchPanel}>
         <div>
-          <h1 className={styles.title}>Find your next stay</h1>
-          <p className={styles.subtitle}>
-            Compare hotels, camping, and entire places with unified filters and
-            quick booking links.
-          </p>
-          <RequestListingButton requestType="stay" label="Request a stay" />
+          <h1 className={styles.title}>{title}</h1>
+          <p className={styles.subtitle}>{subtitle}</p>
+          <RequestListingButton
+            requestType={requestType}
+            label={requestLabel}
+          />
         </div>
         <form
           className={styles.searchRow}
-          aria-label="Accommodation search form"
-          onSubmit={(e) => e.preventDefault()}
+          aria-label={`${title} search form`}
+          onSubmit={(event) => event.preventDefault()}
         >
           <label className={`${styles.field} ${styles.selectField}`}>
             <span>Country</span>
             <select
               value={selectedCountry}
-              onChange={(e) => setSelectedCountry(e.target.value)}
+              onChange={(event) => setSelectedCountry(event.target.value)}
             >
               <option value="">All countries</option>
               {countryOptions.map((option) => (
@@ -183,7 +193,7 @@ export function StaysListClient({ listings }: StaysListClientProps) {
                   checked={ratingFilter === "4_5"}
                   onChange={() => setRatingFilter("4_5")}
                 />{" "}
-                4.5+ Outstanding
+                4.5+
               </label>
               <label>
                 <input
@@ -192,7 +202,7 @@ export function StaysListClient({ listings }: StaysListClientProps) {
                   checked={ratingFilter === "4"}
                   onChange={() => setRatingFilter("4")}
                 />{" "}
-                4+ Excellent
+                4.0+
               </label>
               <label>
                 <input
@@ -201,40 +211,43 @@ export function StaysListClient({ listings }: StaysListClientProps) {
                   checked={ratingFilter === "3_5"}
                   onChange={() => setRatingFilter("3_5")}
                 />{" "}
-                3.5+ Great
+                3.5+
               </label>
             </div>
-            <div className={styles.filterGroup}>
-              <h3>Type of stay</h3>
-              {stayTypes.map((type) => (
-                <label key={type}>
-                  <input
-                    type="checkbox"
-                    checked={selectedTypes[type] ?? false}
-                    onChange={() => toggleType(type)}
-                  />{" "}
-                  {type}
-                </label>
-              ))}
-            </div>
+            {listingTypes.length ? (
+              <div className={styles.filterGroup}>
+                <h3>Type</h3>
+                {listingTypes.map((type) => (
+                  <label key={type}>
+                    <input
+                      type="checkbox"
+                      checked={selectedTypes[type] ?? false}
+                      onChange={() =>
+                        setSelectedTypes((current) => ({
+                          ...current,
+                          [type]: !current[type],
+                        }))
+                      }
+                    />{" "}
+                    {type}
+                  </label>
+                ))}
+              </div>
+            ) : null}
             {hasActiveFilters ? (
-              <button
-                type="button"
-                className={styles.searchButton}
-                onClick={resetFilters}
-              >
+              <button className={styles.detailsBtn} onClick={resetFilters}>
                 Reset filters
               </button>
             ) : null}
           </div>
         </aside>
 
-        <div className={styles.resultsWrap}>
+        <section className={styles.resultsWrap}>
           <div className={styles.resultsTop}>
-            <h2>{results.length} properties found</h2>
+            <h2>{results.length} results</h2>
             <select
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as SortOption)}
+              onChange={(event) => setSortBy(event.target.value as SortOption)}
             >
               <option value="rating">Highest rating</option>
               <option value="price-low">Price: low to high</option>
@@ -244,23 +257,22 @@ export function StaysListClient({ listings }: StaysListClientProps) {
 
           {results.length === 0 ? (
             <div className={styles.emptyState}>
-              <h3>No stays match your filters</h3>
+              <h3>No listings match your filters</h3>
               <p>
-                Try choosing a different country or enabling more stay types.
+                Try choosing a different country or enabling more listing types.
               </p>
             </div>
           ) : (
             <div className={styles.results}>
-              {results.map((listing, idx) => (
+              {results.map((listing, index) => (
                 <article key={listing.slug} className={styles.card}>
                   <div
                     className={styles.media}
                     style={{
-                      backgroundImage: `url(${listing.gallery[0] ?? `https://picsum.photos/seed/${idx}/900/600`})`,
+                      backgroundImage: `url(${listing.gallery[0] ?? `https://picsum.photos/seed/${listing.slug || index}/900/600`})`,
                     }}
                     aria-hidden="true"
                   />
-
                   <div className={styles.body}>
                     <div className={styles.titleRow}>
                       <h3 className={styles.name}>{listing.name}</h3>
@@ -276,10 +288,9 @@ export function StaysListClient({ listings }: StaysListClientProps) {
                         <li key={amenity}>{amenity}</li>
                       ))}
                     </ul>
-
                     <div className={styles.bottom}>
                       <p className={styles.price}>
-                        €{listing.price} <span>/ night</span>
+                        €{listing.price} <span>{priceLabel}</span>
                       </p>
                       <div className={styles.actions}>
                         <a
@@ -290,12 +301,23 @@ export function StaysListClient({ listings }: StaysListClientProps) {
                         >
                           Book
                         </a>
-                        <Link
-                          href={`/bookings/hotels-airbnbs/${listing.slug}`}
-                          className={styles.detailsBtn}
-                        >
-                          See more details
-                        </Link>
+                        {detailsBasePath ? (
+                          <a
+                            href={`${detailsBasePath}/${listing.slug}`}
+                            className={styles.detailsBtn}
+                          >
+                            See more details
+                          </a>
+                        ) : (
+                          <a
+                            href={listing.websiteUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className={styles.detailsBtn}
+                          >
+                            See details
+                          </a>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -303,7 +325,7 @@ export function StaysListClient({ listings }: StaysListClientProps) {
               ))}
             </div>
           )}
-        </div>
+        </section>
       </section>
     </div>
   );

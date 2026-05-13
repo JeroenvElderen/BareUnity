@@ -9,7 +9,12 @@ import {
 } from "@/lib/supabase-admin";
 import { ensureMemberCanAct } from "@/lib/action-access";
 
-const coordinate = z.preprocess((value) => Number(value), z.number().finite());
+const coordinate = z.preprocess((value) => {
+  if (value === undefined || value === null || value === "") return undefined;
+  return Number(value);
+}, z.number().finite().optional());
+
+const requestTypeSchema = z.enum(["location", "stay", "spa", "activity"]);
 
 const locationRequestSchema = z.object({
   placeName: z
@@ -25,6 +30,7 @@ const locationRequestSchema = z.object({
   latitude: coordinate,
   longitude: coordinate,
   website: z.string().trim().max(500, "Website is too long.").optional(),
+  requestType: requestTypeSchema.default("location"),
   isStay: z.boolean().default(false),
   notes: z
     .string()
@@ -58,11 +64,23 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const hasLatitude = typeof parsed.data.latitude === "number";
+  const hasLongitude = typeof parsed.data.longitude === "number";
+
+  if (hasLatitude !== hasLongitude) {
+    return NextResponse.json(
+      { error: "Add both latitude and longitude, or leave both blank." },
+      { status: 400 },
+    );
+  }
+
   if (
-    (typeof parsed.data.latitude === "number" &&
-      (parsed.data.latitude < -90 || parsed.data.latitude > 90)) ||
-    (typeof parsed.data.longitude === "number" &&
-      (parsed.data.longitude < -180 || parsed.data.longitude > 180))
+    (hasLatitude &&
+      ((parsed.data.latitude as number) < -90 ||
+        (parsed.data.latitude as number) > 90)) ||
+    (hasLongitude &&
+      ((parsed.data.longitude as number) < -180 ||
+        (parsed.data.longitude as number) > 180))
   ) {
     return NextResponse.json(
       { error: "Coordinates are outside the valid latitude/longitude range." },
@@ -72,6 +90,7 @@ export async function POST(request: NextRequest) {
 
   const requestPayload = {
     ...parsed.data,
+    isStay: parsed.data.requestType === "stay" || parsed.data.isStay,
     requesterEmail: authResult.user.email ?? null,
     requestedAt: new Date().toISOString(),
   };
