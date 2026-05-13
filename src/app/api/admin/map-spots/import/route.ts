@@ -13,6 +13,7 @@ type JsonValue =
   | { [key: string]: JsonValue };
 
 type ImportDraft = {
+  slug: string;
   name: string;
   shortDescription: string;
   fullDescription: string;
@@ -44,6 +45,10 @@ type ImportDraft = {
 
 type GeocodeAddress = {
   road?: string;
+  amenity?: string;
+  attraction?: string;
+  tourism?: string;
+  leisure?: string;
   house_number?: string;
   postcode?: string;
   city?: string;
@@ -148,6 +153,16 @@ function uniqueStrings(values: string[]) {
   });
 }
 
+function slugify(value: string) {
+  return decodeHtml(value)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+}
+
 function textFromMeta(html: string, name: string) {
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const regex = new RegExp(
@@ -203,8 +218,26 @@ function asRecord(
     : null;
 }
 
-function stringValue(value: JsonValue | undefined) {
-  return typeof value === "string" ? decodeHtml(value) : "";
+function stringValue(value: JsonValue | undefined): string {
+  if (typeof value === "string") return decodeHtml(value);
+  if (typeof value === "number" || typeof value === "boolean")
+    return String(value);
+  if (Array.isArray(value))
+    return value
+      .map((item) => stringValue(item))
+      .filter(Boolean)
+      .join(", ");
+
+  const record = asRecord(value);
+  if (record) {
+    return (
+      stringValue(record.name) ||
+      stringValue(record.url) ||
+      stringValue(record["@id"])
+    );
+  }
+
+  return "";
 }
 
 function findJsonLdPlace(records: JsonValue[]) {
@@ -226,6 +259,8 @@ function findJsonLdPlace(records: JsonValue[]) {
     if (
       type.includes("localbusiness") ||
       type.includes("healthandbeautybusiness") ||
+      type.includes("beautysalon") ||
+      type.includes("sportsactivitylocation") ||
       type.includes("event") ||
       type.includes("place") ||
       type.includes("touristattraction")
@@ -235,6 +270,28 @@ function findJsonLdPlace(records: JsonValue[]) {
   }
 
   return null;
+}
+
+function flattenJsonLd(records: JsonValue[]) {
+  const flattened: Record<string, JsonValue>[] = [];
+  const queue = [...records];
+
+  while (queue.length) {
+    const current = queue.shift();
+    if (Array.isArray(current)) {
+      queue.push(...current);
+      continue;
+    }
+
+    const record = asRecord(current);
+    if (!record) continue;
+
+    flattened.push(record);
+    const graph = record["@graph"];
+    if (Array.isArray(graph)) queue.push(...graph);
+  }
+
+  return flattened;
 }
 
 function addressFromJsonLd(record: Record<string, JsonValue> | null) {
@@ -254,11 +311,11 @@ function addressFromJsonLd(record: Record<string, JsonValue> | null) {
 }
 
 function geoFromJsonLd(record: Record<string, JsonValue> | null) {
-  const geo = asRecord(record?.geo);
+  const geo = asRecord(record?.geo) ?? asRecord(record?.location);
   if (!geo) return null;
 
-  const latitude = Number(geo.latitude);
-  const longitude = Number(geo.longitude);
+  const latitude = Number(stringValue(geo.latitude));
+  const longitude = Number(stringValue(geo.longitude));
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
   return { latitude, longitude };
 }
@@ -268,6 +325,170 @@ function extractAmenityCandidates(text: string, keywords: string[]) {
   return keywords
     .filter((keyword) => lowerText.includes(keyword))
     .map((keyword) => `${keyword.charAt(0).toUpperCase()}${keyword.slice(1)}`);
+}
+
+function firstNonEmpty(...values: string[]) {
+  return values.map((value) => decodeHtml(value).trim()).find(Boolean) ?? "";
+}
+
+function absolutizeUrl(value: string, baseUrl: URL) {
+  const cleaned = decodeHtml(value).trim();
+  if (!cleaned || cleaned.startsWith("data:") || cleaned.startsWith("blob:"))
+    return "";
+
+  try {
+    return new URL(cleaned, baseUrl).toString();
+  } catch {
+    return "";
+  }
+}
+
+function imageValue(value: JsonValue | undefined): string[] {
+  if (typeof value === "string") return [value];
+  if (Array.isArray(value)) return value.flatMap((item) => imageValue(item));
+
+  const record = asRecord(value);
+  if (!record) return [];
+
+  return [
+    stringValue(record.url),
+    stringValue(record.contentUrl),
+    stringValue(record.thumbnailUrl),
+  ].filter(Boolean);
+}
+
+function srcsetUrls(value: string) {
+  return value
+    .split(",")
+    .map((candidate) => candidate.trim().split(/\s+/)[0] ?? "")
+    .filter(Boolean);
+}
+
+function collectGallery(
+  html: string,
+  records: Record<string, JsonValue>[],
+  websiteUrl: URL,
+) {
+  const candidates = [
+    textFromMeta(html, "og:image"),
+    textFromMeta(html, "og:image:secure_url"),
+    textFromMeta(html, "twitter:image"),
+    ...records.flatMap((record) => [
+      ...imageValue(record.image),
+      ...imageValue(record.photo),
+      ...imageValue(record.logo),
+    ]),
+    ...[
+      ...html.matchAll(
+        /<link[^>]+rel=["']image_src["'][^>]+href=["']([^"']+)["'][^>]*>/gi,
+      ),
+    ].map((match) => match[1] ?? ""),
+    ...[
+      ...html.matchAll(
+        /<img[^>]+(?:src|data-src|data-lazy-src)=["']([^"']+)["'][^>]*>/gi,
+      ),
+    ].map((match) => match[1] ?? ""),
+    ...[
+      ...html.matchAll(/<source[^>]+srcset=["']([^"']+)["'][^>]*>/gi),
+    ].flatMap((match) => srcsetUrls(match[1] ?? "")),
+    ...[...html.matchAll(/<img[^>]+srcset=["']([^"']+)["'][^>]*>/gi)].flatMap(
+      (match) => srcsetUrls(match[1] ?? ""),
+    ),
+  ];
+
+  return uniqueStrings(
+    candidates
+      .map((candidate) => absolutizeUrl(candidate, websiteUrl))
+      .filter(
+        (candidate) =>
+          /\.(?:avif|gif|jpe?g|png|webp)(?:[?#].*)?$/i.test(candidate) ||
+          /(?:image|media|uploads|wp-content|cdn|assets)/i.test(candidate),
+      ),
+  ).slice(0, 8);
+}
+
+function collectInternalLinks(html: string, rootUrl: URL) {
+  const linkKeywords =
+    /contact|location|locatie|route|about|over|spa|wellness|sauna|massage|facilit|praktisch|visit|bezoek/i;
+  const links = [...html.matchAll(/<a[^>]+href=["']([^"'#]+)["'][^>]*>/gi)]
+    .map((match) => match[1] ?? "")
+    .map((href) => {
+      try {
+        return new URL(href, rootUrl);
+      } catch {
+        return null;
+      }
+    })
+    .filter((url): url is URL => Boolean(url))
+    .filter((url) => url.origin === rootUrl.origin)
+    .filter(
+      (url) =>
+        linkKeywords.test(url.pathname) || linkKeywords.test(url.toString()),
+    );
+
+  return uniqueStrings(links.map((url) => url.toString())).slice(0, 5);
+}
+
+type CrawledPage = {
+  url: URL;
+  html: string;
+  text: string;
+};
+
+async function fetchHtml(url: URL) {
+  const response = await fetch(url, {
+    headers: {
+      Accept: "text/html,application/xhtml+xml",
+      "User-Agent": "BareUnity bookings importer (+https://bareunity.com)",
+    },
+    signal: AbortSignal.timeout(15000),
+  });
+
+  if (!response.ok) return null;
+
+  const contentType = response.headers.get("content-type") ?? "";
+  if (contentType && !/text\/html|application\/xhtml\+xml/i.test(contentType))
+    return null;
+
+  return response.text();
+}
+
+async function crawlBookingWebsite(rootUrl: URL) {
+  const rootHtml = await fetchHtml(rootUrl);
+  if (!rootHtml) return [];
+
+  const pages: CrawledPage[] = [
+    { url: rootUrl, html: rootHtml, text: stripTags(rootHtml) },
+  ];
+
+  for (const link of collectInternalLinks(rootHtml, rootUrl)) {
+    if (pages.length >= 4) break;
+    const pageUrl = new URL(link);
+    const html = await fetchHtml(pageUrl);
+    if (!html) continue;
+    pages.push({ url: pageUrl, html, text: stripTags(html) });
+  }
+
+  return pages;
+}
+
+function addressCountryFromJsonLd(record: Record<string, JsonValue> | null) {
+  const address = record?.address;
+  const addressRecord = asRecord(address);
+  if (!addressRecord) return "";
+
+  return stringValue(addressRecord.addressCountry);
+}
+
+function addressPlaceFromJsonLd(record: Record<string, JsonValue> | null) {
+  const address = record?.address;
+  const addressRecord = asRecord(address);
+  if (!addressRecord) return "";
+
+  return firstNonEmpty(
+    stringValue(addressRecord.addressLocality),
+    stringValue(addressRecord.addressRegion),
+  );
 }
 
 function geocodeAddressLine(result: GeocodeResult, fallback: string) {
@@ -418,43 +639,39 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const response = await fetch(websiteUrl, {
-      headers: {
-        Accept: "text/html,application/xhtml+xml",
-        "User-Agent": "BareUnity bookings importer (+https://bareunity.com)",
-      },
-      signal: AbortSignal.timeout(15000),
-    });
-
-    if (!response.ok) {
+    const crawledPages = await crawlBookingWebsite(websiteUrl);
+    if (!crawledPages.length) {
       return NextResponse.json(
-        { error: `Website returned ${response.status}.` },
+        { error: "No crawlable website pages were found." },
         { status: 502 },
       );
     }
 
-    const html = await response.text();
-    const pageText = stripTags(html);
-    const jsonLdPlace = findJsonLdPlace(parseJsonLd(html));
+    const html = crawledPages.map((page) => page.html).join("\n\n");
+    const pageText = crawledPages
+      .map((page) => `URL: ${page.url.toString()}\n${page.text}`)
+      .join("\n\n");
+    const records = crawledPages.flatMap((page) => parseJsonLd(page.html));
+    const jsonLdPlace = findJsonLdPlace(records);
     const name =
       stringValue(jsonLdPlace?.name) ||
       titleFromHtml(html) ||
       websiteUrl.hostname;
     const description = descriptionFromHtml(html);
     const address = addressFromJsonLd(jsonLdPlace);
+    const jsonLdCountry = addressCountryFromJsonLd(jsonLdPlace);
+    const jsonLdPlaceName = addressPlaceFromJsonLd(jsonLdPlace);
     const geo = geoFromJsonLd(jsonLdPlace);
-    const geocoded = geo
-      ? null
-      : await geocodeImportedLocation(name, address, websiteUrl);
+    const geocoded = await geocodeImportedLocation(name, address, websiteUrl);
     const coordinates = geo ?? geocoded;
     const amenities = uniqueStrings([
       ...config.defaultAmenities,
       ...extractAmenityCandidates(pageText, config.keywords),
     ]).slice(0, 10);
-    const gallery = uniqueStrings([textFromMeta(html, "og:image")]).filter(
-      Boolean,
-    );
-    const warnings = [];
+    const gallery = collectGallery(html, flattenJsonLd(records), websiteUrl);
+    const warnings = [
+      `Checked ${crawledPages.length} website page${crawledPages.length === 1 ? "" : "s"} for ${config.label.toLowerCase()} details, location, amenities, policies, and images.`,
+    ];
 
     if (!coordinates) {
       warnings.push(
@@ -468,7 +685,16 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    if (!gallery.length) {
+      warnings.push(
+        "No gallery images were detected. Add public image URLs from the website manually if available.",
+      );
+    }
+
     const draft: ImportDraft = {
+      slug: slugify(
+        `${name}-${geocoded?.placeName || jsonLdPlaceName || geocoded?.country || jsonLdCountry || websiteUrl.hostname}`,
+      ),
       name,
       shortDescription:
         description.slice(0, 160) || `${config.label} imported from website.`,
@@ -494,8 +720,12 @@ export async function GET(request: NextRequest) {
         geocoded?.address ||
         geocoded?.displayName ||
         websiteUrl.hostname,
-      country: geocoded?.country || "",
-      placeName: geocoded?.placeName || address || websiteUrl.hostname,
+      country: geocoded?.country || jsonLdCountry || "",
+      placeName:
+        geocoded?.placeName ||
+        jsonLdPlaceName ||
+        address ||
+        websiteUrl.hostname,
       price: 1,
       rating: 4.5,
       badge: `Website-sourced ${config.label.toLowerCase()}`,
