@@ -1,3 +1,4 @@
+import { isPlatformAdminEmail } from "@/lib/platform-admin";
 import { supabase } from "@/lib/supabase";
 
 export const VIEW_ONLY_ACTION_MESSAGE =
@@ -9,6 +10,16 @@ type ActionSettingsRow = {
 };
 
 export async function canCurrentUserAct(userId: string) {
+  const { data: authData, error: authError } = await supabase.auth.getUser();
+
+  if (
+    !authError &&
+    authData.user?.id === userId &&
+    isPlatformAdminEmail(authData.user.email)
+  ) {
+    return true;
+  }
+
   const { data, error } = await supabase
     .from("profile_settings")
     .select("onboarding_completed,user_role")
