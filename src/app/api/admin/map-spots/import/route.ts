@@ -42,10 +42,35 @@ type ImportDraft = {
   warnings: string[];
 };
 
+type GeocodeAddress = {
+  road?: string;
+  house_number?: string;
+  postcode?: string;
+  city?: string;
+  town?: string;
+  village?: string;
+  municipality?: string;
+  county?: string;
+  state?: string;
+  region?: string;
+  country?: string;
+};
+
 type GeocodeResult = {
   lat?: string;
   lon?: string;
   display_name?: string;
+  name?: string;
+  address?: GeocodeAddress;
+};
+
+type GeocodedLocation = {
+  latitude: number;
+  longitude: number;
+  displayName: string;
+  address: string;
+  country: string;
+  placeName: string;
 };
 
 const CATEGORY_CONFIG: Record<
@@ -245,7 +270,44 @@ function extractAmenityCandidates(text: string, keywords: string[]) {
     .map((keyword) => `${keyword.charAt(0).toUpperCase()}${keyword.slice(1)}`);
 }
 
-async function geocode(query: string) {
+function geocodeAddressLine(result: GeocodeResult, fallback: string) {
+  const address = result.address;
+  if (!address) return result.display_name ?? fallback;
+
+  const street = uniqueStrings([
+    address.road ?? "",
+    address.house_number ?? "",
+  ]).join(" ");
+
+  return (
+    uniqueStrings([
+      street,
+      address.postcode ?? "",
+      address.city ?? address.town ?? address.village ?? "",
+      address.state ?? address.region ?? "",
+      address.country ?? "",
+    ]).join(", ") ||
+    result.display_name ||
+    fallback
+  );
+}
+
+function geocodePlaceName(result: GeocodeResult, fallback: string) {
+  const address = result.address;
+  return (
+    address?.city ||
+    address?.town ||
+    address?.village ||
+    address?.municipality ||
+    address?.county ||
+    address?.state ||
+    address?.region ||
+    result.name ||
+    fallback
+  );
+}
+
+async function geocode(query: string): Promise<GeocodedLocation | null> {
   if (!query) return null;
 
   const controller = new AbortController();
@@ -253,7 +315,7 @@ async function geocode(query: string) {
 
   try {
     const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(query)}`,
+      `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=3&addressdetails=1&q=${encodeURIComponent(query)}`,
       {
         headers: {
           Accept: "application/json",
@@ -266,23 +328,70 @@ async function geocode(query: string) {
     if (!response.ok) return null;
 
     const results = (await response.json()) as GeocodeResult[];
-    const result = results[0];
-    if (!result) return null;
+    for (const result of results) {
+      const latitude = Number(result.lat);
+      const longitude = Number(result.lon);
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) continue;
 
-    const latitude = Number(result.lat);
-    const longitude = Number(result.lon);
-    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+      const displayName = result.display_name ?? query;
+      return {
+        latitude,
+        longitude,
+        displayName,
+        address: geocodeAddressLine(result, displayName),
+        country: result.address?.country ?? "",
+        placeName: geocodePlaceName(result, displayName),
+      };
+    }
 
-    return {
-      latitude,
-      longitude,
-      displayName: result.display_name ?? query,
-    };
+    return null;
   } catch {
     return null;
   } finally {
     clearTimeout(timeout);
   }
+}
+
+function uniqueGeocodeQueries(values: string[]) {
+  const seen = new Set<string>();
+
+  return values
+    .map((value) => decodeHtml(value).trim())
+    .filter((value) => {
+      const key = value.toLowerCase();
+      if (!value || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
+function hostnameSearchTerms(hostname: string) {
+  const withoutWww = hostname.replace(/^www\./i, "");
+  const labels = withoutWww.split(".").filter(Boolean);
+  const brandLabel = labels[0]?.replace(/[-_]+/g, " ") ?? "";
+
+  return uniqueGeocodeQueries([withoutWww, brandLabel]);
+}
+
+async function geocodeImportedLocation(
+  name: string,
+  address: string,
+  websiteUrl: URL,
+) {
+  const hostTerms = hostnameSearchTerms(websiteUrl.hostname);
+  const queries = uniqueGeocodeQueries([
+    address,
+    ...hostTerms.map((term) => `${name}, ${term}`),
+    name,
+    ...hostTerms,
+  ]);
+
+  for (const query of queries) {
+    const result = await geocode(query);
+    if (result) return result;
+  }
+
+  return null;
 }
 
 export async function GET(request: NextRequest) {
@@ -336,7 +445,7 @@ export async function GET(request: NextRequest) {
     const geo = geoFromJsonLd(jsonLdPlace);
     const geocoded = geo
       ? null
-      : await geocode(address || `${name}, ${websiteUrl.hostname}`);
+      : await geocodeImportedLocation(name, address, websiteUrl);
     const coordinates = geo ?? geocoded;
     const amenities = uniqueStrings([
       ...config.defaultAmenities,
@@ -353,7 +462,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    if (!address) {
+    if (!address && !geocoded?.address) {
       warnings.push(
         "No structured address was found. Review the location hint before saving.",
       );
@@ -370,15 +479,23 @@ export async function GET(request: NextRequest) {
       longitude: coordinates?.longitude,
       mapLatitude: coordinates?.latitude,
       mapLongitude: coordinates?.longitude,
-      locationHint: address || geocoded?.displayName || websiteUrl.hostname,
+      locationHint:
+        address ||
+        geocoded?.address ||
+        geocoded?.displayName ||
+        websiteUrl.hostname,
       accessType: "Public",
       terrain: config.terrain,
       safetyLevel: "Beginner friendly",
       website: websiteUrl.toString(),
       websiteUrl: websiteUrl.toString(),
-      address: address || geocoded?.displayName || websiteUrl.hostname,
-      country: "",
-      placeName: address || geocoded?.displayName || websiteUrl.hostname,
+      address:
+        address ||
+        geocoded?.address ||
+        geocoded?.displayName ||
+        websiteUrl.hostname,
+      country: geocoded?.country || "",
+      placeName: geocoded?.placeName || address || websiteUrl.hostname,
       price: 1,
       rating: 4.5,
       badge: `Website-sourced ${config.label.toLowerCase()}`,
