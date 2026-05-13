@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ensureStayAdmin } from "../auth";
-import type { Listing } from "@/app/bookings/hotels-airbnbs/stays-data";
+import { ensureStayAdmin } from "@/app/api/admin/stays/auth";
+import type { SpaListing } from "@/app/bookings/spas/spas-data";
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
@@ -14,7 +14,7 @@ type ImportDraft = {
   name: string;
   country: string;
   placeName: string;
-  type: Listing["type"];
+  type: SpaListing["type"];
   rating: number | null;
   price: number | null;
   badge: string;
@@ -40,12 +40,12 @@ const IS_VERCEL = process.env.VERCEL === "1" || Boolean(process.env.VERCEL_ENV);
 const DEFAULT_OLLAMA_API_BASE_URL = IS_VERCEL ? "https://ollama.com/api" : "http://localhost:11434/api";
 const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY;
 const OLLAMA_API_BASE_URL = (process.env.OLLAMA_API_BASE_URL ?? DEFAULT_OLLAMA_API_BASE_URL).replace(/\/$/, "");
-const OLLAMA_STAYS_MODEL = process.env.OLLAMA_STAYS_MODEL ?? "gpt-oss:120b";
+const OLLAMA_SPAS_MODEL = process.env.OLLAMA_SPAS_MODEL ?? process.env.OLLAMA_STAYS_MODEL ?? "gpt-oss:120b";
 const OLLAMA_REQUEST_TIMEOUT_MS = Number(process.env.OLLAMA_REQUEST_TIMEOUT_MS ?? 45000);
 const MAX_AI_HTML_CHARACTERS = 100000;
-const MAX_IMPORT_CRAWL_PAGES = Math.max(1, Number(process.env.STAYS_IMPORT_MAX_CRAWL_PAGES ?? 12));
-const MAX_IMPORT_DOCUMENTS = Math.max(0, Number(process.env.STAYS_IMPORT_MAX_DOCUMENTS ?? 6));
-const MAX_IMPORT_EXTERNAL_LINKS = Math.max(0, Number(process.env.STAYS_IMPORT_MAX_EXTERNAL_LINKS ?? 4));
+const MAX_IMPORT_CRAWL_PAGES = Math.max(1, Number(process.env.SPAS_IMPORT_MAX_CRAWL_PAGES ?? process.env.STAYS_IMPORT_MAX_CRAWL_PAGES ?? 12));
+const MAX_IMPORT_DOCUMENTS = Math.max(0, Number(process.env.SPAS_IMPORT_MAX_DOCUMENTS ?? process.env.STAYS_IMPORT_MAX_DOCUMENTS ?? 6));
+const MAX_IMPORT_EXTERNAL_LINKS = Math.max(0, Number(process.env.SPAS_IMPORT_MAX_EXTERNAL_LINKS ?? process.env.STAYS_IMPORT_MAX_EXTERNAL_LINKS ?? 4));
 const MAX_CRAWLED_CONTENT_CHARACTERS = 300000;
 const MAX_POLICY_ITEMS_PER_CATEGORY = 5;
 const MAX_POLICY_ITEM_CHARACTERS = 96;
@@ -53,8 +53,8 @@ const MIN_REWRITTEN_POLICY_CHARACTERS = 8;
 const POLICY_CATEGORY_ORDER = ["Check-in and check-out", "Cancellation", "Accepted payment methods", "Property policy", "Security", "Pets"] as const;
 const POLICY_CATEGORY_RANK = new Map<string, number>(POLICY_CATEGORY_ORDER.map((category, index) => [category, index]));
 
-function isListingType(value: string): value is Listing["type"] {
-  return ["Hotel", "Entire place", "Boutique stay", "Naturist camping"].includes(value);
+function isListingType(value: string): value is SpaListing["type"] {
+  return ["Day spa", "Wellness center", "Thermal spa", "Massage studio"].includes(value);
 }
 
 function coerceString(value: JsonValue | undefined) {
@@ -446,7 +446,7 @@ function mergeAiDraft(baseDraft: ImportDraft, aiDraft: Partial<ImportDraft>): Im
     amenities: amenities.length ? amenities : baseDraft.amenities,
     description: aiDraft.description || baseDraft.description,
     websiteUrl: aiDraft.websiteUrl || baseDraft.websiteUrl,
-    address: aiDraft.address || baseDraft.address,
+    address: chooseBestAddress(baseDraft.address, aiDraft.address),
     checkInWindow: aiDraft.checkInWindow || baseDraft.checkInWindow,
     policies: mergePolicyDrafts(baseDraft.policies, aiDraft.policies),
     gallery: aiDraft.gallery?.length ? aiDraft.gallery : baseDraft.gallery,
@@ -465,7 +465,7 @@ async function enrichDraftWithAi(baseDraft: ImportDraft, crawledContent: string,
     return baseDraft;
   }
 
-  const prompt = `Extract a BareUnity stay listing from this public accommodation website crawl. Use only facts present in the crawled HTML/text/PDF content. Do a thorough check of services, facilities, amenities, activities, entertainment, house rules, booking terms, cancellation, payment, pets, naturist rules, check-in/out, privacy/terms, FAQ, and downloadable PDF/document content. Return strict JSON with these keys: slug, name, country, placeName, type, rating, price, badge, vibe, amenities, description, websiteUrl, address, checkInWindow, policies, gallery. type must be one of Hotel, Entire place, Boutique stay, Naturist camping. amenities should include Services and/or Entertainment when the website mentions entertainment and/or services, recreation, events, shows, music, games, animation, or activity programmes. Write the listing in the concise BareUnity style shown by this example: badge "Naturist wellness & spa", vibe "Naturist retreat · Forest camping & glamping · Social clubhouse energy", description as 1-2 factual sentences, and policies grouped as Check-in and check-out, Cancellation, Accepted payment methods, Property policy, Security, and Pets when those facts exist. policies must be an array of {"category":"...","items":["..."]} based on visible website/document policy text, not generic assumptions. Only use the six policy categories listed above; fold house rules and naturist rules into Property policy, and do not create separate Children, Accessibility, House rules, or Naturist rules sections. Policies are facts only: never write questions, FAQ prompts, question-mark text, or uncertain user-facing questions inside policy categories or policy items. Rewrite policies into compact BareUnity-friendly declarative sentences using only facts found in the website content. Each policy item must be a complete short sentence ending with a period, max ${MAX_POLICY_ITEMS_PER_CATEGORY} items per category and max ${MAX_POLICY_ITEM_CHARACTERS} characters per item. Combine related facts, keep prices/dates/times/limits when present, and exclude marketing text, destination descriptions, amenity lists, and activity programme details from policies. gallery must contain public image URLs only. If a fact is missing, use an empty string, null, or empty array.
+  const prompt = `Extract a BareUnity spa listing from this public spa or wellness website crawl. Use only facts present in the crawled HTML/text/PDF content. Do a thorough check of services, facilities, amenities, activities, entertainment, house rules, booking terms, cancellation, payment, pets, naturist rules, check-in/out, privacy/terms, FAQ, and downloadable PDF/document content. Return strict JSON with these keys: slug, name, country, placeName, type, rating, price, badge, vibe, amenities, description, websiteUrl, address, checkInWindow, policies, gallery. type must be one of Day spa, Wellness center, Thermal spa, Massage studio. amenities should include Services and/or Entertainment when the website mentions entertainment and/or services, recreation, events, shows, music, games, animation, or activity programmes. Write the listing in the concise BareUnity style shown by this example: badge "Naturist wellness & spa", vibe "Thermal circuits · Massage rituals · Quiet recovery energy", description as 1-2 factual sentences, and policies grouped as Check-in and check-out, Cancellation, Accepted payment methods, Property policy, Security, and Pets when those facts exist. policies must be an array of {"category":"...","items":["..."]} based on visible website/document policy text, not generic assumptions. Only use the six policy categories listed above; fold house rules and naturist rules into Property policy, and do not create separate Children, Accessibility, House rules, or Naturist rules sections. Policies are facts only: never write questions, FAQ prompts, question-mark text, or uncertain user-facing questions inside policy categories or policy items. Rewrite policies into compact BareUnity-friendly declarative sentences using only facts found in the website content. Each policy item must be a complete short sentence ending with a period, max ${MAX_POLICY_ITEMS_PER_CATEGORY} items per category and max ${MAX_POLICY_ITEM_CHARACTERS} characters per item. Combine related facts, keep prices/dates/times/limits when present, and exclude marketing text, destination descriptions, amenity lists, and activity programme details from policies. gallery must contain public image URLs only. If a fact is missing, use an empty string, null, or empty array.
 
 URL: ${websiteUrl.toString()}
 
@@ -484,7 +484,7 @@ ${crawledContent.slice(0, MAX_AI_HTML_CHARACTERS)}`;
       headers,
       signal: AbortSignal.timeout(Number.isFinite(OLLAMA_REQUEST_TIMEOUT_MS) ? OLLAMA_REQUEST_TIMEOUT_MS : 45000),
       body: JSON.stringify({
-        model: OLLAMA_STAYS_MODEL,
+        model: OLLAMA_SPAS_MODEL,
         stream: false,
         format: "json",
         options: { temperature: 0.1 },
@@ -512,10 +512,10 @@ ${crawledContent.slice(0, MAX_AI_HTML_CHARACTERS)}`;
     }
 
     const enrichedDraft = mergeAiDraft(baseDraft, sanitizeAiDraft(parsed, websiteUrl));
-    enrichedDraft.warnings.push(`Ollama enrichment applied with ${OLLAMA_STAYS_MODEL}. Review all fields before saving.`);
+    enrichedDraft.warnings.push(`Ollama enrichment applied with ${OLLAMA_SPAS_MODEL}. Review all fields before saving.`);
     return enrichedDraft;
   } catch (error) {
-    baseDraft.warnings.push(`Ollama enrichment failed: ${error instanceof Error ? error.message : "unknown provider error"}. Parser data was kept. On Vercel, set OLLAMA_API_BASE_URL=https://ollama.com/api plus OLLAMA_API_KEY; locally, make sure Ollama is running and the ${OLLAMA_STAYS_MODEL} model is pulled.`);
+    baseDraft.warnings.push(`Ollama enrichment failed: ${error instanceof Error ? error.message : "unknown provider error"}. Parser data was kept. On Vercel, set OLLAMA_API_BASE_URL=https://ollama.com/api plus OLLAMA_API_KEY; locally, make sure Ollama is running and the ${OLLAMA_SPAS_MODEL} model is pulled.`);
     return baseDraft;
   }
 }
@@ -681,7 +681,7 @@ function textFromPdfBuffer(buffer: ArrayBuffer) {
 async function fetchCrawlResource(url: URL): Promise<CrawledResource> {
   const response = await fetch(url, {
     headers: {
-      "User-Agent": "BareUnity stay listing importer (+https://bareunity.com)",
+      "User-Agent": "BareUnity spa listing importer (+https://bareunity.com)",
       Accept: "text/html,application/xhtml+xml,application/pdf,text/plain;q=0.9,*/*;q=0.5",
     },
     redirect: "follow",
@@ -711,7 +711,7 @@ async function fetchCrawlResource(url: URL): Promise<CrawledResource> {
   return { url: url.toString(), kind: "html", html, text: textFromHtml(html) };
 }
 
-async function crawlStayWebsite(rootUrl: URL) {
+async function crawlSpaWebsite(rootUrl: URL) {
   const resources: CrawledResource[] = [];
   const visited = new Set<string>();
   const queue: URL[] = [rootUrl];
@@ -859,6 +859,109 @@ function absolutizeUrl(value: string, baseUrl: URL) {
   }
 }
 
+function cleanAddressCandidate(value: string) {
+  return decodeHtml(value)
+    .replace(/\s+/g, " ")
+    .replace(/^[,;:|•\s-]+|[,;:|•\s-]+$/g, "")
+    .trim();
+}
+
+function hasStreetNumber(value: string) {
+  return /\b[\p{L}\p{M}'’.-]+(?:\s+[\p{L}\p{M}'’.-]+){0,5}\s+\d{1,5}[A-Za-z]?(?:[-/]\d+)?\b/u.test(value);
+}
+
+function hasPostalCode(value: string) {
+  return /\b(?:[1-9]\d{3}\s?[A-Z]{2}|[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}|\d{4,6}(?:[-\s]\d{3,4})?)\b/i.test(value);
+}
+
+function isLikelyNavigationAddress(value: string) {
+  return /^(?:&\s*)?(?:route|directions|opening|hours|prices|tickets|faq|questions|reservation|booking|contact)\b/i.test(value)
+    || /\b(?:zwangerschap|overnachten|giftcard|badkledingdagen|veelgestelde vragen|reservering wijzigen)\b/i.test(value);
+}
+
+function isSpecificStreetAddress(value: string) {
+  const cleaned = cleanAddressCandidate(value);
+  if (!cleaned || isLikelyNavigationAddress(cleaned)) return false;
+  return hasStreetNumber(cleaned) || (hasPostalCode(cleaned) && /\p{L}/u.test(cleaned));
+}
+
+function addressSpecificityScore(value: string) {
+  const cleaned = cleanAddressCandidate(value);
+  if (!cleaned || isLikelyNavigationAddress(cleaned)) return -1000;
+
+  let score = 0;
+  if (hasStreetNumber(cleaned)) score += 100;
+  if (hasPostalCode(cleaned)) score += 80;
+  if (/[,]/.test(cleaned)) score += 10;
+  if (/\b(?:street|straat|strasse|straße|road|route|rue|avenue|laan|dreef|weg|plein|place|drive|lane|boulevard|gade|väg|via|calle)\b/i.test(cleaned)) score += 20;
+  if (cleaned.length >= 12 && cleaned.length <= 120) score += 15;
+  if (cleaned.length > 160) score -= 60;
+  return score;
+}
+
+function chooseBestAddress(primary: string, fallback: string | undefined) {
+  const candidates = uniqueStrings([primary, fallback ?? ""].map(cleanAddressCandidate).filter(Boolean));
+  return candidates.sort((a, b) => addressSpecificityScore(b) - addressSpecificityScore(a))[0] ?? "";
+}
+
+function extractPostalAddressCandidates(text: string) {
+  const normalized = decodeHtml(text).replace(/\s+/g, " ").trim();
+  const patterns = [
+    /\b([\p{L}\p{M}'’.-]+(?:\s+[\p{L}\p{M}'’.-]+){0,5}\s+\d{1,5}[A-Za-z]?(?:[-/]\d+)?\s*,?\s*[1-9]\d{3}\s?[A-Z]{2}\s+[\p{L}\p{M}'’.-]+(?:\s+[\p{L}\p{M}'’.-]+){0,3})\b/giu,
+    /\b([\p{L}\p{M}'’.-]+(?:\s+[\p{L}\p{M}'’.-]+){0,5}\s+\d{1,5}[A-Za-z]?(?:[-/]\d+)?\s*,?\s*\d{4,6}\s+[\p{L}\p{M}'’.-]+(?:\s+[\p{L}\p{M}'’.-]+){0,3})\b/giu,
+    /\b(\d{1,5}\s+[\p{L}\p{M}'’.-]+(?:\s+[\p{L}\p{M}'’.-]+){0,5}\s*,?\s+[\p{L}\p{M}'’.-]+(?:\s+[\p{L}\p{M}'’.-]+){0,3}\s+\d{4,6})\b/giu,
+  ];
+
+  return uniqueStrings(patterns.flatMap((pattern) => [...normalized.matchAll(pattern)].map((match) => cleanAddressCandidate(match[1] ?? ""))))
+    .filter(isSpecificStreetAddress);
+}
+
+function formatNominatimAddress(value: JsonValue) {
+  const record = asRecord(value);
+  const address = asRecord(record?.address);
+  if (!address) return cleanAddressCandidate(asText(record?.display_name));
+
+  const road = asText(address.road ?? address.pedestrian ?? address.footway ?? address.cycleway ?? address.path ?? address.neighbourhood);
+  const houseNumber = asText(address.house_number);
+  const postcode = asText(address.postcode);
+  const city = asText(address.city ?? address.town ?? address.village ?? address.municipality ?? address.county);
+  const country = asText(address.country);
+  const street = uniqueStrings([road, houseNumber]).join(" ");
+  const locality = uniqueStrings([postcode, city]).join(" ");
+  return cleanAddressCandidate(uniqueStrings([street, locality, country]).join(", "));
+}
+
+async function findAddressWithPlaceSearch(name: string, placeName: string, websiteUrl: URL) {
+  const query = uniqueStrings([name, placeName, websiteUrl.hostname.replace(/^www\./, ""), "address"].filter(Boolean)).join(" ");
+  if (!query.trim()) return "";
+
+  const searchUrl = new URL("https://nominatim.openstreetmap.org/search");
+  searchUrl.searchParams.set("q", query);
+  searchUrl.searchParams.set("format", "jsonv2");
+  searchUrl.searchParams.set("addressdetails", "1");
+  searchUrl.searchParams.set("limit", "3");
+
+  try {
+    const response = await fetch(searchUrl, {
+      headers: {
+        "User-Agent": "BareUnity spa listing importer (+https://bareunity.com)",
+        Accept: "application/json",
+        "Accept-Language": "en",
+      },
+      signal: AbortSignal.timeout(8000),
+    });
+
+    if (!response.ok) return "";
+
+    const payload = (await response.json()) as JsonValue;
+    if (!Array.isArray(payload)) return "";
+
+    return payload.map(formatNominatimAddress).find(isSpecificStreetAddress) ?? "";
+  } catch {
+    return "";
+  }
+}
+
 function extractAddressParts(address: JsonValue | undefined, addressText: string) {
   const record = asRecord(address);
   const country = asText(record?.addressCountry).replace(/^[A-Z]{2}$/, (code) => {
@@ -892,20 +995,22 @@ function findRecordWithAddress(records: Record<string, JsonValue>[], preferredTy
 function extractInlineAddressFromText(text: string) {
   const normalized = decodeHtml(text).replace(/\s+/g, " ").trim();
   const labelPattern = String.raw`(?:address|adresse|direcci[oó]n|indirizzo|endere[cç]o|adres|adresă|kontakt|contatti|contacto|ubicaci[oó]n|localisation|location|directions|route|visit us|find us|how to find us|where we are|dirección|endereço|adresse postale|postal address|anschrift|dirección postal|địa chỉ|住所|地址|地址|عنوان)`;
-  const candidates = [...normalized.matchAll(new RegExp(`${labelPattern}\\s*[:：-]?\\s*([^|•]{12,220})`, "giu"))]
+  const labelledCandidates = [...normalized.matchAll(new RegExp(`${labelPattern}\\s*[:：-]?\\s*([^|•]{12,220})`, "giu"))]
     .map((match) => (match[1] ?? "").replace(/(?:phone|tel|telephone|email|e-mail|contact|website|opening|hours|horaires|öffnungszeiten|telefono|teléfono|téléphone).*$/iu, ""))
-    .map((candidate) => candidate.replace(/\s{2,}/g, " ").replace(/[.;|•]+$/, "").trim())
-    .filter((candidate) => /\p{L}/u.test(candidate) && (/[0-9]/.test(candidate) || /,/.test(candidate)) && candidate.length >= 12 && candidate.length <= 180);
+    .map(cleanAddressCandidate)
+    .filter((candidate) => /\p{L}/u.test(candidate) && (/[0-9]/.test(candidate) || /,/.test(candidate)) && candidate.length >= 12 && candidate.length <= 180)
+    .filter((candidate) => !isLikelyNavigationAddress(candidate));
 
-  return uniqueStrings(candidates)[0] ?? "";
+  const candidates = uniqueStrings([...extractPostalAddressCandidates(normalized), ...labelledCandidates]);
+  return candidates.sort((a, b) => addressSpecificityScore(b) - addressSpecificityScore(a))[0] ?? "";
 }
 
-function inferStayType(records: Record<string, JsonValue>[], htmlText: string): Listing["type"] {
+function inferSpaType(records: Record<string, JsonValue>[], htmlText: string): SpaListing["type"] {
   const typeText = `${records.map((record) => asText(record["@type"])).join(" ")} ${htmlText}`;
-  if (/camping|campground|camp site|campsite|pitch|glamping|naturist|nudist/i.test(typeText)) return "Naturist camping";
-  if (/apartment|villa|holiday home|vacation rental|entire place|airbnb|cottage|chalet/i.test(typeText)) return "Entire place";
-  if (/boutique|guesthouse|b&b|bed and breakfast|inn/i.test(typeText)) return "Boutique stay";
-  return "Hotel";
+  if (/thermal|hot spring|mineral bath|terme|therme|onsen/i.test(typeText)) return "Thermal spa";
+  if (/massage|bodywork|massage studio|therapist/i.test(typeText)) return "Massage studio";
+  if (/wellness|retreat|health club|sauna|hammam|hydrotherapy/i.test(typeText)) return "Wellness center";
+  return "Day spa";
 }
 
 function extractCheckInWindow(record: Record<string, JsonValue> | undefined, htmlText: string) {
@@ -919,7 +1024,7 @@ function extractCheckInWindow(record: Record<string, JsonValue> | undefined, htm
     return uniqueStrings([checkInMatch && `Check-in from ${checkInMatch}`, checkOutMatch && `Check-out by ${checkOutMatch}`].filter(Boolean)).join(" · ");
   }
 
-  return "Check-in afternoon · Check-out morning";
+  return "Check the spa website for current treatment availability";
 }
 
 function collectGallery(html: string, records: Record<string, JsonValue>[], baseUrl: URL) {
@@ -936,17 +1041,19 @@ function collectGallery(html: string, records: Record<string, JsonValue>[], base
   ).slice(0, 8);
 }
 
-function buildBadge(type: Listing["type"], amenities: string[]) {
-  if (amenities.some((amenity) => /wellness|spa|sauna/i.test(amenity))) return "Wellness & relaxation stay";
-  if (amenities.some((amenity) => /beach|dune|coast/i.test(amenity))) return "Beach and nature escape";
-  if (type === "Naturist camping") return "Naturist camping escape";
-  if (type === "Boutique stay") return "Boutique website find";
-  return "Website-sourced stay";
+function buildBadge(type: SpaListing["type"], amenities: string[]) {
+  if (type === "Thermal spa") return "Thermal wellness spa";
+  if (type === "Massage studio") return "Massage & bodywork studio";
+  if (amenities.some((amenity) => /sauna|hammam|steam|thermal/i.test(amenity))) return "Sauna & wellness spa";
+  if (type === "Wellness center") return "Wellness center";
+  return "Website-sourced spa";
 }
 
-function buildVibe(type: Listing["type"], placeName: string, amenities: string[]) {
-  const highlights = amenities.filter((amenity) => /pool|sauna|spa|beach|restaurant|bar|garden|terrace|cycling|playground|parking|entertainment|activities/i.test(amenity)).slice(0, 3);
-  return uniqueStrings([type, placeName, ...highlights]).join(" · ") || "Website-sourced listing";
+function buildVibe(type: SpaListing["type"], placeName: string, amenities: string[]) {
+  const highlights = amenities
+    .filter((amenity) => /pool|sauna|spa|massage|thermal|hammam|steam|treatment|relaxation|wellness|garden|terrace/i.test(amenity))
+    .slice(0, 3);
+  return uniqueStrings([type, placeName, ...highlights]).join(" · ") || "Website-sourced spa";
 }
 
 function collectPolicyItems(text: string, matcher: RegExp, category: string) {
@@ -965,7 +1072,7 @@ function collectPolicyItems(text: string, matcher: RegExp, category: string) {
   return compactPolicyItems(items, category);
 }
 
-function extractPoliciesFromText(text: string, checkInWindow: string, type: Listing["type"]): PolicyDraft[] {
+function extractPoliciesFromText(text: string, checkInWindow: string): PolicyDraft[] {
   const policyMatchers: Array<[string, RegExp]> = [
     ["Check-in and check-out", /\b(?:check[- ]?in|check[- ]?out|arrival|departure|reception hours|late arrival)\b/i],
     ["Cancellation", /\b(?:cancell?ation|cancel|refund|non[- ]?refundable|deposit|no[- ]?show)\b/i],
@@ -979,10 +1086,10 @@ function extractPoliciesFromText(text: string, checkInWindow: string, type: List
     .map(([category, matcher]) => ({ category, items: collectPolicyItems(text, matcher, category) }))
     .filter((policy) => policy.items.length);
 
-  return mergePolicyDrafts(extracted, buildFallbackPolicies(checkInWindow, type));
+  return mergePolicyDrafts(extracted, buildFallbackPolicies(checkInWindow));
 }
 
-function buildFallbackPolicies(checkInWindow: string, type: Listing["type"]): PolicyDraft[] {
+function buildFallbackPolicies(checkInWindow: string): PolicyDraft[] {
   return [
     {
       category: "Check-in and check-out",
@@ -998,9 +1105,7 @@ function buildFallbackPolicies(checkInWindow: string, type: Listing["type"]): Po
     },
     {
       category: "Property policy",
-      items: type === "Naturist camping"
-        ? ["Naturist etiquette applies in designated areas", "Guests are expected to respect site rules and community standards", "Clothing rules may vary by area, weather, or activity"]
-        : ["Guests are expected to follow property rules", "Quiet hours and shared-space etiquette may apply", "Facilities and services may vary by season"],
+      items: ["Guests are expected to follow spa and wellness rules", "Quiet hours and shared-space etiquette may apply", "Facilities, treatments, and services may vary by season"],
     },
     {
       category: "Security",
@@ -1096,7 +1201,11 @@ export async function GET(request: NextRequest) {
   const adminResult = await ensureStayAdmin(request);
   if ("error" in adminResult) return adminResult.error;
 
-  const url = new URL(request.url).searchParams.get("url")?.trim() ?? "";
+  const { searchParams } = new URL(request.url);
+  const category = searchParams.get("category")?.trim() ?? "spas";
+  if (category !== "spas") return NextResponse.json({ error: "Spa import is only available for the spas category." }, { status: 404 });
+
+  const url = searchParams.get("url")?.trim() ?? "";
   if (!url) return NextResponse.json({ error: "Missing website URL." }, { status: 400 });
 
   let websiteUrl: URL;
@@ -1108,7 +1217,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const crawledResources = await crawlStayWebsite(websiteUrl);
+    const crawledResources = await crawlSpaWebsite(websiteUrl);
     if (!crawledResources.length) return NextResponse.json({ error: "No crawlable website pages or documents were found." }, { status: 502 });
 
     const htmlResources = crawledResources.filter((resource) => resource.kind === "html");
@@ -1118,18 +1227,23 @@ export async function GET(request: NextRequest) {
     const crawledContent = combineCrawledContent(crawledResources);
     const jsonLd = htmlResources.flatMap((resource) => parseJsonLd(resource.html));
     const records = jsonLd.flatMap(flattenJsonLd);
-    const hotelRecord = findRecordWithAddress(records, /Hotel|LodgingBusiness|Campground|Resort|LocalBusiness|BedAndBreakfast/i);
-    const addressText = (hotelRecord ? asText(hotelRecord.address) : "") || extractInlineAddressFromText(htmlText);
-    const addressParts = extractAddressParts(hotelRecord?.address, addressText);
+    const hotelRecord = findRecordWithAddress(records, /Spa|HealthAndBeautyBusiness|LocalBusiness|Resort|Hotel|LodgingBusiness|BeautySalon/i);
+    const name = asText(hotelRecord?.name) || getTitle(html).split(/[|—–-]/)[0].trim();
+    let addressText = chooseBestAddress(asText(hotelRecord?.address), extractInlineAddressFromText(htmlText));
+    let addressParts = extractAddressParts(hotelRecord?.address, addressText);
+    if (!isSpecificStreetAddress(addressText)) {
+      const searchedAddress = await findAddressWithPlaceSearch(name, addressParts.placeName, websiteUrl);
+      addressText = chooseBestAddress(addressText, searchedAddress);
+      addressParts = extractAddressParts(hotelRecord?.address, addressText);
+    }
     const description = asText(hotelRecord?.description) || getMeta(html, "name", "description") || getMeta(html, "property", "og:description");
     const price = extractLowestPrice(records, html);
     const rating = firstNumber(asRecord(hotelRecord?.aggregateRating)?.ratingValue, hotelRecord?.aggregateRating, hotelRecord?.reviewRating);
     const amenities = collectAmenities(crawledContent, records);
-    const type = inferStayType(records, htmlText);
-    const name = asText(hotelRecord?.name) || getTitle(html).split(/[|—–-]/)[0].trim();
+    const type = inferSpaType(records, htmlText);
     const checkInWindow = extractCheckInWindow(hotelRecord, htmlText);
     const gallery = collectGallery(html, records, websiteUrl);
-    const policies = extractPoliciesFromText(htmlText, checkInWindow, type);
+    const policies = extractPoliciesFromText(htmlText, checkInWindow);
 
     const draft: ImportDraft = {
       slug: slugify(`${name}-${addressParts.placeName || addressParts.country || websiteUrl.hostname}`),
@@ -1149,17 +1263,17 @@ export async function GET(request: NextRequest) {
       policies,
       gallery,
       warnings: [
-        `Checked ${htmlResources.length} website page${htmlResources.length === 1 ? "" : "s"} and ${documentResources.length} PDF/text document${documentResources.length === 1 ? "" : "s"}, including linked contact/location pages when available, for stay details, addresses, amenities, services, entertainment, and policies.`,
+        `Checked ${htmlResources.length} website page${htmlResources.length === 1 ? "" : "s"} and ${documentResources.length} PDF/text document${documentResources.length === 1 ? "" : "s"}, including linked contact/location pages when available, for spa details, addresses, amenities, services, treatments, and policies.`,
       ],
     };
 
     const enrichedDraft = await enrichDraftWithAi(draft, crawledContent, websiteUrl);
 
-    if (!enrichedDraft.name) enrichedDraft.warnings.push("No stay name was found. Add the public property name manually before saving.");
-    if (!enrichedDraft.country) enrichedDraft.warnings.push("No country was found. Add the stay country manually before saving.");
+    if (!enrichedDraft.name) enrichedDraft.warnings.push("No spa name was found. Add the public spa name manually before saving.");
+    if (!enrichedDraft.country) enrichedDraft.warnings.push("No country was found. Add the spa country manually before saving.");
     if (!enrichedDraft.placeName) enrichedDraft.warnings.push("No city or region was found. Add the place / region manually before saving.");
     if (!enrichedDraft.price) enrichedDraft.warnings.push("No lowest price was found on the website. Add the lowest public website price manually before saving.");
-    if (!enrichedDraft.description) enrichedDraft.warnings.push("No description metadata was found. Copy the stay description from the website manually.");
+    if (!enrichedDraft.description) enrichedDraft.warnings.push("No description metadata was found. Copy the spa description from the website manually.");
     if (!enrichedDraft.address) enrichedDraft.warnings.push("No structured address was found. Add the address manually.");
     if (!enrichedDraft.amenities.length) enrichedDraft.warnings.push("No amenities were detected. Add amenities copied from the website manually.");
     if (!enrichedDraft.gallery.length) enrichedDraft.warnings.push("No gallery images were detected. Add public image URLs from the website manually if available.");

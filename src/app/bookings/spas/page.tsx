@@ -1,18 +1,26 @@
-import { BookingCategoryTemplate } from "@/components/bookings/booking-category-template";
+import { AppSidebar } from "@/components/sidebar/sidebar";
+import layoutStyles from "@/app/page.module.css";
+import styles from "@/app/bookings/hotels-airbnbs/stays-list.module.css";
+import { BookingListingsClient } from "@/components/bookings/booking-listings-client";
+import { getSpaListings } from "./spas-data";
 
-const templates = [
-  "Spa directory with treatment filters",
-  "Service detail template (duration, pricing, prep notes)",
-  "Therapist availability and slot picker",
-  "Wellness pass checkout with add-ons",
-] as const;
+export default async function SpasPage() {
+  const listings = await getSpaListings();
 
-export default function SpasPage() {
   return (
-    <BookingCategoryTemplate
-      title="Spas & Wellness"
-      description="Template space for treatment-led booking journeys, therapist scheduling, and wellness passes."
-      templates={templates}
-    />
+    <main className={layoutStyles.main}>
+      <AppSidebar />
+      <section className={styles.page}>
+        <BookingListingsClient
+          listings={listings}
+          apiPath="/api/bookings/spas"
+          title="Spas & Wellness"
+          subtitle="Compare wellness centers, massage studios, thermal spas, and restorative naturist-friendly treatments."
+          requestType="spa"
+          requestLabel="Request a spa"
+          priceLabel="/ treatment"
+        />
+      </section>
+    </main>
   );
 }
