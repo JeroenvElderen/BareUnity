@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { type NextRequest, NextResponse } from "next/server";
 
+import { isPlatformAdminEmail } from "@/lib/platform-admin";
 import { ensureAuthenticatedRequest } from "@/lib/request-auth";
 import {
   createSupabaseAdminClient,
@@ -103,13 +104,18 @@ export async function GET(request: NextRequest) {
   const settings = settingsResult.data;
   const submission = submissionResult.data;
   const metadata = authResult.user.user_metadata ?? {};
+  const isAdmin = isPlatformAdminEmail(authResult.user.email);
   const isVisitor =
-    settings?.user_role === "view_only" && settings.onboarding_completed !== true;
+    !isAdmin &&
+    settings?.user_role === "view_only" &&
+    settings.onboarding_completed !== true;
 
   return NextResponse.json({
     ok: true,
     eligible: isVisitor && submission?.status !== "pending",
-    status: submission?.status ?? (isVisitor ? "visitor" : "not_eligible"),
+    status: isAdmin
+      ? "admin"
+      : (submission?.status ?? (isVisitor ? "visitor" : "not_eligible")),
     defaults: {
       legalName: getMetadataString(metadata, "full_name"),
       displayName: getMetadataString(metadata, "display_name"),
@@ -157,8 +163,11 @@ export async function POST(request: NextRequest) {
   }
 
   const settings = settingsResult.data;
+  const isAdmin = isPlatformAdminEmail(authResult.user.email);
   const isVisitor =
-    settings?.user_role === "view_only" && settings.onboarding_completed !== true;
+    !isAdmin &&
+    settings?.user_role === "view_only" &&
+    settings.onboarding_completed !== true;
 
   if (!isVisitor) {
     return NextResponse.json(
@@ -212,21 +221,29 @@ export async function POST(request: NextRequest) {
       allowedTypes: VERIFICATION_DOCUMENT_TYPES,
       extensionByType: VERIFICATION_DOCUMENT_EXTENSION_BY_TYPE,
       maxBytes: MAX_ID_UPLOAD_BYTES,
-      emptyMessage: "Please upload a non-empty government ID document for review.",
+      emptyMessage:
+        "Please upload a non-empty government ID document for review.",
       typeMessage: "ID document must be a JPG, PNG, WEBP, or PDF file.",
       sizeMessage: "ID document must be 10MB or smaller.",
-      signatureMessage: "ID document contents do not match the declared file type.",
+      signatureMessage:
+        "ID document contents do not match the declared file type.",
     });
   } catch (error) {
     if (error instanceof UploadValidationError) {
-      return NextResponse.json({ error: error.message }, { status: error.status });
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status },
+      );
     }
     throw error;
   }
 
   if (motivation.length < 30) {
     return NextResponse.json(
-      { error: "Please describe your naturist intent in at least 30 characters." },
+      {
+        error:
+          "Please describe your naturist intent in at least 30 characters.",
+      },
       { status: 400 },
     );
   }
@@ -310,9 +327,8 @@ export async function POST(request: NextRequest) {
   }
 
   const userMetadata = authResult.user.user_metadata ?? {};
-  const { error: metadataError } = await supabaseAdmin.auth.admin.updateUserById(
-    authResult.user.id,
-    {
+  const { error: metadataError } =
+    await supabaseAdmin.auth.admin.updateUserById(authResult.user.id, {
       user_metadata: {
         ...userMetadata,
         full_name: legalName,
@@ -325,8 +341,7 @@ export async function POST(request: NextRequest) {
         verification_status: "pending",
         motivation,
       },
-    },
-  );
+    });
 
   if (metadataError) {
     return NextResponse.json({ error: metadataError.message }, { status: 500 });

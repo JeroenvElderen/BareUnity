@@ -520,11 +520,14 @@ export default function SettingsPage() {
     useState<VerificationApplicationSnapshot | null>(null);
   const [verificationForm, setVerificationForm] =
     useState<VerificationApplicationForm>(emptyVerificationApplicationForm);
-  const [isSubmittingVerification, setIsSubmittingVerification] = useState(false);
-  const [verificationStatusMessage, setVerificationStatusMessage] =
-    useState<string | null>(null);
-  const [verificationErrorMessage, setVerificationErrorMessage] =
-    useState<string | null>(null);
+  const [isSubmittingVerification, setIsSubmittingVerification] =
+    useState(false);
+  const [verificationStatusMessage, setVerificationStatusMessage] = useState<
+    string | null
+  >(null);
+  const [verificationErrorMessage, setVerificationErrorMessage] = useState<
+    string | null
+  >(null);
 
   const handleOptionVisibilityChange = async (
     sectionKey: string,
@@ -1033,6 +1036,16 @@ export default function SettingsPage() {
 
   if (!activeSection) return null;
 
+  const hasVerificationCard =
+    verificationSnapshot?.eligible ||
+    verificationSnapshot?.status === "pending";
+
+  const handleVerificationJump = () => {
+    document
+      .getElementById("verification")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   return (
     <main className={`${layoutStyles.main} w-full max-w-full`}>
       <AppSidebar />
@@ -1090,8 +1103,8 @@ export default function SettingsPage() {
                 <p>
                   This form is only for registered Visitor Pass accounts. Submit
                   your ID for manual review to unlock posting, comments,
-                  messaging, friend requests, check-ins, and creation forms after
-                  approval.
+                  messaging, friend requests, check-ins, and creation forms
+                  after approval.
                 </p>
               </div>
 
@@ -1197,7 +1210,9 @@ export default function SettingsPage() {
                 </div>
 
                 <label className={styles.formField}>
-                  <span>Upload government ID (JPG, PNG, WEBP, PDF • max 10MB)</span>
+                  <span>
+                    Upload government ID (JPG, PNG, WEBP, PDF • max 10MB)
+                  </span>
                   <input
                     type="file"
                     accept="image/jpeg,image/png,image/webp,application/pdf"
@@ -1253,13 +1268,11 @@ export default function SettingsPage() {
                     <label key={key} className={styles.confirmationRow}>
                       <input
                         type="checkbox"
-                        checked={
-                          Boolean(
-                            verificationForm[
-                              key as keyof VerificationApplicationForm
-                            ],
-                          )
-                        }
+                        checked={Boolean(
+                          verificationForm[
+                            key as keyof VerificationApplicationForm
+                          ],
+                        )}
                         onChange={(event) =>
                           setVerificationForm((prev) => ({
                             ...prev,
@@ -1274,7 +1287,9 @@ export default function SettingsPage() {
                 </div>
 
                 {verificationStatusMessage ? (
-                  <p className={styles.statusNote}>{verificationStatusMessage}</p>
+                  <p className={styles.statusNote}>
+                    {verificationStatusMessage}
+                  </p>
                 ) : null}
                 {verificationErrorMessage ? (
                   <p className={styles.errorNote}>{verificationErrorMessage}</p>
@@ -1331,6 +1346,21 @@ export default function SettingsPage() {
                   ))}
                 </select>
               </label>
+
+              {hasVerificationCard ? (
+                <button
+                  type="button"
+                  className={styles.verificationNavButton}
+                  onClick={handleVerificationJump}
+                >
+                  <span>
+                    {verificationSnapshot?.eligible
+                      ? "Open ID verification form"
+                      : "Open ID verification status"}
+                  </span>
+                  <small>Jump straight to the visitor upgrade area.</small>
+                </button>
+              ) : null}
             </aside>
 
             <Card

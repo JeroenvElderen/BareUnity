@@ -184,6 +184,45 @@
   display: none;
 }
 
+.verificationNavButton {
+  width: 100%;
+  border: 1px solid rgb(var(--brand) / 0.42);
+  border-radius: 0.95rem;
+  background: linear-gradient(
+    135deg,
+    rgb(var(--brand) / 0.18),
+    rgb(var(--accent-soft) / 0.34)
+  );
+  color: rgb(var(--text));
+  padding: 0.66rem 0.72rem;
+  display: grid;
+  gap: 0.18rem;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgb(var(--brand) / 0.16);
+}
+
+.verificationNavButton span {
+  color: rgb(var(--text-strong));
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.verificationNavButton small {
+  color: rgb(var(--muted));
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+
+.verificationNavButton:hover {
+  border-color: rgb(var(--brand) / 0.62);
+  background: linear-gradient(
+    135deg,
+    rgb(var(--brand) / 0.26),
+    rgb(var(--accent-soft) / 0.44)
+  );
+}
+
 .subjectSelectWrap span {
   color: rgb(var(--muted));
   font-size: 0.82rem;
@@ -497,7 +536,9 @@
   font: inherit;
   font-weight: 600;
   outline: none;
-  transition: border-color 160ms ease, box-shadow 160ms ease;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
 }
 
 .formField textarea {
