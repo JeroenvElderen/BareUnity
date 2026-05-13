@@ -7,6 +7,7 @@ import { PrimaryEmailModal } from "@/components/settings/primary-email-modal";
 import { RecoveryKeysModal } from "@/components/settings/recovery-keys-modal";
 import { SettingsOptionCard } from "@/components/settings/settings-option-card";
 import { UsernameChangeModal } from "@/components/settings/username-change-modal";
+import { IdRedactionUploader } from "@/components/verification/id-redaction-uploader";
 import { AppSidebar } from "@/components/sidebar/sidebar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -1244,39 +1245,35 @@ export default function SettingsPage() {
                   </label>
                 </div>
 
-                <label className={styles.formField}>
+                <div className={styles.formField}>
                   <span>
                     Upload government ID (JPG, PNG, WEBP, PDF • max 10MB)
                   </span>
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,application/pdf"
-                    onChange={(event) =>
+                  <IdRedactionUploader
+                    id="settingsIdDocument"
+                    required
+                    onFileChange={(file) =>
                       setVerificationForm((prev) => ({
                         ...prev,
-                        idDocument: event.target.files?.[0] ?? null,
+                        idDocument: file,
                       }))
                     }
-                    required
                   />
                   <small>
-                    Uploading a redacted copy is preferred. Please keep only
-                    your legal name, date of birth, and the official ID
-                    seal/logo/header visible. Hide your photo, document numbers,
-                    barcodes, MRZ lines, handwritten signature, address, expiry,
-                    and all other details. Your ID is only used for manual
-                    review, never shown on your profile, and deleted from
-                    storage after a review decision.
+                    You can now redact sensitive details directly in BareUnity
+                    before submitting. Your ID is only used for manual review,
+                    never shown on your profile, and deleted from storage after
+                    a review decision.
                   </small>
-                </label>
+                </div>
 
                 <div className={styles.redactionGuide}>
-                  <strong>Before you upload, hide sensitive fields:</strong>
+                  <strong>Use the platform redaction tool first:</strong>
                   <span>
-                    We only need your legal name, date of birth, and the
-                    official ID seal/logo/header that shows the document is
-                    government-issued. Everything else should be covered before
-                    upload.
+                    For JPG, PNG, or WEBP files, drag black boxes over details we
+                    do not need, then choose “Use redacted copy.” We only need
+                    your legal name, date of birth, and the official ID
+                    seal/logo/header that shows the document is government-issued.
                   </span>
                 </div>
 

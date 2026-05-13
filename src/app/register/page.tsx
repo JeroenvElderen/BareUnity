@@ -6,6 +6,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import styles from "@/components/auth/auth-page.module.css";
+import { IdRedactionUploader } from "@/components/verification/id-redaction-uploader";
 import { supabase } from "@/lib/supabase";
 
 type QuizAnswer = "" | "correct" | "incorrect";
@@ -526,37 +527,35 @@ export default function RegisterPage() {
                   </select>
                 </label>
 
-                <label className={styles.field}>
+                <div className={styles.field}>
                   <span className={styles.label}>
                     Upload government ID (JPG, PNG, WEBP, PDF • max 10MB)
                   </span>
-                  <input
-                    className={styles.file}
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,application/pdf"
-                    onChange={(event) =>
+                  <IdRedactionUploader
+                    id="registrationIdDocument"
+                    required={isVerifiedApplication}
+                    onFileChange={(file) =>
                       setForm((prev) => ({
                         ...prev,
-                        idDocument: event.target.files?.[0] ?? null,
+                        idDocument: file,
                       }))
                     }
-                    required={isVerifiedApplication}
                   />
                   <p className={styles.help}>
-                    A redacted copy is preferred: keep only your legal name,
-                    date of birth, and the official ID seal/logo/header visible.
-                    Hide your photo, document numbers, barcodes, MRZ lines,
-                    handwritten signature, address, expiry, and all other
-                    details. It is never shown on your profile and is deleted
-                    after review.
+                    You can now cover sensitive details directly here before the
+                    file is submitted. We only need your legal name, date of
+                    birth, and the official ID seal/logo/header. Hide your
+                    photo, document numbers, barcodes, MRZ lines, handwritten
+                    signature, address, expiry, and all other details.
                   </p>
-                </label>
+                </div>
 
                 <div className={styles.redactionBox}>
-                  <strong>Hide details we do not need</strong>
+                  <strong>Use the platform redaction tool first</strong>
                   <span>
-                    Please cover everything except legal name, date of birth,
-                    and the official ID seal/logo/header before uploading.
+                    For JPG, PNG, or WEBP files, drag black boxes over details we
+                    do not need, then choose “Use redacted copy” so the covered
+                    image is uploaded instead of the original.
                   </span>
                 </div>
 
