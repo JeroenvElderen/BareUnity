@@ -23,6 +23,8 @@ type ImportDraft = {
   description: string;
   websiteUrl: string;
   address: string;
+  mapLatitude?: number;
+  mapLongitude?: number;
   checkInWindow: string;
   policies: PolicyDraft[];
   gallery: string[];
@@ -431,6 +433,8 @@ function mergePolicyDrafts(basePolicies: PolicyDraft[], aiPolicies: PolicyDraft[
 
 function mergeAiDraft(baseDraft: ImportDraft, aiDraft: Partial<ImportDraft>): ImportDraft {
   const amenities = uniqueStrings([...(baseDraft.amenities ?? []), ...(aiDraft.amenities ?? [])]).slice(0, 40);
+  const baseAddress = cleanAddressCandidate(baseDraft.address);
+  const aiAddress = cleanAddressCandidate(aiDraft.address ?? "");
 
   return {
     ...baseDraft,
@@ -446,7 +450,9 @@ function mergeAiDraft(baseDraft: ImportDraft, aiDraft: Partial<ImportDraft>): Im
     amenities: amenities.length ? amenities : baseDraft.amenities,
     description: aiDraft.description || baseDraft.description,
     websiteUrl: aiDraft.websiteUrl || baseDraft.websiteUrl,
-    address: aiDraft.address || baseDraft.address,
+    address: baseAddress || aiAddress,
+    mapLatitude: aiDraft.mapLatitude ?? baseDraft.mapLatitude,
+    mapLongitude: aiDraft.mapLongitude ?? baseDraft.mapLongitude,
     checkInWindow: aiDraft.checkInWindow || baseDraft.checkInWindow,
     policies: mergePolicyDrafts(baseDraft.policies, aiDraft.policies),
     gallery: aiDraft.gallery?.length ? aiDraft.gallery : baseDraft.gallery,
@@ -859,6 +865,102 @@ function absolutizeUrl(value: string, baseUrl: URL) {
   }
 }
 
+function isRealAddressCandidate(value: string) {
+  const text = decodeHtml(value).replace(/\s+/g, " ").trim();
+  if (!text || text.length < 8 || text.length > 220) return false;
+  if (/\b(?:faq|veelgestelde vragen|giftcard|zwangerschap|overnachten|openingstijden|reservering|prijzen|badkledingdagen|arrangementen|vacatures|privacy|cookies|voorwaarden|newsletter|direct naar|praktische info)\b/i.test(text)) return false;
+  if (/https?:\/\//i.test(text) || /\b(?:www\.|@)\b/i.test(text)) return false;
+
+  const hasNumber = /\d/.test(text);
+  const hasPostalCode = /\b(?:[1-9]\d{3}\s?[A-Z]{2}|[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2}|\d{5}(?:-\d{4})?|\d{4,6})\b/i.test(text);
+  const hasStreetWord = /\b(?:straat|street|st\.?|road|rd\.?|laan|dreef|weg|plein|boulevard|avenue|ave\.?|drive|dr\.?|lane|ln\.?|rue|chemin|route|gasse|strasse|straße|platz|allee|via|viale|corso|calle|camino|avda|adres|address)\b/i.test(text);
+  const hasStreetNumberPair = /\b\p{L}[\p{L}'’.-]*(?:\s+\p{L}[\p{L}'’.-]*){0,4}\s+\d{1,5}[A-Za-z]?\b/u.test(text);
+
+  return hasNumber && (hasPostalCode || hasStreetWord || hasStreetNumberPair);
+}
+
+function cleanAddressCandidate(value: string) {
+  const normalized = decodeHtml(value)
+    .replace(/\s+/g, " ")
+    .replace(/\s+([,.;:])/g, "$1")
+    .replace(/^[\s,.;:|•–—-]+|[\s,.;:|•–—-]+$/g, "")
+    .trim();
+
+  const streetStart = normalized.search(/\b\p{L}[\p{L}'’.-]*(?:\s+\p{L}[\p{L}'’.-]*){0,1}\s+(?:straat|street|road|laan|dreef|weg|plein|boulevard|avenue|drive|lane|rue|chemin|route|gasse|strasse|straße|platz|allee|via|viale|corso|calle|camino)\s+\d{1,5}[A-Za-z]?\b/iu);
+  const addressStart = streetStart >= 0 ? streetStart : normalized.search(/\b(?:[\p{L}'’.-]+\s+){0,5}\d{1,5}[A-Za-z]?\b|\b[1-9]\d{3}\s?[A-Z]{2}\b/iu);
+  const candidate = addressStart > 0 ? normalized.slice(addressStart).trim() : normalized;
+  const shortened = candidate
+    .replace(/\b(?:phone|tel|telephone|email|e-mail|contact|website|opening|hours|horaires|öffnungszeiten|telefono|teléfono|téléphone|routebeschrijving|directions).*$/iu, "")
+    .replace(/^[\s,.;:|•–—-]+|[\s,.;:|•–—-]+$/g, "")
+    .trim();
+
+  return isRealAddressCandidate(shortened) ? shortened : "";
+}
+
+function formatStructuredAddress(address: JsonValue | undefined) {
+  const record = asRecord(address);
+  if (!record) return cleanAddressCandidate(asText(address));
+
+  const street = asText(record.streetAddress);
+  const postalCode = asText(record.postalCode);
+  const locality = asText(record.addressLocality);
+  const region = asText(record.addressRegion);
+  const country = asText(record.addressCountry).replace(/^[A-Z]{2}$/, (code) => {
+    const regionNames = new Intl.DisplayNames(["en"], { type: "region" });
+    return regionNames.of(code) ?? code;
+  });
+  const cityLine = uniqueStrings([postalCode, locality || region]).join(" ");
+  return cleanAddressCandidate(uniqueStrings([street, cityLine, country]).join(", ")) || cleanAddressCandidate(asText(address));
+}
+
+type GeocodeResult = {
+  lat?: string;
+  lon?: string;
+};
+
+function validateCoordinates(latitude: number, longitude: number) {
+  return latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180;
+}
+
+async function geocodeImportedAddress(draft: Pick<ImportDraft, "address" | "placeName" | "country" | "name">) {
+  const queries = uniqueStrings([
+    uniqueStrings([draft.address, draft.placeName, draft.country]).join(", "),
+    uniqueStrings([draft.name, draft.address]).join(", "),
+  ]);
+
+  for (const query of queries) {
+    if (!query) continue;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+
+    try {
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=3&q=${encodeURIComponent(query)}`, {
+        headers: {
+          Accept: "application/json",
+          "User-Agent": "BareUnity spa importer geocoder (+https://bareunity.com)",
+        },
+        signal: controller.signal,
+      });
+      if (!response.ok) continue;
+
+      const results = (await response.json()) as GeocodeResult[];
+      for (const result of results) {
+        const latitude = Number(result.lat);
+        const longitude = Number(result.lon);
+        if (Number.isFinite(latitude) && Number.isFinite(longitude) && validateCoordinates(latitude, longitude)) {
+          return { latitude, longitude };
+        }
+      }
+    } catch {
+      // Saving the listing will retry geocoding; the importer should still return the verified address draft.
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  return null;
+}
+
 function extractAddressParts(address: JsonValue | undefined, addressText: string) {
   const record = asRecord(address);
   const country = asText(record?.addressCountry).replace(/^[A-Z]{2}$/, (code) => {
@@ -876,28 +978,33 @@ function extractAddressParts(address: JsonValue | undefined, addressText: string
     };
   }
 
-  const parts = addressText.split(",").map((part) => part.trim()).filter(Boolean);
+  const parts = cleanAddressCandidate(addressText).split(",").map((part) => part.trim()).filter(Boolean);
+  const postalCity = parts.find((part) => /\b[1-9]\d{3}\s?[A-Z]{2}\s+\p{L}/iu.test(part));
+  const postalCityPlace = postalCity?.replace(/\b[1-9]\d{3}\s?[A-Z]{2}\s+/iu, "");
+
   return {
     country: parts.at(-1) ?? "",
-    placeName: uniqueStrings(parts.slice(-3, -1).map((part) => part.replace(/^\d{4,6}\s*/, ""))).join(" · "),
+    placeName: postalCityPlace || uniqueStrings(parts.slice(-3, -1).map((part) => part.replace(/^\d{4,6}\s*/, ""))).join(" · "),
   };
 }
 
 function findRecordWithAddress(records: Record<string, JsonValue>[], preferredType: RegExp) {
-  return records.find((record) => preferredType.test(asText(record["@type"])) && asText(record.address))
-    ?? records.find((record) => asText(record.address))
+  return records.find((record) => preferredType.test(asText(record["@type"])) && cleanAddressCandidate(formatStructuredAddress(record.address)))
+    ?? records.find((record) => cleanAddressCandidate(formatStructuredAddress(record.address)))
     ?? records[0];
 }
 
 function extractInlineAddressFromText(text: string) {
   const normalized = decodeHtml(text).replace(/\s+/g, " ").trim();
-  const labelPattern = String.raw`(?:address|adresse|direcci[oó]n|indirizzo|endere[cç]o|adres|adresă|kontakt|contatti|contacto|ubicaci[oó]n|localisation|location|directions|route|visit us|find us|how to find us|where we are|dirección|endereço|adresse postale|postal address|anschrift|dirección postal|địa chỉ|住所|地址|地址|عنوان)`;
-  const candidates = [...normalized.matchAll(new RegExp(`${labelPattern}\\s*[:：-]?\\s*([^|•]{12,220})`, "giu"))]
-    .map((match) => (match[1] ?? "").replace(/(?:phone|tel|telephone|email|e-mail|contact|website|opening|hours|horaires|öffnungszeiten|telefono|teléfono|téléphone).*$/iu, ""))
-    .map((candidate) => candidate.replace(/\s{2,}/g, " ").replace(/[.;|•]+$/, "").trim())
-    .filter((candidate) => /\p{L}/u.test(candidate) && (/[0-9]/.test(candidate) || /,/.test(candidate)) && candidate.length >= 12 && candidate.length <= 180);
+  const labelPattern = String.raw`(?:address|adresse|direcci[oó]n|indirizzo|endere[cç]o|adres|adresă|kontakt|contatti|contacto|ubicaci[oó]n|localisation|location|directions|route|visit us|find us|how to find us|where we are|dirección|endereço|adresse postale|postal address|anschrift|dirección postal|địa chỉ|住所|地址|عنوان)`;
+  const labeledCandidates = [...normalized.matchAll(new RegExp(`${labelPattern}\\s*[:：-]?\\s*([^|•]{12,220})`, "giu"))]
+    .map((match) => cleanAddressCandidate(match[1] ?? ""));
+  const postalCandidates = [...normalized.matchAll(/(?:\b\p{L}[\p{L}'’.-]*(?:\s+\p{L}[\p{L}'’.-]*){0,4}\s+\d{1,5}[A-Za-z]?\s*,?\s*)?\b[1-9]\d{3}\s?[A-Z]{2}\s+\p{L}[\p{L}'’.-]+(?:\s+\p{L}[\p{L}'’.-]+){0,3}/giu)]
+    .map((match) => cleanAddressCandidate(match[0] ?? ""));
+  const streetCandidates = [...normalized.matchAll(/\b\p{L}[\p{L}'’.-]*(?:\s+\p{L}[\p{L}'’.-]*){0,4}\s+(?:straat|street|road|laan|dreef|weg|plein|boulevard|avenue|drive|lane|rue|chemin|route|gasse|strasse|straße|platz|allee|via|viale|corso|calle|camino)\s+\d{1,5}[A-Za-z]?[^|•]{0,80}/giu)]
+    .map((match) => cleanAddressCandidate(match[0] ?? ""));
 
-  return uniqueStrings(candidates)[0] ?? "";
+  return uniqueStrings([...labeledCandidates, ...postalCandidates, ...streetCandidates])[0] ?? "";
 }
 
 function inferSpaType(records: Record<string, JsonValue>[], htmlText: string): SpaListing["type"] {
@@ -1123,7 +1230,7 @@ export async function GET(request: NextRequest) {
     const jsonLd = htmlResources.flatMap((resource) => parseJsonLd(resource.html));
     const records = jsonLd.flatMap(flattenJsonLd);
     const hotelRecord = findRecordWithAddress(records, /Spa|HealthAndBeautyBusiness|LocalBusiness|Resort|Hotel|LodgingBusiness|BeautySalon/i);
-    const addressText = (hotelRecord ? asText(hotelRecord.address) : "") || extractInlineAddressFromText(htmlText);
+    const addressText = (hotelRecord ? formatStructuredAddress(hotelRecord.address) : "") || extractInlineAddressFromText(htmlText);
     const addressParts = extractAddressParts(hotelRecord?.address, addressText);
     const description = asText(hotelRecord?.description) || getMeta(html, "name", "description") || getMeta(html, "property", "og:description");
     const price = extractLowestPrice(records, html);
@@ -1158,6 +1265,13 @@ export async function GET(request: NextRequest) {
     };
 
     const enrichedDraft = await enrichDraftWithAi(draft, crawledContent, websiteUrl);
+    const importedCoordinates = enrichedDraft.address ? await geocodeImportedAddress(enrichedDraft) : null;
+    if (importedCoordinates) {
+      enrichedDraft.mapLatitude = importedCoordinates.latitude;
+      enrichedDraft.mapLongitude = importedCoordinates.longitude;
+    } else if (enrichedDraft.address) {
+      enrichedDraft.warnings.push("Coordinates could not be imported automatically. Saving will retry geocoding the verified address, place, and country.");
+    }
 
     if (!enrichedDraft.name) enrichedDraft.warnings.push("No spa name was found. Add the public spa name manually before saving.");
     if (!enrichedDraft.country) enrichedDraft.warnings.push("No country was found. Add the spa country manually before saving.");
