@@ -721,15 +721,25 @@ function combineCrawledContent(resources: CrawledResource[]) {
     .slice(0, MAX_CRAWLED_CONTENT_CHARACTERS);
 }
 
-function getMeta(html: string, selector: "name" | "property", key: string) {
-  const patterns = [
-    new RegExp(`<meta[^>]+${selector}=["']${key}["'][^>]+content=["']([^"']+)["'][^>]*>`, "i"),
-    new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+${selector}=["']${key}["'][^>]*>`, "i"),
-  ];
+const META_KEYS = new Set(["description", "og:description", "og:image", "og:title"]);
 
-  for (const pattern of patterns) {
-    const match = html.match(pattern);
-    if (match?.[1]) return decodeHtml(match[1]);
+function getMeta(html: string, selector: "name" | "property", key: string) {
+  if (!META_KEYS.has(key)) return "";
+
+  const metaTags = html.match(/<meta\b[^>]*>/gi) ?? [];
+
+  for (const metaTag of metaTags) {
+    const attributes = new Map<string, string>();
+    for (const [, rawName, , rawValue] of metaTag.matchAll(/([^\s"'<>/=]+)\s*=\s*(["'])([\s\S]*?)\2/g)) {
+      if (rawName && rawValue !== undefined) {
+        attributes.set(rawName.toLowerCase(), rawValue);
+      }
+    }
+
+    if (attributes.get(selector) === key) {
+      const content = attributes.get("content");
+      if (content) return decodeHtml(content);
+    }
   }
 
   return "";

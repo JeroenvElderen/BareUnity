@@ -22,8 +22,14 @@ import { getVisitorTrialStatus, type VisitorTrialStatus } from "@/lib/visitor-tr
 import styles from "./page.module.css";
 
 function normalizePostText(text: string) {
-  const escapeHtml = (value: string) =>
-    value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+  const htmlEscapes: Record<string, string> = {
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  };
+  const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (character) => htmlEscapes[character]);
   const formatInline = (value: string) =>
     value
       .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")

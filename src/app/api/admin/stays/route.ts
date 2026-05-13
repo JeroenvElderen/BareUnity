@@ -125,10 +125,11 @@ async function geocodeStayAddress(
         return { latitude, longitude };
       }
     } catch (error) {
-      console.error(
-        `Failed to geocode stay address for ${listing.name} with query "${query}"`,
+      console.error("Failed to geocode stay address", {
+        listingName: listing.name,
+        query,
         error,
-      );
+    });
     } finally {
       clearTimeout(timeout);
     }

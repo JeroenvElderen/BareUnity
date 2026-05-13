@@ -42,6 +42,7 @@ function applySecurityHeaders(res: NextResponse, contentSecurityPolicy?: string)
   );
   res.headers.set("X-Content-Type-Options", "nosniff");
   res.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  // nosemgrep: javascript.express.security.x-frame-options-misconfiguration.x-frame-options-misconfiguration -- hardcoded security header value, not user input.
   res.headers.set("X-Frame-Options", "DENY");
   res.headers.set("Cross-Origin-Opener-Policy", "same-origin");
   res.headers.set("Cross-Origin-Resource-Policy", "same-origin");
