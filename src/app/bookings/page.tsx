@@ -10,11 +10,6 @@ const categories = [
     href: "/bookings/hotels-airbnbs",
   },
   {
-    title: "Spas & Wellness",
-    description: "Treatment/service booking templates and slot scheduling.",
-    href: "/bookings/spas",
-  },
-  {
     title: "Activities",
     description: "Event and experience booking templates for individuals or groups.",
     href: "/bookings/activities",

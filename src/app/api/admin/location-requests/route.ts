@@ -29,7 +29,7 @@ function parseRequest(item: FeedbackLocationRequest) {
       latitude?: number;
       longitude?: number;
       website?: string;
-      requestType?: "location" | "stay" | "spa" | "activity";
+      requestType?: "location" | "stay" | "activity";
       isStay?: boolean;
       notes?: string;
       requesterEmail?: string | null;

@@ -21,7 +21,6 @@ import {
   ShieldCheck,
   SunMoon,
   Users,
-  Waves,
   X,
 } from "lucide-react";
 
@@ -62,7 +61,6 @@ const primaryItems: readonly NavLinkItem[] = [
 
 const bookingItems: readonly NavLinkItem[] = [
   { icon: Building2, label: "Stays", href: "/bookings/hotels-airbnbs" },
-  { icon: Waves, label: "Spas", href: "/bookings/spas" },
   { icon: Compass, label: "Activities", href: "/bookings/activities" },
 ];
 
