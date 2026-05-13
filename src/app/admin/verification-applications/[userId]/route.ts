@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { ensureAdminRequest } from "@/lib/request-auth";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase-admin";
 
-const ADMIN_EMAIL = "jeroen.vanelderen@hotmail.com";
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL;
 
@@ -87,40 +84,6 @@ async function sendVerificationDecisionEmail(to: string, decision: VerificationD
   return { sent: true } as const;
 }
 
-async function ensureAdmin(request: NextRequest) {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    return {
-      error: NextResponse.json({ error: "Supabase public auth config missing." }, { status: 500 }),
-    };
-  }
-
-  const authHeader = request.headers.get("authorization") ?? "";
-  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
-
-  if (!token) {
-    return {
-      error: NextResponse.json({ error: "Missing bearer token." }, { status: 401 }),
-    };
-  }
-
-  const authClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  const { data, error } = await authClient.auth.getUser(token);
-
-  if (error || !data.user) {
-    return {
-      error: NextResponse.json({ error: "Invalid auth token." }, { status: 401 }),
-    };
-  }
-
-  if ((data.user.email ?? "").toLowerCase() !== ADMIN_EMAIL) {
-    return {
-      error: NextResponse.json({ error: "Forbidden." }, { status: 403 }),
-    };
-  }
-
-  return { ok: true as const };
-}
-
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ userId: string }> },
@@ -129,7 +92,7 @@ export async function PATCH(
     return NextResponse.json({ error: "Supabase admin credentials are not configured." }, { status: 500 });
   }
 
-  const adminResult = await ensureAdmin(request);
+  const adminResult = await ensureAdminRequest(request);
 
   if ("error" in adminResult) {
     return adminResult.error;

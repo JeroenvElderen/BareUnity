@@ -8,11 +8,16 @@ const ALLOWED_API_ORIGINS = new Set([
 ]);
 const DEFAULT_CORS_METHODS = "GET,POST,PUT,PATCH,DELETE,OPTIONS";
 const DEFAULT_CORS_HEADERS = "Authorization, Content-Type, X-Requested-With";
+const ALLOWED_CORS_REQUEST_HEADERS = new Set(
+  DEFAULT_CORS_HEADERS.split(",").map((header) => header.trim().toLowerCase()),
+);
 
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX_REQUESTS = 120;
 const STRICT_RATE_LIMIT_WINDOW_MS = 15 * 60_000;
 const STRICT_RATE_LIMIT_MAX_REQUESTS = 10;
+const SENSITIVE_RATE_LIMIT_WINDOW_MS = 15 * 60_000;
+const SENSITIVE_RATE_LIMIT_MAX_REQUESTS = 30;
 const rateLimitBuckets = new Map<string, { count: number; resetAt: number }>();
 
 function createNonce() {
@@ -70,6 +75,17 @@ function getRateLimitPolicy(req: NextRequest) {
     return {
       windowMs: STRICT_RATE_LIMIT_WINDOW_MS,
       maxRequests: STRICT_RATE_LIMIT_MAX_REQUESTS,
+    };
+  }
+
+  if (
+    req.nextUrl.pathname === "/api/moderation/nsfw" ||
+    req.nextUrl.pathname === "/api/gallery/upload" ||
+    req.nextUrl.pathname === "/api/homefeed"
+  ) {
+    return {
+      windowMs: SENSITIVE_RATE_LIMIT_WINDOW_MS,
+      maxRequests: SENSITIVE_RATE_LIMIT_MAX_REQUESTS,
     };
   }
 
@@ -159,7 +175,32 @@ function isAllowedApiOrigin(origin: string | null) {
     return true;
   }
 
-  return ALLOWED_API_ORIGINS.has(origin);
+  if (ALLOWED_API_ORIGINS.has(origin)) {
+    return true;
+  }
+
+  if (process.env.NODE_ENV !== "production") {
+    try {
+      const url = new URL(origin);
+      return isLocalHostname(url.hostname);
+    } catch {
+      return false;
+    }
+  }
+
+  return false;
+}
+
+function getAllowedCorsHeaders(req: NextRequest) {
+  const requestedHeaders = req.headers.get("access-control-request-headers");
+  if (!requestedHeaders) return DEFAULT_CORS_HEADERS;
+
+  const allowedHeaders = requestedHeaders
+    .split(",")
+    .map((header) => header.trim())
+    .filter((header) => ALLOWED_CORS_REQUEST_HEADERS.has(header.toLowerCase()));
+
+  return allowedHeaders.length > 0 ? allowedHeaders.join(", ") : DEFAULT_CORS_HEADERS;
 }
 
 function applyApiCorsHeaders(req: NextRequest, res: NextResponse) {
@@ -171,10 +212,7 @@ function applyApiCorsHeaders(req: NextRequest, res: NextResponse) {
 
   res.headers.set("Access-Control-Allow-Origin", origin);
   res.headers.set("Access-Control-Allow-Methods", DEFAULT_CORS_METHODS);
-  res.headers.set(
-    "Access-Control-Allow-Headers",
-    req.headers.get("access-control-request-headers") ?? DEFAULT_CORS_HEADERS,
-  );
+  res.headers.set("Access-Control-Allow-Headers", getAllowedCorsHeaders(req));
   res.headers.set("Access-Control-Max-Age", "600");
   res.headers.append("Vary", "Origin");
 

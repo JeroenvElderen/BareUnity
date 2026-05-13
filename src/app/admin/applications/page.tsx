@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { isPlatformAdminEmail } from "@/lib/platform-admin";
 import { supabase } from "@/lib/supabase";
 import styles from "./page.module.css";
 
@@ -21,7 +22,6 @@ type Application = {
   idDocumentUrl: string | null;
 };
 
-const ADMIN_EMAIL = "jeroen.vanelderen@hotmail.com";
 
 function prettyDate(value: string) {
   const date = new Date(value);
@@ -66,7 +66,7 @@ export default function AdminApplicationsPage() {
     const email = session.user.email?.toLowerCase() ?? "";
     setAdminEmail(email);
 
-    if (email !== ADMIN_EMAIL) {
+    if (!isPlatformAdminEmail(email)) {
       setError("This admin panel is restricted to your owner account.");
       setIsLoading(false);
       return;
