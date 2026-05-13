@@ -4,6 +4,11 @@ import { type NextRequest, NextResponse } from "next/server";
 import { ensureStayAdmin } from "@/app/api/admin/stays/auth";
 import type { BookingListing } from "@/components/bookings/booking-listing-types";
 import {
+  createSupabaseAdminClient,
+  isSupabaseAdminConfigured,
+} from "@/lib/supabase-admin";
+import { db } from "@/server/db";
+import {
   readBookingListingsFromDisk,
   slugifyBookingListing,
   sortBookingListings,
@@ -12,6 +17,21 @@ import {
 type Params = { params: Promise<{ category: string }> };
 
 type Body = Partial<BookingListing>;
+
+type Coordinates = {
+  latitude: number;
+  longitude: number;
+};
+
+type NormalizedBookingListing = {
+  listing: BookingListing;
+  coordinates: Coordinates;
+};
+
+type GeocodeResult = {
+  lat?: string;
+  lon?: string;
+};
 
 const CONFIG = {
   spas: {
@@ -26,6 +46,12 @@ const CONFIG = {
       "Massage studio",
     ]),
     terrain: "Spa",
+    markerSource: "spa-listing",
+    mapType: "Spa",
+    markerTags: ["spas", "wellness", "bookings"],
+    markerAmenity: "Wellness services",
+    markerFailureMessage:
+      "Could not create the Explore map marker for this spa. The spa listing was not saved.",
   },
   activities: {
     filePath: path.join(
@@ -40,12 +66,100 @@ const CONFIG = {
       "Retreat",
     ]),
     terrain: "Activity",
+    markerSource: "activity-listing",
+    mapType: "Activity",
+    markerTags: ["activities", "events", "bookings"],
+    markerAmenity: "Hosted activity",
+    markerFailureMessage:
+      "Could not create the Explore map marker for this activity. The activity listing was not saved.",
   },
 } as const;
 
 function cleanStringArray(value: unknown) {
   if (!Array.isArray(value)) return [];
   return value.map((item) => String(item).trim()).filter(Boolean);
+}
+
+function uniqueGeocodeQueries(
+  listing: Pick<BookingListing, "address" | "placeName" | "country" | "name">,
+) {
+  const queryParts = [
+    [listing.address, listing.placeName, listing.country],
+    [listing.name, listing.placeName, listing.country],
+    [listing.name, listing.address],
+    [listing.name, listing.country],
+  ];
+
+  const seen = new Set<string>();
+  return queryParts
+    .map((parts) => parts.filter(Boolean).join(", ").trim())
+    .filter((query) => {
+      const key = query.toLowerCase();
+      if (!query || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
+function validateCoordinates(latitude: number, longitude: number) {
+  if (latitude < -90 || latitude > 90)
+    throw new Error("Map latitude must be between -90 and 90.");
+  if (longitude < -180 || longitude > 180)
+    throw new Error("Map longitude must be between -180 and 180.");
+}
+
+function coordinatesFromBody(body: Body) {
+  const latitude = Number(body.mapLatitude);
+  const longitude = Number(body.mapLongitude);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+
+  validateCoordinates(latitude, longitude);
+  return { latitude, longitude };
+}
+
+async function geocodeBookingListingAddress(
+  listing: Pick<BookingListing, "address" | "placeName" | "country" | "name">,
+) {
+  for (const query of uniqueGeocodeQueries(listing)) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=3&q=${encodeURIComponent(query)}`,
+        {
+          headers: {
+            Accept: "application/json",
+            "User-Agent":
+              "BareUnity booking marker geocoder (+https://bareunity.com)",
+          },
+          signal: controller.signal,
+        },
+      );
+
+      if (!response.ok) continue;
+
+      const results = (await response.json()) as GeocodeResult[];
+      for (const result of results) {
+        const latitude = Number(result.lat);
+        const longitude = Number(result.lon);
+        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) continue;
+
+        validateCoordinates(latitude, longitude);
+        return { latitude, longitude };
+      }
+    } catch (error) {
+      console.error("Failed to geocode booking listing address", {
+        listingName: listing.name,
+        query,
+        error,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  return null;
 }
 
 function normalizePolicies(value: unknown): BookingListing["policies"] {
@@ -65,7 +179,10 @@ function normalizePolicies(value: unknown): BookingListing["policies"] {
     .filter((policy) => policy.category && policy.items.length);
 }
 
-function normalizeListing(body: Body, allowedTypes: Set<string>) {
+async function normalizeListing(
+  body: Body,
+  allowedTypes: Set<string>,
+): Promise<{ normalized?: NormalizedBookingListing; error?: string }> {
   const name = body.name?.trim() ?? "";
   const country = body.country?.trim() ?? "";
   const placeName = body.placeName?.trim() ?? "";
@@ -120,7 +237,146 @@ function normalizeListing(body: Body, allowedTypes: Set<string>) {
     policies: normalizePolicies(body.policies),
   };
 
-  return { listing };
+  let providedCoordinates: Coordinates | null = null;
+  try {
+    providedCoordinates = coordinatesFromBody(body);
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error ? error.message : "Invalid map coordinates.",
+    };
+  }
+
+  const coordinates =
+    providedCoordinates ?? (await geocodeBookingListingAddress(listing));
+
+  if (!coordinates) {
+    return {
+      error:
+        "Could not automatically find map coordinates for this listing. We tried the address and the listing name with its place and country. Check those details before saving again.",
+    };
+  }
+
+  listing.mapLatitude = coordinates.latitude;
+  listing.mapLongitude = coordinates.longitude;
+
+  return { normalized: { listing, coordinates } };
+}
+
+async function createBookingMapSpotWithPrisma(
+  listing: BookingListing,
+  coordinates: Coordinates,
+  config: (typeof CONFIG)[keyof typeof CONFIG],
+) {
+  return db.naturist_map_spots.create({
+    data: {
+      name: listing.name,
+      description: listing.description,
+      short_description: listing.vibe || listing.badge,
+      latitude: coordinates.latitude,
+      longitude: coordinates.longitude,
+      privacy: "Public",
+      location_hint: listing.address,
+      country: listing.country,
+      region: listing.placeName,
+      access_type: "Public",
+      terrain: config.terrain,
+      clothing_policy: "Clothing optional",
+      safety_level: "Beginner friendly",
+      best_season: "Year-round",
+      website: listing.websiteUrl,
+      amenities: Array.from(
+        new Set([config.markerAmenity, ...listing.amenities]),
+      ),
+      tags: Array.from(new Set([...config.markerTags, listing.type])),
+      reporter_notes: `Automatically created from the ${config.mapType.toLowerCase()} listing manager.`,
+      details: {
+        source: config.markerSource,
+        type: config.mapType,
+        listingSlug: listing.slug,
+        listingType: listing.type,
+        price: listing.price,
+        rating: listing.rating,
+        badge: listing.badge,
+        vibe: listing.vibe,
+        checkInWindow: listing.checkInWindow,
+      },
+    },
+    select: { id: true },
+  });
+}
+
+async function createBookingMapSpotWithSupabaseAdmin(
+  listing: BookingListing,
+  coordinates: Coordinates,
+  config: (typeof CONFIG)[keyof typeof CONFIG],
+) {
+  const supabaseAdmin = createSupabaseAdminClient();
+  const { data, error } = await supabaseAdmin
+    .from("naturist_map_spots")
+    .insert({
+      name: listing.name,
+      description: listing.description,
+      short_description: listing.vibe || listing.badge,
+      latitude: coordinates.latitude,
+      longitude: coordinates.longitude,
+      privacy: "Public",
+      location_hint: listing.address,
+      country: listing.country,
+      region: listing.placeName,
+      access_type: "Public",
+      terrain: config.terrain,
+      clothing_policy: "Clothing optional",
+      safety_level: "Beginner friendly",
+      best_season: "Year-round",
+      website: listing.websiteUrl,
+      amenities: Array.from(
+        new Set([config.markerAmenity, ...listing.amenities]),
+      ),
+      tags: Array.from(new Set([...config.markerTags, listing.type])),
+      reporter_notes: `Automatically created from the ${config.mapType.toLowerCase()} listing manager.`,
+      details: {
+        source: config.markerSource,
+        type: config.mapType,
+        listingSlug: listing.slug,
+        listingType: listing.type,
+        price: listing.price,
+        rating: listing.rating,
+        badge: listing.badge,
+        vibe: listing.vibe,
+        checkInWindow: listing.checkInWindow,
+      },
+    })
+    .select("id")
+    .single();
+
+  if (error) throw new Error(`Supabase fallback failed: ${error.message}`);
+  return data;
+}
+
+async function createBookingMapSpot(
+  listing: BookingListing,
+  coordinates: Coordinates,
+  config: (typeof CONFIG)[keyof typeof CONFIG],
+) {
+  try {
+    return await createBookingMapSpotWithPrisma(listing, coordinates, config);
+  } catch (prismaError) {
+    console.error(
+      "Failed to create booking map marker with Prisma",
+      prismaError,
+    );
+
+    if (isSupabaseAdminConfigured) {
+      return createBookingMapSpotWithSupabaseAdmin(
+        listing,
+        coordinates,
+        config,
+      );
+    }
+
+    throw prismaError;
+  }
 }
 
 export async function POST(request: NextRequest, { params }: Params) {
@@ -142,24 +398,39 @@ export async function POST(request: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const normalized = normalizeListing(body, config.allowedTypes);
-  if (!normalized.listing)
+  const normalized = await normalizeListing(body, config.allowedTypes);
+  if (!normalized.normalized)
     return NextResponse.json({ error: normalized.error }, { status: 400 });
 
+  const { listing, coordinates } = normalized.normalized;
   const listings = await readBookingListingsFromDisk(config.filePath);
-  if (listings.some((listing) => listing.slug === normalized.listing.slug)) {
+  if (
+    listings.some((existingListing) => existingListing.slug === listing.slug)
+  ) {
     return NextResponse.json(
       { error: "A listing with this slug already exists." },
       { status: 409 },
     );
   }
 
-  const nextListings = sortBookingListings([...listings, normalized.listing]);
+  let markerId: string;
+  try {
+    const marker = await createBookingMapSpot(listing, coordinates, config);
+    markerId = marker.id;
+  } catch (error) {
+    console.error("Failed to create Explore marker for booking listing", error);
+    return NextResponse.json(
+      { error: config.markerFailureMessage },
+      { status: 500 },
+    );
+  }
+
+  const nextListings = sortBookingListings([...listings, listing]);
   await writeFile(
     config.filePath,
     `${JSON.stringify(nextListings, null, 2)}\n`,
     "utf8",
   );
 
-  return NextResponse.json({ ok: true, listing: normalized.listing });
+  return NextResponse.json({ ok: true, listing, markerId });
 }

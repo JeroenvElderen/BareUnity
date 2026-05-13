@@ -18,6 +18,8 @@ type ImportDraft = {
   fullDescription: string;
   latitude?: number;
   longitude?: number;
+  mapLatitude?: number;
+  mapLongitude?: number;
   locationHint: string;
   accessType: string;
   terrain: string;
@@ -347,7 +349,7 @@ export async function GET(request: NextRequest) {
 
     if (!coordinates) {
       warnings.push(
-        "Coordinates could not be imported automatically. Add latitude and longitude before saving.",
+        "Coordinates could not be imported automatically. Saving will try to geocode the address, place, and country again.",
       );
     }
 
@@ -366,6 +368,8 @@ export async function GET(request: NextRequest) {
         `${name} was imported from ${websiteUrl.hostname}. Review details before publishing this ${config.label.toLowerCase()} marker.`,
       latitude: coordinates?.latitude,
       longitude: coordinates?.longitude,
+      mapLatitude: coordinates?.latitude,
+      mapLongitude: coordinates?.longitude,
       locationHint: address || geocoded?.displayName || websiteUrl.hostname,
       accessType: "Public",
       terrain: config.terrain,

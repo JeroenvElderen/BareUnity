@@ -22,6 +22,8 @@ type ListingFormState = {
   description: string;
   websiteUrl: string;
   address: string;
+  mapLatitude: string;
+  mapLongitude: string;
   checkInWindow: string;
   gallery: string;
 };
@@ -79,6 +81,14 @@ function updateFormWithDraft(
     description: draft.description ?? current.description,
     websiteUrl: draft.websiteUrl ?? current.websiteUrl,
     address: draft.address ?? current.address,
+    mapLatitude:
+      draft.mapLatitude === undefined
+        ? current.mapLatitude
+        : String(draft.mapLatitude),
+    mapLongitude:
+      draft.mapLongitude === undefined
+        ? current.mapLongitude
+        : String(draft.mapLongitude),
     checkInWindow: draft.checkInWindow ?? current.checkInWindow,
     gallery: draft.gallery?.length ? draft.gallery.join("\n") : current.gallery,
   };
@@ -119,6 +129,8 @@ export function AdminBookingListingManager({
     description: "",
     websiteUrl: "",
     address: "",
+    mapLatitude: "",
+    mapLongitude: "",
     checkInWindow: defaultCheckInWindow,
     gallery: "",
   };
@@ -406,6 +418,14 @@ export function AdminBookingListingManager({
               required
             />
           </label>
+          <div className={styles.mapNotice}>
+            <strong>Explore map marker</strong>
+            <p>
+              Saving this listing automatically finds its latitude and longitude
+              from the address, place, and country, then creates a marker on the
+              Explore map. Imported coordinates are reused when available.
+            </p>
+          </div>
           <label>
             Vibe
             <input name="vibe" value={form.vibe} onChange={updateField} />
