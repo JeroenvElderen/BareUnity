@@ -190,12 +190,13 @@ export function AdminBookingListingManager({
 
     try {
       const token = await getAdminToken();
-      const response = await fetch(
-        `/api/admin/map-spots/import?category=${encodeURIComponent(importCategory)}&url=${encodeURIComponent(importUrl)}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
+      const importPath =
+        category === "spas"
+          ? `/api/admin/booking-listings/spas/import?category=spas&url=${encodeURIComponent(importUrl)}`
+          : `/api/admin/map-spots/import?category=${encodeURIComponent(importCategory)}&url=${encodeURIComponent(importUrl)}`;
+      const response = await fetch(importPath, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       const payload = (await response.json()) as {
         draft?: ImportDraft;
         error?: string;
