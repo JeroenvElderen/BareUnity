@@ -6,12 +6,6 @@ const ALLOWED_API_ORIGINS = new Set([
   "https://www.bareunity.com",
   "https://bareunity.com",
 ]);
-const DEFAULT_CORS_METHODS = "GET,POST,PUT,PATCH,DELETE,OPTIONS";
-const DEFAULT_CORS_HEADERS = "Authorization, Content-Type, X-Requested-With";
-const ALLOWED_CORS_REQUEST_HEADERS = new Set(
-  DEFAULT_CORS_HEADERS.split(",").map((header) => header.trim().toLowerCase()),
-);
-
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX_REQUESTS = 120;
 const STRICT_RATE_LIMIT_WINDOW_MS = 15 * 60_000;
@@ -191,34 +185,6 @@ function isAllowedApiOrigin(origin: string | null) {
   return false;
 }
 
-function getAllowedCorsHeaders(req: NextRequest) {
-  const requestedHeaders = req.headers.get("access-control-request-headers");
-  if (!requestedHeaders) return DEFAULT_CORS_HEADERS;
-
-  const allowedHeaders = requestedHeaders
-    .split(",")
-    .map((header) => header.trim())
-    .filter((header) => ALLOWED_CORS_REQUEST_HEADERS.has(header.toLowerCase()));
-
-  return allowedHeaders.length > 0 ? allowedHeaders.join(", ") : DEFAULT_CORS_HEADERS;
-}
-
-function applyApiCorsHeaders(req: NextRequest, res: NextResponse) {
-  const origin = req.headers.get("origin");
-
-  if (!origin || !isAllowedApiOrigin(origin)) {
-    return res;
-  }
-
-  res.headers.set("Access-Control-Allow-Origin", origin);
-  res.headers.set("Access-Control-Allow-Methods", DEFAULT_CORS_METHODS);
-  res.headers.set("Access-Control-Allow-Headers", getAllowedCorsHeaders(req));
-  res.headers.set("Access-Control-Max-Age", "600");
-  res.headers.append("Vary", "Origin");
-
-  return res;
-}
-
 function shouldRedirectToHttps(req: NextRequest) {
   if (process.env.NODE_ENV !== "production") {
     return false;
@@ -267,7 +233,7 @@ export function middleware(req: NextRequest) {
 
     if (req.method === "OPTIONS") {
       return applySecurityHeaders(
-        applyApiCorsHeaders(req, new NextResponse(null, { status: 204 })),
+        new NextResponse(null, { status: 204 }),
         contentSecurityPolicy,
       );
     }
@@ -277,10 +243,7 @@ export function middleware(req: NextRequest) {
 
       if (rateLimit.limited) {
         return applySecurityHeaders(
-          applyApiCorsHeaders(
-            req,
-            buildRateLimitResponse(rateLimit.retryAfterSeconds),
-          ),
+          buildRateLimitResponse(rateLimit.retryAfterSeconds),
           contentSecurityPolicy,
         );
       }
@@ -299,10 +262,7 @@ export function middleware(req: NextRequest) {
 
   if (req.nextUrl.pathname.startsWith("/api/")) {
     res.headers.set("Cache-Control", "no-store");
-    return applySecurityHeaders(
-      applyApiCorsHeaders(req, res),
-      contentSecurityPolicy,
-    );
+    return applySecurityHeaders(res, contentSecurityPolicy);
   }
 
   return applySecurityHeaders(res, contentSecurityPolicy);
