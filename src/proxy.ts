@@ -231,7 +231,7 @@ function buildHttpsUrl(req: NextRequest) {
   return secureUrl;
 }
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const htmlPageRequest = isHtmlPageRequest(req);
   const nonceHeaders = htmlPageRequest ? buildNonceHeaders(req) : null;
   const contentSecurityPolicy = nonceHeaders?.contentSecurityPolicy;
