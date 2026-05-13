@@ -32,8 +32,10 @@ function buildNonceHeaders(req: NextRequest) {
   return { contentSecurityPolicy, requestHeaders };
 }
 
-function applySecurityHeaders(res: NextResponse, contentSecurityPolicy: string) {
-  res.headers.set("Content-Security-Policy", contentSecurityPolicy);
+function applySecurityHeaders(res: NextResponse, contentSecurityPolicy?: string) {
+  if (contentSecurityPolicy) {
+    res.headers.set("Content-Security-Policy", contentSecurityPolicy);
+  }
   res.headers.set(
     "Strict-Transport-Security",
     "max-age=63072000; includeSubDomains; preload",
@@ -185,6 +187,26 @@ function isAllowedApiOrigin(origin: string | null) {
   return false;
 }
 
+function isHtmlPageRequest(req: NextRequest) {
+  const { pathname } = req.nextUrl;
+
+  if (pathname.startsWith("/api/")) {
+    return false;
+  }
+
+  if (
+    pathname.startsWith("/_next/static") ||
+    pathname.startsWith("/_next/image") ||
+    pathname === "/favicon.ico" ||
+    pathname === "/robots.txt" ||
+    pathname === "/sitemap.xml"
+  ) {
+    return false;
+  }
+
+  return !/\.[^/]+$/.test(pathname);
+}
+
 function shouldRedirectToHttps(req: NextRequest) {
   if (process.env.NODE_ENV !== "production") {
     return false;
@@ -209,7 +231,9 @@ function buildHttpsUrl(req: NextRequest) {
 }
 
 export function middleware(req: NextRequest) {
-  const { contentSecurityPolicy, requestHeaders } = buildNonceHeaders(req);
+  const htmlPageRequest = isHtmlPageRequest(req);
+  const nonceHeaders = htmlPageRequest ? buildNonceHeaders(req) : null;
+  const contentSecurityPolicy = nonceHeaders?.contentSecurityPolicy;
 
   if (shouldRedirectToHttps(req)) {
     return applySecurityHeaders(
@@ -254,11 +278,13 @@ export function middleware(req: NextRequest) {
   // so middleware cannot reliably read auth state from cookies.
   // Enforcing redirects here causes successful login attempts to bounce back
   // to /login and look like a page refresh loop.
-  const res = NextResponse.next({
-    request: {
-      headers: requestHeaders,
-    },
-  });
+  const res = nonceHeaders
+    ? NextResponse.next({
+        request: {
+          headers: nonceHeaders.requestHeaders,
+        },
+      })
+    : NextResponse.next();
 
   if (req.nextUrl.pathname.startsWith("/api/")) {
     res.headers.set("Cache-Control", "no-store");
@@ -270,6 +296,6 @@ export function middleware(req: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon\\.ico).*)",
+    "/((?!_next/static|_next/image|favicon\\.ico|robots\\.txt|sitemap\\.xml).*)",
   ],
 };
