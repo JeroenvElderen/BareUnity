@@ -1,18 +1,26 @@
-import { BookingCategoryTemplate } from "@/components/bookings/booking-category-template";
+import { AppSidebar } from "@/components/sidebar/sidebar";
+import layoutStyles from "@/app/page.module.css";
+import styles from "@/app/bookings/hotels-airbnbs/stays-list.module.css";
+import { BookingListingsClient } from "@/components/bookings/booking-listings-client";
+import { getActivityListings } from "./activities-data";
 
-const templates = [
-  "Activity listing with skill/intensity filters",
-  "Event detail with host profile and requirements",
-  "Seat reservation + waitlist template",
-  "Group booking and itinerary summary",
-] as const;
+export default async function ActivitiesPage() {
+  const listings = await getActivityListings();
 
-export default function ActivitiesPage() {
   return (
-    <BookingCategoryTemplate
-      title="Activities"
-      description="Template space for excursions, events, classes, and group itineraries."
-      templates={templates}
-    />
+    <main className={layoutStyles.main}>
+      <AppSidebar />
+      <section className={styles.page}>
+        <BookingListingsClient
+          listings={listings}
+          apiPath="/api/bookings/activities"
+          title="Activities"
+          subtitle="Discover classes, workshops, excursions, events, and group experiences for respectful naturist community time."
+          requestType="activity"
+          requestLabel="Request an activity"
+          priceLabel="/ person"
+        />
+      </section>
+    </main>
   );
 }
