@@ -4,10 +4,10 @@ import Link from "next/link";
 import { Building2, ExternalLink, Plus, Sparkles } from "lucide-react";
 import { ChangeEvent, FormEvent, useState } from "react";
 import type { Listing } from "@/app/bookings/hotels-airbnbs/stays-data";
+import { isPlatformAdminEmail } from "@/lib/platform-admin";
 import { supabase } from "@/lib/supabase";
 import styles from "./page.module.css";
 
-const ADMIN_EMAIL = "jeroen.vanelderen@hotmail.com";
 const STAY_TYPES: Listing["type"][] = [
   "Hotel",
   "Entire place",
@@ -155,7 +155,7 @@ export default function AdminStaysPage() {
       );
     }
 
-    if ((session.user.email ?? "").toLowerCase() !== ADMIN_EMAIL) {
+    if (!isPlatformAdminEmail(session.user.email)) {
       throw new Error("This stay manager is restricted to your owner account.");
     }
 

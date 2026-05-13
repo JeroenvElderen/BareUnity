@@ -13,25 +13,10 @@ import {
 } from "@/lib/homefeed-server";
 import { readServerCache, writeServerCache } from "@/lib/server-user-cache";
 import { ensureMemberCanAct } from "@/lib/action-access";
+import { UploadValidationError, validateImageBuffer } from "@/lib/upload-security";
 
-const IMAGE_DATA_URL_PATTERN = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/;
-
-function getImageExtension(mimeType: string) {
-  switch (mimeType) {
-    case "image/jpeg":
-      return "jpg";
-    case "image/png":
-      return "png";
-    case "image/webp":
-      return "webp";
-    case "image/gif":
-      return "gif";
-    case "image/avif":
-      return "avif";
-    default:
-      return "bin";
-  }
-}
+const IMAGE_DATA_URL_PATTERN = /^data:(image\/[a-zA-Z0-9.+-]+);base64,([A-Za-z0-9+/=\r\n]+)$/;
+const MAX_HOMEFEED_IMAGE_BYTES = 8 * 1024 * 1024;
 
 async function uploadMediaDataUrl(args: {
   viewerId: string;
@@ -46,24 +31,23 @@ async function uploadMediaDataUrl(args: {
 
   const match = IMAGE_DATA_URL_PATTERN.exec(args.dataUrl);
   if (!match) {
-    throw new Error("Invalid image payload. Expected base64 data URL.");
+    throw new UploadValidationError("Invalid image payload. Expected base64 image data URL.");
   }
 
   const [, mimeType, base64Payload] = match;
-  const buffer = Buffer.from(base64Payload, "base64");
-
-  if (!buffer.byteLength) {
-    throw new Error("Image payload is empty.");
-  }
-
-  const extension = getImageExtension(mimeType.toLowerCase());
+  const buffer = Buffer.from(base64Payload.replace(/\s/g, ""), "base64");
+  const { contentType, extension } = validateImageBuffer({
+    buffer,
+    contentType: mimeType,
+    maxBytes: MAX_HOMEFEED_IMAGE_BYTES,
+  });
   const fileName = `${args.viewerId}/${args.kind}-${Date.now()}-${crypto.randomUUID()}.${extension}`;
   const storagePath = `posts/${fileName}`;
   const supabaseAdmin = createSupabaseAdminClient();
   const { error } = await supabaseAdmin.storage
     .from("media")
     .upload(storagePath, buffer, {
-      contentType: mimeType,
+      contentType,
       upsert: false,
     });
 
@@ -166,7 +150,7 @@ export async function POST(request: Request) {
     const mediaUrl = body.mediaUrl?.trim() ?? "";
     const kind = body.kind === "story" ? "story" : "post";
     const hasInlineImage = mediaUrl.startsWith("data:image/");
-    const shouldUploadInlineImage = kind === "post" && hasInlineImage;
+    const shouldUploadInlineImage = hasInlineImage;
     const persistedMediaUrl = shouldUploadInlineImage
       ? await uploadMediaDataUrl({ viewerId, dataUrl: mediaUrl, kind })
       : mediaUrl;
@@ -212,6 +196,10 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ ok: true });
   } catch (error) {
+    if (error instanceof UploadValidationError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+
     console.error("Unable to publish to home feed", error);
     return NextResponse.json(
       { error: "Home feed is unavailable right now." },

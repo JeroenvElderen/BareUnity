@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { type NextRequest, NextResponse } from "next/server";
 
 import { ensureAuthenticatedRequest } from "@/lib/request-auth";
@@ -5,14 +6,14 @@ import {
   createSupabaseAdminClient,
   isSupabaseAdminConfigured,
 } from "@/lib/supabase-admin";
+import {
+  UploadValidationError,
+  validateFileUpload,
+  VERIFICATION_DOCUMENT_EXTENSION_BY_TYPE,
+  VERIFICATION_DOCUMENT_TYPES,
+} from "@/lib/upload-security";
 
 const MAX_ID_UPLOAD_BYTES = 10 * 1024 * 1024;
-const ALLOWED_UPLOAD_TYPES = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "application/pdf",
-]);
 
 type ProfileSettings = {
   user_role: string | null;
@@ -204,18 +205,23 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (idDocument.size > MAX_ID_UPLOAD_BYTES) {
-    return NextResponse.json(
-      { error: "ID document must be 10MB or smaller." },
-      { status: 400 },
-    );
-  }
+  let validatedIdDocument;
 
-  if (!ALLOWED_UPLOAD_TYPES.has(idDocument.type)) {
-    return NextResponse.json(
-      { error: "ID document must be a JPG, PNG, WEBP, or PDF file." },
-      { status: 400 },
-    );
+  try {
+    validatedIdDocument = await validateFileUpload(idDocument, {
+      allowedTypes: VERIFICATION_DOCUMENT_TYPES,
+      extensionByType: VERIFICATION_DOCUMENT_EXTENSION_BY_TYPE,
+      maxBytes: MAX_ID_UPLOAD_BYTES,
+      emptyMessage: "Please upload a non-empty government ID document for review.",
+      typeMessage: "ID document must be a JPG, PNG, WEBP, or PDF file.",
+      sizeMessage: "ID document must be 10MB or smaller.",
+      signatureMessage: "ID document contents do not match the declared file type.",
+    });
+  } catch (error) {
+    if (error instanceof UploadValidationError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    throw error;
   }
 
   if (motivation.length < 30) {
@@ -241,14 +247,12 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const safeFileName = idDocument.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-  const idDocumentPath = `${authResult.user.id}/upgrade-id-${Date.now()}-${safeFileName}`;
-  const idBuffer = Buffer.from(await idDocument.arrayBuffer());
+  const idDocumentPath = `${authResult.user.id}/upgrade-id-${Date.now()}-${randomUUID()}.${validatedIdDocument.extension}`;
 
   const { error: uploadError } = await supabaseAdmin.storage
     .from("verification-documents")
-    .upload(idDocumentPath, idBuffer, {
-      contentType: idDocument.type,
+    .upload(idDocumentPath, validatedIdDocument.buffer, {
+      contentType: validatedIdDocument.contentType,
       upsert: false,
     });
 

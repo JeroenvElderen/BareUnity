@@ -33,12 +33,12 @@ import {
   ColorModePreference,
   isColorModePreference,
 } from "@/lib/color-mode";
+import { isPlatformAdminEmail } from "@/lib/platform-admin";
 import { supabase } from "@/lib/supabase";
 import { AppNotification, useUIStore } from "@/stores/ui-store";
 import { SidebarProfileLink } from "./profile-link";
 import styles from "./sidebar.module.css";
 
-const ADMIN_EMAIL = "jeroen.vanelderen@hotmail.com";
 const SYSTEM_NOTIFICATION_PERMISSION_REQUESTED_KEY =
   "bareunity_system_notification_permission_requested";
 const NOTIFICATION_POLL_INTERVAL_MS = 30_000;
@@ -201,7 +201,7 @@ export function AppSidebar() {
       const email = data.user?.email?.toLowerCase() ?? "";
       setActiveToasts([]);
       setViewerId(data.user?.id ?? null);
-      setIsAdmin(email === ADMIN_EMAIL);
+      setIsAdmin(isPlatformAdminEmail(email));
     });
 
     const {
@@ -210,7 +210,7 @@ export function AppSidebar() {
       const email = session?.user.email?.toLowerCase() ?? "";
       setActiveToasts([]);
       setViewerId(session?.user.id ?? null);
-      setIsAdmin(email === ADMIN_EMAIL);
+      setIsAdmin(isPlatformAdminEmail(email));
     });
 
     return () => {

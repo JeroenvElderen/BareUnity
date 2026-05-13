@@ -2,10 +2,10 @@
 
 import { FormEvent, useState } from "react";
 import Link from "next/link";
+import { isPlatformAdminEmail } from "@/lib/platform-admin";
 import { supabase } from "@/lib/supabase";
 import styles from "./page.module.css";
 
-const ADMIN_EMAIL = "jeroen.vanelderen@hotmail.com";
 
 type CreatedUser = {
   id: string;
@@ -45,7 +45,7 @@ export default function AdminUsersPage() {
     }
 
     const currentEmail = session.user.email?.toLowerCase() ?? "";
-    if (currentEmail !== ADMIN_EMAIL) {
+    if (!isPlatformAdminEmail(currentEmail)) {
       setUsersError("This page is restricted to your owner account only.");
       setIsLoadingUsers(false);
       return;
@@ -93,7 +93,7 @@ export default function AdminUsersPage() {
     }
 
     const currentEmail = session.user.email?.toLowerCase() ?? "";
-    if (currentEmail !== ADMIN_EMAIL) {
+    if (!isPlatformAdminEmail(currentEmail)) {
       setError("This page is restricted to your owner account only.");
       setIsSubmitting(false);
       return;

@@ -6,31 +6,14 @@ import {
 } from "@/lib/supabase-admin";
 import { loadViewerIdFromRequest } from "@/lib/viewer";
 import { ensureMemberCanAct } from "@/lib/action-access";
+import {
+  IMAGE_UPLOAD_EXTENSION_BY_TYPE,
+  IMAGE_UPLOAD_TYPES,
+  UploadValidationError,
+  validateFileUpload,
+} from "@/lib/upload-security";
 
-const ALLOWED_IMAGE_TYPES = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/gif",
-  "image/avif",
-]);
-
-function getImageExtension(mimeType: string) {
-  switch (mimeType) {
-    case "image/jpeg":
-      return "jpg";
-    case "image/png":
-      return "png";
-    case "image/webp":
-      return "webp";
-    case "image/gif":
-      return "gif";
-    case "image/avif":
-      return "avif";
-    default:
-      return "bin";
-  }
-}
+const MAX_GALLERY_UPLOAD_BYTES = 8 * 1024 * 1024;
 
 export async function POST(request: Request) {
   try {
@@ -62,22 +45,31 @@ export async function POST(request: Request) {
       );
     }
 
-    const contentType = upload.type.toLowerCase();
-    if (!ALLOWED_IMAGE_TYPES.has(contentType)) {
-      return NextResponse.json(
-        { error: "Unsupported file type. Please upload an image." },
-        { status: 400 },
-      );
+    let validatedUpload;
+
+    try {
+      validatedUpload = await validateFileUpload(upload, {
+        allowedTypes: IMAGE_UPLOAD_TYPES,
+        extensionByType: IMAGE_UPLOAD_EXTENSION_BY_TYPE,
+        maxBytes: MAX_GALLERY_UPLOAD_BYTES,
+        emptyMessage: "Please choose a non-empty image file to upload.",
+        typeMessage: "Unsupported file type. Please upload a JPG, PNG, WEBP, GIF, or AVIF image.",
+        sizeMessage: "Image uploads must be 8MB or smaller.",
+        signatureMessage: "Image contents do not match the declared file type.",
+      });
+    } catch (error) {
+      if (error instanceof UploadValidationError) {
+        return NextResponse.json({ error: error.message }, { status: error.status });
+      }
+      throw error;
     }
 
-    const extension = getImageExtension(contentType);
-    const storagePath = `gallery/${viewerId}/${Date.now()}-${crypto.randomUUID()}.${extension}`;
-    const buffer = Buffer.from(await upload.arrayBuffer());
+    const storagePath = `gallery/${viewerId}/${Date.now()}-${crypto.randomUUID()}.${validatedUpload.extension}`;
     const supabaseAdmin = createSupabaseAdminClient();
     const { error } = await supabaseAdmin.storage
       .from("media")
-      .upload(storagePath, buffer, {
-        contentType,
+      .upload(storagePath, validatedUpload.buffer, {
+        contentType: validatedUpload.contentType,
         upsert: false,
       });
 

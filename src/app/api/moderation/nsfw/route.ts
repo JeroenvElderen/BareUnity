@@ -1,4 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+
+import { ensureMemberCanAct } from "@/lib/action-access";
+import { ensureAuthenticatedRequest } from "@/lib/request-auth";
+import {
+  IMAGE_UPLOAD_EXTENSION_BY_TYPE,
+  IMAGE_UPLOAD_TYPES,
+  UploadValidationError,
+  validateFileUpload,
+} from "@/lib/upload-security";
 import {
   calculateSexualSeverity,
   moderateNsfwScores,
@@ -12,6 +21,8 @@ export const runtime = "nodejs";
 
 const MODEL_URL =
   "https://router.huggingface.co/hf-inference/models/Falconsai/nsfw_image_detection";
+
+const MAX_MODERATION_IMAGE_BYTES = 8 * 1024 * 1024;
 
 const FALLBACK = {
   decision: "review" as const,
@@ -62,10 +73,14 @@ async function getModelResponse(apiKey: string, buffer: Buffer) {
 
 export async function POST(request: NextRequest) {
   try {
+    const authResult = await ensureAuthenticatedRequest(request);
+    if ("error" in authResult) return authResult.error;
+
+    const actionAccessError = await ensureMemberCanAct(authResult.user.id);
+    if (actionAccessError) return actionAccessError;
+
     const formData = await request.formData();
     const file = formData.get("image");
-
-    const userEmail = formData.get("userEmail")?.toString() ?? "";
 
     if (!(file instanceof File)) {
       return NextResponse.json(
@@ -84,7 +99,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const buffer = Buffer.from(await file.arrayBuffer());
+    let buffer: Buffer;
+
+    try {
+      const validatedUpload = await validateFileUpload(file, {
+        allowedTypes: IMAGE_UPLOAD_TYPES,
+        extensionByType: IMAGE_UPLOAD_EXTENSION_BY_TYPE,
+        maxBytes: MAX_MODERATION_IMAGE_BYTES,
+        emptyMessage: "Image is empty.",
+        typeMessage: "Unsupported image type.",
+        sizeMessage: "Image must be 8MB or smaller.",
+        signatureMessage: "Image contents do not match the declared file type.",
+      });
+      buffer = validatedUpload.buffer;
+    } catch (error) {
+      if (error instanceof UploadValidationError) {
+        return NextResponse.json({ error: error.message }, { status: error.status });
+      }
+      throw error;
+    }
 
     let text: string;
 
@@ -145,7 +178,6 @@ export async function POST(request: NextRequest) {
       moderation,
       scores,
       signals,
-      userEmail
     );
 
     const severity = calculateSexualSeverity(scores, signals);

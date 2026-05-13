@@ -1,4 +1,4 @@
-export const PLATFORM_ADMIN_EMAIL = "jeroen.vanelderen@hotmail.com";
+import { isPlatformAdminEmail } from "@/lib/platform-admin";
 
 export const USER_ROLES = ["newcomer", "organizer", "traveler", "mentor", "club_admin"] as const;
 export type UserRole = (typeof USER_ROLES)[number];
@@ -9,5 +9,5 @@ export const PROFILE_INTERESTS = ["beaches", "hiking", "sauna", "art", "wellness
 export type ProfileInterest = (typeof PROFILE_INTERESTS)[number];
 
 export function isPlatformAdmin(email: string | null | undefined) {
-  return (email ?? "").toLowerCase() === PLATFORM_ADMIN_EMAIL;
+  return isPlatformAdminEmail(email);
 }

@@ -112,17 +112,13 @@ export function moderateNsfwScores(
 }
 
 /**
- * 🔥 Business policy (user overrides)
+ * 🔥 Business policy
  */
 export function applyBusinessPolicy(
   moderation: ModerationResult,
   scores: NsfwScores,
   signals: SexualContextSignals,
-  userEmail: string
 ): ModerationResult {
-  const isOwner = userEmail === "jeroen.vanelderen@hotmail.com";
-
-  // 🚨 interaction always blocked (even for owner)
   if (signals.genitalContact) {
     return {
       decision: "block",
@@ -131,12 +127,11 @@ export function applyBusinessPolicy(
     };
   }
 
-  // erection allowed for owner
-  if (signals.erection && isOwner) {
+  if (signals.erection) {
     return {
-      decision: "allow",
+      decision: "review",
       scores,
-      reason: "owner override (erection allowed)",
+      reason: "erection requires trust and safety review",
     };
   }
 

@@ -2,10 +2,10 @@ import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 
 import { LOCATION_REQUEST_PREFIX } from "@/lib/location-requests";
+import { isPlatformAdminEmail } from "@/lib/platform-admin";
 import { loadViewerIdFromRequest } from "@/lib/viewer";
 import { db } from "@/server/db";
 
-const ADMIN_EMAIL = "jeroen.vanelderen@hotmail.com";
 const MAX_NOTIFICATIONS = 100;
 
 type NotificationType =
@@ -115,7 +115,7 @@ export async function GET(request: Request) {
   const viewer = await db.users
     .findUnique({ where: { id: viewerId }, select: { email: true } })
     .catch(() => null);
-  const isAdmin = viewer?.email?.toLowerCase() === ADMIN_EMAIL;
+  const isAdmin = isPlatformAdminEmail(viewer?.email);
 
   const [
     feedLikes,

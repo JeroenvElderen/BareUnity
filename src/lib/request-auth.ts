@@ -1,7 +1,7 @@
 import { type User, createClient } from "@supabase/supabase-js";
 import { type NextRequest, NextResponse } from "next/server";
 
-export const ADMIN_EMAIL = "jeroen.vanelderen@hotmail.com";
+import { hasConfiguredPlatformAdmins, isPlatformAdminEmail } from "@/lib/platform-admin";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -40,7 +40,11 @@ export async function ensureAdminRequest(request: NextRequest): Promise<AuthSucc
   const authResult = await ensureAuthenticatedRequest(request);
   if ("error" in authResult) return authResult;
 
-  if ((authResult.user.email ?? "").toLowerCase() !== ADMIN_EMAIL) {
+  if (!hasConfiguredPlatformAdmins()) {
+    return { error: NextResponse.json({ error: "Admin access is not configured." }, { status: 500 }) };
+  }
+
+  if (!isPlatformAdminEmail(authResult.user.email)) {
     return { error: NextResponse.json({ error: "Forbidden." }, { status: 403 }) };
   }
 
