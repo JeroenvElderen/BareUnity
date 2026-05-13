@@ -45,6 +45,7 @@ const OLLAMA_REQUEST_TIMEOUT_MS = Number(process.env.OLLAMA_REQUEST_TIMEOUT_MS ?
 const MAX_AI_HTML_CHARACTERS = 100000;
 const MAX_IMPORT_CRAWL_PAGES = Math.max(1, Number(process.env.SPAS_IMPORT_MAX_CRAWL_PAGES ?? process.env.STAYS_IMPORT_MAX_CRAWL_PAGES ?? 12));
 const MAX_IMPORT_DOCUMENTS = Math.max(0, Number(process.env.SPAS_IMPORT_MAX_DOCUMENTS ?? process.env.STAYS_IMPORT_MAX_DOCUMENTS ?? 6));
+const MAX_IMPORT_EXTERNAL_LINKS = Math.max(0, Number(process.env.SPAS_IMPORT_MAX_EXTERNAL_LINKS ?? process.env.STAYS_IMPORT_MAX_EXTERNAL_LINKS ?? 4));
 const MAX_CRAWLED_CONTENT_CHARACTERS = 300000;
 const MAX_POLICY_ITEMS_PER_CATEGORY = 5;
 const MAX_POLICY_ITEM_CHARACTERS = 96;
@@ -565,8 +566,25 @@ function isDocumentUrl(url: URL) {
   return /\.(?:pdf|txt|text)$/i.test(url.pathname);
 }
 
+function isSkippedExternalHost(url: URL) {
+  return /(?:^|\.)(?:facebook|instagram|twitter|x|youtube|youtu|tiktok|linkedin|pinterest|tripadvisor|google|googleapis|gstatic|bing|apple|paypal|stripe|adyen|cloudflare)\./i.test(url.hostname);
+}
+
+function getCrawlUrlText(url: URL) {
+  const value = `${url.hostname} ${url.pathname} ${url.search}`;
+  try {
+    return decodeURIComponent(value).toLowerCase();
+  } catch {
+    return value.toLowerCase();
+  }
+}
+
+function isAddressCandidateUrl(url: URL) {
+  return /\b(?:address|adresse|direcci[oó]n|indirizzo|endere[cç]o|adres|kontakt|contatti|contacto|contactez|contact|ubicaci[oó]n|localisation|location|directions|route|visit|find-us|where-we-are|how-to-find|access|map|maps|booking|reservation)\b/i.test(getCrawlUrlText(url));
+}
+
 function scoreCrawlUrl(url: URL) {
-  const value = `${url.pathname} ${url.search}`.toLowerCase();
+  const value = getCrawlUrlText(url);
   const priorityTerms = [
     "policy",
     "policies",
@@ -604,14 +622,37 @@ function scoreCrawlUrl(url: URL) {
     "rates",
     "contact",
     "location",
+    "address",
+    "adresse",
+    "dirección",
+    "direccion",
+    "indirizzo",
+    "endereço",
+    "endereco",
+    "adres",
+    "kontakt",
+    "contatti",
+    "contacto",
+    "contactez",
+    "ubicacion",
+    "ubicación",
+    "localisation",
+    "route",
+    "directions",
+    "visit",
+    "find-us",
   ];
   return priorityTerms.reduce((score, term) => score + (value.includes(term) ? 1 : 0), 0);
 }
 
-function collectInternalLinks(html: string, pageUrl: URL, rootUrl: URL) {
+function collectCrawlLinks(html: string, pageUrl: URL, rootUrl: URL) {
   const links = [...html.matchAll(/<a[^>]+href=["']([^"']+)["'][^>]*>/gi)]
     .map((match) => normalizeCrawlUrl(match[1] ?? "", pageUrl))
-    .filter((url): url is URL => url !== null && isSameOriginCrawlUrl(url, rootUrl) && (isHtmlLikeUrl(url) || isDocumentUrl(url)));
+    .filter((url): url is URL => {
+      if (!url || !["http:", "https:"].includes(url.protocol) || (!isHtmlLikeUrl(url) && !isDocumentUrl(url))) return false;
+      if (isSameOriginCrawlUrl(url, rootUrl)) return true;
+      return !isSkippedExternalHost(url) && isAddressCandidateUrl(url);
+    });
 
   return uniqueStrings(links.map((url) => url.toString()))
     .map((href) => new URL(href))
@@ -678,6 +719,7 @@ async function crawlSpaWebsite(rootUrl: URL) {
   const documentLimit = Number.isFinite(MAX_IMPORT_DOCUMENTS) ? MAX_IMPORT_DOCUMENTS : 6;
   let htmlCount = 0;
   let documentCount = 0;
+  let externalCount = 0;
 
   while (queue.length && (htmlCount < htmlLimit || documentCount < documentLimit)) {
     const pageUrl = queue.shift();
@@ -686,13 +728,17 @@ async function crawlSpaWebsite(rootUrl: URL) {
     const normalized = normalizeCrawlUrl(pageUrl.toString(), rootUrl);
     if (!normalized) continue;
     const href = normalized.toString();
-    if (visited.has(href) || !isSameOriginCrawlUrl(normalized, rootUrl)) continue;
+    if (visited.has(href)) continue;
+    const isExternal = !isSameOriginCrawlUrl(normalized, rootUrl);
+    if (isExternal && (!isAddressCandidateUrl(normalized) || isSkippedExternalHost(normalized))) continue;
 
     const wantsDocument = isDocumentUrl(normalized);
     if (wantsDocument && documentCount >= documentLimit) continue;
     if (!wantsDocument && htmlCount >= htmlLimit) continue;
+    if (isExternal && externalCount >= MAX_IMPORT_EXTERNAL_LINKS) continue;
 
     visited.add(href);
+    if (isExternal) externalCount += 1;
 
     try {
       const resource = await fetchCrawlResource(normalized);
@@ -700,8 +746,8 @@ async function crawlSpaWebsite(rootUrl: URL) {
 
       if (resource.kind === "html") {
         htmlCount += 1;
-        const links = collectInternalLinks(resource.html, normalized, rootUrl).filter((link) => !visited.has(link.toString()));
-        queue.push(...links.slice(0, 24));
+        const links = collectCrawlLinks(resource.html, normalized, rootUrl).filter((link) => !visited.has(link.toString()));
+        queue.push(...links);
         queue.sort((a, b) => scoreCrawlUrl(b) - scoreCrawlUrl(a));
       } else {
         documentCount += 1;
@@ -835,6 +881,23 @@ function extractAddressParts(address: JsonValue | undefined, addressText: string
     country: parts.at(-1) ?? "",
     placeName: uniqueStrings(parts.slice(-3, -1).map((part) => part.replace(/^\d{4,6}\s*/, ""))).join(" · "),
   };
+}
+
+function findRecordWithAddress(records: Record<string, JsonValue>[], preferredType: RegExp) {
+  return records.find((record) => preferredType.test(asText(record["@type"])) && asText(record.address))
+    ?? records.find((record) => asText(record.address))
+    ?? records[0];
+}
+
+function extractInlineAddressFromText(text: string) {
+  const normalized = decodeHtml(text).replace(/\s+/g, " ").trim();
+  const labelPattern = String.raw`(?:address|adresse|direcci[oó]n|indirizzo|endere[cç]o|adres|adresă|kontakt|contatti|contacto|ubicaci[oó]n|localisation|location|directions|route|visit us|find us|how to find us|where we are|dirección|endereço|adresse postale|postal address|anschrift|dirección postal|địa chỉ|住所|地址|地址|عنوان)`;
+  const candidates = [...normalized.matchAll(new RegExp(`${labelPattern}\\s*[:：-]?\\s*([^|•]{12,220})`, "giu"))]
+    .map((match) => (match[1] ?? "").replace(/(?:phone|tel|telephone|email|e-mail|contact|website|opening|hours|horaires|öffnungszeiten|telefono|teléfono|téléphone).*$/iu, ""))
+    .map((candidate) => candidate.replace(/\s{2,}/g, " ").replace(/[.;|•]+$/, "").trim())
+    .filter((candidate) => /\p{L}/u.test(candidate) && (/[0-9]/.test(candidate) || /,/.test(candidate)) && candidate.length >= 12 && candidate.length <= 180);
+
+  return uniqueStrings(candidates)[0] ?? "";
 }
 
 function inferSpaType(records: Record<string, JsonValue>[], htmlText: string): SpaListing["type"] {
@@ -1059,8 +1122,8 @@ export async function GET(request: NextRequest) {
     const crawledContent = combineCrawledContent(crawledResources);
     const jsonLd = htmlResources.flatMap((resource) => parseJsonLd(resource.html));
     const records = jsonLd.flatMap(flattenJsonLd);
-    const hotelRecord = records.find((record) => /Spa|HealthAndBeautyBusiness|LocalBusiness|Resort|Hotel|LodgingBusiness|BeautySalon/i.test(asText(record["@type"]))) ?? records[0];
-    const addressText = hotelRecord ? asText(hotelRecord.address) : "";
+    const hotelRecord = findRecordWithAddress(records, /Spa|HealthAndBeautyBusiness|LocalBusiness|Resort|Hotel|LodgingBusiness|BeautySalon/i);
+    const addressText = (hotelRecord ? asText(hotelRecord.address) : "") || extractInlineAddressFromText(htmlText);
     const addressParts = extractAddressParts(hotelRecord?.address, addressText);
     const description = asText(hotelRecord?.description) || getMeta(html, "name", "description") || getMeta(html, "property", "og:description");
     const price = extractLowestPrice(records, html);
@@ -1090,7 +1153,7 @@ export async function GET(request: NextRequest) {
       policies,
       gallery,
       warnings: [
-        `Checked ${htmlResources.length} website page${htmlResources.length === 1 ? "" : "s"} and ${documentResources.length} PDF/text document${documentResources.length === 1 ? "" : "s"} for spa details, amenities, services, treatments, and policies.`,
+        `Checked ${htmlResources.length} website page${htmlResources.length === 1 ? "" : "s"} and ${documentResources.length} PDF/text document${documentResources.length === 1 ? "" : "s"}, including linked contact/location pages when available, for spa details, addresses, amenities, services, treatments, and policies.`,
       ],
     };
 
