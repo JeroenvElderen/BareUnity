@@ -857,12 +857,43 @@ function absolutizeUrl(value: string, baseUrl: URL) {
   }
 }
 
-function extractAddressParts(address: JsonValue | undefined, addressText: string) {
-  const record = asRecord(address);
-  const country = asText(record?.addressCountry).replace(/^[A-Z]{2}$/, (code) => {
+function countryNameFromAddressValue(value: JsonValue | undefined) {
+  const countryRecord = asRecord(value);
+  const country = countryRecord
+    ? asText(countryRecord.name) || asText(countryRecord.addressCountry)
+    : asText(value);
+
+  return country.replace(/^[A-Z]{2}$/, (code) => {
     const regionNames = new Intl.DisplayNames(["en"], { type: "region" });
     return regionNames.of(code) ?? code;
   });
+}
+
+function formatAddressLocality(postalCode: string, locality: string) {
+  return uniqueStrings([postalCode, locality]).join(" ");
+}
+
+function structuredAddressText(address: JsonValue | undefined) {
+  if (typeof address === "string") return decodeHtml(address).trim();
+
+  const record = asRecord(address);
+  if (!record) return "";
+
+  return uniqueStrings([
+    asText(record.streetAddress),
+    asText(record.postOfficeBoxNumber),
+    formatAddressLocality(
+      asText(record.postalCode),
+      asText(record.addressLocality),
+    ),
+    asText(record.addressRegion),
+    countryNameFromAddressValue(record.addressCountry),
+  ]).join(", ");
+}
+
+function extractAddressParts(address: JsonValue | undefined, addressText: string) {
+  const record = asRecord(address);
+  const country = countryNameFromAddressValue(record?.addressCountry);
   const locality = asText(record?.addressLocality);
   const region = asText(record?.addressRegion);
   const cityRegion = uniqueStrings([locality, region]).join(" · ");
@@ -1116,7 +1147,7 @@ export async function importStayWebsite(url: string | URL): Promise<StayImportDr
   const jsonLd = htmlResources.flatMap((resource) => parseJsonLd(resource.html));
   const records = jsonLd.flatMap(flattenJsonLd);
   const hotelRecord = findRecordWithAddress(records, /Hotel|LodgingBusiness|Campground|Resort|LocalBusiness|BedAndBreakfast/i);
-  const addressText = (hotelRecord ? asText(hotelRecord.address) : "") || extractInlineAddressFromText(htmlText);
+  const addressText = structuredAddressText(hotelRecord?.address) || extractInlineAddressFromText(htmlText);
   const addressParts = extractAddressParts(hotelRecord?.address, addressText);
   const description = asText(hotelRecord?.description) || getMeta(html, "name", "description") || getMeta(html, "property", "og:description");
   const price = extractLowestPrice(records, html);
