@@ -40,6 +40,9 @@ const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY;
 const OLLAMA_API_BASE_URL = (process.env.OLLAMA_API_BASE_URL ?? DEFAULT_OLLAMA_API_BASE_URL).replace(/\/$/, "");
 const OLLAMA_STAYS_MODEL = process.env.OLLAMA_STAYS_MODEL ?? "gpt-oss:120b";
 const OLLAMA_REQUEST_TIMEOUT_MS = Number(process.env.OLLAMA_REQUEST_TIMEOUT_MS ?? 45000);
+const GEOAPIFY_API_KEY = process.env.GEOAPIFY_API_KEY;
+const GEOAPIFY_GEOCODE_URL = "https://api.geoapify.com/v1/geocode/search";
+const GEOAPIFY_REQUEST_TIMEOUT_MS = Number(process.env.GEOAPIFY_REQUEST_TIMEOUT_MS ?? 10000);
 const MAX_AI_HTML_CHARACTERS = 100000;
 const MAX_IMPORT_CRAWL_PAGES = Math.max(1, Number(process.env.STAYS_IMPORT_MAX_CRAWL_PAGES ?? 12));
 const MAX_IMPORT_DOCUMENTS = Math.max(0, Number(process.env.STAYS_IMPORT_MAX_DOCUMENTS ?? 6));
@@ -444,12 +447,70 @@ function mergeAiDraft(baseDraft: StayImportDraft, aiDraft: Partial<StayImportDra
     amenities: amenities.length ? amenities : baseDraft.amenities,
     description: aiDraft.description || baseDraft.description,
     websiteUrl: aiDraft.websiteUrl || baseDraft.websiteUrl,
-    address: aiDraft.address || baseDraft.address,
+    address: looksLikePostalAddress(aiDraft.address ?? "") ? aiDraft.address! : baseDraft.address,
     checkInWindow: aiDraft.checkInWindow || baseDraft.checkInWindow,
     policies: mergePolicyDrafts(baseDraft.policies, aiDraft.policies),
     gallery: aiDraft.gallery?.length ? aiDraft.gallery : baseDraft.gallery,
     warnings: baseDraft.warnings,
   };
+}
+
+type GeoapifyFeatureProperties = {
+  formatted?: string;
+  country?: string;
+  city?: string;
+  town?: string;
+  village?: string;
+  municipality?: string;
+  county?: string;
+  state?: string;
+  rank?: { confidence?: number };
+};
+
+type GeoapifyFeature = {
+  properties?: GeoapifyFeatureProperties;
+};
+
+function isGeoapifyFeature(value: unknown): value is GeoapifyFeature {
+  return Boolean(value && typeof value === "object" && "properties" in value);
+}
+
+async function enrichDraftWithGeoapify(baseDraft: StayImportDraft) {
+  if (looksLikePostalAddress(baseDraft.address) || !GEOAPIFY_API_KEY) return baseDraft;
+
+  const query = uniqueStrings([baseDraft.name, baseDraft.placeName, baseDraft.country]).join(", ");
+  if (!query) return baseDraft;
+
+  const url = new URL(GEOAPIFY_GEOCODE_URL);
+  url.searchParams.set("text", query);
+  url.searchParams.set("limit", "1");
+  url.searchParams.set("apiKey", GEOAPIFY_API_KEY);
+
+  try {
+    const response = await fetch(url, {
+      signal: AbortSignal.timeout(Number.isFinite(GEOAPIFY_REQUEST_TIMEOUT_MS) ? GEOAPIFY_REQUEST_TIMEOUT_MS : 10000),
+    });
+
+    if (!response.ok) return baseDraft;
+
+    const payload = (await response.json()) as { features?: unknown[] };
+    const feature = payload.features?.find(isGeoapifyFeature);
+    const properties = feature?.properties;
+    const confidence = properties?.rank?.confidence;
+    const formatted = properties?.formatted?.trim() ?? "";
+
+    if (typeof confidence !== "number" || confidence < 0.75 || !looksLikePostalAddress(formatted)) return baseDraft;
+
+    return {
+      ...baseDraft,
+      address: formatted,
+      country: baseDraft.country || properties?.country || "",
+      placeName: baseDraft.placeName || uniqueStrings([properties?.city, properties?.town, properties?.village, properties?.municipality, properties?.county, properties?.state])[0] || "",
+      warnings: [...baseDraft.warnings, "Address enriched using Geoapify."],
+    };
+  } catch {
+    return baseDraft;
+  }
 }
 
 async function enrichDraftWithAi(baseDraft: StayImportDraft, crawledContent: string, websiteUrl: URL) {
@@ -873,6 +934,28 @@ function formatAddressLocality(postalCode: string, locality: string) {
   return uniqueStrings([postalCode, locality]).join(" ");
 }
 
+export function looksLikePostalAddress(value: string) {
+  const text = decodeHtml(value)
+    .replace(/\s+/g, " ")
+    .replace(/^[\s,.;:|•-]+|[\s,.;:|•-]+$/g, "")
+    .trim();
+
+  if (text.length < 12 || text.length > 220) return false;
+  if (/https?:\/\/|www\.|@/.test(text)) return false;
+
+  const lower = text.toLowerCase();
+  const menuWords = lower.match(/\b(?:home|menu|navigation|nav|book now|booking|reserve|reservation|availability|rooms?|accommodation|amenities|facilities|gallery|photos?|offers?|prices?|rates?|reviews?|blog|faq|contact|privacy|terms|login|sign in|language|english|français|deutsch|español)\b/g) ?? [];
+  const addressWords = /\b(?:street|st\.?|road|rd\.?|avenue|ave\.?|lane|ln\.?|drive|dr\.?|way|place|pl\.?|boulevard|blvd\.?|route|rue|via|viale|calle|camino|chemin|strasse|straße|straat|laan|weg|postcode|postal|zip|cedex)\b/i.test(text);
+  const hasPostalCode = /\b\d{4,6}(?:[-\s]\d{3,4})?\b/.test(text);
+  const hasStreetNumber = /(?:^|[,\s])\d{1,6}[a-z]?\s+\p{L}/iu.test(text);
+  const hasAddressSeparators = text.split(",").filter((part) => /\p{L}/u.test(part)).length >= 2;
+
+  if (menuWords.length >= 3 && !(addressWords || hasPostalCode || hasStreetNumber)) return false;
+  if (/^(?:home|menu|navigation|book now|contact|gallery|rooms?|amenities|facilities)(?:\s*[|›>/-]\s*\w+)*$/i.test(text)) return false;
+
+  return /\p{L}/u.test(text) && (hasStreetNumber || hasPostalCode || (addressWords && hasAddressSeparators) || (hasAddressSeparators && /\b\p{Lu}{2,}\b/u.test(text)));
+}
+
 function structuredAddressText(address: JsonValue | undefined) {
   if (typeof address === "string") return decodeHtml(address).trim();
 
@@ -924,7 +1007,7 @@ function extractInlineAddressFromText(text: string) {
   const candidates = [...normalized.matchAll(new RegExp(`${labelPattern}\\s*[:：-]?\\s*([^|•]{12,220})`, "giu"))]
     .map((match) => (match[1] ?? "").replace(/(?:phone|tel|telephone|email|e-mail|contact|website|opening|hours|horaires|öffnungszeiten|telefono|teléfono|téléphone).*$/iu, ""))
     .map((candidate) => candidate.replace(/\s{2,}/g, " ").replace(/[.;|•]+$/, "").trim())
-    .filter((candidate) => /\p{L}/u.test(candidate) && (/[0-9]/.test(candidate) || /,/.test(candidate)) && candidate.length >= 12 && candidate.length <= 180);
+    .filter(looksLikePostalAddress);
 
   return uniqueStrings(candidates)[0] ?? "";
 }
@@ -1148,7 +1231,8 @@ export async function importStayWebsite(url: string | URL): Promise<StayImportDr
   const records = jsonLd.flatMap(flattenJsonLd);
   const hotelRecord = findRecordWithAddress(records, /Hotel|LodgingBusiness|Campground|Resort|LocalBusiness|BedAndBreakfast/i);
   const addressText = structuredAddressText(hotelRecord?.address) || extractInlineAddressFromText(htmlText);
-  const addressParts = extractAddressParts(hotelRecord?.address, addressText);
+  const validAddressText = looksLikePostalAddress(addressText) ? addressText : "";
+  const addressParts = extractAddressParts(hotelRecord?.address, validAddressText);
   const description = asText(hotelRecord?.description) || getMeta(html, "name", "description") || getMeta(html, "property", "og:description");
   const price = extractLowestPrice(records, html);
   const rating = firstNumber(asRecord(hotelRecord?.aggregateRating)?.ratingValue, hotelRecord?.aggregateRating, hotelRecord?.reviewRating);
@@ -1172,7 +1256,7 @@ export async function importStayWebsite(url: string | URL): Promise<StayImportDr
     amenities,
     description,
     websiteUrl: websiteUrl.toString(),
-    address: addressText,
+    address: validAddressText,
     checkInWindow,
     policies,
     gallery,
@@ -1181,14 +1265,15 @@ export async function importStayWebsite(url: string | URL): Promise<StayImportDr
     ],
   };
 
-  const enrichedDraft = await enrichDraftWithAi(draft, crawledContent, websiteUrl);
+  const aiEnrichedDraft = await enrichDraftWithAi(draft, crawledContent, websiteUrl);
+  const enrichedDraft = await enrichDraftWithGeoapify(aiEnrichedDraft);
 
   if (!enrichedDraft.name) enrichedDraft.warnings.push("No stay name was found. Add the public property name manually before saving.");
   if (!enrichedDraft.country) enrichedDraft.warnings.push("No country was found. Add the stay country manually before saving.");
   if (!enrichedDraft.placeName) enrichedDraft.warnings.push("No city or region was found. Add the place / region manually before saving.");
   if (!enrichedDraft.price) enrichedDraft.warnings.push("No lowest price was found on the website. Add the lowest public website price manually before saving.");
   if (!enrichedDraft.description) enrichedDraft.warnings.push("No description metadata was found. Copy the stay description from the website manually.");
-  if (!enrichedDraft.address) enrichedDraft.warnings.push("No structured address was found. Add the address manually.");
+  if (!looksLikePostalAddress(enrichedDraft.address)) enrichedDraft.warnings.push("No structured address was found. Add the address manually.");
   if (!enrichedDraft.amenities.length) enrichedDraft.warnings.push("No amenities were detected. Add amenities copied from the website manually.");
   if (!enrichedDraft.gallery.length) enrichedDraft.warnings.push("No gallery images were detected. Add public image URLs from the website manually if available.");
 
