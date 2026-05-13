@@ -34,25 +34,6 @@ type GeocodeResult = {
 };
 
 const CONFIG = {
-  spas: {
-    filePath: path.join(
-      process.cwd(),
-      "src/app/bookings/spas/spas-data-store.json",
-    ),
-    allowedTypes: new Set([
-      "Day spa",
-      "Wellness center",
-      "Thermal spa",
-      "Massage studio",
-    ]),
-    terrain: "Spa",
-    markerSource: "spa-listing",
-    mapType: "Spa",
-    markerTags: ["spas", "wellness", "bookings"],
-    markerAmenity: "Wellness services",
-    markerFailureMessage:
-      "Could not create the Explore map marker for this spa. The spa listing was not saved.",
-  },
   activities: {
     filePath: path.join(
       process.cwd(),

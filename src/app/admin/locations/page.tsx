@@ -22,8 +22,8 @@ type FormState = {
   reporterNotes: string;
 };
 
-type ImportCategory = "spa" | "activity";
-type LocationRequestType = "location" | "stay" | "spa" | "activity";
+type ImportCategory = "activity";
+type LocationRequestType = "location" | "stay" | "activity";
 
 type ImportDraft = {
   name?: string;
@@ -78,20 +78,17 @@ const INITIAL_FORM: FormState = {
 const REQUEST_TYPE_LABELS: Record<LocationRequestType, string> = {
   location: "Location",
   stay: "Stay",
-  spa: "Spa",
   activity: "Activity",
 };
 
 function terrainForRequestType(requestType: LocationRequestType) {
   if (requestType === "stay") return "Stays";
-  if (requestType === "spa") return "Spa";
   if (requestType === "activity") return "Activity";
   return "Beach";
 }
 
 function tagForRequestType(requestType: LocationRequestType) {
   if (requestType === "stay") return "stays";
-  if (requestType === "spa") return "spa, wellness, bookings";
   if (requestType === "activity") return "activity, events, bookings";
   return "";
 }
@@ -129,7 +126,8 @@ export default function AdminLocationsPage() {
   } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [importUrl, setImportUrl] = useState("");
-  const [importCategory, setImportCategory] = useState<ImportCategory>("spa");
+  const [importCategory, setImportCategory] =
+    useState<ImportCategory>("activity");
   const [isImporting, setIsImporting] = useState(false);
   const [importWarnings, setImportWarnings] = useState<string[]>([]);
 
@@ -474,7 +472,7 @@ export default function AdminLocationsPage() {
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-[rgb(var(--muted))]">
             Fill in the verified marker details after reviewing a member
-            request. Stay, spa, and activity requests can be copied into the
+            request. Stay and activity requests can be copied into the
             editor, then published as approved map markers.
           </p>
 
@@ -487,10 +485,10 @@ export default function AdminLocationsPage() {
                 Website import
               </p>
               <h2 className="mt-2 text-xl font-bold text-[rgb(var(--text-strong))]">
-                Import spa or activity details
+                Import activity details
               </h2>
               <p className="mt-1 text-sm text-[rgb(var(--muted))]">
-                Paste a spa or activity website and we will prefill the marker
+                Paste an activity website and we will prefill the marker
                 editor with name, description, location, website, amenities, and
                 tags.
               </p>
@@ -517,7 +515,6 @@ export default function AdminLocationsPage() {
                   }
                   className="rounded-xl border border-[rgb(var(--border))] bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-[rgb(var(--brand))]"
                 >
-                  <option value="spa">Spa</option>
                   <option value="activity">Activity</option>
                 </select>
               </label>
@@ -642,7 +639,6 @@ export default function AdminLocationsPage() {
                   <option>Forest</option>
                   <option>Urban rooftop</option>
                   <option>Resort</option>
-                  <option>Spa</option>
                   <option>Activity</option>
                   <option>Stays</option>
                 </select>

@@ -5,7 +5,7 @@ import { type FormEvent, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import styles from "./request-listing-button.module.css";
 
-export type BookingRequestType = "stay" | "spa" | "activity";
+export type BookingRequestType = "stay" | "activity";
 
 type RequestListingButtonProps = {
   requestType: BookingRequestType;
@@ -21,7 +21,6 @@ type FormState = {
 
 const REQUEST_LABELS: Record<BookingRequestType, string> = {
   stay: "stay",
-  spa: "spa",
   activity: "activity",
 };
 

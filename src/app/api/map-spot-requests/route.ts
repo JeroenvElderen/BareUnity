@@ -14,7 +14,7 @@ const coordinate = z.preprocess((value) => {
   return Number(value);
 }, z.number().finite().optional());
 
-const requestTypeSchema = z.enum(["location", "stay", "spa", "activity"]);
+const requestTypeSchema = z.enum(["location", "stay", "activity"]);
 
 const locationRequestSchema = z.object({
   placeName: z

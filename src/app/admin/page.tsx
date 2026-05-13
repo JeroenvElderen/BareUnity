@@ -38,13 +38,6 @@ const sections = [
     cta: "Add stay",
   },
   {
-    title: "Spa listing manager",
-    description:
-      "Import and publish spa listings with the same rich listing fields, policies, and booking details as stays.",
-    href: "/admin/spas",
-    cta: "Add spa",
-  },
-  {
     title: "Activity listing manager",
     description:
       "Import and publish activity listings with policy groups, requirements, prices, and booking details.",

@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 
 import { ensureStayAdmin } from "@/app/api/admin/stays/auth";
 
-type ImportCategory = "spa" | "activity";
+type ImportCategory = "activity";
 
 type JsonValue =
   | string
@@ -88,22 +88,6 @@ const CATEGORY_CONFIG: Record<
     keywords: string[];
   }
 > = {
-  spa: {
-    label: "Spa / wellness",
-    terrain: "Spa",
-    defaultAmenities: ["Wellness services"],
-    tags: ["spa", "wellness", "bookings"],
-    keywords: [
-      "spa",
-      "wellness",
-      "massage",
-      "sauna",
-      "thermal",
-      "treatment",
-      "relaxation",
-      "bodywork",
-    ],
-  },
   activity: {
     label: "Activity",
     terrain: "Activity",
@@ -409,7 +393,7 @@ function collectGallery(
 
 function collectInternalLinks(html: string, rootUrl: URL) {
   const linkKeywords =
-    /contact|location|locatie|route|about|over|spa|wellness|sauna|massage|facilit|praktisch|visit|bezoek/i;
+    /contact|location|locatie|route|about|over|wellness|sauna|massage|facilit|praktisch|visit|bezoek/i;
   const links = [...html.matchAll(/<a[^>]+href=["']([^"'#]+)["'][^>]*>/gi)]
     .map((match) => match[1] ?? "")
     .map((href) => {
@@ -620,9 +604,7 @@ export async function GET(request: NextRequest) {
   if ("error" in adminResult) return adminResult.error;
 
   const url = request.nextUrl.searchParams.get("url")?.trim() ?? "";
-  const categoryParam = request.nextUrl.searchParams.get("category")?.trim();
-  const category: ImportCategory =
-    categoryParam === "activity" ? "activity" : "spa";
+  const category: ImportCategory = "activity";
   const config = CATEGORY_CONFIG[category];
 
   let websiteUrl: URL;

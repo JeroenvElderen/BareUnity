@@ -395,7 +395,7 @@ function isPolicyLikeSentence(sentence: string, category: string) {
   const text = normalizePolicyText(sentence);
   const lowerCategory = category.toLowerCase();
 
-  if (/\b(?:discover|enjoy|unique holiday|memories|laughter|adventure|activities|programme|gym|yoga|surfing|workshops|entertainment|restaurant|bar|spa|pool|beach access|pine forest|refreshing haven|perfect for|club encourages|creativity)\b/i.test(text)) {
+  if (/\b(?:discover|enjoy|unique holiday|memories|laughter|adventure|activities|programme|gym|yoga|surfing|workshops|entertainment|restaurant|bar|pool|beach access|pine forest|refreshing haven|perfect for|club encourages|creativity)\b/i.test(text)) {
     return false;
   }
 
@@ -524,7 +524,7 @@ async function enrichDraftWithAi(baseDraft: StayImportDraft, crawledContent: str
     return baseDraft;
   }
 
-  const prompt = `Extract a BareUnity stay listing from this public accommodation website crawl. Use only facts present in the crawled HTML/text/PDF content. Do a thorough check of services, facilities, amenities, activities, entertainment, house rules, booking terms, cancellation, payment, pets, naturist rules, check-in/out, privacy/terms, FAQ, and downloadable PDF/document content. Return strict JSON with these keys: slug, name, country, placeName, type, rating, price, badge, vibe, amenities, description, websiteUrl, address, checkInWindow, policies, gallery. type must be one of Hotel, Entire place, Boutique stay, Naturist camping. amenities should include Services and/or Entertainment when the website mentions entertainment and/or services, recreation, events, shows, music, games, animation, or activity programmes. Write the listing in the concise BareUnity style shown by this example: badge "Naturist wellness & spa", vibe "Naturist retreat · Forest camping & glamping · Social clubhouse energy", description as 1-2 factual sentences, and policies grouped as Check-in and check-out, Cancellation, Accepted payment methods, Property policy, Security, and Pets when those facts exist. policies must be an array of {"category":"...","items":["..."]} based on visible website/document policy text, not generic assumptions. Only use the six policy categories listed above; fold house rules and naturist rules into Property policy, and do not create separate Children, Accessibility, House rules, or Naturist rules sections. Policies are facts only: never write questions, FAQ prompts, question-mark text, or uncertain user-facing questions inside policy categories or policy items. Rewrite policies into compact BareUnity-friendly declarative sentences using only facts found in the website content. Each policy item must be a complete short sentence ending with a period, max ${MAX_POLICY_ITEMS_PER_CATEGORY} items per category and max ${MAX_POLICY_ITEM_CHARACTERS} characters per item. Combine related facts, keep prices/dates/times/limits when present, and exclude marketing text, destination descriptions, amenity lists, and activity programme details from policies. gallery must contain public image URLs only. If a fact is missing, use an empty string, null, or empty array.
+  const prompt = `Extract a BareUnity stay listing from this public accommodation website crawl. Use only facts present in the crawled HTML/text/PDF content. Do a thorough check of services, facilities, amenities, activities, entertainment, house rules, booking terms, cancellation, payment, pets, naturist rules, check-in/out, privacy/terms, FAQ, and downloadable PDF/document content. Return strict JSON with these keys: slug, name, country, placeName, type, rating, price, badge, vibe, amenities, description, websiteUrl, address, checkInWindow, policies, gallery. type must be one of Hotel, Entire place, Boutique stay, Naturist camping. amenities should include Services and/or Entertainment when the website mentions entertainment and/or services, recreation, events, shows, music, games, animation, or activity programmes. Write the listing in the concise BareUnity style shown by this example: badge "Naturist wellness retreat", vibe "Naturist retreat · Forest camping & glamping · Social clubhouse energy", description as 1-2 factual sentences, and policies grouped as Check-in and check-out, Cancellation, Accepted payment methods, Property policy, Security, and Pets when those facts exist. policies must be an array of {"category":"...","items":["..."]} based on visible website/document policy text, not generic assumptions. Only use the six policy categories listed above; fold house rules and naturist rules into Property policy, and do not create separate Children, Accessibility, House rules, or Naturist rules sections. Policies are facts only: never write questions, FAQ prompts, question-mark text, or uncertain user-facing questions inside policy categories or policy items. Rewrite policies into compact BareUnity-friendly declarative sentences using only facts found in the website content. Each policy item must be a complete short sentence ending with a period, max ${MAX_POLICY_ITEMS_PER_CATEGORY} items per category and max ${MAX_POLICY_ITEM_CHARACTERS} characters per item. Combine related facts, keep prices/dates/times/limits when present, and exclude marketing text, destination descriptions, amenity lists, and activity programme details from policies. gallery must contain public image URLs only. If a fact is missing, use an empty string, null, or empty array.
 
 URL: ${websiteUrl.toString()}
 
@@ -666,7 +666,6 @@ function scoreCrawlUrl(url: URL) {
     "service",
     "restaurant",
     "wellness",
-    "spa",
     "pool",
     "beach",
     "activities",
@@ -1049,7 +1048,7 @@ function collectGallery(html: string, records: Record<string, JsonValue>[], base
 }
 
 function buildBadge(type: Listing["type"], amenities: string[]) {
-  if (amenities.some((amenity) => /wellness|spa|sauna/i.test(amenity))) return "Wellness & relaxation stay";
+  if (amenities.some((amenity) => /wellness|sauna/i.test(amenity))) return "Wellness & relaxation stay";
   if (amenities.some((amenity) => /beach|dune|coast/i.test(amenity))) return "Beach and nature escape";
   if (type === "Naturist camping") return "Naturist camping escape";
   if (type === "Boutique stay") return "Boutique website find";
@@ -1057,7 +1056,7 @@ function buildBadge(type: Listing["type"], amenities: string[]) {
 }
 
 function buildVibe(type: Listing["type"], placeName: string, amenities: string[]) {
-  const highlights = amenities.filter((amenity) => /pool|sauna|spa|beach|restaurant|bar|garden|terrace|cycling|playground|parking|entertainment|activities/i.test(amenity)).slice(0, 3);
+  const highlights = amenities.filter((amenity) => /pool|sauna|beach|restaurant|bar|garden|terrace|cycling|playground|parking|entertainment|activities/i.test(amenity)).slice(0, 3);
   return uniqueStrings([type, placeName, ...highlights]).join(" · ") || "Website-sourced listing";
 }
 
@@ -1181,7 +1180,7 @@ function collectAmenities(html: string, records: Record<string, JsonValue>[]) {
     ["Bar", /\b(?:bar|lounge|pub)\b/i],
     ["Parking", /\b(?:parking|car park|garage)\b/i],
     ["Breakfast", /\bbreakfast\b/i],
-    ["Spa", /\b(?:spa|wellness|massage|treatment)\b/i],
+    ["Wellness", /\b(?:wellness|sauna|massage|treatment)\b/i],
     ["Beach", /\b(?:beach|strand|seaside|coast)\b/i],
     ["Terrace", /\b(?:terrace|patio|sun deck)\b/i],
     ["Garden", /\b(?:garden|grounds|parkland)\b/i],
