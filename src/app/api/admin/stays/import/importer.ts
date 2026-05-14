@@ -54,6 +54,9 @@ const OLLAMA_STAYS_MODEL = process.env.OLLAMA_STAYS_MODEL ?? "gpt-oss:120b";
 const OLLAMA_REQUEST_TIMEOUT_MS = Number(
   process.env.OLLAMA_REQUEST_TIMEOUT_MS ?? 45000,
 );
+const GOOGLE_MAPS_API_KEY =
+  process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_PLACES_API_KEY;
+const GOOGLE_GEOCODE_URL = "https://maps.googleapis.com/maps/api/geocode/json";
 const GEOAPIFY_API_KEY = process.env.GEOAPIFY_API_KEY;
 const GEOAPIFY_GEOCODE_URL = "https://api.geoapify.com/v1/geocode/search";
 const MAPBOX_ACCESS_TOKEN = process.env.MAPBOX_ACCESS_TOKEN;
@@ -716,6 +719,26 @@ type GeoapifyFeature = {
   properties?: GeoapifyFeatureProperties;
 };
 
+type GoogleAddressComponent = {
+  long_name?: string;
+  types?: string[];
+};
+
+type GoogleGeocodeResult = {
+  formatted_address?: string;
+  address_components?: GoogleAddressComponent[];
+  geometry?: {
+    location?: { lat?: number; lng?: number };
+    location_type?: string;
+  };
+};
+
+type GoogleGeocodeResponse = {
+  status?: string;
+  error_message?: string;
+  results?: GoogleGeocodeResult[];
+};
+
 type MapboxFeature = {
   geometry?: {
     coordinates?: unknown[];
@@ -753,6 +776,10 @@ function normalizeCoordinates(latitude: unknown, longitude: unknown) {
   if (mapLatitude < -90 || mapLatitude > 90) return null;
   if (mapLongitude < -180 || mapLongitude > 180) return null;
 
+  // Treat Null Island as missing data. Import providers/AI often emit 0,0
+  // when coordinates are unknown, and saving that would pin listings offshore.
+  if (mapLatitude === 0 && mapLongitude === 0) return null;
+
   return {
     mapLatitude: Number(mapLatitude.toFixed(6)),
     mapLongitude: Number(mapLongitude.toFixed(6)),
@@ -789,6 +816,104 @@ function coordinatesFromRecords(records: Record<string, JsonValue>[]) {
   }
 
   return null;
+}
+
+function googleAddressComponent(
+  components: GoogleAddressComponent[] | undefined,
+  types: string[],
+) {
+  if (!Array.isArray(components)) return "";
+  return (
+    components.find((component) =>
+      types.every((type) => component.types?.includes(type)),
+    )?.long_name ?? ""
+  );
+}
+
+function placeNameFromGoogleResult(result: GoogleGeocodeResult) {
+  return (
+    googleAddressComponent(result.address_components, ["locality"]) ||
+    googleAddressComponent(result.address_components, ["postal_town"]) ||
+    googleAddressComponent(result.address_components, ["administrative_area_level_2"]) ||
+    googleAddressComponent(result.address_components, ["administrative_area_level_1"]) ||
+    ""
+  );
+}
+
+async function enrichDraftWithGoogle(baseDraft: StayImportDraft) {
+  if (!GOOGLE_MAPS_API_KEY || hasCoordinates(baseDraft)) return baseDraft;
+
+  const query = looksLikePostalAddress(baseDraft.address)
+    ? baseDraft.address
+    : uniqueStrings([
+        baseDraft.address,
+        baseDraft.name,
+        baseDraft.placeName,
+        baseDraft.country,
+      ]).join(", ");
+  if (!query) return baseDraft;
+
+  const url = new URL(GOOGLE_GEOCODE_URL);
+  url.searchParams.set("address", query);
+  url.searchParams.set("key", GOOGLE_MAPS_API_KEY);
+
+  try {
+    const response = await fetch(url, {
+      headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (!response.ok) {
+      return {
+        ...baseDraft,
+        warnings: [
+          ...baseDraft.warnings,
+          `Google Geocoding returned HTTP ${response.status}; trying the next coordinate provider.`,
+        ],
+      };
+    }
+
+    const payload = (await response.json()) as GoogleGeocodeResponse;
+    if (payload.status && payload.status !== "OK") {
+      return {
+        ...baseDraft,
+        warnings: [
+          ...baseDraft.warnings,
+          `Google Geocoding returned ${payload.status}${payload.error_message ? `: ${payload.error_message}` : ""}; trying the next coordinate provider.`,
+        ],
+      };
+    }
+
+    const result = payload.results?.[0];
+    const coordinates = normalizeCoordinates(
+      result?.geometry?.location?.lat,
+      result?.geometry?.location?.lng,
+    );
+    if (!result || !coordinates) return baseDraft;
+
+    return {
+      ...baseDraft,
+      ...coordinates,
+      address: baseDraft.address || result.formatted_address || "",
+      country:
+        baseDraft.country ||
+        googleAddressComponent(result.address_components, ["country"]) ||
+        "",
+      placeName: baseDraft.placeName || placeNameFromGoogleResult(result),
+      warnings: [
+        ...baseDraft.warnings,
+        `Map coordinates enriched using Google Geocoding (${result.geometry?.location_type || "match"}).`,
+      ],
+    };
+  } catch (error) {
+    return {
+      ...baseDraft,
+      warnings: [
+        ...baseDraft.warnings,
+        `Google Geocoding failed: ${error instanceof Error ? error.message : "unknown error"}; trying the next coordinate provider.`,
+      ],
+    };
+  }
 }
 
 function coordinatesFromMapboxFeature(feature: MapboxFeature) {
@@ -2059,7 +2184,10 @@ export async function importStayWebsite(
     crawledContent,
     websiteUrl,
   );
-  const geoapifyEnrichedDraft = await enrichDraftWithGeoapify(aiEnrichedDraft);
+  const googleEnrichedDraft = await enrichDraftWithGoogle(aiEnrichedDraft);
+  const geoapifyEnrichedDraft = await enrichDraftWithGeoapify(
+    googleEnrichedDraft,
+  );
   const enrichedDraft = await enrichDraftWithMapbox(geoapifyEnrichedDraft);
 
   if (!enrichedDraft.name)
