@@ -29,6 +29,8 @@ type StayFormState = {
   description: string;
   websiteUrl: string;
   address: string;
+  mapLatitude: string;
+  mapLongitude: string;
   checkInWindow: string;
   gallery: string;
 };
@@ -60,6 +62,8 @@ const emptyForm: StayFormState = {
   description: "",
   websiteUrl: "",
   address: "",
+  mapLatitude: "",
+  mapLongitude: "",
   checkInWindow: "Check the stay website for current arrival times",
   gallery: "",
 };
@@ -92,6 +96,14 @@ function updateFormWithDraft(
     description: draft.description ?? current.description,
     websiteUrl: draft.websiteUrl ?? current.websiteUrl,
     address: draft.address ?? current.address,
+    mapLatitude:
+      draft.mapLatitude === undefined
+        ? current.mapLatitude
+        : String(draft.mapLatitude),
+    mapLongitude:
+      draft.mapLongitude === undefined
+        ? current.mapLongitude
+        : String(draft.mapLongitude),
     checkInWindow: draft.checkInWindow ?? current.checkInWindow,
     gallery: draft.gallery?.length ? draft.gallery.join("\n") : current.gallery,
   };
@@ -412,9 +424,38 @@ export default function AdminStaysPage() {
           <div className={styles.mapNotice}>
             <strong>Explore map marker</strong>
             <p>
-              Saving a stay automatically geocodes its address, place, and
-              country, then creates a marker on the Explore map.
+              Add coordinates when you have them to place the Explore marker
+              immediately. If they are blank, BareUnity will try to geocode the
+              address, place, and country before saving.
             </p>
+          </div>
+          <div className={styles.twoColumns}>
+            <label>
+              Map latitude (optional)
+              <input
+                name="mapLatitude"
+                type="number"
+                min="-90"
+                max="90"
+                step="any"
+                value={form.mapLatitude}
+                onChange={updateField}
+                placeholder="e.g. 38.7223"
+              />
+            </label>
+            <label>
+              Map longitude (optional)
+              <input
+                name="mapLongitude"
+                type="number"
+                min="-180"
+                max="180"
+                step="any"
+                value={form.mapLongitude}
+                onChange={updateField}
+                placeholder="e.g. -9.1393"
+              />
+            </label>
           </div>
           <label>
             Vibe

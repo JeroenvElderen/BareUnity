@@ -24,6 +24,8 @@ const STAY_TYPES = new Set<Listing["type"]>([
   "Boutique stay",
   "Naturist camping",
 ]);
+const MAPBOX_ACCESS_TOKEN = process.env.MAPBOX_ACCESS_TOKEN;
+const MAPBOX_GEOCODE_URL = "https://api.mapbox.com/search/geocode/v6/forward";
 
 type StayBody = Partial<Omit<Listing, "policies">> & {
   policies?: Array<{
@@ -45,6 +47,18 @@ type NormalizedStay = {
 type GeocodeResult = {
   lat?: string;
   lon?: string;
+};
+
+type MapboxFeature = {
+  geometry?: {
+    coordinates?: unknown[];
+  };
+  properties?: {
+    coordinates?: {
+      latitude?: number;
+      longitude?: number;
+    };
+  };
 };
 
 function uniqueGeocodeQueries(
@@ -93,14 +107,112 @@ function validateCoordinates(latitude: number, longitude: number) {
     throw new Error("Map longitude must be between -180 and 180.");
 }
 
+function coordinatesFromBody(body: StayBody) {
+  const hasLatitude =
+    body.mapLatitude !== undefined &&
+    body.mapLatitude !== null &&
+    String(body.mapLatitude).trim() !== "";
+  const hasLongitude =
+    body.mapLongitude !== undefined &&
+    body.mapLongitude !== null &&
+    String(body.mapLongitude).trim() !== "";
+
+  if (!hasLatitude && !hasLongitude) return null;
+  if (hasLatitude !== hasLongitude) {
+    throw new Error(
+      "Provide both map latitude and map longitude, or leave both blank for automatic geocoding.",
+    );
+  }
+
+  const latitude = Number(body.mapLatitude);
+  const longitude = Number(body.mapLongitude);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    throw new Error("Map coordinates must be valid numbers.");
+  }
+
+  validateCoordinates(latitude, longitude);
+  return { latitude, longitude };
+}
+
+function coordinatesFromMapboxFeature(feature: MapboxFeature) {
+  const propertyCoordinates = feature.properties?.coordinates;
+  const propertyLatitude = propertyCoordinates?.latitude;
+  const propertyLongitude = propertyCoordinates?.longitude;
+
+  if (
+    typeof propertyLatitude === "number" &&
+    typeof propertyLongitude === "number" &&
+    Number.isFinite(propertyLatitude) &&
+    Number.isFinite(propertyLongitude)
+  ) {
+    validateCoordinates(propertyLatitude, propertyLongitude);
+    return { latitude: propertyLatitude, longitude: propertyLongitude };
+  }
+
+  const geometryCoordinates = feature.geometry?.coordinates;
+  const geometryLongitude = Number(geometryCoordinates?.[0]);
+  const geometryLatitude = Number(geometryCoordinates?.[1]);
+
+  if (
+    !Number.isFinite(geometryLatitude) ||
+    !Number.isFinite(geometryLongitude)
+  ) {
+    return null;
+  }
+
+  validateCoordinates(geometryLatitude, geometryLongitude);
+  return { latitude: geometryLatitude, longitude: geometryLongitude };
+}
+
+async function geocodeStayAddressWithMapbox(
+  listing: Pick<Listing, "address" | "placeName" | "country" | "name">,
+) {
+  if (!MAPBOX_ACCESS_TOKEN) return null;
+
+  for (const query of uniqueGeocodeQueries(listing)) {
+    const url = new URL(MAPBOX_GEOCODE_URL);
+    url.searchParams.set("q", query);
+    url.searchParams.set("limit", "1");
+    url.searchParams.set("autocomplete", "false");
+    url.searchParams.set("permanent", "true");
+    url.searchParams.set("access_token", MAPBOX_ACCESS_TOKEN);
+
+    try {
+      const response = await fetch(url, {
+        headers: { Accept: "application/json" },
+        signal: AbortSignal.timeout(8000),
+      });
+
+      if (!response.ok) continue;
+
+      const payload = (await response.json()) as { features?: MapboxFeature[] };
+      for (const feature of payload.features ?? []) {
+        const coordinates = coordinatesFromMapboxFeature(feature);
+        if (coordinates) return coordinates;
+      }
+    } catch (error) {
+      console.error("Failed to geocode stay address with Mapbox", {
+        listingName: listing.name,
+        query,
+        error,
+      });
+    }
+  }
+
+  return null;
+}
+
 async function geocodeStayAddress(
   listing: Pick<Listing, "address" | "placeName" | "country" | "name">,
 ) {
+  const mapboxCoordinates = await geocodeStayAddressWithMapbox(listing);
+  if (mapboxCoordinates) return mapboxCoordinates;
+
   for (const query of uniqueGeocodeQueries(listing)) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
 
-  try {
+    try {
       const response = await fetch(
         `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=3&q=${encodeURIComponent(query)}`,
         {
@@ -111,12 +223,12 @@ async function geocodeStayAddress(
           },
           signal: controller.signal,
         },
-    );
+      );
 
-        if (!response.ok) continue;
+      if (!response.ok) continue;
 
-        const results = (await response.json()) as GeocodeResult[];
-        for (const result of results) {
+      const results = (await response.json()) as GeocodeResult[];
+      for (const result of results) {
         const latitude = Number(result.lat);
         const longitude = Number(result.lon);
         if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) continue;
@@ -129,7 +241,7 @@ async function geocodeStayAddress(
         listingName: listing.name,
         query,
         error,
-    });
+      });
     } finally {
       clearTimeout(timeout);
     }
@@ -277,10 +389,7 @@ async function deleteStayRecordWithSupabase(slug: string) {
   if (!isSupabaseAdminConfigured) return;
 
   const supabaseAdmin = createSupabaseAdminClient();
-  const { error } = await supabaseAdmin
-    .from("stays")
-    .delete()
-    .eq("slug", slug);
+  const { error } = await supabaseAdmin.from("stays").delete().eq("slug", slug);
   if (error) console.error("Failed to roll back Supabase stay record", error);
 }
 
@@ -351,7 +460,18 @@ async function normalizeListing(
     gallery,
   };
 
-  const coordinates = await geocodeStayAddress(listing);
+  let providedCoordinates: Coordinates | null = null;
+  try {
+    providedCoordinates = coordinatesFromBody(body);
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error ? error.message : "Invalid map coordinates.",
+    };
+  }
+
+  const coordinates =
+    providedCoordinates ?? (await geocodeStayAddress(listing));
 
   if (!coordinates) {
     return {
@@ -434,7 +554,7 @@ export async function POST(request: NextRequest) {
     );
 
     try {
-        await writeFile(
+      await writeFile(
         DATA_FILE_PATH,
         `${JSON.stringify(nextListings, null, 2)}\n`,
         "utf8",
