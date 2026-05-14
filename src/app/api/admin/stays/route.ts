@@ -24,6 +24,9 @@ const STAY_TYPES = new Set<Listing["type"]>([
   "Boutique stay",
   "Naturist camping",
 ]);
+const GOOGLE_MAPS_API_KEY =
+  process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_PLACES_API_KEY;
+const GOOGLE_GEOCODE_URL = "https://maps.googleapis.com/maps/api/geocode/json";
 const MAPBOX_ACCESS_TOKEN = process.env.MAPBOX_ACCESS_TOKEN;
 const MAPBOX_GEOCODE_URL = "https://api.mapbox.com/search/geocode/v6/forward";
 
@@ -47,6 +50,16 @@ type NormalizedStay = {
 type GeocodeResult = {
   lat?: string;
   lon?: string;
+};
+
+type GoogleGeocodeResponse = {
+  status?: string;
+  error_message?: string;
+  results?: Array<{
+    geometry?: {
+      location?: { lat?: number; lng?: number };
+    };
+  }>;
 };
 
 type MapboxFeature = {
@@ -131,6 +144,11 @@ function coordinatesFromBody(body: StayBody) {
   }
 
   validateCoordinates(latitude, longitude);
+
+  // 0,0 is almost always a placeholder from import/AI output, not a real stay.
+  // Let the normal geocoder run instead of creating a marker at Null Island.
+  if (latitude === 0 && longitude === 0) return null;
+
   return { latitude, longitude };
 }
 
@@ -162,6 +180,56 @@ function coordinatesFromMapboxFeature(feature: MapboxFeature) {
 
   validateCoordinates(geometryLatitude, geometryLongitude);
   return { latitude: geometryLatitude, longitude: geometryLongitude };
+}
+
+async function geocodeStayAddressWithGoogle(
+  listing: Pick<Listing, "address" | "placeName" | "country" | "name">,
+) {
+  if (!GOOGLE_MAPS_API_KEY) return null;
+
+  for (const query of uniqueGeocodeQueries(listing)) {
+    const url = new URL(GOOGLE_GEOCODE_URL);
+    url.searchParams.set("address", query);
+    url.searchParams.set("key", GOOGLE_MAPS_API_KEY);
+
+    try {
+      const response = await fetch(url, {
+        headers: { Accept: "application/json" },
+        signal: AbortSignal.timeout(8000),
+      });
+
+      if (!response.ok) continue;
+
+      const payload = (await response.json()) as GoogleGeocodeResponse;
+      if (payload.status && payload.status !== "OK") {
+        console.error("Google Geocoding could not geocode stay address", {
+          listingName: listing.name,
+          query,
+          status: payload.status,
+          error: payload.error_message,
+        });
+        continue;
+      }
+
+      for (const result of payload.results ?? []) {
+        const latitude = Number(result.geometry?.location?.lat);
+        const longitude = Number(result.geometry?.location?.lng);
+        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) continue;
+
+        validateCoordinates(latitude, longitude);
+        if (latitude === 0 && longitude === 0) continue;
+        return { latitude, longitude };
+      }
+    } catch (error) {
+      console.error("Failed to geocode stay address with Google", {
+        listingName: listing.name,
+        query,
+        error,
+      });
+    }
+  }
+
+  return null;
 }
 
 async function geocodeStayAddressWithMapbox(
@@ -205,6 +273,9 @@ async function geocodeStayAddressWithMapbox(
 async function geocodeStayAddress(
   listing: Pick<Listing, "address" | "placeName" | "country" | "name">,
 ) {
+  const googleCoordinates = await geocodeStayAddressWithGoogle(listing);
+  if (googleCoordinates) return googleCoordinates;
+
   const mapboxCoordinates = await geocodeStayAddressWithMapbox(listing);
   if (mapboxCoordinates) return mapboxCoordinates;
 

@@ -33,6 +33,20 @@ type GeocodeResult = {
   lon?: string;
 };
 
+type GoogleGeocodeResponse = {
+  status?: string;
+  error_message?: string;
+  results?: Array<{
+    geometry?: {
+      location?: { lat?: number; lng?: number };
+    };
+  }>;
+};
+
+const GOOGLE_MAPS_API_KEY =
+  process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_PLACES_API_KEY;
+const GOOGLE_GEOCODE_URL = "https://maps.googleapis.com/maps/api/geocode/json";
+
 const CONFIG = {
   activities: {
     filePath: path.join(
@@ -90,17 +104,93 @@ function validateCoordinates(latitude: number, longitude: number) {
 }
 
 function coordinatesFromBody(body: Body) {
+  const hasLatitude =
+    body.mapLatitude !== undefined &&
+    body.mapLatitude !== null &&
+    String(body.mapLatitude).trim() !== "";
+  const hasLongitude =
+    body.mapLongitude !== undefined &&
+    body.mapLongitude !== null &&
+    String(body.mapLongitude).trim() !== "";
+
+  if (!hasLatitude && !hasLongitude) return null;
+  if (hasLatitude !== hasLongitude) {
+    throw new Error(
+      "Provide both map latitude and map longitude, or leave both blank for automatic geocoding.",
+    );
+  }
+
   const latitude = Number(body.mapLatitude);
   const longitude = Number(body.mapLongitude);
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    throw new Error("Map coordinates must be valid numbers.");
+  }
 
   validateCoordinates(latitude, longitude);
+
+  // 0,0 usually means the importer/model did not know the coordinates.
+  // Geocode instead of persisting a Null Island marker.
+  if (latitude === 0 && longitude === 0) return null;
+
   return { latitude, longitude };
+}
+
+async function geocodeBookingListingAddressWithGoogle(
+  listing: Pick<BookingListing, "address" | "placeName" | "country" | "name">,
+) {
+  if (!GOOGLE_MAPS_API_KEY) return null;
+
+  for (const query of uniqueGeocodeQueries(listing)) {
+    const url = new URL(GOOGLE_GEOCODE_URL);
+    url.searchParams.set("address", query);
+    url.searchParams.set("key", GOOGLE_MAPS_API_KEY);
+
+    try {
+      const response = await fetch(url, {
+        headers: { Accept: "application/json" },
+        signal: AbortSignal.timeout(8000),
+      });
+
+      if (!response.ok) continue;
+
+      const payload = (await response.json()) as GoogleGeocodeResponse;
+      if (payload.status && payload.status !== "OK") {
+        console.error("Google Geocoding could not geocode booking listing", {
+          listingName: listing.name,
+          query,
+          status: payload.status,
+          error: payload.error_message,
+        });
+        continue;
+      }
+
+      for (const result of payload.results ?? []) {
+        const latitude = Number(result.geometry?.location?.lat);
+        const longitude = Number(result.geometry?.location?.lng);
+        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) continue;
+
+        validateCoordinates(latitude, longitude);
+        if (latitude === 0 && longitude === 0) continue;
+        return { latitude, longitude };
+      }
+    } catch (error) {
+      console.error("Failed to geocode booking listing with Google", {
+        listingName: listing.name,
+        query,
+        error,
+      });
+    }
+  }
+
+  return null;
 }
 
 async function geocodeBookingListingAddress(
   listing: Pick<BookingListing, "address" | "placeName" | "country" | "name">,
 ) {
+  const googleCoordinates = await geocodeBookingListingAddressWithGoogle(listing);
+  if (googleCoordinates) return googleCoordinates;
+
   for (const query of uniqueGeocodeQueries(listing)) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);

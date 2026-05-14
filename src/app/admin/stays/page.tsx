@@ -96,17 +96,40 @@ function updateFormWithDraft(
     description: draft.description ?? current.description,
     websiteUrl: draft.websiteUrl ?? current.websiteUrl,
     address: draft.address ?? current.address,
-    mapLatitude:
-      draft.mapLatitude === undefined
-        ? current.mapLatitude
-        : String(draft.mapLatitude),
-    mapLongitude:
-      draft.mapLongitude === undefined
-        ? current.mapLongitude
-        : String(draft.mapLongitude),
+    ...draftCoordinateFields(draft, current),
     checkInWindow: draft.checkInWindow ?? current.checkInWindow,
     gallery: draft.gallery?.length ? draft.gallery.join("\n") : current.gallery,
   };
+}
+
+function draftCoordinateFields(
+  draft: ImportDraft,
+  current: Pick<StayFormState, "mapLatitude" | "mapLongitude">,
+) {
+  const latitude = draft.mapLatitude;
+  const longitude = draft.mapLongitude;
+
+  if (latitude === undefined && longitude === undefined) {
+    return {
+      mapLatitude: current.mapLatitude,
+      mapLongitude: current.mapLongitude,
+    };
+  }
+
+  const hasValidLatitude =
+    typeof latitude === "number" && Number.isFinite(latitude);
+  const hasValidLongitude =
+    typeof longitude === "number" && Number.isFinite(longitude);
+
+  if (
+    hasValidLatitude &&
+    hasValidLongitude &&
+    !(latitude === 0 && longitude === 0)
+  ) {
+    return { mapLatitude: String(latitude), mapLongitude: String(longitude) };
+  }
+
+  return { mapLatitude: "", mapLongitude: "" };
 }
 
 function policiesFromDraft(draft: ImportDraft) {
