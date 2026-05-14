@@ -2,14 +2,13 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import styles from "@/components/auth/auth-page.module.css";
 import { IdRedactionUploader } from "@/components/verification/id-redaction-uploader";
 import { supabase } from "@/lib/supabase";
 
-type QuizAnswer = "" | "correct" | "incorrect";
 type AccountAccess = "verified" | "viewOnly";
 
 type RegisterState = {
@@ -24,10 +23,6 @@ type RegisterState = {
   accountAccess: AccountAccess;
   idType: string;
   motivation: string;
-  consentCode: string;
-  quizAnswerRespect: QuizAnswer;
-  quizAnswerConsent: QuizAnswer;
-  quizAnswerReporting: QuizAnswer;
   isAdultConfirmed: boolean;
   isConsentConfirmed: boolean;
   isPolicyConfirmed: boolean;
@@ -35,8 +30,6 @@ type RegisterState = {
   isSensitiveIdDetailsHidden: boolean;
   idDocument: File | null;
 };
-
-const CONSENT_CODE = "NATURISM-FIRST";
 
 const initialState: RegisterState = {
   fullName: "",
@@ -47,13 +40,9 @@ const initialState: RegisterState = {
   dateOfBirth: "",
   country: "",
   membershipType: "",
-  accountAccess: "verified",
+  accountAccess: "viewOnly",
   idType: "",
   motivation: "",
-  consentCode: "",
-  quizAnswerRespect: "",
-  quizAnswerConsent: "",
-  quizAnswerReporting: "",
   isAdultConfirmed: false,
   isConsentConfirmed: false,
   isPolicyConfirmed: false,
@@ -84,60 +73,6 @@ export default function RegisterPage() {
     ? "Verified member"
     : "7-day Visitor Pass";
 
-  const quizScore = useMemo(() => {
-    const answers = [
-      form.quizAnswerRespect,
-      form.quizAnswerConsent,
-      form.quizAnswerReporting,
-    ];
-    return answers.filter((answer) => answer === "correct").length;
-  }, [
-    form.quizAnswerRespect,
-    form.quizAnswerConsent,
-    form.quizAnswerReporting,
-  ]);
-
-  const passwordStrength = useMemo(() => {
-    const checks = [
-      form.password.length >= 12,
-      /[A-Z]/.test(form.password),
-      /[a-z]/.test(form.password),
-      /\d/.test(form.password),
-      /[^A-Za-z0-9]/.test(form.password),
-    ];
-
-    const score = checks.filter(Boolean).length;
-
-    if (score <= 2) return "Needs work";
-    if (score <= 4) return "Strong";
-    return "Excellent";
-  }, [form.password]);
-
-  const completionScore = useMemo(() => {
-    const checks = [
-      form.fullName.trim().length > 0,
-      form.displayName.trim().length > 0,
-      form.email.trim().length > 0,
-      form.password.length >= 12,
-      form.confirmPassword.length > 0,
-      form.dateOfBirth.length > 0,
-      form.country.length > 0,
-      form.membershipType.length > 0,
-      !isVerifiedApplication || form.idType.length > 0,
-      !isVerifiedApplication || form.idDocument !== null,
-      !isVerifiedApplication || form.isSensitiveIdDetailsHidden,
-      !isVerifiedApplication || form.motivation.trim().length >= 30,
-      form.consentCode === CONSENT_CODE,
-      quizScore === 3,
-      form.isAdultConfirmed,
-      form.isConsentConfirmed,
-      form.isPhotoRuleConfirmed,
-      form.isPolicyConfirmed,
-    ];
-
-    return Math.round((checks.filter(Boolean).length / checks.length) * 100);
-  }, [form, isVerifiedApplication, quizScore]);
-
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setStatus("");
@@ -161,13 +96,6 @@ export default function RegisterPage() {
       return;
     }
 
-    if (quizScore < 3) {
-      setStatus(
-        "Please pass all 3 safety questions with consent-first answers.",
-      );
-      return;
-    }
-
     setIsLoading(true);
 
     try {
@@ -182,10 +110,6 @@ export default function RegisterPage() {
       payload.set("accountAccess", form.accountAccess);
       payload.set("idType", form.idType);
       payload.set("motivation", form.motivation);
-      payload.set("consentCode", form.consentCode);
-      payload.set("quizAnswerRespect", form.quizAnswerRespect);
-      payload.set("quizAnswerConsent", form.quizAnswerConsent);
-      payload.set("quizAnswerReporting", form.quizAnswerReporting);
       payload.set("isAdultConfirmed", String(form.isAdultConfirmed));
       payload.set("isConsentConfirmed", String(form.isConsentConfirmed));
       payload.set("isPolicyConfirmed", String(form.isPolicyConfirmed));
@@ -242,40 +166,24 @@ export default function RegisterPage() {
             Join safely and set your comfort level
           </h1>
           <p className={styles.subtitle}>
-            Built for consent-first naturist connection. You can use a display
-            name, choose whether to verify with ID for participation or join
-            view-only without ID first.
+            Built for consent-first naturist connection. Start with a low-effort
+            visitor pass, then choose ID verification later if you want full
+            participation.
           </p>
 
-          <div className={styles.stageBanner}>
-            <p>
-              Application progress <strong>{completionScore}%</strong>
-            </p>
-            <div className={styles.progressTrack} aria-hidden>
-              <span
-                className={styles.progressFill}
-                style={{ width: `${completionScore}%` }}
-              />
-            </div>
-            <p className={styles.help}>
-              Stage A: Account basics • Stage B: Access choice • Stage C: Safety
-              agreement
-            </p>
-          </div>
-
           <form className={styles.form} onSubmit={onSubmit}>
-            <p className={styles.sectionLabel}>A. Account basics</p>
+            <p className={styles.sectionLabel}>A. Account setup</p>
             <label className={styles.field}>
               <span className={styles.label}>
-                Legal full name (private, review-only)
+                Email (for login and safety notices)
               </span>
               <input
                 className={styles.input}
-                placeholder="Alex Morgan"
-                type="text"
-                value={form.fullName}
+                placeholder="you@example.com"
+                type="email"
+                value={form.email}
                 onChange={(event) =>
-                  setForm((prev) => ({ ...prev, fullName: event.target.value }))
+                  setForm((prev) => ({ ...prev, email: event.target.value }))
                 }
                 required
               />
@@ -295,22 +203,6 @@ export default function RegisterPage() {
                     ...prev,
                     displayName: event.target.value,
                   }))
-                }
-                required
-              />
-            </label>
-
-            <label className={styles.field}>
-              <span className={styles.label}>
-                Email (for login and safety notices)
-              </span>
-              <input
-                className={styles.input}
-                placeholder="you@example.com"
-                type="email"
-                value={form.email}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, email: event.target.value }))
                 }
                 required
               />
@@ -340,7 +232,6 @@ export default function RegisterPage() {
                     {isPasswordVisible ? "Hide" : "Show"}
                   </button>
                 </div>
-                <p className={styles.help}>Strength: {passwordStrength}</p>
               </label>
               <label className={styles.field}>
                 <span className={styles.label}>Confirm password</span>
@@ -367,6 +258,23 @@ export default function RegisterPage() {
                 </div>
               </label>
             </div>
+
+            <p className={styles.sectionLabel}>B. Eligibility and membership</p>
+            <label className={styles.field}>
+              <span className={styles.label}>
+                Legal full name (private, review-only)
+              </span>
+              <input
+                className={styles.input}
+                placeholder="Alex Morgan"
+                type="text"
+                value={form.fullName}
+                onChange={(event) =>
+                  setForm((prev) => ({ ...prev, fullName: event.target.value }))
+                }
+                required
+              />
+            </label>
 
             <div className={styles.split}>
               <label className={styles.field}>
@@ -433,32 +341,11 @@ export default function RegisterPage() {
               </select>
             </label>
 
-            <p className={styles.sectionLabel}>B. Choose your access level</p>
+            <p className={styles.sectionLabel}>C. Choose your access level</p>
             <fieldset className={styles.choiceGrid}>
               <legend className={styles.label}>
                 How would you like to join?
               </legend>
-              <label
-                className={`${styles.choiceCard} ${isVerifiedApplication ? styles.choiceCardActive : ""}`}
-              >
-                <input
-                  type="radio"
-                  name="accountAccess"
-                  value="verified"
-                  checked={isVerifiedApplication}
-                  onChange={() =>
-                    setForm((prev) => ({ ...prev, accountAccess: "verified" }))
-                  }
-                />
-                <span>
-                  <strong>Verified with ID</strong>
-                  <small>
-                    Upload a government ID to unlock full member participation:
-                    post, comment, like, message, request friendships, check in,
-                    and submit places once verification is complete.
-                  </small>
-                </span>
-              </label>
               <label
                 className={`${styles.choiceCard} ${!isVerifiedApplication ? styles.choiceCardActive : ""}`}
               >
@@ -487,6 +374,27 @@ export default function RegisterPage() {
                   </small>
                 </span>
               </label>
+              <label
+                className={`${styles.choiceCard} ${isVerifiedApplication ? styles.choiceCardActive : ""}`}
+              >
+                <input
+                  type="radio"
+                  name="accountAccess"
+                  value="verified"
+                  checked={isVerifiedApplication}
+                  onChange={() =>
+                    setForm((prev) => ({ ...prev, accountAccess: "verified" }))
+                  }
+                />
+                <span>
+                  <strong>Verified with ID</strong>
+                  <small>
+                    Upload a government ID to unlock full member participation:
+                    post, comment, like, message, request friendships, check in,
+                    and submit places once verification is complete.
+                  </small>
+                </span>
+              </label>
             </fieldset>
 
             {!isVerifiedApplication ? (
@@ -500,7 +408,7 @@ export default function RegisterPage() {
               </div>
             ) : null}
 
-            <p className={styles.sectionLabel}>C. Safety checks</p>
+            <p className={styles.sectionLabel}>D. Verification details</p>
             {isVerifiedApplication ? (
               <>
                 <label className={styles.field}>
@@ -553,9 +461,9 @@ export default function RegisterPage() {
                 <div className={styles.redactionBox}>
                   <strong>Use the platform redaction tool first</strong>
                   <span>
-                    For JPG, PNG, or WEBP files, drag black boxes over details we
-                    do not need, then choose “Use redacted copy” so the covered
-                    image is uploaded instead of the original.
+                    For JPG, PNG, or WEBP files, drag black boxes over details
+                    we do not need, then choose “Use redacted copy” so the
+                    covered image is uploaded instead of the original.
                   </span>
                 </div>
 
@@ -605,115 +513,7 @@ export default function RegisterPage() {
               </div>
             )}
 
-            <label className={styles.field}>
-              <span className={styles.label}>
-                Consent code (type exactly: {CONSENT_CODE})
-              </span>
-              <input
-                className={styles.input}
-                type="text"
-                value={form.consentCode}
-                onChange={(event) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    consentCode: event.target.value,
-                  }))
-                }
-                required
-              />
-            </label>
-
-            <fieldset className={styles.quizCard}>
-              <legend className={styles.label}>
-                Safety quiz (must score 3/3) — current score: {quizScore}/3
-              </legend>
-
-              <label className={styles.field}>
-                <span className={styles.label}>
-                  1) You see a new member being mocked in comments. What do you
-                  do?
-                </span>
-                <select
-                  className={styles.select}
-                  value={form.quizAnswerRespect}
-                  onChange={(event) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      quizAnswerRespect: event.target.value as QuizAnswer,
-                    }))
-                  }
-                  required
-                >
-                  <option value="" disabled>
-                    Select answer
-                  </option>
-                  <option value="correct">
-                    Report the harassment and support respectful conduct.
-                  </option>
-                  <option value="incorrect">
-                    Join in because it is probably a joke.
-                  </option>
-                </select>
-              </label>
-
-              <label className={styles.field}>
-                <span className={styles.label}>
-                  2) Is it okay to share or screenshot someone&apos;s photo
-                  without consent?
-                </span>
-                <select
-                  className={styles.select}
-                  value={form.quizAnswerConsent}
-                  onChange={(event) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      quizAnswerConsent: event.target.value as QuizAnswer,
-                    }))
-                  }
-                  required
-                >
-                  <option value="" disabled>
-                    Select answer
-                  </option>
-                  <option value="correct">
-                    No. Explicit consent is required every time.
-                  </option>
-                  <option value="incorrect">
-                    Yes, if the profile is public.
-                  </option>
-                </select>
-              </label>
-
-              <label className={styles.field}>
-                <span className={styles.label}>
-                  3) What should you do with sexual solicitation or unsafe
-                  behavior?
-                </span>
-                <select
-                  className={styles.select}
-                  value={form.quizAnswerReporting}
-                  onChange={(event) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      quizAnswerReporting: event.target.value as QuizAnswer,
-                    }))
-                  }
-                  required
-                >
-                  <option value="" disabled>
-                    Select answer
-                  </option>
-                  <option value="correct">
-                    Report immediately; violations can trigger removal.
-                  </option>
-                  <option value="incorrect">
-                    Ignore it and let others handle it.
-                  </option>
-                </select>
-              </label>
-            </fieldset>
-
-            <p className={styles.sectionLabel}>D. Consent and policy</p>
+            <p className={styles.sectionLabel}>E. Consent and policy</p>
             <label className={styles.checkboxRow}>
               <input
                 type="checkbox"

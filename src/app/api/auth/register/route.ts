@@ -18,10 +18,6 @@ type RegisterBody = {
   accountAccess?: string;
   idType?: string;
   motivation?: string;
-  consentCode?: string;
-  quizAnswerRespect?: string;
-  quizAnswerConsent?: string;
-  quizAnswerReporting?: string;
   isAdultConfirmed?: boolean;
   isConsentConfirmed?: boolean;
   isPolicyConfirmed?: boolean;
@@ -29,7 +25,6 @@ type RegisterBody = {
   isSensitiveIdDetailsHidden?: boolean;
 };
 
-const CONSENT_CODE = "NATURISM-FIRST";
 const MINIMUM_AGE = 18;
 const MAX_ID_UPLOAD_BYTES = 10 * 1024 * 1024;
 const ACCOUNT_ACCESS_VALUES = new Set(["verified", "viewOnly"]);
@@ -194,13 +189,10 @@ export async function POST(req: Request) {
   ).trim();
   const accountAccess = ACCOUNT_ACCESS_VALUES.has(requestedAccountAccess)
     ? requestedAccountAccess
-    : "verified";
+    : "viewOnly";
   const isVerifiedApplication = accountAccess === "verified";
   const idType = getStringValue(formData, "idType").trim();
   const motivation = getStringValue(formData, "motivation").trim();
-  const consentCode = getStringValue(formData, "consentCode")
-    .trim()
-    .toUpperCase();
   const idDocument = getUploadedIdDocument(formData);
   const isSensitiveIdDetailsHidden = parseBooleanValue(
     getStringValue(formData, "isSensitiveIdDetailsHidden"),
@@ -306,28 +298,6 @@ export async function POST(req: Request) {
     );
   }
 
-  if (consentCode !== CONSENT_CODE) {
-    return NextResponse.json(
-      { error: `Consent code must exactly match ${CONSENT_CODE}.` },
-      { status: 400 },
-    );
-  }
-
-  const passedQuiz =
-    getStringValue(formData, "quizAnswerRespect") === "correct" &&
-    getStringValue(formData, "quizAnswerConsent") === "correct" &&
-    getStringValue(formData, "quizAnswerReporting") === "correct";
-
-  if (!passedQuiz) {
-    return NextResponse.json(
-      {
-        error:
-          "Safety quiz was not passed. Review the rules and choose the consent-first answers for all questions.",
-      },
-      { status: 400 },
-    );
-  }
-
   if (!hasStrongPassword(password)) {
     return NextResponse.json(
       {
@@ -381,7 +351,7 @@ export async function POST(req: Request) {
         membership_type: membershipType,
         date_of_birth: dateOfBirth,
         onboarding_level: isVerifiedApplication
-          ? "L2_safety_training_complete"
+          ? "verification_pending"
           : "view_only_unverified",
         account_access: accountAccess,
         verification_status: isVerifiedApplication ? "pending" : "unverified",

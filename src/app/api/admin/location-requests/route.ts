@@ -1,7 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server";
 
 import { ensureAdminRequest } from "@/lib/request-auth";
-import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase-admin";
+import {
+  createSupabaseAdminClient,
+  isSupabaseAdminConfigured,
+} from "@/lib/supabase-admin";
 import { LOCATION_REQUEST_PREFIX } from "@/lib/location-requests";
 
 type FeedbackLocationRequest = {
@@ -18,12 +21,15 @@ function parseRequest(item: FeedbackLocationRequest) {
   if (!item.message.startsWith(LOCATION_REQUEST_PREFIX)) return null;
 
   try {
-    const payload = JSON.parse(item.message.slice(LOCATION_REQUEST_PREFIX.length)) as {
+    const payload = JSON.parse(
+      item.message.slice(LOCATION_REQUEST_PREFIX.length),
+    ) as {
       placeName?: string;
       locationHint?: string;
       latitude?: number;
       longitude?: number;
       website?: string;
+      requestType?: "location" | "stay" | "activity";
       isStay?: boolean;
       notes?: string;
       requesterEmail?: string | null;
@@ -40,9 +46,12 @@ function parseRequest(item: FeedbackLocationRequest) {
       placeName: payload.placeName ?? "",
       locationHint: payload.locationHint ?? "",
       latitude: typeof payload.latitude === "number" ? payload.latitude : null,
-      longitude: typeof payload.longitude === "number" ? payload.longitude : null,
+      longitude:
+        typeof payload.longitude === "number" ? payload.longitude : null,
       website: payload.website ?? "",
-      isStay: Boolean(payload.isStay),
+      requestType:
+        payload.requestType ?? (payload.isStay ? "stay" : "location"),
+      isStay: Boolean(payload.isStay) || payload.requestType === "stay",
       notes: payload.notes ?? "",
     };
   } catch {
@@ -52,7 +61,10 @@ function parseRequest(item: FeedbackLocationRequest) {
 
 export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured) {
-    return NextResponse.json({ error: "Supabase admin credentials are not configured." }, { status: 500 });
+    return NextResponse.json(
+      { error: "Supabase admin credentials are not configured." },
+      { status: 500 },
+    );
   }
 
   const adminResult = await ensureAdminRequest(request);
@@ -66,7 +78,10 @@ export async function GET(request: NextRequest) {
     .like("message", `${LOCATION_REQUEST_PREFIX}%`)
     .order("created_at", { ascending: false });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error)
+    return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json({ requests: (data ?? []).map(parseRequest).filter(Boolean) });
+  return NextResponse.json({
+    requests: (data ?? []).map(parseRequest).filter(Boolean),
+  });
 }

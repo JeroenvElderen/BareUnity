@@ -1,26 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { Building2, ExternalLink, Plus, Sparkles } from "lucide-react";
-import { ChangeEvent, FormEvent, useState } from "react";
-import type { Listing } from "@/app/bookings/hotels-airbnbs/stays-data";
+import { ExternalLink, Plus, Sparkles } from "lucide-react";
+import { type ChangeEvent, type FormEvent, useState } from "react";
+import type { BookingListing } from "@/components/bookings/booking-listing-types";
 import { isPlatformAdminEmail } from "@/lib/platform-admin";
 import { supabase } from "@/lib/supabase";
-import styles from "./page.module.css";
+import styles from "@/app/admin/stays/page.module.css";
 
-const STAY_TYPES: Listing["type"][] = [
-  "Hotel",
-  "Entire place",
-  "Boutique stay",
-  "Naturist camping",
-];
-
-type StayFormState = {
+type ListingFormState = {
   slug: string;
   name: string;
   country: string;
   placeName: string;
-  type: Listing["type"];
+  type: string;
   rating: string;
   price: string;
   badge: string;
@@ -35,37 +28,25 @@ type StayFormState = {
   gallery: string;
 };
 
-type PolicyDraft = {
-  category: string;
-  items: string;
-};
+type PolicyDraft = { category: string; items: string };
 
-type ImportDraft = Partial<Omit<Listing, "policies">> & {
-  policies?: Array<{
-    category: string;
-    items: string[];
-  }>;
+type ImportDraft = Partial<Omit<BookingListing, "policies">> & {
+  policies?: BookingListing["policies"];
   warnings?: string[];
 };
 
-const emptyForm: StayFormState = {
-  slug: "",
-  name: "",
-  country: "",
-  placeName: "",
-  type: "Hotel",
-  rating: "4.5",
-  price: "",
-  badge: "Website-sourced stay",
-  vibe: "Naturist-friendly stay",
-  amenities: "",
-  description: "",
-  websiteUrl: "",
-  address: "",
-  mapLatitude: "",
-  mapLongitude: "",
-  checkInWindow: "Check the stay website for current arrival times",
-  gallery: "",
+type Props = {
+  category: "activities";
+  importCategory: "activity";
+  title: string;
+  subtitle: string;
+  listingTypes: string[];
+  defaultType: string;
+  defaultBadge: string;
+  defaultVibe: string;
+  defaultCheckInWindow: string;
+  viewPath: string;
+  saveLabel: string;
 };
 
 function listFromText(value: string) {
@@ -75,10 +56,14 @@ function listFromText(value: string) {
     .filter(Boolean);
 }
 
+const basePolicies: PolicyDraft[] = [
+  { category: "Booking policies", items: "" },
+];
+
 function updateFormWithDraft(
-  current: StayFormState,
+  current: ListingFormState,
   draft: ImportDraft,
-): StayFormState {
+): ListingFormState {
   return {
     ...current,
     slug: draft.slug ?? current.slug,
@@ -111,23 +96,52 @@ function updateFormWithDraft(
 
 function policiesFromDraft(draft: ImportDraft) {
   if (!draft.policies?.length) return null;
-
   return draft.policies.map((policy) => ({
     category: policy.category,
     items: policy.items.join("\n"),
   }));
 }
 
-export default function AdminStaysPage() {
-  const [form, setForm] = useState<StayFormState>(emptyForm);
-  const [policies, setPolicies] = useState<PolicyDraft[]>([
-    { category: "House rules", items: "" },
-  ]);
+export function AdminBookingListingManager({
+  category,
+  importCategory,
+  title,
+  subtitle,
+  listingTypes,
+  defaultType,
+  defaultBadge,
+  defaultVibe,
+  defaultCheckInWindow,
+  viewPath,
+  saveLabel,
+}: Props) {
+  const emptyForm: ListingFormState = {
+    slug: "",
+    name: "",
+    country: "",
+    placeName: "",
+    type: defaultType,
+    rating: "4.5",
+    price: "",
+    badge: defaultBadge,
+    vibe: defaultVibe,
+    amenities: "",
+    description: "",
+    websiteUrl: "",
+    address: "",
+    mapLatitude: "",
+    mapLongitude: "",
+    checkInWindow: defaultCheckInWindow,
+    gallery: "",
+  };
+
+  const [form, setForm] = useState<ListingFormState>(emptyForm);
+  const [policies, setPolicies] = useState<PolicyDraft[]>(basePolicies);
   const [importUrl, setImportUrl] = useState("");
   const [isImporting, setIsImporting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState<Listing | null>(null);
+  const [success, setSuccess] = useState<BookingListing | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
 
   function updateField(
@@ -151,30 +165,23 @@ export default function AdminStaysPage() {
     );
   }
 
-  function addPolicy() {
-    setPolicies((current) => [...current, { category: "", items: "" }]);
-  }
-
   async function getAdminToken() {
     const {
       data: { session },
       error: sessionError,
     } = await supabase.auth.getSession();
-
-    if (sessionError || !session?.access_token) {
+    if (sessionError || !session?.access_token)
       throw new Error(
         "Please sign in first. We could not verify your admin session.",
       );
-    }
-
-    if (!isPlatformAdminEmail(session.user.email)) {
-      throw new Error("This stay manager is restricted to your owner account.");
-    }
-
+    if (!isPlatformAdminEmail(session.user.email))
+      throw new Error(
+        "This listing manager is restricted to your owner account.",
+      );
     return session.access_token;
   }
 
-  async function importStay(event: FormEvent<HTMLFormElement>) {
+  async function importListing(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setIsImporting(true);
     setError("");
@@ -184,7 +191,7 @@ export default function AdminStaysPage() {
     try {
       const token = await getAdminToken();
       const response = await fetch(
-        `/api/admin/stays/import?url=${encodeURIComponent(importUrl)}`,
+        `/api/admin/map-spots/import?category=${encodeURIComponent(importCategory)}&url=${encodeURIComponent(importUrl)}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         },
@@ -193,10 +200,8 @@ export default function AdminStaysPage() {
         draft?: ImportDraft;
         error?: string;
       };
-
-      if (!response.ok || !payload.draft) {
-        throw new Error(payload.error ?? "Could not import this stay website.");
-      }
+      if (!response.ok || !payload.draft)
+        throw new Error(payload.error ?? "Could not import this website.");
 
       setForm((current) => updateFormWithDraft(current, payload.draft ?? {}));
       const importedPolicies = policiesFromDraft(payload.draft);
@@ -206,14 +211,14 @@ export default function AdminStaysPage() {
       setError(
         importError instanceof Error
           ? importError.message
-          : "Could not import this stay website.",
+          : "Could not import this website.",
       );
     } finally {
       setIsImporting(false);
     }
   }
 
-  async function saveStay(event: FormEvent<HTMLFormElement>) {
+  async function saveListing(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setIsSaving(true);
     setError("");
@@ -221,7 +226,7 @@ export default function AdminStaysPage() {
 
     try {
       const token = await getAdminToken();
-      const response = await fetch("/api/admin/stays", {
+      const response = await fetch(`/api/admin/booking-listings/${category}`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -240,24 +245,22 @@ export default function AdminStaysPage() {
         }),
       });
       const payload = (await response.json()) as {
-        listing?: Listing;
+        listing?: BookingListing;
         error?: string;
       };
-
-      if (!response.ok || !payload.listing) {
-        throw new Error(payload.error ?? "Could not save this stay.");
-      }
+      if (!response.ok || !payload.listing)
+        throw new Error(payload.error ?? `Could not save this ${saveLabel}.`);
 
       setSuccess(payload.listing);
       setForm(emptyForm);
-      setPolicies([{ category: "House rules", items: "" }]);
+      setPolicies(basePolicies);
       setImportUrl("");
       setWarnings([]);
     } catch (saveError) {
       setError(
         saveError instanceof Error
           ? saveError.message
-          : "Could not save this stay.",
+          : `Could not save this ${saveLabel}.`,
       );
     } finally {
       setIsSaving(false);
@@ -269,25 +272,21 @@ export default function AdminStaysPage() {
       <section className={styles.shell}>
         <header className={styles.hero}>
           <span className={styles.iconPill} aria-hidden="true">
-            <Building2 size={20} />
+            <Sparkles size={20} />
           </span>
           <p className={styles.eyebrow}>Admin Studio</p>
-          <h1 className={styles.title}>Stay listing manager</h1>
-          <p className={styles.subtitle}>
-            Import stay details from a public website with optional Ollama cloud
-            enrichment, review every field, and save verified hotel, camping,
-            resort, or rental listings to the BareUnity stays data store.
-          </p>
+          <h1 className={styles.title}>{title}</h1>
+          <p className={styles.subtitle}>{subtitle}</p>
         </header>
 
-        <form className={styles.importCard} onSubmit={importStay}>
+        <form className={styles.importCard} onSubmit={importListing}>
           <label>
             Website URL to import
             <input
               type="url"
               value={importUrl}
               onChange={(event) => setImportUrl(event.target.value)}
-              placeholder="https://example-stay.com"
+              placeholder="https://example.com"
               required
             />
           </label>
@@ -306,22 +305,21 @@ export default function AdminStaysPage() {
             </ul>
           </aside>
         ) : null}
-
         {error ? <p className={styles.error}>{error}</p> : null}
         {success ? (
           <p className={styles.success}>
             Saved <strong>{success.name}</strong>.{" "}
-            <Link href={`/bookings/hotels-airbnbs/${success.slug}`}>
-              View listing <ExternalLink size={14} />
-            </Link>{" "}
-            and added its Explore map marker.
+            <Link href={viewPath}>
+              View listings <ExternalLink size={14} />
+            </Link>
+            .
           </p>
         ) : null}
 
-        <form className={styles.form} onSubmit={saveStay}>
+        <form className={styles.form} onSubmit={saveListing}>
           <div className={styles.twoColumns}>
             <label>
-              Stay name
+              Name
               <input
                 name="name"
                 value={form.name}
@@ -357,14 +355,14 @@ export default function AdminStaysPage() {
               />
             </label>
             <label>
-              Stay type
+              Type
               <select
                 name="type"
                 value={form.type}
                 onChange={updateField}
                 required
               >
-                {STAY_TYPES.map((type) => (
+                {listingTypes.map((type) => (
                   <option key={type} value={type}>
                     {type}
                   </option>
@@ -401,7 +399,6 @@ export default function AdminStaysPage() {
               <input name="badge" value={form.badge} onChange={updateField} />
             </label>
           </div>
-
           <label>
             Website URL
             <input
@@ -424,45 +421,17 @@ export default function AdminStaysPage() {
           <div className={styles.mapNotice}>
             <strong>Explore map marker</strong>
             <p>
-              Add coordinates when you have them to place the Explore marker
-              immediately. If they are blank, BareUnity will try to geocode the
-              address, place, and country before saving.
+              Saving this listing automatically finds its latitude and longitude
+              from the address, place, and country, then creates a marker on the
+              Explore map. Imported coordinates are reused when available.
             </p>
-          </div>
-          <div className={styles.twoColumns}>
-            <label>
-              Map latitude (optional)
-              <input
-                name="mapLatitude"
-                type="number"
-                min="-90"
-                max="90"
-                step="any"
-                value={form.mapLatitude}
-                onChange={updateField}
-                placeholder="e.g. 38.7223"
-              />
-            </label>
-            <label>
-              Map longitude (optional)
-              <input
-                name="mapLongitude"
-                type="number"
-                min="-180"
-                max="180"
-                step="any"
-                value={form.mapLongitude}
-                onChange={updateField}
-                placeholder="e.g. -9.1393"
-              />
-            </label>
           </div>
           <label>
             Vibe
             <input name="vibe" value={form.vibe} onChange={updateField} />
           </label>
           <label>
-            Check-in window
+            Booking / schedule window
             <input
               name="checkInWindow"
               value={form.checkInWindow}
@@ -480,7 +449,7 @@ export default function AdminStaysPage() {
             />
           </label>
           <label>
-            Amenities (comma-separated or one per line)
+            Amenities / inclusions
             <textarea
               name="amenities"
               value={form.amenities}
@@ -490,7 +459,7 @@ export default function AdminStaysPage() {
             />
           </label>
           <label>
-            Gallery image URLs (comma-separated or one per line)
+            Gallery image URLs
             <textarea
               name="gallery"
               value={form.gallery}
@@ -503,8 +472,8 @@ export default function AdminStaysPage() {
             <div>
               <h2>Policies</h2>
               <p>
-                Add policy groups such as house rules, cancellation notes, or
-                naturist etiquette.
+                Add booking rules, cancellation notes, prep requirements, or
+                etiquette.
               </p>
             </div>
             {policies.map((policy, index) => (
@@ -529,7 +498,12 @@ export default function AdminStaysPage() {
             <button
               className={styles.saveButton}
               type="button"
-              onClick={addPolicy}
+              onClick={() =>
+                setPolicies((current) => [
+                  ...current,
+                  { category: "", items: "" },
+                ])
+              }
             >
               <Plus size={16} /> Add policy group
             </button>
@@ -540,7 +514,7 @@ export default function AdminStaysPage() {
             type="submit"
             disabled={isSaving}
           >
-            {isSaving ? "Saving stay…" : "Save stay listing"}
+            {isSaving ? `Saving ${saveLabel}…` : `Save ${saveLabel}`}
           </button>
         </form>
       </section>
