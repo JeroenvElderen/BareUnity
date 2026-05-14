@@ -34,6 +34,8 @@ npm install
 cp .env.example .env.local
 ```
 
+For full admin website imports with Google stay/place details and Mapbox coordinate cross-checking, see `docs/admin-location-import-env.md`.
+
 3. Sync Prisma schema from Supabase and generate the client:
 
 ```bash

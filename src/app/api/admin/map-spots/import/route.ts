@@ -41,6 +41,7 @@ type ImportDraft = {
   tags: string[];
   reporterNotes: string;
   warnings: string[];
+  verification?: LocationVerification;
 };
 
 type GeocodeAddress = {
@@ -76,6 +77,28 @@ type GeocodedLocation = {
   address: string;
   country: string;
   placeName: string;
+  provider?: string;
+  accuracy?: string;
+  placeId?: string;
+  phone?: string;
+  website?: string;
+  rating?: number;
+  userRatingCount?: number;
+  businessStatus?: string;
+  googleMapsUri?: string;
+  openingHours?: string[];
+  types?: string[];
+};
+
+type LocationVerification = {
+  confidenceScore: number;
+  primaryProvider: string;
+  crosscheckProvider?: string;
+  distanceMeters?: number;
+  googlePlaceId?: string;
+  googleAccuracy?: string;
+  mapboxAccuracy?: string;
+  notes: string[];
 };
 
 const CATEGORY_CONFIG: Record<
@@ -512,6 +535,277 @@ function geocodePlaceName(result: GeocodeResult, fallback: string) {
   );
 }
 
+
+function coordinateDistanceMeters(
+  first: { latitude: number; longitude: number },
+  second: { latitude: number; longitude: number },
+) {
+  const earthRadiusMeters = 6371000;
+  const toRadians = (degrees: number) => (degrees * Math.PI) / 180;
+  const dLat = toRadians(second.latitude - first.latitude);
+  const dLng = toRadians(second.longitude - first.longitude);
+  const lat1 = toRadians(first.latitude);
+  const lat2 = toRadians(second.latitude);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1) *
+      Math.cos(lat2) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(earthRadiusMeters * c);
+}
+
+function googleApiKey() {
+  return (
+    process.env.GOOGLE_MAPS_API_KEY ||
+    process.env.GOOGLE_PLACES_API_KEY ||
+    ""
+  ).trim();
+}
+
+function mapboxAccessToken() {
+  return (
+    process.env.MAPBOX_ACCESS_TOKEN ||
+    ""
+  ).trim();
+}
+
+function confidenceFromDistance(distanceMeters: number | undefined) {
+  if (typeof distanceMeters !== "number") return 72;
+  if (distanceMeters <= 50) return 96;
+  if (distanceMeters <= 150) return 88;
+  if (distanceMeters <= 500) return 68;
+  return 42;
+}
+
+type GooglePlace = {
+  id?: string;
+  displayName?: { text?: string };
+  formattedAddress?: string;
+  location?: { latitude?: number; longitude?: number };
+  websiteUri?: string;
+  nationalPhoneNumber?: string;
+  internationalPhoneNumber?: string;
+  rating?: number;
+  userRatingCount?: number;
+  businessStatus?: string;
+  googleMapsUri?: string;
+  regularOpeningHours?: { weekdayDescriptions?: string[] };
+  types?: string[];
+};
+
+type GooglePlacesResponse = {
+  places?: GooglePlace[];
+};
+
+type GoogleGeocodeResponse = {
+  status?: string;
+  results?: Array<{
+    place_id?: string;
+    formatted_address?: string;
+    geometry?: {
+      location?: { lat?: number; lng?: number };
+      location_type?: string;
+    };
+    address_components?: Array<{
+      long_name?: string;
+      types?: string[];
+    }>;
+  }>;
+};
+
+type MapboxGeocodeResponse = {
+  features?: Array<{
+    id?: string;
+    place_name?: string;
+    text?: string;
+    center?: [number, number];
+    properties?: { accuracy?: string; mapbox_id?: string };
+    coordinates?: { longitude?: number; latitude?: number; accuracy?: string };
+  }>;
+};
+
+
+function geocodedLocationFromGooglePlace(
+  place: GooglePlace | undefined,
+  query: string,
+): GeocodedLocation | null {
+  const latitude = place?.location?.latitude;
+  const longitude = place?.location?.longitude;
+  if (!place || !Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    return null;
+  }
+
+  return {
+    latitude: Number(latitude),
+    longitude: Number(longitude),
+    displayName: place.formattedAddress || place.displayName?.text || query,
+    address: place.formattedAddress || query,
+    country: "",
+    placeName: place.displayName?.text || query,
+    provider: "google_places",
+    accuracy: "place",
+    placeId: place.id,
+    phone: place.internationalPhoneNumber || place.nationalPhoneNumber,
+    website: place.websiteUri,
+    rating: place.rating,
+    userRatingCount: place.userRatingCount,
+    businessStatus: place.businessStatus,
+    googleMapsUri: place.googleMapsUri,
+    openingHours: place.regularOpeningHours?.weekdayDescriptions,
+    types: place.types,
+  };
+}
+
+async function googlePlaceDetails(
+  placeId: string | undefined,
+  query: string,
+): Promise<GeocodedLocation | null> {
+  const key = googleApiKey();
+  if (!key || !placeId) return null;
+
+  const response = await fetch(`https://places.googleapis.com/v1/${placeId}`, {
+    headers: {
+      "X-Goog-Api-Key": key,
+      "X-Goog-FieldMask":
+        "id,displayName,formattedAddress,location,websiteUri,nationalPhoneNumber,internationalPhoneNumber,rating,userRatingCount,businessStatus,googleMapsUri,regularOpeningHours.weekdayDescriptions,types",
+    },
+    signal: AbortSignal.timeout(10000),
+  });
+
+  if (!response.ok) return null;
+
+  const place = (await response.json()) as GooglePlace;
+  return geocodedLocationFromGooglePlace(place, query);
+}
+
+async function googlePlacesSearch(
+  query: string,
+  websiteUrl: URL,
+): Promise<GeocodedLocation | null> {
+  const key = googleApiKey();
+  if (!key || !query) return null;
+
+  const response = await fetch("https://places.googleapis.com/v1/places:searchText", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Goog-Api-Key": key,
+      "X-Goog-FieldMask":
+        "places.id,places.displayName,places.formattedAddress,places.location,places.websiteUri,places.nationalPhoneNumber,places.internationalPhoneNumber,places.rating,places.userRatingCount,places.businessStatus,places.googleMapsUri,places.regularOpeningHours.weekdayDescriptions,places.types",
+    },
+    body: JSON.stringify({ textQuery: query, maxResultCount: 3 }),
+    signal: AbortSignal.timeout(10000),
+  });
+
+  if (!response.ok) return null;
+  const payload = (await response.json()) as GooglePlacesResponse;
+  const host = websiteUrl.hostname.replace(/^www\./i, "").toLowerCase();
+  const places = payload.places ?? [];
+  const place =
+    places.find((candidate) => {
+      if (!candidate.websiteUri) return false;
+      try {
+        return new URL(candidate.websiteUri).hostname
+          .replace(/^www\./i, "")
+          .toLowerCase()
+          .includes(host);
+      } catch {
+        return false;
+      }
+    }) ?? places[0];
+
+  if (!place) return null;
+
+  return (
+    (await googlePlaceDetails(place.id, query)) ??
+    geocodedLocationFromGooglePlace(place, query)
+  );
+}
+
+function countryFromGoogleResult(
+  components:
+    | Array<{ long_name?: string; types?: string[] }>
+    | undefined,
+) {
+  if (!Array.isArray(components)) return "";
+  return (
+    components.find((component) => component.types?.includes("country"))
+      ?.long_name ?? ""
+  );
+}
+
+async function googleGeocode(query: string): Promise<GeocodedLocation | null> {
+  const key = googleApiKey();
+  if (!key || !query) return null;
+
+  const params = new URLSearchParams({ address: query, key });
+  const response = await fetch(
+    `https://maps.googleapis.com/maps/api/geocode/json?${params.toString()}`,
+    { signal: AbortSignal.timeout(10000) },
+  );
+  if (!response.ok) return null;
+
+  const payload = (await response.json()) as GoogleGeocodeResponse;
+  const result = payload.results?.[0];
+  const latitude = result?.geometry?.location?.lat;
+  const longitude = result?.geometry?.location?.lng;
+  if (!result || !Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    return null;
+  }
+
+  return {
+    latitude: Number(latitude),
+    longitude: Number(longitude),
+    displayName: result.formatted_address || query,
+    address: result.formatted_address || query,
+    country: countryFromGoogleResult(result.address_components),
+    placeName: result.formatted_address || query,
+    provider: "google_geocoding",
+    accuracy: result.geometry?.location_type,
+    placeId: result.place_id,
+  };
+}
+
+async function mapboxGeocode(query: string): Promise<GeocodedLocation | null> {
+  const token = mapboxAccessToken();
+  if (!token || !query) return null;
+
+  const params = new URLSearchParams({
+    access_token: token,
+    limit: "1",
+    types: "poi,address,place,locality",
+  });
+  const response = await fetch(
+    `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(
+      query,
+    )}.json?${params.toString()}`,
+    { signal: AbortSignal.timeout(10000) },
+  );
+  if (!response.ok) return null;
+
+  const payload = (await response.json()) as MapboxGeocodeResponse;
+  const feature = payload.features?.[0];
+  const longitude = feature?.coordinates?.longitude ?? feature?.center?.[0];
+  const latitude = feature?.coordinates?.latitude ?? feature?.center?.[1];
+  if (!feature || !Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    return null;
+  }
+
+  return {
+    latitude: Number(latitude),
+    longitude: Number(longitude),
+    displayName: feature.place_name || query,
+    address: feature.place_name || query,
+    country: "",
+    placeName: feature.text || feature.place_name || query,
+    provider: "mapbox",
+    accuracy: feature.coordinates?.accuracy || feature.properties?.accuracy,
+    placeId: feature.properties?.mapbox_id || feature.id,
+  };
+}
+
 async function geocode(query: string): Promise<GeocodedLocation | null> {
   if (!query) return null;
 
@@ -578,25 +872,132 @@ function hostnameSearchTerms(hostname: string) {
   return uniqueGeocodeQueries([withoutWww, brandLabel]);
 }
 
+
+async function safeLocationResult(
+  resolver: () => Promise<GeocodedLocation | null>,
+  notes: string[],
+  failureNote: string,
+) {
+  try {
+    return await resolver();
+  } catch {
+    if (!notes.includes(failureNote)) notes.push(failureNote);
+    return null;
+  }
+}
+
 async function geocodeImportedLocation(
   name: string,
   address: string,
   websiteUrl: URL,
-) {
+): Promise<{ location: GeocodedLocation | null; verification: LocationVerification }> {
   const hostTerms = hostnameSearchTerms(websiteUrl.hostname);
   const queries = uniqueGeocodeQueries([
+    uniqueStrings([name, address]).join(", "),
     address,
     ...hostTerms.map((term) => `${name}, ${term}`),
     name,
     ...hostTerms,
   ]);
+  const notes: string[] = [];
 
+  let primary: GeocodedLocation | null = null;
   for (const query of queries) {
-    const result = await geocode(query);
-    if (result) return result;
+    primary = await safeLocationResult(
+      () => googlePlacesSearch(query, websiteUrl),
+      notes,
+      "Google Places details failed or timed out; trying Google Geocoding next.",
+    );
+    if (primary) {
+      notes.push("Google Places matched the crawled stay/place and returned rich place details.");
+      break;
+    }
   }
 
-  return null;
+  if (!primary) {
+    for (const query of queries) {
+      primary = await safeLocationResult(
+        () => googleGeocode(query),
+        notes,
+        "Google Geocoding failed or timed out; trying Mapbox next.",
+      );
+      if (primary) {
+        notes.push("Google Geocoding resolved the crawled address/location candidate.");
+        break;
+      }
+    }
+  }
+
+  let crosscheck: GeocodedLocation | null = null;
+  for (const query of uniqueGeocodeQueries([primary?.address ?? "", ...queries])) {
+    crosscheck = await safeLocationResult(
+      () => mapboxGeocode(query),
+      notes,
+      "Mapbox cross-check failed or timed out; review the primary coordinate manually.",
+    );
+    if (crosscheck) {
+      notes.push("Mapbox returned a coordinate cross-check for the same candidate.");
+      break;
+    }
+  }
+
+  if (!primary && crosscheck) {
+    notes.push("Mapbox is being used as the primary source because Google did not return a match.");
+    primary = crosscheck;
+    crosscheck = null;
+  }
+
+  if (!primary) {
+    for (const query of queries) {
+      primary = await geocode(query);
+      if (primary) {
+        notes.push("OpenStreetMap/Nominatim fallback resolved the candidate after Google and Mapbox returned no match.");
+        break;
+      }
+    }
+  }
+
+  const distanceMeters =
+    primary && crosscheck && primary.provider !== crosscheck.provider
+      ? coordinateDistanceMeters(primary, crosscheck)
+      : undefined;
+  if (typeof distanceMeters === "number") {
+    if (distanceMeters <= 50) {
+      notes.push("Google and Mapbox coordinates agree within 50 meters.");
+    } else if (distanceMeters <= 150) {
+      notes.push("Google and Mapbox coordinates are close, but review the map preview before publishing.");
+    } else {
+      notes.push("Google and Mapbox coordinates differ enough to require manual review.");
+    }
+  }
+
+  if (!googleApiKey()) {
+    notes.push("Set GOOGLE_MAPS_API_KEY or GOOGLE_PLACES_API_KEY to enable rich Google stay/place details.");
+  }
+  if (!mapboxAccessToken()) {
+    notes.push("Set MAPBOX_ACCESS_TOKEN to enable server-side Mapbox coordinate cross-checks.");
+  }
+
+  const googleResult = [primary, crosscheck].find((result) =>
+    result?.provider?.startsWith("google"),
+  );
+  const mapboxResult = [primary, crosscheck].find(
+    (result) => result?.provider === "mapbox",
+  );
+
+  return {
+    location: primary,
+    verification: {
+      confidenceScore: primary ? confidenceFromDistance(distanceMeters) : 0,
+      primaryProvider: primary?.provider ?? "none",
+      crosscheckProvider: crosscheck?.provider,
+      distanceMeters,
+      googlePlaceId: googleResult?.placeId,
+      googleAccuracy: googleResult?.accuracy,
+      mapboxAccuracy: mapboxResult?.accuracy,
+      notes,
+    },
+  };
 }
 
 export async function GET(request: NextRequest) {
@@ -644,8 +1045,19 @@ export async function GET(request: NextRequest) {
     const jsonLdCountry = addressCountryFromJsonLd(jsonLdPlace);
     const jsonLdPlaceName = addressPlaceFromJsonLd(jsonLdPlace);
     const geo = geoFromJsonLd(jsonLdPlace);
-    const geocoded = await geocodeImportedLocation(name, address, websiteUrl);
+    const { location: geocoded, verification } = await geocodeImportedLocation(
+      name,
+      address,
+      websiteUrl,
+    );
     const coordinates = geo ?? geocoded;
+    if (geo) {
+      verification.notes.unshift(
+        "Structured JSON-LD coordinates were found on the crawled website and used as the initial marker coordinate.",
+      );
+      verification.primaryProvider = "website_json_ld";
+      verification.confidenceScore = Math.max(verification.confidenceScore, 82);
+    }
     const amenities = uniqueStrings([
       ...config.defaultAmenities,
       ...extractAmenityCandidates(pageText, config.keywords),
@@ -657,7 +1069,11 @@ export async function GET(request: NextRequest) {
 
     if (!coordinates) {
       warnings.push(
-        "Coordinates could not be imported automatically. Saving will try to geocode the address, place, and country again.",
+        "Coordinates could not be imported automatically. Add latitude/longitude manually before saving.",
+      );
+    } else if (verification.confidenceScore < 75) {
+      warnings.push(
+        "Coordinate confidence is below the one-click approval threshold. Compare Google, Mapbox, and the map preview before saving.",
       );
     }
 
@@ -695,8 +1111,8 @@ export async function GET(request: NextRequest) {
       accessType: "Public",
       terrain: config.terrain,
       safetyLevel: "Beginner friendly",
-      website: websiteUrl.toString(),
-      websiteUrl: websiteUrl.toString(),
+      website: geocoded?.website || websiteUrl.toString(),
+      websiteUrl: geocoded?.website || websiteUrl.toString(),
       address:
         address ||
         geocoded?.address ||
@@ -709,7 +1125,7 @@ export async function GET(request: NextRequest) {
         address ||
         websiteUrl.hostname,
       price: 1,
-      rating: 4.5,
+      rating: typeof geocoded?.rating === "number" ? geocoded.rating : 4.5,
       badge: `Website-sourced ${config.label.toLowerCase()}`,
       vibe: `${config.label} listing`,
       checkInWindow: "Check the website for current availability",
@@ -724,8 +1140,27 @@ export async function GET(request: NextRequest) {
         },
       ],
       tags: config.tags,
-      reporterNotes: `Imported ${config.label.toLowerCase()} website: ${websiteUrl.toString()}`,
+      reporterNotes: [
+        `Imported ${config.label.toLowerCase()} website: ${websiteUrl.toString()}`,
+        `Verification: ${verification.primaryProvider} confidence ${verification.confidenceScore}/100`,
+        typeof verification.distanceMeters === "number"
+          ? `Google/Mapbox distance: ${verification.distanceMeters}m`
+          : "Google/Mapbox distance: unavailable",
+        geocoded?.phone ? `Google phone: ${geocoded.phone}` : "",
+        geocoded?.googleMapsUri ? `Google Maps: ${geocoded.googleMapsUri}` : "",
+        typeof geocoded?.rating === "number"
+          ? `Google rating: ${geocoded.rating}${geocoded.userRatingCount ? ` (${geocoded.userRatingCount} reviews)` : ""}`
+          : "",
+        geocoded?.businessStatus ? `Business status: ${geocoded.businessStatus}` : "",
+        geocoded?.openingHours?.length
+          ? `Opening hours: ${geocoded.openingHours.join("; ")}`
+          : "",
+        ...verification.notes.map((note) => `- ${note}`),
+      ]
+        .filter(Boolean)
+        .join("\n"),
       warnings,
+      verification,
     };
 
     return NextResponse.json({ draft });

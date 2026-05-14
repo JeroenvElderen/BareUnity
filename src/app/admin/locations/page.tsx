@@ -25,6 +25,17 @@ type FormState = {
 type ImportCategory = "activity";
 type LocationRequestType = "location" | "stay" | "activity";
 
+type ImportVerification = {
+  confidenceScore: number;
+  primaryProvider: string;
+  crosscheckProvider?: string;
+  distanceMeters?: number;
+  googlePlaceId?: string;
+  googleAccuracy?: string;
+  mapboxAccuracy?: string;
+  notes: string[];
+};
+
 type ImportDraft = {
   name?: string;
   shortDescription?: string;
@@ -40,6 +51,7 @@ type ImportDraft = {
   tags?: string[];
   reporterNotes?: string;
   warnings?: string[];
+  verification?: ImportVerification;
 };
 
 type LocationRequest = {
@@ -130,6 +142,8 @@ export default function AdminLocationsPage() {
     useState<ImportCategory>("activity");
   const [isImporting, setIsImporting] = useState(false);
   const [importWarnings, setImportWarnings] = useState<string[]>([]);
+  const [importVerification, setImportVerification] =
+    useState<ImportVerification | null>(null);
 
   const loadRequests = useCallback(async () => {
     setRequestLoadError("");
@@ -246,6 +260,7 @@ export default function AdminLocationsPage() {
     setIsImporting(true);
     setFeedback(null);
     setImportWarnings([]);
+    setImportVerification(null);
 
     try {
       const { data } = await supabase.auth.getSession();
@@ -271,6 +286,7 @@ export default function AdminLocationsPage() {
 
       copyImportToEditor(payload.draft);
       setImportWarnings(payload.draft.warnings ?? []);
+      setImportVerification(payload.draft.verification ?? null);
       setFeedback({
         type: "success",
         message:
@@ -338,6 +354,8 @@ export default function AdminLocationsPage() {
 
       setForm(INITIAL_FORM);
       setSelectedRequestId(null);
+      setImportVerification(null);
+      setImportWarnings([]);
       setFeedback({
         type: "success",
         message: "Location marker added to the Explore map.",
@@ -519,6 +537,62 @@ export default function AdminLocationsPage() {
                 </select>
               </label>
             </div>
+
+            {importVerification ? (
+              <div className="rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-4 text-sm">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="m-0 text-xs font-bold uppercase tracking-[0.18em] text-[rgb(var(--brand))]">
+                      Google details + Mapbox verification
+                    </p>
+                    <p className="mt-1 font-semibold text-[rgb(var(--text-strong))]">
+                      Confidence {importVerification.confidenceScore}/100 · Primary {importVerification.primaryProvider}
+                      {importVerification.crosscheckProvider
+                        ? ` · Cross-check ${importVerification.crosscheckProvider}`
+                        : ""}
+                    </p>
+                  </div>
+                  {typeof importVerification.distanceMeters === "number" ? (
+                    <span className="rounded-full bg-[rgb(var(--brand))/0.14] px-3 py-1 text-xs font-bold text-[rgb(var(--brand-2))]">
+                      {importVerification.distanceMeters}m apart
+                    </span>
+                  ) : null}
+                </div>
+                <dl className="mt-3 grid gap-2 md:grid-cols-3">
+                  {importVerification.googlePlaceId ? (
+                    <div>
+                      <dt className="text-xs font-bold uppercase text-[rgb(var(--muted))]">
+                        Google place
+                      </dt>
+                      <dd className="m-0 break-all">{importVerification.googlePlaceId}</dd>
+                    </div>
+                  ) : null}
+                  {importVerification.googleAccuracy ? (
+                    <div>
+                      <dt className="text-xs font-bold uppercase text-[rgb(var(--muted))]">
+                        Google accuracy
+                      </dt>
+                      <dd className="m-0">{importVerification.googleAccuracy}</dd>
+                    </div>
+                  ) : null}
+                  {importVerification.mapboxAccuracy ? (
+                    <div>
+                      <dt className="text-xs font-bold uppercase text-[rgb(var(--muted))]">
+                        Mapbox accuracy
+                      </dt>
+                      <dd className="m-0">{importVerification.mapboxAccuracy}</dd>
+                    </div>
+                  ) : null}
+                </dl>
+                {importVerification.notes.length ? (
+                  <ul className="mt-3 grid gap-1 pl-5 text-[rgb(var(--muted))]">
+                    {importVerification.notes.map((note) => (
+                      <li key={note}>{note}</li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+            ) : null}
 
             {importWarnings.length ? (
               <ul className="m-0 grid gap-1 rounded-xl bg-[rgb(206,143,47)/0.12] p-3 text-sm text-[rgb(145,93,24)]">
@@ -728,6 +802,8 @@ export default function AdminLocationsPage() {
                 onClick={() => {
                   setForm(INITIAL_FORM);
                   setSelectedRequestId(null);
+                  setImportVerification(null);
+                  setImportWarnings([]);
                 }}
               >
                 Reset
