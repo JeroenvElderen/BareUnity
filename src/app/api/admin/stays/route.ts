@@ -29,6 +29,10 @@ const GOOGLE_MAPS_API_KEY =
 const GOOGLE_GEOCODE_URL = "https://maps.googleapis.com/maps/api/geocode/json";
 const MAPBOX_ACCESS_TOKEN = process.env.MAPBOX_ACCESS_TOKEN;
 const MAPBOX_GEOCODE_URL = "https://api.mapbox.com/search/geocode/v6/forward";
+const POLICY_ONLY_CUE_PATTERN =
+  /\b(?:accepted|allowed|approval|before booking|booking condition|booking dates|cancel|cancellation|card|cash|check[- ]?in|check[- ]?out|condition|deposit|emergency|fee|forbidden|hours|liability|limit|must|no[- ]?show|not allowed|payment|policy|prepayment|prohibited|refund|required|reservation terms|restriction|rule|safety|security|terms|visa|mastercard)\b/i;
+const ACTIVITY_OR_AMENITY_ONLY_PATTERN =
+  /\b(?:activity|activities|adventure|animation|aqua|bar|beach|bicycle|bike|cinema|clubhouse|concert|cycling|dance|dining|entertainment|excursion|fitness|game room|games room|gym|karaoke|live music|massage|pool|programme|recreation|restaurant|show|sport|surfing|tennis|tour|volleyball|watersport|wellness|workshop|yoga)\b/i;
 
 type StayBody = Partial<Omit<Listing, "policies">> & {
   policies?: Array<{
@@ -111,6 +115,18 @@ async function readListings() {
 function cleanStringArray(values: unknown) {
   if (!Array.isArray(values)) return [];
   return values.map((value) => String(value).trim()).filter(Boolean);
+}
+
+function isPolicyFact(value: string) {
+  return (
+    !ACTIVITY_OR_AMENITY_ONLY_PATTERN.test(value) ||
+    POLICY_ONLY_CUE_PATTERN.test(value) ||
+    /clothing rules may vary by area or activity/i.test(value)
+  );
+}
+
+function cleanPolicyItems(values: unknown) {
+  return cleanStringArray(values).filter(isPolicyFact);
 }
 
 function validateCoordinates(latitude: number, longitude: number) {
@@ -501,7 +517,7 @@ async function normalizeListing(
   const policies = (body.policies ?? [])
     .map((policy) => ({
       category: policy.category?.trim() ?? "",
-      items: cleanStringArray(policy.items),
+      items: cleanPolicyItems(policy.items),
     }))
     .filter((policy) => policy.category && policy.items.length);
 

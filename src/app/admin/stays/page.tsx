@@ -144,7 +144,7 @@ function policiesFromDraft(draft: ImportDraft) {
 export default function AdminStaysPage() {
   const [form, setForm] = useState<StayFormState>(emptyForm);
   const [policies, setPolicies] = useState<PolicyDraft[]>([
-    { category: "House rules", items: "" },
+    { category: "Property policy", items: "" },
   ]);
   const [importUrl, setImportUrl] = useState("");
   const [isImporting, setIsImporting] = useState(false);
@@ -526,8 +526,9 @@ export default function AdminStaysPage() {
             <div>
               <h2>Policies</h2>
               <p>
-                Add policy groups such as house rules, cancellation notes, or
-                naturist etiquette.
+                Add only rules, fees, restrictions, cancellation notes, or
+                naturist etiquette—keep activities and amenities out of
+                policies.
               </p>
             </div>
             {policies.map((policy, index) => (
@@ -537,14 +538,14 @@ export default function AdminStaysPage() {
                   onChange={(event) =>
                     updatePolicy(index, "category", event.target.value)
                   }
-                  placeholder="Policy category"
+                  placeholder="Policy category (for example, Cancellation)"
                 />
                 <textarea
                   value={policy.items}
                   onChange={(event) =>
                     updatePolicy(index, "items", event.target.value)
                   }
-                  placeholder="Policy items, comma-separated or one per line"
+                  placeholder="Policy facts only; no activities or amenity lists"
                   rows={3}
                 />
               </div>

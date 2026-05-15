@@ -92,6 +92,10 @@ const POLICY_CATEGORY_ORDER = [
 const POLICY_CATEGORY_RANK = new Map<string, number>(
   POLICY_CATEGORY_ORDER.map((category, index) => [category, index]),
 );
+const POLICY_ONLY_CUE_PATTERN =
+  /\b(?:accepted|allowed|approval|before booking|booking condition|booking dates|by|cancel|cancellation|card|cash|check[- ]?in|check[- ]?out|condition|deposit|emergency|fee|forbidden|hours|liability|limit|must|no[- ]?show|not allowed|payment|policy|prepayment|prohibited|refund|required|reservation terms|restriction|rule|safety|security|terms|visa|mastercard)\b/i;
+const ACTIVITY_OR_AMENITY_ONLY_PATTERN =
+  /\b(?:activity|activities|adventure|animation|aqua|bar|beach|bicycle|bike|cinema|clubhouse|concert|cycling|dance|dining|entertainment|excursion|fitness|game room|games room|gym|karaoke|live music|massage|pool|programme|recreation|restaurant|show|sport|surfing|tennis|tour|volleyball|watersport|wellness|workshop|yoga)\b/i;
 
 function isListingType(value: string): value is Listing["type"] {
   return [
@@ -288,11 +292,19 @@ function cleanPolicyFragment(value: string) {
     .replace(/[.;,\s]+$/, "");
 }
 
+function isActivityOrAmenityOnlyPolicyText(value: string) {
+  return (
+    ACTIVITY_OR_AMENITY_ONLY_PATTERN.test(value) &&
+    !POLICY_ONLY_CUE_PATTERN.test(value) &&
+    !/clothing rules may vary by area or activity/i.test(value)
+  );
+}
+
 function rewritePolicyItem(value: string, category: string) {
   const text = normalizePolicyText(value);
   const lowerCategory = category.toLowerCase();
 
-  if (!text) return "";
+  if (!text || isActivityOrAmenityOnlyPolicyText(text)) return "";
 
   if (lowerCategory.includes("pet")) {
     const maxPets = text.match(/(?:maximum|max)\s+(\d+)\s+pets?/i)?.[1];
@@ -445,16 +457,16 @@ function rewritePolicyItem(value: string, category: string) {
   if (lowerCategory.includes("children") || lowerCategory.includes("famil")) {
     if (/adult only|adults only/i.test(text))
       return "Adults-only conditions may apply";
-    if (/playground|play area/i.test(text))
-      return "Children's play area available";
     if (
       /children|kids|family|families/i.test(text) &&
-      /allowed|welcome/i.test(text)
+      /allowed|welcome|not allowed|prohibited/i.test(text)
     )
-      return "Children and families welcome";
+      return fitPolicyItem(cleanPolicyFragment(text));
+    return "";
   }
 
-  return text.length <= MAX_POLICY_ITEM_CHARACTERS
+  return text.length <= MAX_POLICY_ITEM_CHARACTERS &&
+    !isActivityOrAmenityOnlyPolicyText(text)
     ? cleanPolicyFragment(text)
     : "";
 }
@@ -581,6 +593,7 @@ function removeGenericPolicyItems(items: string[], category: string) {
       )
     )
       return false;
+    if (isActivityOrAmenityOnlyPolicyText(item)) return false;
 
     return true;
   });
@@ -590,7 +603,10 @@ function compactPolicyItems(items: string[], category: string) {
   const bestByKey = new Map<string, string>();
 
   for (const item of items) {
-    const finalized = finalizePolicyItem(rewritePolicyItem(item, category));
+    const rewritten = rewritePolicyItem(item, category);
+    if (isActivityOrAmenityOnlyPolicyText(rewritten)) continue;
+
+    const finalized = finalizePolicyItem(rewritten);
     if (finalized.length < MIN_REWRITTEN_POLICY_CHARACTERS) continue;
 
     const key = policyDedupeKey(finalized, category);
@@ -613,8 +629,10 @@ function isPolicyLikeSentence(sentence: string, category: string) {
   const text = normalizePolicyText(sentence);
   const lowerCategory = category.toLowerCase();
 
+  if (isActivityOrAmenityOnlyPolicyText(text)) return false;
+
   if (
-    /\b(?:discover|enjoy|unique holiday|memories|laughter|adventure|activities|programme|gym|yoga|surfing|workshops|entertainment|restaurant|bar|pool|beach access|pine forest|refreshing haven|perfect for|club encourages|creativity)\b/i.test(
+    /\b(?:discover|enjoy|unique holiday|memories|laughter|adventure|programme|gym|yoga|surfing|workshops|entertainment|restaurant|bar|pool|beach access|pine forest|refreshing haven|perfect for|club encourages|creativity)\b/i.test(
       text,
     )
   ) {
@@ -834,8 +852,12 @@ function placeNameFromGoogleResult(result: GoogleGeocodeResult) {
   return (
     googleAddressComponent(result.address_components, ["locality"]) ||
     googleAddressComponent(result.address_components, ["postal_town"]) ||
-    googleAddressComponent(result.address_components, ["administrative_area_level_2"]) ||
-    googleAddressComponent(result.address_components, ["administrative_area_level_1"]) ||
+    googleAddressComponent(result.address_components, [
+      "administrative_area_level_2",
+    ]) ||
+    googleAddressComponent(result.address_components, [
+      "administrative_area_level_1",
+    ]) ||
     ""
   );
 }
@@ -1099,7 +1121,7 @@ async function enrichDraftWithAi(
     return baseDraft;
   }
 
-  const prompt = `Extract a BareUnity stay listing from this public accommodation website crawl. Use only facts present in the crawled HTML/text/PDF content. Do a thorough check of services, facilities, amenities, activities, entertainment, house rules, booking terms, cancellation, payment, pets, naturist rules, check-in/out, privacy/terms, FAQ, and downloadable PDF/document content. Return strict JSON with these keys: slug, name, country, placeName, type, rating, price, badge, vibe, amenities, description, websiteUrl, address, mapLatitude, mapLongitude, checkInWindow, policies, gallery. type must be one of Hotel, Entire place, Boutique stay, Naturist camping. amenities should include Services and/or Entertainment when the website mentions entertainment and/or services, recreation, events, shows, music, games, animation, or activity programmes. Write the listing in the concise BareUnity style shown by this example: badge "Naturist wellness retreat", vibe "Naturist retreat · Forest camping & glamping · Social clubhouse energy", description as 1-2 factual sentences, and policies grouped as Check-in and check-out, Cancellation, Accepted payment methods, Property policy, Security, and Pets when those facts exist. policies must be an array of {"category":"...","items":["..."]} based on visible website/document policy text, not generic assumptions. Only use the six policy categories listed above; fold house rules and naturist rules into Property policy, and do not create separate Children, Accessibility, House rules, or Naturist rules sections. Policies are facts only: never write questions, FAQ prompts, question-mark text, or uncertain user-facing questions inside policy categories or policy items. Rewrite policies into compact BareUnity-friendly declarative sentences using only facts found in the website content. Each policy item must be a complete short sentence ending with a period, max ${MAX_POLICY_ITEMS_PER_CATEGORY} items per category and max ${MAX_POLICY_ITEM_CHARACTERS} characters per item. Combine related facts, keep prices/dates/times/limits when present, and exclude marketing text, destination descriptions, amenity lists, and activity programme details from policies. gallery must contain public image URLs only. If a fact is missing, use an empty string, null, or empty array.
+  const prompt = `Extract a BareUnity stay listing from this public accommodation website crawl. Use only facts present in the crawled HTML/text/PDF content. Do a thorough check of services, facilities, amenities, activities, entertainment, house rules, booking terms, cancellation, payment, pets, naturist rules, check-in/out, privacy/terms, FAQ, and downloadable PDF/document content. Return strict JSON with these keys: slug, name, country, placeName, type, rating, price, badge, vibe, amenities, description, websiteUrl, address, mapLatitude, mapLongitude, checkInWindow, policies, gallery. type must be one of Hotel, Entire place, Boutique stay, Naturist camping. amenities should include Services and/or Entertainment when the website mentions entertainment and/or services, recreation, events, shows, music, games, animation, or activity programmes. Write the listing in the concise BareUnity style shown by this example: badge "Naturist wellness retreat", vibe "Naturist retreat · Forest camping & glamping · Social clubhouse energy", description as 1-2 factual sentences, and policies grouped as Check-in and check-out, Cancellation, Accepted payment methods, Property policy, Security, and Pets when those facts exist. policies must be an array of {"category":"...","items":["..."]} based on visible website/document rule, condition, fee, restriction, check-in, cancellation, payment, security, or pet policy text, not generic assumptions. Only use the six policy categories listed above; fold house rules and naturist rules into Property policy, and do not create separate Children, Accessibility, House rules, Naturist rules, Activities, Amenities, Facilities, Entertainment, Wellness, or Services sections. Policies are facts only: never write questions, FAQ prompts, question-mark text, or uncertain user-facing questions inside policy categories or policy items. Rewrite policies into compact BareUnity-friendly declarative sentences using only facts found in the website content. Each policy item must be a complete short sentence ending with a period, max ${MAX_POLICY_ITEMS_PER_CATEGORY} items per category and max ${MAX_POLICY_ITEM_CHARACTERS} characters per item. Combine related facts, keep prices/dates/times/limits when present, and exclude marketing text, destination descriptions, amenity lists, facility availability, service descriptions, entertainment notes, recreation options, and activity programme details from policies. Put activities, entertainment, services, recreation, dining, pools, wellness, sports, tours, and amenity details in amenities/description only, never in policies unless the text states a rule, restriction, fee, booking condition, or safety requirement about them. gallery must contain public image URLs only. If a fact is missing, use an empty string, null, or empty array.
 
 URL: ${websiteUrl.toString()}
 
@@ -1132,7 +1154,7 @@ ${crawledContent.slice(0, MAX_AI_HTML_CHARACTERS)}`;
           {
             role: "system",
             content:
-              "You are a careful travel data extraction assistant. Never invent missing details. Return only valid JSON. Write policy categories and items as declarative facts only, never as questions or FAQ prompts.",
+              "You are a careful travel data extraction assistant. Never invent missing details. Return only valid JSON. Write policy categories and items as declarative rules, fees, restrictions, and booking conditions only; never as questions, FAQ prompts, amenities, activities, services, or entertainment descriptions.",
           },
           { role: "user", content: prompt },
         ],
@@ -2185,9 +2207,8 @@ export async function importStayWebsite(
     websiteUrl,
   );
   const googleEnrichedDraft = await enrichDraftWithGoogle(aiEnrichedDraft);
-  const geoapifyEnrichedDraft = await enrichDraftWithGeoapify(
-    googleEnrichedDraft,
-  );
+  const geoapifyEnrichedDraft =
+    await enrichDraftWithGeoapify(googleEnrichedDraft);
   const enrichedDraft = await enrichDraftWithMapbox(geoapifyEnrichedDraft);
 
   if (!enrichedDraft.name)

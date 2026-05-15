@@ -495,8 +495,8 @@ export function AdminBookingListingManager({
             <div>
               <h2>Policies</h2>
               <p>
-                Add booking rules, cancellation notes, prep requirements, or
-                etiquette.
+                Add only booking rules, cancellation notes, fees, restrictions,
+                prep requirements, or etiquette—not activities or amenities.
               </p>
             </div>
             {policies.map((policy, index) => (
@@ -506,14 +506,14 @@ export function AdminBookingListingManager({
                   onChange={(event) =>
                     updatePolicy(index, "category", event.target.value)
                   }
-                  placeholder="Policy category"
+                  placeholder="Policy category (for example, Cancellation)"
                 />
                 <textarea
                   value={policy.items}
                   onChange={(event) =>
                     updatePolicy(index, "items", event.target.value)
                   }
-                  placeholder="Policy items, comma-separated or one per line"
+                  placeholder="Policy facts only; no activities or amenity lists"
                   rows={3}
                 />
               </div>
