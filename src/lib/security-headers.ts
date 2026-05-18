@@ -1,4 +1,7 @@
 const supabaseHosts = ["https://*.supabase.co", "wss://*.supabase.co"];
+const mapScriptHosts = ["https://unpkg.com"];
+const mapAssetHosts = [...mapScriptHosts, "https://tile.openstreetmap.org"];
+const mapLookupHosts = ["https://nominatim.openstreetmap.org"];
 
 export function buildContentSecurityPolicy(nonce: string) {
   const isDevelopment = process.env.NODE_ENV !== "production";
@@ -8,6 +11,7 @@ export function buildContentSecurityPolicy(nonce: string) {
     `'nonce-${nonce}'`,
     "'strict-dynamic'",
     ...(isDevelopment ? ["'unsafe-eval'"] : []),
+    ...mapScriptHosts,
   ];
 
   return [
@@ -16,13 +20,13 @@ export function buildContentSecurityPolicy(nonce: string) {
     "object-src 'none'",
     "frame-ancestors 'none'",
     "form-action 'self'",
-    "img-src 'self' data: blob: https://picsum.photos https://images.unsplash.com https://*.supabase.co",
-    `connect-src 'self' ${supabaseHosts.join(" ")}`,
+    "img-src 'self' data: blob: https://picsum.photos https://images.unsplash.com https://*.supabase.co https://tile.openstreetmap.org",
+    `connect-src 'self' ${[...supabaseHosts, ...mapAssetHosts, ...mapLookupHosts].join(" ")}`,
     "font-src 'self' data:",
     "media-src 'self' blob: https://*.supabase.co",
     scriptSources.join(" "),
     "script-src-attr 'none'",
-    `style-src 'self' 'nonce-${nonce}'`,
+    `style-src 'self' 'nonce-${nonce}' https://unpkg.com`,
     "worker-src 'self' blob:",
     "manifest-src 'self'",
     "upgrade-insecure-requests",
