@@ -16,11 +16,14 @@ import {
   readCachedValue,
   writeCachedValue,
 } from "@/lib/client-cache";
+import {
+  normalizeSettingOptionStates,
+  type OptionState,
+} from "@/lib/settings-controls";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import layoutStyles from "../page.module.css";
 import styles from "./settings.module.css";
 
-type OptionState = "No-one" | "Friends only" | "Everyone";
 type BooleanState = "No" | "Yes";
 
 type SettingOption =
@@ -78,91 +81,8 @@ const settingSections: SettingSection[] = [
       {
         key: "Recovery keys",
         label: "Recovery keys",
-        detail: "Generate backup keys for account recovery.",
-        state: "Everyone",
-      },
-      {
-        key: "Connected devices",
-        label: "Connected devices",
-        detail: "Review and remove active sessions.",
-        state: "Everyone",
-      },
-    ],
-  },
-  {
-    key: "account",
-    title: "Account & Identity",
-    subtitle: "Core identity presentation and trust controls.",
-    pill: "Account",
-    tone: "calm",
-    options: [
-      {
-        key: "Display name visibility",
-        label: "Display name visibility",
-        detail: "Show your chosen name in public spaces.",
-        state: "Everyone",
-      },
-      {
-        key: "Profile verification badge",
-        label: "Profile verification badge",
-        detail: "Display trust verification on your profile.",
-        state: "Everyone",
-      },
-      {
-        key: "Two-factor authentication",
-        label: "Two-factor authentication",
-        detail: "Require a second login verification step.",
-        state: "Everyone",
-      },
-      {
-        key: "Login alerts",
-        label: "Login alerts",
-        detail: "Get notified when your account is accessed from a new device.",
-        state: "Everyone",
-      },
-      {
-        key: "Session management",
-        label: "Session management",
-        detail: "Allow remote logout from other active devices.",
-        state: "Everyone",
-      },
-    ],
-  },
-  {
-    key: "boundaries",
-    title: "Boundaries & Consent",
-    subtitle: "High-impact consent settings for safer naturist interactions.",
-    pill: "Consent",
-    tone: "sun",
-    options: [
-      {
-        key: "Block DMs from non-connections",
-        label: "Block DMs from non-connections",
-        detail: "Only connected members can message you.",
-        state: "Everyone",
-      },
-      {
-        key: "Meetup invite approval",
-        label: "Meetup invite approval",
-        detail: "Manually approve each event invitation.",
-        state: "Everyone",
-      },
-      {
-        key: "Boundary card in new chats",
-        label: "Boundary card in new chats",
-        detail: "Auto-share your comfort preferences in first contact.",
-        state: "Everyone",
-      },
-      {
-        key: "Voice/video call permission",
-        label: "Voice/video call permission",
-        detail: "Only friends can request live calls.",
-        state: "Friends only",
-      },
-      {
-        key: "Tag approval",
-        label: "Tag approval",
-        detail: "Require approval before you are tagged in posts.",
+        detail:
+          "Generate one-time backup keys. Plain keys are shown once and never saved or shared.",
         state: "Everyone",
       },
     ],
@@ -178,156 +98,30 @@ const settingSections: SettingSection[] = [
       {
         key: "Profile visibility",
         label: "Profile visibility",
-        detail: "Who can view your full profile page.",
+        detail: "Choose who can open your full profile page.",
+        state: "Everyone",
+      },
+      {
+        key: "Display name visibility",
+        label: "Display name visibility",
+        detail: "Choose who can see your display name on your profile.",
         state: "Everyone",
       },
       {
         key: "Location precision",
-        label: "Location precision",
-        detail: "Share only broad region instead of exact location.",
-        state: "No-one",
-      },
-      {
-        key: "Online status",
-        label: "Online status",
-        detail: "Show when you are currently online.",
-        state: "No-one",
-      },
-      {
-        key: "Read receipts",
-        label: "Read receipts",
-        detail: "Let others know you have seen their messages.",
-        state: "No-one",
-      },
-      {
-        key: "Saved posts visibility",
-        label: "Saved posts visibility",
-        detail: "Allow others to see your saved items.",
-        state: "No-one",
-      },
-      {
-        key: "Search indexing",
-        label: "Search indexing",
-        detail: "Allow profile snippets in public search engines.",
+        label: "Location visibility",
+        detail: "Choose who can see the location saved on your profile.",
         state: "No-one",
       },
     ],
   },
   {
-    key: "safety",
-    title: "Safety & Moderation",
-    subtitle: "Controls that reduce risk and improve moderation response.",
-    pill: "Safety",
-    tone: "sun",
-    options: [
-      {
-        key: "Sensitive media blur",
-        label: "Sensitive media blur",
-        detail: "Blur sensitive media previews by default.",
-        state: "Everyone",
-      },
-      {
-        key: "Harassment phrase detection",
-        label: "Harassment phrase detection",
-        detail: "Auto-flag abusive language in interactions.",
-        state: "Everyone",
-      },
-      {
-        key: "Keyword blocklist",
-        label: "Keyword blocklist",
-        detail: "Hide comments containing blocked words.",
-        state: "Everyone",
-      },
-      {
-        key: "Trusted circles only",
-        label: "Trusted circles only",
-        detail: "Limit interaction to verified/trusted members.",
-        state: "Friends only",
-      },
-      {
-        key: "Emergency support shortcut",
-        label: "Emergency support shortcut",
-        detail: "Show quick-report and support actions in chats.",
-        state: "Everyone",
-      },
-    ],
-  },
-  {
-    key: "notifications",
-    title: "Notifications",
-    subtitle: "Only key alerts that materially affect your account and plans.",
-    pill: "Alerts",
-    tone: "calm",
-    options: [
-      {
-        key: "Security alerts",
-        label: "Security alerts",
-        detail: "Immediate alerts for account-risk events.",
-        state: "Everyone",
-      },
-      {
-        key: "Direct message mentions",
-        label: "Direct message mentions",
-        detail: "Get notified when someone directly mentions you.",
-        state: "Everyone",
-      },
-      {
-        key: "Booking changes",
-        label: "Booking changes",
-        detail: "Alerts for booking updates and schedule changes.",
-        state: "Everyone",
-      },
-      {
-        key: "Event reminders",
-        label: "Event reminders",
-        detail: "Reminder before events and check-ins.",
-        state: "Everyone",
-      },
-      {
-        key: "Weekly digest",
-        label: "Weekly digest",
-        detail: "Single summary instead of frequent feed alerts.",
-        state: "Everyone",
-      },
-    ],
-  },
-  {
-    key: "discovery",
-    title: "Feed & Discovery",
-    subtitle: "Preferences that strongly affect what content you see.",
-    pill: "Discovery",
+    key: "gallery",
+    title: "Gallery",
+    subtitle: "One real publishing preference for post images in the Gallery.",
+    pill: "Gallery",
     tone: "earth",
     options: [
-      {
-        key: "Wellness-first ranking",
-        label: "Wellness-first ranking",
-        detail: "Prioritize educational and wellness naturist content.",
-        state: "Everyone",
-      },
-      {
-        key: "Family-safe mode",
-        label: "Family-safe mode",
-        detail: "Filter content to keep feed family-appropriate.",
-        state: "Everyone",
-      },
-      {
-        key: "Hide sponsored posts",
-        label: "Hide sponsored posts",
-        detail: "Reduce promotional content in your main feed.",
-        state: "Everyone",
-      },
-      {
-        key: "Nearby circles",
-        label: "Nearby circles",
-        detail: "Recommend local communities and trusted hosts.",
-        state: "Everyone",
-      },
-      {
-        key: "Retreat recommendations",
-        label: "Retreat recommendations",
-        detail: "Show relevant naturist retreats and events.",
-        state: "Everyone",
-      },
       {
         key: "Post images in gallery",
         label: "Add post images to gallery",
@@ -345,7 +139,7 @@ const PROFILE_SECURITY_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 12;
 type ProfileSecurityCache = {
   username: string;
   email: string;
-  recoveryKeys: string[];
+  hasRecoveryKeys: boolean;
   addPostImagesToGallery: boolean;
   optionStates: Record<string, OptionState>;
 };
@@ -391,34 +185,41 @@ const emptyVerificationApplicationForm: VerificationApplicationForm = {
   isSensitiveIdDetailsHidden: false,
 };
 
-function buildDefaultOptionStates() {
-  const seeded: Record<string, OptionState> = {};
-  for (const section of settingSections) {
-    for (const option of section.options) {
-      if (option.control === "boolean") continue;
-      seeded[`${section.key}.${option.key}`] = option.state;
-    }
-  }
-  return seeded;
+function normalizeOptionStates(value: unknown) {
+  return normalizeSettingOptionStates(value);
 }
 
-function normalizeOptionStates(value: unknown) {
-  const defaults = buildDefaultOptionStates();
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return defaults;
+function hasStoredRecoveryKeys(value: unknown) {
+  return Array.isArray(value) && value.length > 0;
+}
+
+function getSecureRandomIndex(max: number) {
+  if (typeof crypto === "undefined" || !crypto.getRandomValues) {
+    return Math.floor(Math.random() * max);
   }
 
-  for (const [key, state] of Object.entries(value)) {
-    if (
-      state === "No-one" ||
-      state === "Friends only" ||
-      state === "Everyone"
-    ) {
-      defaults[key] = state;
-    }
-  }
+  const randomValues = new Uint32Array(1);
+  crypto.getRandomValues(randomValues);
+  return (randomValues[0] ?? 0) % max;
+}
 
-  return defaults;
+async function hashRecoveryKeysForStorage(keys: string[]) {
+  const encoder = new TextEncoder();
+
+  return Promise.all(
+    keys.map(async (key, index) => {
+      const digest = await crypto.subtle.digest("SHA-256", encoder.encode(key));
+      const hash = Array.from(new Uint8Array(digest))
+        .map((byte) => byte.toString(16).padStart(2, "0"))
+        .join("");
+
+      return {
+        id: `key-${index + 1}`,
+        hash,
+        createdAt: new Date().toISOString(),
+      };
+    }),
+  );
 }
 
 function getCachedProfileSecurity(cacheKey: string) {
@@ -498,8 +299,9 @@ export default function SettingsPage() {
   >(null);
   const [isRecoveryKeysModalOpen, setIsRecoveryKeysModalOpen] = useState(false);
   const [isSavingRecoveryKeys, setIsSavingRecoveryKeys] = useState(false);
-  const [recoveryKeys, setRecoveryKeys] = useState<string[]>(
-    cachedProfileSecurity?.recoveryKeys ?? [],
+  const [generatedRecoveryKeys, setGeneratedRecoveryKeys] = useState<string[]>([]);
+  const [hasRecoveryKeys, setHasRecoveryKeys] = useState(
+    cachedProfileSecurity?.hasRecoveryKeys ?? false,
   );
   const [recoveryKeysError, setRecoveryKeysError] = useState<string | null>(
     null,
@@ -580,7 +382,7 @@ export default function SettingsPage() {
     writeCachedValue<ProfileSecurityCache>(profileSecurityCacheKey, {
       username: nextValues.username ?? currentUsername,
       email: nextValues.email ?? currentEmail,
-      recoveryKeys: nextValues.recoveryKeys ?? recoveryKeys,
+      hasRecoveryKeys: nextValues.hasRecoveryKeys ?? hasRecoveryKeys,
       addPostImagesToGallery:
         nextValues.addPostImagesToGallery ?? addPostImagesToGallery,
       optionStates: nextValues.optionStates ?? optionStates,
@@ -611,7 +413,7 @@ export default function SettingsPage() {
           )
           .eq("user_id", user.id)
           .maybeSingle<{
-            recovery_keys: string[] | null;
+             recovery_keys: unknown;
             add_post_images_to_gallery: boolean | null;
             setting_control_states: Record<string, OptionState> | null;
           }>(),
@@ -623,9 +425,7 @@ export default function SettingsPage() {
       const snapshot: ProfileSecurityCache = {
         username: profileResult.data?.username?.trim() || "member",
         email: user.email?.trim() || "member@example.com",
-        recoveryKeys: Array.isArray(settingsResult.data?.recovery_keys)
-          ? settingsResult.data.recovery_keys
-          : [],
+        hasRecoveryKeys: hasStoredRecoveryKeys(settingsResult.data?.recovery_keys),
         addPostImagesToGallery:
           settingsResult.data?.add_post_images_to_gallery ?? true,
         optionStates: normalizeOptionStates(
@@ -637,18 +437,15 @@ export default function SettingsPage() {
 
       setCurrentUsername(snapshot.username || "member");
       setCurrentEmail(snapshot.email || "member@example.com");
-      setRecoveryKeys(
-        Array.isArray(snapshot.recoveryKeys) ? snapshot.recoveryKeys : [],
-      );
+      setHasRecoveryKeys(snapshot.hasRecoveryKeys);
+      setGeneratedRecoveryKeys([]);
       setAddPostImagesToGallery(snapshot.addPostImagesToGallery);
       setOptionStates(snapshot.optionStates);
 
       writeCachedValue<ProfileSecurityCache>(profileSecurityCacheKey, {
         username: snapshot.username || "member",
         email: snapshot.email || "member@example.com",
-        recoveryKeys: Array.isArray(snapshot.recoveryKeys)
-          ? snapshot.recoveryKeys
-          : [],
+        hasRecoveryKeys: snapshot.hasRecoveryKeys,
         addPostImagesToGallery: snapshot.addPostImagesToGallery,
         optionStates: snapshot.optionStates,
       });
@@ -690,12 +487,6 @@ export default function SettingsPage() {
 
   const totalOptions = settingSections.reduce(
     (acc, section) => acc + section.options.length,
-    0,
-  );
-  const enabledCount = settingSections.reduce(
-    (acc, section) =>
-      acc +
-      section.options.filter((option) => option.state !== "No-one").length,
     0,
   );
 
@@ -851,7 +642,7 @@ export default function SettingsPage() {
     const makePart = () =>
       Array.from({ length: 4 })
         .map(() => {
-          const index = Math.floor(Math.random() * alphabet.length);
+          const index = getSecureRandomIndex(alphabet.length);
           return alphabet[index] ?? "X";
         })
         .join("");
@@ -1001,10 +792,13 @@ export default function SettingsPage() {
     const nextRecoveryKeys = generateRecoveryKeys();
 
     if (!isSupabaseConfigured) {
-      setRecoveryKeys(nextRecoveryKeys);
+      setGeneratedRecoveryKeys(nextRecoveryKeys);
+      setHasRecoveryKeys(true);
       setIsSavingRecoveryKeys(false);
-      setRecoveryKeysStatus("Recovery keys generated locally.");
-      persistProfileSecurityCache({ recoveryKeys: nextRecoveryKeys });
+      setRecoveryKeysStatus(
+        "Recovery keys generated locally. Copy them now; they will not be shown again.",
+      );
+      persistProfileSecurityCache({ hasRecoveryKeys: true });
       return;
     }
 
@@ -1020,7 +814,7 @@ export default function SettingsPage() {
     const { error } = await supabase.from("profile_settings").upsert(
       {
         user_id: data.user.id,
-        recovery_keys: nextRecoveryKeys,
+        recovery_keys: await hashRecoveryKeysForStorage(nextRecoveryKeys),
         recovery_keys_generated_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
@@ -1036,9 +830,12 @@ export default function SettingsPage() {
       return;
     }
 
-    setRecoveryKeys(nextRecoveryKeys);
-    setRecoveryKeysStatus("Recovery keys regenerated.");
-    persistProfileSecurityCache({ recoveryKeys: nextRecoveryKeys });
+    setGeneratedRecoveryKeys(nextRecoveryKeys);
+    setHasRecoveryKeys(true);
+    setRecoveryKeysStatus(
+      "Recovery keys regenerated. Copy them now; they will not be shown again.",
+    );
+    persistProfileSecurityCache({ hasRecoveryKeys: true });
   };
 
   if (!activeSection) return null;
@@ -1064,15 +861,15 @@ export default function SettingsPage() {
               <p className={styles.eyebrow}>Account Control Center</p>
               <h1>Settings & Security</h1>
               <p className={styles.subhead}>
-                A redesigned command center for profile controls, privacy
-                boundaries, and trust settings. Use the left rail to jump
-                between sections and review controls in context.
+                Only the settings BareUnity can actually apply are shown here:
+                account access, profile privacy, Gallery publishing, and ID
+                verification when your account is eligible.
               </p>
             </div>
             <div className={styles.quickStats}>
               <article>
-                <p>Active protections</p>
-                <strong>{enabledCount}</strong>
+                <p>Useful settings</p>
+                <strong>{totalOptions}</strong>
               </article>
               <article>
                 <p>Total controls</p>
@@ -1653,7 +1450,8 @@ export default function SettingsPage() {
       />
       <RecoveryKeysModal
         isOpen={isRecoveryKeysModalOpen}
-        recoveryKeys={recoveryKeys}
+        recoveryKeys={generatedRecoveryKeys}
+        hasExistingKeys={hasRecoveryKeys}
         isSaving={isSavingRecoveryKeys}
         errorMessage={recoveryKeysError}
         onCancel={() => {

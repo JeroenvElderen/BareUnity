@@ -6,6 +6,7 @@ import styles from "./recovery-keys-modal.module.css";
 type RecoveryKeysModalProps = {
   isOpen: boolean;
   recoveryKeys: string[];
+  hasExistingKeys: boolean;
   isSaving: boolean;
   errorMessage: string | null;
   onCancel: () => void;
@@ -15,6 +16,7 @@ type RecoveryKeysModalProps = {
 export function RecoveryKeysModal({
   isOpen,
   recoveryKeys,
+  hasExistingKeys,
   isSaving,
   errorMessage,
   onCancel,
@@ -22,27 +24,40 @@ export function RecoveryKeysModal({
 }: RecoveryKeysModalProps) {
   if (!isOpen) return null;
 
+  const hasGeneratedKeysToShow = recoveryKeys.length > 0;
+
   return (
     <div className={styles.overlay} role="dialog" aria-modal="true" aria-labelledby="recovery-keys-modal-title">
       <section className={styles.dialog}>
         <header className={styles.header}>
           <h2 id="recovery-keys-modal-title">Recovery keys</h2>
-          <p>Generate one-time backup keys for sign-in recovery when your normal login method is unavailable.</p>
+          <p>
+            Generate one-time backup keys for sign-in recovery. BareUnity only stores protected hashes; the plain keys are shown once and are not shared with anyone.
+          </p>
         </header>
 
         <div className={styles.form}>
-          {recoveryKeys.length ? (
-            <ul className={styles.keyList}>
-              {recoveryKeys.map((key) => (
-                <li key={key}>{key}</li>
-              ))}
-            </ul>
+          {hasGeneratedKeysToShow ? (
+            <>
+              <p className={styles.success}>
+                Copy these keys now. Closing this window clears the plain keys from the page.
+              </p>
+              <ul className={styles.keyList} aria-label="New recovery keys">
+                {recoveryKeys.map((key) => (
+                  <li key={key}>{key}</li>
+                ))}
+              </ul>
+            </>
           ) : (
-            <p className={styles.emptyState}>No recovery keys generated yet.</p>
+            <p className={styles.emptyState}>
+              {hasExistingKeys
+                ? "Recovery keys are already enabled. For your safety, saved keys are never displayed again."
+                : "No recovery keys have been generated yet."}
+            </p>
           )}
 
           <p className={styles.warning}>
-            Save these keys in a secure offline location. Regenerating creates a new set and invalidates existing keys.
+            Store keys offline in a password manager or printed backup. Generating a new set invalidates the previous set.
           </p>
 
           {errorMessage ? <p className={styles.error}>{errorMessage}</p> : null}
@@ -52,7 +67,7 @@ export function RecoveryKeysModal({
               Close
             </Button>
             <Button type="button" onClick={onGenerate} disabled={isSaving}>
-              {isSaving ? "Generating..." : recoveryKeys.length ? "Regenerate" : "Generate"}
+              {isSaving ? "Generating..." : hasExistingKeys ? "Regenerate keys" : "Generate keys"}
             </Button>
           </div>
         </div>

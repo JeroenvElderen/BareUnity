@@ -1,14 +1,25 @@
 import { NextResponse } from "next/server";
 
-import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase-admin";
-import { buildSettingsSnapshotPayload, EMPTY_SETTINGS_SNAPSHOT, getSettingsSnapshotSourceVersion, type SettingsSnapshotPayload } from "@/lib/settings-snapshot";
+import {
+  buildSettingsSnapshotPayload,
+  EMPTY_SETTINGS_SNAPSHOT,
+  getSettingsSnapshotSourceVersion,
+  type SettingsSnapshotPayload,
+} from "@/lib/settings-snapshot";
+import { normalizeSettingOptionStates } from "@/lib/settings-controls";
+import {
+  createSupabaseAdminClient,
+  isSupabaseAdminConfigured,
+} from "@/lib/supabase-admin";
 import { readServerCache, writeServerCache } from "@/lib/server-user-cache";
 import { loadViewerIdFromRequest } from "@/lib/viewer";
 
 const CACHE_SCOPE = "settings";
-const CACHE_KEY = "profile-security:v1";
+const CACHE_KEY = "profile-security:v2";
 
-async function fetchSettingsViaRpc(userId: string): Promise<SettingsSnapshotPayload | null> {
+async function fetchSettingsViaRpc(
+  userId: string,
+): Promise<SettingsSnapshotPayload | null> {
   if (!isSupabaseAdminConfigured) return null;
 
   try {
@@ -18,7 +29,23 @@ async function fetchSettingsViaRpc(userId: string): Promise<SettingsSnapshotPayl
     });
 
     if (error || !data || typeof data !== "object") return null;
-    return data as SettingsSnapshotPayload;
+    
+    const rawPayload = data as Partial<SettingsSnapshotPayload> & {
+      recoveryKeys?: unknown;
+    };
+
+    return {
+      username: rawPayload.username ?? EMPTY_SETTINGS_SNAPSHOT.username,
+      email: rawPayload.email ?? EMPTY_SETTINGS_SNAPSHOT.email,
+      hasRecoveryKeys:
+        rawPayload.hasRecoveryKeys ??
+        (Array.isArray(rawPayload.recoveryKeys) &&
+          rawPayload.recoveryKeys.length > 0),
+      addPostImagesToGallery:
+        rawPayload.addPostImagesToGallery ??
+        EMPTY_SETTINGS_SNAPSHOT.addPostImagesToGallery,
+      optionStates: normalizeSettingOptionStates(rawPayload.optionStates),
+    };
   } catch {
     return null;
   }
@@ -45,7 +72,9 @@ export async function GET(request: Request) {
       });
     }
 
-    const payload = (await fetchSettingsViaRpc(viewerId)) ?? (await buildSettingsSnapshotPayload(viewerId));
+    const payload =
+      (await fetchSettingsViaRpc(viewerId)) ??
+      (await buildSettingsSnapshotPayload(viewerId));
 
     await writeServerCache({
       userId: viewerId,

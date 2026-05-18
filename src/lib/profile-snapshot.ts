@@ -2,31 +2,19 @@ import {
   findProfileSettingsControls,
   findProfileSettingsSnapshot,
 } from "@/lib/profile-settings-compat";
+import {
+  normalizeSettingOptionStates,
+  type OptionState,
+} from "@/lib/settings-controls";
 import { db } from "@/server/db";
-
-type OptionState = "No-one" | "Friends only" | "Everyone";
 
 type VisibilityContext = {
   isOwner: boolean;
   isFriend: boolean;
 };
 
-function normalizeStoredOptionStates(
-  value: unknown,
-): Record<string, OptionState> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
-
-  const states: Record<string, OptionState> = {};
-  for (const [key, state] of Object.entries(value)) {
-    if (
-      state === "No-one" ||
-      state === "Friends only" ||
-      state === "Everyone"
-    ) {
-      states[key] = state;
-    }
-  }
-  return states;
+function normalizeStoredOptionStates(value: unknown) {
+  return normalizeSettingOptionStates(value);
 }
 
 function canViewState(
@@ -166,7 +154,7 @@ export async function buildProfileSnapshotPayload(
   }
 
   const canViewDisplayName = canViewState(
-    settingStates["account.Display name visibility"],
+    settingStates["privacy.Display name visibility"],
     viewerContext,
   );
   const canViewLocation = canViewState(
@@ -253,6 +241,6 @@ export async function getProfileSnapshotSourceVersion(
     latestCommentCreatedAt: latestComment?.created_at?.toISOString() ?? null,
     settingsUpdatedAt: settings?.updated_at?.toISOString() ?? null,
     interests: settings?.interests ?? [],
-    optionStates: settings?.setting_control_states ?? {},
+    optionStates: normalizeSettingOptionStates(settings?.setting_control_states),
   });
 }

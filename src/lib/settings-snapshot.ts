@@ -1,10 +1,11 @@
 import { findAccountSettingsSnapshot } from "@/lib/profile-settings-compat";
+import { normalizeSettingOptionStates } from "@/lib/settings-controls";
 import { db } from "@/server/db";
 
 export type SettingsSnapshotPayload = {
   username: string;
   email: string;
-  recoveryKeys: string[];
+  hasRecoveryKeys: boolean;
   addPostImagesToGallery: boolean;
   optionStates: Record<string, string>;
 };
@@ -12,7 +13,7 @@ export type SettingsSnapshotPayload = {
 export const EMPTY_SETTINGS_SNAPSHOT: SettingsSnapshotPayload = {
   username: "member",
   email: "member@example.com",
-  recoveryKeys: [],
+  hasRecoveryKeys: false,
   addPostImagesToGallery: true,
   optionStates: {},
 };
@@ -32,20 +33,15 @@ export async function buildSettingsSnapshotPayload(
   return {
     username: profileRow?.username?.trim() || EMPTY_SETTINGS_SNAPSHOT.username,
     email: userRow?.email?.trim() || EMPTY_SETTINGS_SNAPSHOT.email,
-    recoveryKeys: Array.isArray(profileSettingsRow?.recovery_keys)
-      ? profileSettingsRow.recovery_keys.filter(
-          (key): key is string => typeof key === "string",
-        )
-      : EMPTY_SETTINGS_SNAPSHOT.recoveryKeys,
+    hasRecoveryKeys:
+      Array.isArray(profileSettingsRow?.recovery_keys) &&
+      profileSettingsRow.recovery_keys.length > 0,
     addPostImagesToGallery:
       profileSettingsRow?.add_post_images_to_gallery ??
       EMPTY_SETTINGS_SNAPSHOT.addPostImagesToGallery,
-    optionStates:
-      profileSettingsRow?.setting_control_states &&
-      typeof profileSettingsRow.setting_control_states === "object" &&
-      !Array.isArray(profileSettingsRow.setting_control_states)
-        ? (profileSettingsRow.setting_control_states as Record<string, string>)
-        : EMPTY_SETTINGS_SNAPSHOT.optionStates,
+    optionStates: normalizeSettingOptionStates(
+      profileSettingsRow?.setting_control_states,
+    ),
   };
 }
 
@@ -70,7 +66,11 @@ export async function getSettingsSnapshotSourceVersion(
     username: profileRow?.username ?? null,
     settingsUpdatedAt: settingsRow?.updated_at?.toISOString() ?? null,
     addPostImagesToGallery: settingsRow?.add_post_images_to_gallery ?? null,
-    optionStates: settingsRow?.setting_control_states ?? {},
-    recoveryKeys: settingsRow?.recovery_keys ?? [],
+    optionStates: normalizeSettingOptionStates(
+      settingsRow?.setting_control_states,
+    ),
+    hasRecoveryKeys:
+      Array.isArray(settingsRow?.recovery_keys) &&
+      settingsRow.recovery_keys.length > 0,
   });
 }
