@@ -247,8 +247,15 @@ export function AppSidebar() {
 
     const loadNotifications = async () => {
       try {
+        const { data } = await supabase.auth.getSession();
+        const accessToken = data.session?.access_token;
+        if (!accessToken) return;
+
         const response = await fetch("/api/notifications", {
           cache: "no-store",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
         });
         if (!response.ok) return;
 
