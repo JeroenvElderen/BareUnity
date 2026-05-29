@@ -995,8 +995,8 @@ export default function HomePage() {
       </section>
 
       {isComposerOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 px-4 py-8" role="dialog" aria-modal="true">
-          <div className="w-full max-w-2xl rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-5 shadow-xl">
+        <div className={`${styles.composerOverlay} fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 px-4 py-8`} role="dialog" aria-modal="true">
+          <div className={`${styles.composerDialog} w-full max-w-2xl rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-5 shadow-xl`}>
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-lg font-semibold text-[rgb(var(--text-strong))]">
@@ -1040,7 +1040,7 @@ export default function HomePage() {
             ) : null}
 
             {composerKind ? (
-            <div className="space-y-3">
+            <div className={`${styles.composerBody} space-y-3`}>
               {composerKind === "post" ? (
                 <input
                   type="text"
@@ -1125,11 +1125,11 @@ export default function HomePage() {
                   />
                 )}
                 {postImagePreview ? (
-                  <img src={postImagePreview} alt="Selected upload preview" className="max-h-64 w-full rounded-xl object-cover" />
+                  <img src={postImagePreview} alt="Selected upload preview" className="max-h-48 w-full rounded-xl object-cover sm:max-h-56" />
                 ) : null}
               </div>
 
-              <div className="rounded-lg bg-[rgb(var(--bg-soft))] p-3">
+              <div className={`${styles.composerPreview} rounded-lg bg-[rgb(var(--bg-soft))] p-3`}>
                 <p className="mb-2 text-xs uppercase tracking-[0.12em] text-[rgb(var(--muted))]">Preview</p>
                 {postPreview ? (
                   <div className="prose prose-sm max-w-none text-[rgb(var(--text))]" dangerouslySetInnerHTML={{ __html: postPreview }} />
@@ -1138,7 +1138,7 @@ export default function HomePage() {
                 )}
               </div>
 
-              <div className="flex justify-end gap-2">
+              <div className={`${styles.composerActions} flex justify-end gap-2`}>
                 <Button variant="outline" onClick={closeComposer}>
                   Cancel
                 </Button>

@@ -194,3 +194,50 @@
     width: 100%;
   }
 }
+
+.composerOverlay {
+  align-items: flex-start;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-block: max(1rem, env(safe-area-inset-top, 0px)) max(1rem, env(safe-area-inset-bottom, 0px));
+}
+
+.composerDialog {
+  display: flex;
+  max-height: calc(100dvh - 2rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.composerBody {
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 0.15rem;
+  overscroll-behavior: contain;
+}
+
+.composerPreview {
+  max-height: clamp(8rem, 28dvh, 16rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.composerActions {
+  position: sticky;
+  bottom: 0;
+  margin-inline: -0.25rem;
+  margin-bottom: -0.25rem;
+  border-top: 1px solid rgb(var(--border));
+  background: rgb(var(--card));
+  padding: 0.75rem 0.25rem 0.25rem;
+}
+
+@media (min-width: 720px) {
+  .composerOverlay {
+    align-items: center;
+  }
+
+  .composerDialog {
+    max-height: min(46rem, calc(100dvh - 3rem));
+  }
+}
