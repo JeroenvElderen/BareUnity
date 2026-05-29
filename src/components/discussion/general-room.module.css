@@ -62,9 +62,9 @@
 
 .roomMeta span {
   display: inline-flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 0.35rem;
-  border-radius: 999px;
+  border-radius: 1rem;
   border: 1px solid rgb(var(--border));
   background: rgb(var(--card));
   padding: 0.34rem 0.64rem;
@@ -270,13 +270,12 @@
 
 .composer {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 0.35rem;
-  border-radius: 999px;
+  border-radius: 1rem;
   border: 1px solid rgb(var(--border));
   background: rgb(var(--card));
   padding: 0.35rem;
-  overflow: hidden;
 }
 
 .composerWrap {
@@ -312,17 +311,20 @@
   background: rgb(var(--brand) / 0.12);
 }
 
-.composer input {
+.composer textarea {
   border: none;
   background: transparent;
   color: rgb(var(--text));
   min-width: 0;
   flex: 1 1 auto;
-  padding: 0 0.4rem;
+  max-height: 8rem;
+  resize: vertical;
+  padding: 0.35rem 0.4rem;
   outline: none;
+  line-height: 1.35;
 }
 
-.composer input::placeholder {
+.composer textarea::placeholder {
   color: rgb(var(--muted));
 }
 

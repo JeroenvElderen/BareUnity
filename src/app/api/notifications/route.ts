@@ -7,6 +7,7 @@ import { loadViewerIdFromRequest } from "@/lib/viewer";
 import { db } from "@/server/db";
 
 const MAX_NOTIFICATIONS = 100;
+const NOTIFICATION_LOOKBACK_DAYS = 14;
 
 type NotificationType =
   | "post-like"
@@ -117,6 +118,10 @@ export async function GET(request: Request) {
     .catch(() => null);
   const isAdmin = isPlatformAdminEmail(viewer?.email);
 
+  const notificationSince = new Date(
+    Date.now() - NOTIFICATION_LOOKBACK_DAYS * 24 * 60 * 60 * 1000,
+  );
+
   const [
     feedLikes,
     feedComments,
@@ -132,7 +137,10 @@ export async function GET(request: Request) {
       from public.post_votes pv
       inner join public.posts p on p.id = pv.post_id
       left join public.profiles pr on pr.id = pv.user_id
-      where p.author_id = ${viewerId}::uuid and pv.user_id <> ${viewerId}::uuid and pv.vote > 0
+      where p.author_id = ${viewerId}::uuid
+        and pv.user_id <> ${viewerId}::uuid
+        and pv.vote > 0
+        and pv.created_at >= ${notificationSince}
       order by pv.created_at desc
       limit ${MAX_NOTIFICATIONS}
     `,
@@ -145,7 +153,9 @@ export async function GET(request: Request) {
       from public.comments c
       inner join public.posts p on p.id = c.post_id
       left join public.profiles pr on pr.id = c.author_id
-      where p.author_id = ${viewerId}::uuid and c.author_id <> ${viewerId}::uuid
+      where p.author_id = ${viewerId}::uuid
+        and c.author_id <> ${viewerId}::uuid
+        and c.created_at >= ${notificationSince}
       order by c.created_at desc
       limit ${MAX_NOTIFICATIONS}
     `,
@@ -159,6 +169,7 @@ export async function GET(request: Request) {
       left join public.profiles pr on pr.id = gil.user_id
       where gil.user_id <> ${viewerId}::uuid
         and (gil.image_path like ${`gallery/${viewerId}/%`} or gil.image_path like ${`%/gallery/${viewerId}/%`})
+        and gil.created_at >= ${notificationSince}
       order by gil.created_at desc
       limit ${MAX_NOTIFICATIONS}
     `,
@@ -169,7 +180,9 @@ export async function GET(request: Request) {
         Prisma.sql`
       select id, created_at, sender_username
       from public.friend_requests
-      where receiver_id = ${viewerId}::uuid and status = 'pending'
+      where receiver_id = ${viewerId}::uuid
+        and status = 'pending'
+        and created_at >= ${notificationSince}
       order by created_at desc
       limit ${MAX_NOTIFICATIONS}
     `,
@@ -183,6 +196,7 @@ export async function GET(request: Request) {
       inner join public.channels ch on ch.id = cm.channel_id and ch.slug = 'general'
       left join public.profiles pr on pr.id = cm.author_id
       where cm.author_id <> ${viewerId}::uuid
+        and cm.created_at >= ${notificationSince}
       order by cm.created_at desc
       limit 25
     `,
@@ -194,6 +208,7 @@ export async function GET(request: Request) {
       select id, name, created_at
       from public.naturist_map_spots
       where submitted_by is distinct from ${viewerId}::uuid
+        and created_at >= ${notificationSince}
       order by created_at desc
       limit 25
     `,
@@ -217,6 +232,7 @@ export async function GET(request: Request) {
         select r.id, r.target_type, r.created_at, coalesce(nullif(pr.display_name, ''), pr.username) as actor_name
         from public.reports r
         left join public.profiles pr on pr.id = r.reporter_id
+        where r.created_at >= ${notificationSince}
         order by r.created_at desc
         limit ${MAX_NOTIFICATIONS}
       `,
@@ -227,6 +243,7 @@ export async function GET(request: Request) {
           Prisma.sql`
         select p.id, p.created_at, coalesce(nullif(p.display_name, ''), p.username) as actor_name
         from public.profiles p
+        where p.created_at >= ${notificationSince}
         order by p.created_at desc
         limit 25
       `,
@@ -238,6 +255,7 @@ export async function GET(request: Request) {
         select id, category, message, created_at
         from public.feedback_messages
         where message not like ${`${LOCATION_REQUEST_PREFIX}%`}
+          and created_at >= ${notificationSince}
         order by created_at desc
         limit ${MAX_NOTIFICATIONS}
       `,
@@ -249,6 +267,7 @@ export async function GET(request: Request) {
         select id, category, message, created_at
         from public.feedback_messages
         where message like ${`${LOCATION_REQUEST_PREFIX}%`}
+          and created_at >= ${notificationSince}
         order by created_at desc
         limit ${MAX_NOTIFICATIONS}
       `,
@@ -260,6 +279,7 @@ export async function GET(request: Request) {
         select user_id, created_at, display_name, legal_name
         from public.verification_submissions
         where status = 'pending'
+          and created_at >= ${notificationSince}
         order by created_at desc
         limit ${MAX_NOTIFICATIONS}
       `,

@@ -460,8 +460,8 @@ export function GeneralRoom() {
           >
             <Paperclip size={16} aria-hidden />
           </button>
-          <input
-            type="text"
+          <textarea
+            rows={2}
             placeholder={viewerId ? "Message #general" : "Sign in to chat"}
             aria-label="Message general room"
             value={draft}

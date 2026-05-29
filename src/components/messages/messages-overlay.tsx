@@ -530,8 +530,8 @@ export function MessagesPanelContent() {
         </ul>
 
         <form className={styles.composer} onSubmit={sendMessage}>
-          <input
-            type="text"
+          <textarea
+            rows={2}
             placeholder={
               activeConversationId
                 ? "Write a message"

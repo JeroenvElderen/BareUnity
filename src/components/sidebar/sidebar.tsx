@@ -41,6 +41,7 @@ import styles from "./sidebar.module.css";
 const SYSTEM_NOTIFICATION_PERMISSION_REQUESTED_KEY =
   "bareunity_system_notification_permission_requested";
 const NOTIFICATION_POLL_INTERVAL_MS = 30_000;
+const NOTIFICATION_READ_STORAGE_PREFIX = "bareunity_read_notification_ids";
 
 type NavItem = {
   icon: typeof Home;
@@ -152,6 +153,9 @@ export function AppSidebar() {
   const notifications = useUIStore((state) => state.notifications);
   const clearNotifications = useUIStore((state) => state.clearNotifications);
   const setNotifications = useUIStore((state) => state.setNotifications);
+  const setNotificationReadStorageKey = useUIStore(
+    (state) => state.setNotificationReadStorageKey,
+  );
   const pushNotification = useUIStore((state) => state.pushNotification);
   const markNotificationAsRead = useUIStore(
     (state) => state.markNotificationAsRead,
@@ -220,8 +224,11 @@ export function AppSidebar() {
   useEffect(() => {
     seenNotificationIdsRef.current.clear();
     hasSeenInitialNotificationsRef.current = false;
+    setNotificationReadStorageKey(
+      viewerId ? `${NOTIFICATION_READ_STORAGE_PREFIX}:${viewerId}` : null,
+    );
     clearNotifications();
-  }, [clearNotifications, viewerId]);
+  }, [clearNotifications, setNotificationReadStorageKey, viewerId]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
