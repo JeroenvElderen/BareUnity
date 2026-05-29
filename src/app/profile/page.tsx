@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 
 import { AppSidebar } from "@/components/sidebar/sidebar";
@@ -42,6 +42,13 @@ type ProfileData = {
   stats: { posts: number; friends: number; comments: number };
 };
 
+type EditableProfileFields = {
+  displayName: string;
+  bio: string;
+  location: string;
+  interests: string;
+};
+
 const EMPTY_PROFILE_DATA: ProfileData = {
   profile: null,
   posts: [],
@@ -50,6 +57,7 @@ const EMPTY_PROFILE_DATA: ProfileData = {
   stats: { posts: 0, friends: 0, comments: 0 },
 };
 const PROFILE_CACHE_MAX_AGE_MS = 1000 * 60 * 3;
+const DEFAULT_PROFILE_BIO = "Nature-first connection, consent-forward gatherings, and calm community rituals.";
 
 function getInitials(value: string) {
   const words = value.trim().split(/\s+/).filter(Boolean);
@@ -63,7 +71,8 @@ function resolveMediaUrl(rawUrl: string | null): string | null {
 
   if (value.startsWith("http")) return value;
 
-  const normalizedPath = value.startsWith("posts/") ? value : `posts/${value}`;
+  const knownStoragePath = ["avatars/", "gallery/", "posts/"].some((prefix) => value.startsWith(prefix));
+  const normalizedPath = knownStoragePath ? value : `posts/${value}`;
   const { data } = supabase.storage.from("media").getPublicUrl(normalizedPath);
   return data.publicUrl;
 }
@@ -171,6 +180,19 @@ export default function ProfilePage() {
     accessToken: null,
   });
   const [activeTab, setActiveTab] = useState<"posts" | "about">("posts");
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editableProfile, setEditableProfile] = useState<EditableProfileFields>({
+    displayName: "",
+    bio: "",
+    location: "",
+    interests: "",
+  });
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
+  const [profileSaveStatus, setProfileSaveStatus] = useState<
+    { type: "success" | "error"; message: string } | null
+  >(null);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
 
   const loadProfileForUser = useCallback(async (
     sessionUser: User | null,
@@ -248,6 +270,27 @@ export default function ProfilePage() {
     });
   }, [loadProfileForUser, sessionContext.accessToken, sessionContext.user]);
   
+  useEffect(() => {
+    setEditableProfile({
+      displayName: profileData.profile?.display_name?.trim() ?? "",
+      bio: profileData.profile?.bio?.trim() ?? "",
+      location: profileData.profile?.location?.trim() ?? "",
+      interests: profileData.interests.join(", "),
+    });
+  }, [profileData.interests, profileData.profile]);
+
+  useEffect(() => {
+    if (!avatarFile) {
+      setAvatarPreviewUrl(null);
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(avatarFile);
+    setAvatarPreviewUrl(objectUrl);
+
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [avatarFile]);
+
   const { profile, posts, friends, interests, stats } = profileData;
 
   const displayName =
@@ -257,10 +300,61 @@ export default function ProfilePage() {
 
   const bio =
     profile?.bio?.trim() ||
-    "Nature-first connection, consent-forward gatherings, and calm community rituals.";
+    DEFAULT_PROFILE_BIO;
 
   const avatarFallback = getInitials(displayName);
   const usernameHandle = useMemo(() => `@${profile?.username ?? "member"}`, [profile?.username]);
+  const avatarSrc = avatarPreviewUrl ?? resolveMediaUrl(profile?.avatar_url ?? null) ?? undefined;
+
+  const handleProfileSave = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!sessionContext.accessToken) {
+      setProfileSaveStatus({ type: "error", message: "Please sign in before editing your profile." });
+      return;
+    }
+
+    const formData = new FormData();
+    formData.set("displayName", editableProfile.displayName);
+    formData.set("bio", editableProfile.bio);
+    formData.set("location", editableProfile.location);
+    formData.set("interests", editableProfile.interests);
+    if (avatarFile) {
+      formData.set("avatar", avatarFile);
+    }
+
+    setIsSavingProfile(true);
+    setProfileSaveStatus(null);
+
+    try {
+      const response = await fetch("/api/profile/update", {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${sessionContext.accessToken}`,
+        },
+        body: formData,
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | { error?: string }
+        | null;
+
+      if (!response.ok) {
+        throw new Error(payload?.error ?? "Unable to update profile.");
+      }
+
+      setProfileSaveStatus({ type: "success", message: "Profile updated." });
+      setAvatarFile(null);
+      setIsEditingProfile(false);
+      await loadProfileForUser(sessionContext.user, sessionContext.accessToken, { background: true });
+    } catch (error) {
+      setProfileSaveStatus({
+        type: "error",
+        message: error instanceof Error ? error.message : "Unable to update profile.",
+      });
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
 
   return (
     <main className={`${layoutStyles.main} w-full max-w-full`}>
@@ -285,7 +379,7 @@ export default function ProfilePage() {
               <div className="flex flex-wrap items-end justify-between gap-4">
                 <div className="flex min-w-0 items-end gap-3">
                   <Avatar
-                    src={resolveMediaUrl(profile?.avatar_url ?? null) ?? undefined}
+                    src={avatarSrc}
                     alt={displayName}
                     fallback={avatarFallback}
                     className="h-24 w-24 border-4 border-white bg-[rgb(var(--bg-soft))] text-2xl shadow-lg md:h-28 md:w-28"
@@ -295,10 +389,123 @@ export default function ProfilePage() {
                     <p className="text-sm font-medium text-[rgb(var(--muted))]">{usernameHandle}</p>
                   </div>
                 </div>
-              {profile?.location ? <Badge variant="outline">{profile.location}</Badge> : null}
+                <div className="flex flex-wrap items-center gap-2">
+                  {profile?.location ? <Badge variant="outline">{profile.location}</Badge> : null}
+                  <Button
+                    size="sm"
+                    variant={isEditingProfile ? "secondary" : "outline"}
+                    onClick={() => {
+                      setIsEditingProfile((current) => !current);
+                      setProfileSaveStatus(null);
+                    }}
+                  >
+                    {isEditingProfile ? "Close editor" : "Edit profile"}
+                  </Button>
+                </div>
               </div>
 
               <p className="rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))/0.65] p-3 text-sm text-[rgb(var(--text))] md:text-base">{bio}</p>
+
+              {profileSaveStatus ? (
+                <p
+                  className={`rounded-xl border p-3 text-sm font-semibold ${
+                    profileSaveStatus.type === "success"
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                      : "border-red-200 bg-red-50 text-red-800"
+                  }`}
+                >
+                  {profileSaveStatus.message}
+                </p>
+              ) : null}
+
+              {isEditingProfile ? (
+                <form
+                  className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))/0.6] p-4 shadow-sm"
+                  onSubmit={handleProfileSave}
+                >
+                  <div className="flex flex-col gap-4 md:flex-row">
+                    <label className="flex min-w-44 flex-col gap-2 text-sm font-semibold text-[rgb(var(--text-strong))]">
+                      Profile picture
+                      <input
+                        accept="image/avif,image/gif,image/jpeg,image/png,image/webp"
+                        className="text-sm text-[rgb(var(--muted))] file:mr-3 file:rounded-full file:border-0 file:bg-[rgb(var(--brand))] file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white"
+                        type="file"
+                        onChange={(event) => setAvatarFile(event.target.files?.[0] ?? null)}
+                      />
+                      <span className="text-xs font-medium text-[rgb(var(--muted))]">JPG, PNG, WEBP, GIF, or AVIF up to 4MB.</span>
+                    </label>
+
+                    <div className="grid flex-1 gap-3 md:grid-cols-2">
+                      <label className="flex flex-col gap-1.5 text-sm font-semibold text-[rgb(var(--text-strong))]">
+                        Display name
+                        <input
+                          className="rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] px-3 py-2 text-sm font-medium text-[rgb(var(--text-strong))] outline-none focus:border-[rgb(var(--brand))]"
+                          maxLength={80}
+                          placeholder="Your display name"
+                          value={editableProfile.displayName}
+                          onChange={(event) => setEditableProfile((current) => ({ ...current, displayName: event.target.value }))}
+                        />
+                      </label>
+
+                      <label className="flex flex-col gap-1.5 text-sm font-semibold text-[rgb(var(--text-strong))]">
+                        Location
+                        <input
+                          className="rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] px-3 py-2 text-sm font-medium text-[rgb(var(--text-strong))] outline-none focus:border-[rgb(var(--brand))]"
+                          maxLength={80}
+                          placeholder="City, region, or vibe"
+                          value={editableProfile.location}
+                          onChange={(event) => setEditableProfile((current) => ({ ...current, location: event.target.value }))}
+                        />
+                      </label>
+
+                      <label className="flex flex-col gap-1.5 text-sm font-semibold text-[rgb(var(--text-strong))] md:col-span-2">
+                        Bio
+                        <textarea
+                          className="min-h-24 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] px-3 py-2 text-sm font-medium text-[rgb(var(--text-strong))] outline-none focus:border-[rgb(var(--brand))]"
+                          maxLength={280}
+                          placeholder={DEFAULT_PROFILE_BIO}
+                          value={editableProfile.bio}
+                          onChange={(event) => setEditableProfile((current) => ({ ...current, bio: event.target.value }))}
+                        />
+                      </label>
+
+                      <label className="flex flex-col gap-1.5 text-sm font-semibold text-[rgb(var(--text-strong))] md:col-span-2">
+                        Interests
+                        <input
+                          className="rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] px-3 py-2 text-sm font-medium text-[rgb(var(--text-strong))] outline-none focus:border-[rgb(var(--brand))]"
+                          placeholder="Beach walks, wellness, hiking"
+                          value={editableProfile.interests}
+                          onChange={(event) => setEditableProfile((current) => ({ ...current, interests: event.target.value }))}
+                        />
+                        <span className="text-xs font-medium text-[rgb(var(--muted))]">Separate up to 8 interests with commas.</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap justify-end gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setAvatarFile(null);
+                        setIsEditingProfile(false);
+                        setProfileSaveStatus(null);
+                        setEditableProfile({
+                          displayName: profile?.display_name?.trim() ?? "",
+                          bio: profile?.bio?.trim() ?? "",
+                          location: profile?.location?.trim() ?? "",
+                          interests: interests.join(", "),
+                        });
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    <Button type="submit" disabled={isSavingProfile}>
+                      {isSavingProfile ? "Saving…" : "Save profile"}
+                    </Button>
+                  </div>
+                </form>
+              ) : null}
 
               <div className="grid gap-2 sm:grid-cols-3">
                 {[
