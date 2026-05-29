@@ -21,64 +21,6 @@ import { supabase } from "@/lib/supabase";
 import { getVisitorTrialStatus, type VisitorTrialStatus } from "@/lib/visitor-trial";
 import styles from "./page.module.css";
 
-function normalizePostText(text: string) {
-  const htmlEscapes: Record<string, string> = {
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;",
-  };
-  const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (character) => htmlEscapes[character]);
-  const formatInline = (value: string) =>
-    value
-      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-      .replace(/\*(.+?)\*/g, "<em>$1</em>");
-
-  const lines = text.split(/\r?\n/);
-  const html: string[] = [];
-  let listItems: string[] = [];
-  const flushList = () => {
-    if (!listItems.length) return;
-    html.push(`<ul class="my-2 list-disc pl-5">${listItems.join("")}</ul>`);
-    listItems = [];
-  };
-
-  lines.forEach((rawLine) => {
-    const line = rawLine.trimEnd();
-    if (!line.trim()) {
-      flushList();
-      return;
-    }
-
-    const safeLine = escapeHtml(line);
-    if (safeLine.startsWith("### ")) {
-      flushList();
-      html.push(`<h3 class="mt-3 text-base font-semibold">${formatInline(safeLine.slice(4))}</h3>`);
-      return;
-    }
-    if (safeLine.startsWith("## ")) {
-      flushList();
-      html.push(`<h2 class="mt-3 text-lg font-semibold">${formatInline(safeLine.slice(3))}</h2>`);
-      return;
-    }
-    if (safeLine.startsWith("# ")) {
-      flushList();
-      html.push(`<h1 class="mt-3 text-xl font-semibold">${formatInline(safeLine.slice(2))}</h1>`);
-      return;
-    }
-    if (safeLine.startsWith("- ") || safeLine.startsWith("* ")) {
-      listItems.push(`<li class="my-0.5">${formatInline(safeLine.slice(2))}</li>`);
-      return;
-    }
-
-    flushList();
-    html.push(`<p class="my-1">${formatInline(safeLine)}</p>`);
-  });
-  flushList();
-
-  return html.join("");
-}
 
 const defaultFeed: HomeFeedPayload = {
   stories: [],
@@ -172,10 +114,7 @@ export default function HomePage() {
       ? Boolean(postImageDataUrl)
       : postTitle.trim().length > 0 && (postContent.trim().length > 0 || Boolean(postImageDataUrl));
 
-  const postPreview = useMemo(() => {
-    if (!postContent.trim()) return "";
-    return normalizePostText(postContent);
-  }, [postContent]);
+  const postPreview = postContent;
 
   const getAuthHeaders = async (options?: { includeJsonContentType?: boolean }) => {
     const headers: HeadersInit = {};
@@ -1134,8 +1073,8 @@ export default function HomePage() {
 
               <div className={`${styles.composerPreview} rounded-lg bg-[rgb(var(--bg-soft))] p-3`}>
                 <p className="mb-2 text-xs uppercase tracking-[0.12em] text-[rgb(var(--muted))]">Preview</p>
-                {postPreview ? (
-                  <div className="prose prose-sm max-w-none text-[rgb(var(--text))]" dangerouslySetInnerHTML={{ __html: postPreview }} />
+                {postPreview.trim() ? (
+                  <p className="whitespace-pre-wrap break-words text-sm leading-6 text-[rgb(var(--text))] [overflow-wrap:anywhere]">{postPreview}</p>
                 ) : (
                   <p className="text-sm text-[rgb(var(--muted))]">Start typing to preview formatted content.</p>
                 )}
