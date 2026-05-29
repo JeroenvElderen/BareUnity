@@ -131,6 +131,10 @@
   width: fit-content;
 }
 
+.bubble p {
+  white-space: pre-wrap;
+}
+
 .mine {
   align-self: flex-end;
   background: rgb(var(--brand) / 0.16);
@@ -147,12 +151,15 @@
   gap: 0.55rem;
 }
 
-.composer input {
+.composer textarea {
   border: 1px solid rgb(var(--border));
-  border-radius: 999px;
+  border-radius: 1rem;
   background: transparent;
   color: inherit;
+  min-height: 2.65rem;
+  resize: vertical;
   padding: 0.65rem 0.9rem;
+  line-height: 1.35;
 }
 
 .composer button {

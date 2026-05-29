@@ -1059,12 +1059,15 @@ export default function HomePage() {
                 />
               )}
 
-              <textarea
-                value={postContent}
-                onChange={(event) => setPostContent(event.target.value)}
-                className="min-h-40 w-full rounded-lg border border-[rgb(var(--border))] px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[rgb(var(--ring))]"
-                placeholder={composerKind === "story" ? "Add an optional story note..." : "Write your post content here..."}
-              />
+              <div>
+                <textarea
+                  value={postContent}
+                  onChange={(event) => setPostContent(event.target.value)}
+                  className="min-h-40 w-full rounded-lg border border-[rgb(var(--border))] px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[rgb(var(--ring))]"
+                  placeholder={composerKind === "story" ? "Add an optional story note..." : "Write your post content here..."}
+                />
+                <p className="mt-1 text-xs text-[rgb(var(--muted))]">Press Enter for a new line. Use the Publish button when you are ready to post.</p>
+              </div>
 
               <div className="space-y-2">
                 <label className="block text-sm text-[rgb(var(--muted))]">
@@ -1284,7 +1287,7 @@ export default function HomePage() {
                                   displayName={commentAuthorName}
                                   triggerClassName="text-xs font-semibold text-[rgb(var(--text-strong))] underline-offset-2 hover:underline"
                                 />
-                                <p className="text-sm text-[rgb(var(--text))] break-words [overflow-wrap:anywhere]">{node.content}</p>
+                                <p className="whitespace-pre-line text-sm text-[rgb(var(--text))] break-words [overflow-wrap:anywhere]">{node.content}</p>
                               </div>
                             </div>
                             <div className="flex shrink-0 items-center gap-2">
@@ -1367,18 +1370,13 @@ export default function HomePage() {
                 </div>
               ) : null}
               <div className="flex items-center gap-2">
-                <input
-                  type="text"
+                <textarea
+                  rows={2}
                   value={commentDrafts[activePost.id] ?? ""}
                   onChange={(event) => setCommentDrafts((current) => ({ ...current, [activePost.id]: event.target.value }))}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault();
-                      void addComment(activePost.id, { parentId: activeReplyByPost[activePost.id] ?? null });
-                    }
-                  }}
                   placeholder={activeReplyByPost[activePost.id] ? "Write a reply..." : "Write a comment..."}
-                  className="h-9 flex-1 rounded-lg border border-[rgb(var(--border))] px-3 text-sm outline-none focus:ring-2 focus:ring-[rgb(var(--ring))]"
+                  className="min-h-9 flex-1 resize-y rounded-lg border border-[rgb(var(--border))] px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[rgb(var(--ring))]"
+                  aria-label={activeReplyByPost[activePost.id] ? "Write a reply" : "Write a comment"}
                 />
                 <Button size="sm" onClick={() => addComment(activePost.id, { parentId: activeReplyByPost[activePost.id] ?? null })}>
                   {activeReplyByPost[activePost.id] ? "Reply" : "Post"}
@@ -1421,12 +1419,15 @@ export default function HomePage() {
                 placeholder="Post heading"
                 className="h-10 w-full rounded-lg border border-[rgb(var(--border))] px-3 text-sm outline-none focus:ring-2 focus:ring-[rgb(var(--ring))]"
               />
-              <textarea
-                value={editContent}
-                onChange={(event) => setEditContent(event.target.value)}
-                className="min-h-40 w-full rounded-lg border border-[rgb(var(--border))] px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[rgb(var(--ring))]"
-                placeholder="Write your post content here..."
-              />
+              <div>
+                <textarea
+                  value={editContent}
+                  onChange={(event) => setEditContent(event.target.value)}
+                  className="min-h-40 w-full rounded-lg border border-[rgb(var(--border))] px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[rgb(var(--ring))]"
+                  placeholder="Write your post content here..."
+                />
+                <p className="mt-1 text-xs text-[rgb(var(--muted))]">Press Enter for a new line. Use the Save button when you are done.</p>
+              </div>
               <div className="space-y-2">
                 <label className="block text-sm text-[rgb(var(--muted))]">Post image (optional)</label>
                 <input type="file" accept="image/*" onChange={(event) => void onPickEditImage(event)} />
