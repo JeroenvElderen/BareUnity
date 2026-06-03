@@ -678,3 +678,74 @@
     width: 100%;
   }
 }
+
+.dangerZone {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1rem;
+  border: 1px solid rgb(220 38 38 / 0.3);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, rgb(127 29 29 / 0.14), rgb(var(--card) / 0.9));
+  box-shadow: var(--shadow-card);
+  padding: 1rem;
+}
+
+.dangerZone h2 {
+  margin: 0.12rem 0 0;
+  color: rgb(153 27 27);
+  font-size: 1.05rem;
+}
+
+.dangerZone p {
+  margin: 0.35rem 0 0;
+  color: rgb(var(--muted));
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.dangerEyebrow {
+  margin: 0 !important;
+  color: rgb(185 28 28) !important;
+  font-size: 0.72rem !important;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.deleteAccountButton {
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 999px;
+  background: rgb(185 28 28);
+  color: white;
+  cursor: pointer;
+  font-weight: 800;
+  padding: 0.72rem 1rem;
+  transition: background 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.deleteAccountButton:hover,
+.deleteAccountButton:focus-visible {
+  background: rgb(153 27 27);
+  box-shadow: 0 14px 26px rgb(127 29 29 / 0.28);
+  transform: translateY(-1px);
+}
+
+.deleteAccountButton:disabled {
+  cursor: progress;
+  opacity: 0.7;
+  transform: none;
+}
+
+@media (max-width: 720px) {
+  .dangerZone {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .deleteAccountButton {
+    width: 100%;
+  }
+}

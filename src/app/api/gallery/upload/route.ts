@@ -5,6 +5,7 @@ import {
   isSupabaseAdminConfigured,
 } from "@/lib/supabase-admin";
 import { loadViewerIdFromRequest } from "@/lib/viewer";
+import { db } from "@/server/db";
 import { ensureMemberCanAct } from "@/lib/action-access";
 import {
   IMAGE_UPLOAD_EXTENSION_BY_TYPE,
@@ -77,7 +78,37 @@ export async function POST(request: Request) {
       throw new Error(error.message);
     }
 
-    return NextResponse.json({ ok: true });
+    const [{ data: signedUrlData }, profile] = await Promise.all([
+      supabaseAdmin.storage
+        .from("media")
+        .createSignedUrl(storagePath, 60 * 60 * 24 * 7, {
+          transform: {
+            quality: 78,
+          },
+        }),
+      db.profiles.findUnique({
+        where: { id: viewerId },
+        select: { username: true },
+      }),
+    ]);
+
+    return NextResponse.json({
+      ok: true,
+      item: signedUrlData?.signedUrl
+        ? {
+            id: `media-${storagePath}`,
+            title:
+              upload.name.replace(/\.[^.]+$/, "").replace(/[\-_]+/g, " ").trim() ||
+              "Untitled capture",
+            place: "BareUnity Community",
+            username: profile?.username ?? "unknown",
+            path: storagePath,
+            src: signedUrlData.signedUrl,
+            likeCount: 0,
+            likedByViewer: false,
+          }
+        : null,
+    });
   } catch (error) {
     console.error("Unable to upload gallery image", error);
     return NextResponse.json(
