@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { getActiveCacheUser, loadCachedThenRefresh, readCachedValue } from "@/lib/client-cache";
 import { sendFriendRequestToProfile } from "@/lib/friend-requests";
+import { resolveMediaUrl } from "@/lib/media-url";
 import { promptAndSubmitReport } from "@/lib/reporting";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { normalizeUsername } from "@/lib/username";
@@ -57,17 +58,6 @@ function getInitials(value: string) {
   return words.slice(0, 2).map((word) => word[0]?.toUpperCase() ?? "").join("") || "BU";
 }
 
-function resolveMediaUrl(rawUrl: string | null): string | null {
-  if (!rawUrl) return null;
-  const value = rawUrl.trim();
-  if (!value) return null;
-
-  if (value.startsWith("http")) return value;
-
-  const normalizedPath = value.startsWith("posts/") ? value : `posts/${value}`;
-  const { data } = supabase.storage.from("media").getPublicUrl(normalizedPath);
-  return data.publicUrl;
-}
 
 function toReadableDate(value: string | null): string {
   if (!value) return "Recent";
@@ -225,7 +215,7 @@ export default function MemberProfilePage() {
               <div className="flex flex-wrap items-end justify-between gap-4">
                 <div className="flex min-w-0 items-end gap-3">
                   <Avatar
-                    src={resolveMediaUrl(profile?.avatar_url ?? null) ?? undefined}
+                    src={profile?.avatar_url ?? undefined}
                     alt={displayName}
                     fallback={avatarFallback}
                     className="h-24 w-24 border-4 border-white bg-[rgb(var(--bg-soft))] text-2xl shadow-lg md:h-28 md:w-28"
@@ -299,7 +289,7 @@ export default function MemberProfilePage() {
                         <article key={post.id} className="overflow-hidden rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--card))]">
                           {post.media_url ? (
                             <Image
-                              src={resolveMediaUrl(post.media_url) ?? post.media_url}
+                              src={resolveMediaUrl(post.media_url, { defaultFolder: "posts" }) ?? post.media_url}
                               alt={post.title?.trim() || "Profile post"}
                               width={900}
                               height={680}
