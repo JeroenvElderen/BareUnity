@@ -7,7 +7,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
 import { AppSidebar } from "@/components/sidebar/sidebar";
-import { buildUserScopedCacheKey, loadCachedThenRefresh } from "@/lib/client-cache";
+import { buildUserScopedCacheKey, loadCachedThenRefresh, writeCachedValue } from "@/lib/client-cache";
 import { takePrefetchedRouteData } from "@/lib/prefetched-route-data";
 import { GALLERY_REALTIME_TABLES, subscribeToTables } from "@/lib/realtime";
 import { promptAndSubmitReport } from "@/lib/reporting";
@@ -27,6 +27,9 @@ type GalleryItem = {
 };
 
 const GALLERY_CACHE_MAX_AGE_MS = 1000 * 60 * 15;
+const GALLERY_VISIBLE_REFRESH_INTERVAL_MS = 30_000;
+const UPLOAD_RECONCILE_ATTEMPTS = 5;
+const UPLOAD_RECONCILE_DELAY_MS = 800;
 const FULLSCREEN_INSTRUCTIONS_ACK_KEY = "gallery-fullscreen-instructions-acknowledged";
 const TILE_SIZE_VARIANTS = [
   "sizeTall",
@@ -35,6 +38,26 @@ const TILE_SIZE_VARIANTS = [
   "sizeLandscape",
   "sizeWide",
 ] as const;
+
+function mergeGalleryItems(freshItems: GalleryItem[], optimisticItems: GalleryItem[] = []): GalleryItem[] {
+  const byPath = new Map<string, GalleryItem>();
+
+  optimisticItems.forEach((item) => {
+    byPath.set(item.path, item);
+  });
+
+  freshItems.forEach((item) => {
+    byPath.set(item.path, item);
+  });
+
+  return Array.from(byPath.values());
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
 
 function hashString(input: string): number {
   let hash = 0;
@@ -150,6 +173,13 @@ export default function GalleryPage() {
     setShowSwipeInstructions(!hasAcknowledgedSwipeInstructions);
   };
 
+  const writeItemsToCache = useCallback(async (nextItems: GalleryItem[]) => {
+    const { data } = await supabase.auth.getSession();
+    const userId = data.session?.user?.id ?? null;
+    const cacheKey = buildUserScopedCacheKey("gallery-items", userId);
+    writeCachedValue(cacheKey, nextItems);
+  }, []);
+
   const refreshGallery = useCallback(async () => {
     const { data } = await supabase.auth.getSession();
     const userId = data.session?.user?.id ?? null;
@@ -212,6 +242,28 @@ export default function GalleryPage() {
       },
       debounceMs: 500,
     });
+  }, [refreshGallery]);
+  
+  useEffect(() => {
+    const refreshVisibleGallery = () => {
+      if (document.visibilityState !== "visible") return;
+
+      void refreshGallery().then((nextItems) => {
+        setItems(nextItems);
+      });
+    };
+
+    const intervalId = window.setInterval(refreshVisibleGallery, GALLERY_VISIBLE_REFRESH_INTERVAL_MS);
+    window.addEventListener("focus", refreshVisibleGallery);
+    window.addEventListener("pageshow", refreshVisibleGallery);
+    document.addEventListener("visibilitychange", refreshVisibleGallery);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", refreshVisibleGallery);
+      window.removeEventListener("pageshow", refreshVisibleGallery);
+      document.removeEventListener("visibilitychange", refreshVisibleGallery);
+    };
   }, [refreshGallery]);
   
   useEffect(() => {
@@ -317,8 +369,26 @@ export default function GalleryPage() {
         throw new Error(body.error ?? "Upload failed.");
       }
 
-      const nextItems = await refreshGallery();
-      setItems(nextItems);
+      const body = (await response.json()) as { item?: GalleryItem };
+      const uploadedItem = body.item;
+
+      if (uploadedItem) {
+        setItems((current) => mergeGalleryItems(current, [uploadedItem]));
+        void writeItemsToCache(mergeGalleryItems(items, [uploadedItem]));
+      }
+
+      for (let attempt = 0; attempt < UPLOAD_RECONCILE_ATTEMPTS; attempt += 1) {
+        const nextItems = await refreshGallery();
+        const mergedItems = uploadedItem ? mergeGalleryItems(nextItems, [uploadedItem]) : nextItems;
+        setItems(mergedItems);
+        void writeItemsToCache(mergedItems);
+
+        if (!uploadedItem || nextItems.some((item) => item.path === uploadedItem.path)) {
+          break;
+        }
+
+        await sleep(UPLOAD_RECONCILE_DELAY_MS);
+      }
     } catch (error) {
       setUploadError(error instanceof Error ? error.message : "Upload failed.");
     } finally {

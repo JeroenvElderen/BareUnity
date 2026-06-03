@@ -260,7 +260,9 @@ export function AuthGate({ children }: AuthGateProps) {
     if (url === POST_LOGIN_GALLERY_ENDPOINT) {
       try {
         const payload = (await response.json()) as GallerySnapshotPayload;
-        setPrefetchedRouteData("gallery-snapshot", payload.items ?? []);
+        const items = payload.items ?? [];
+        writeCachedValue(buildUserScopedCacheKey("gallery-items"), items);
+        setPrefetchedRouteData("gallery-snapshot", items);
         prefetchGalleryImages(payload);
       } catch {
         // best-effort prefetch should not block routing

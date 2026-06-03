@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 
 import { PasswordResetModal } from "@/components/settings/password-reset-modal";
@@ -13,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   buildUserScopedCacheKey,
+  evictCachedValuesByPrefix,
   readCachedValue,
   writeCachedValue,
 } from "@/lib/client-cache";
@@ -258,6 +260,7 @@ function getStateClass(state: OptionState) {
 }
 
 export default function SettingsPage() {
+  const router = useRouter();
   const [profileSecurityCacheKey] = useState(() =>
     buildUserScopedCacheKey("settings:profile-security"),
   );
@@ -333,6 +336,9 @@ export default function SettingsPage() {
   const [verificationErrorMessage, setVerificationErrorMessage] = useState<
     string | null
   >(null);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null);
+  const [deleteAccountStatus, setDeleteAccountStatus] = useState<string | null>(null);
 
   const handleOptionVisibilityChange = async (
     sectionKey: string,
@@ -836,6 +842,56 @@ export default function SettingsPage() {
       "Recovery keys regenerated. Copy them now; they will not be shown again.",
     );
     persistProfileSecurityCache({ hasRecoveryKeys: true });
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeleteAccountError(null);
+    setDeleteAccountStatus(null);
+
+    const confirmation = window.prompt(
+      "This permanently deletes your BareUnity account, profile, posts, gallery uploads, likes, comments, and verification files. Type DELETE to confirm.",
+    );
+
+    if (confirmation !== "DELETE") {
+      setDeleteAccountError("Account deletion cancelled. Type DELETE exactly to confirm.");
+      return;
+    }
+
+    setIsDeletingAccount(true);
+
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+
+      if (!accessToken) {
+        setDeleteAccountError("Sign in again before deleting your account.");
+        return;
+      }
+
+      const response = await fetch("/api/settings/account", {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const data = (await response.json().catch(() => ({}))) as { error?: string };
+
+      if (!response.ok) {
+        setDeleteAccountError(data.error ?? "Could not delete account right now.");
+        return;
+      }
+
+      setDeleteAccountStatus("Account deleted. Signing you out...");
+      evictCachedValuesByPrefix("home-feed:");
+      evictCachedValuesByPrefix("map-spots:");
+      evictCachedValuesByPrefix("settings:profile-security:");
+      evictCachedValuesByPrefix("gallery-items:");
+      evictCachedValuesByPrefix("profile:");
+      await supabase.auth.signOut();
+      router.replace("/welcome");
+    } catch {
+      setDeleteAccountError("Something went wrong while deleting your account.");
+    } finally {
+      setIsDeletingAccount(false);
+    }
   };
 
   if (!activeSection) return null;
@@ -1406,6 +1462,34 @@ export default function SettingsPage() {
               </CardContent>
             </Card>
           </div>
+
+          <section className={styles.dangerZone} aria-labelledby="delete-account-title">
+            <div>
+              <p className={styles.dangerEyebrow}>Danger zone</p>
+              <h2 id="delete-account-title">Delete account</h2>
+              <p>
+                Permanently remove your account, profile, posts, gallery uploads,
+                comments, likes, friend connections, and verification files. This
+                cannot be undone.
+              </p>
+              {deleteAccountStatus ? (
+                <p className={styles.statusNote}>{deleteAccountStatus}</p>
+              ) : null}
+              {deleteAccountError ? (
+                <p className={styles.errorNote}>{deleteAccountError}</p>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              className={styles.deleteAccountButton}
+              onClick={() => {
+                void handleDeleteAccount();
+              }}
+              disabled={isDeletingAccount}
+            >
+              {isDeletingAccount ? "Deleting account..." : "Delete account"}
+            </button>
+          </section>
         </div>
       </section>
       <UsernameChangeModal
