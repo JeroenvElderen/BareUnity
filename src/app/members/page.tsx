@@ -37,17 +37,6 @@ function getInitials(value: string) {
   return words.slice(0, 2).map((word) => word[0]?.toUpperCase() ?? "").join("") || "BU";
 }
 
-function resolveMediaUrl(rawUrl: string | null): string | null {
-  if (!rawUrl) return null;
-  const value = rawUrl.trim();
-  if (!value) return null;
-
-  if (value.startsWith("http")) return value;
-
-  const normalizedPath = value.startsWith("posts/") ? value : `posts/${value}`;
-  const { data } = supabase.storage.from("media").getPublicUrl(normalizedPath);
-  return data.publicUrl;
-}
 
 async function getMembers(accessToken: string): Promise<MemberListItem[]> {
   const response = await fetch("/api/members", {
@@ -288,7 +277,7 @@ export default function MembersDirectoryPage() {
                       >
                         <div className="flex items-center gap-3">
                           <Avatar
-                            src={resolveMediaUrl(member.avatar_url ?? null) ?? undefined}
+                            src={member.avatar_url ?? undefined}
                             alt={displayName}
                             fallback={fallback}
                             className="h-12 w-12 border border-[rgb(var(--border))]"

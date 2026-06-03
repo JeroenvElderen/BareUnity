@@ -1,5 +1,8 @@
-import Image from "next/image";
+"use client";
 
+import { useMemo, useState } from "react";
+
+import { resolveMediaUrl } from "@/lib/media-url";
 import { cn } from "@/lib/utils";
 
 type AvatarProps = {
@@ -10,6 +13,10 @@ type AvatarProps = {
 };
 
 export function Avatar({ src, alt, fallback, className }: AvatarProps) {
+  const resolvedSrc = useMemo(() => resolveMediaUrl(src, { defaultFolder: "avatars" }), [src]);
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const shouldShowImage = Boolean(resolvedSrc && failedSrc !== resolvedSrc);
+
   return (
     <div
       className={cn(
@@ -17,14 +24,13 @@ export function Avatar({ src, alt, fallback, className }: AvatarProps) {
         className,
       )}
     >
-      {src ? (
+      {shouldShowImage ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <Image
-          src={src}
+        <img
+          src={resolvedSrc!}
           alt={alt}
-          fill
-          sizes="64px"
           className="h-full w-full object-cover"
+          onError={() => setFailedSrc(resolvedSrc)}
         />
       ) : (
         <div className="flex h-full w-full items-center justify-center bg-[rgb(var(--bg-soft))] text-sm font-semibold text-[rgb(var(--text-strong))]">
