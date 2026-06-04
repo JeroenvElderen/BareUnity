@@ -9,11 +9,12 @@ import styles from "@/components/auth/auth-page.module.css";
 import { IdRedactionUploader } from "@/components/verification/id-redaction-uploader";
 import { supabase } from "@/lib/supabase";
 
-type AccountAccess = "verified" | "viewOnly";
+type AccountAccess = "verified" | "viewOnly" | "invite";
 
 type RegisterState = {
   fullName: string;
   displayName: string;
+  username: string;
   email: string;
   password: string;
   confirmPassword: string;
@@ -21,6 +22,7 @@ type RegisterState = {
   country: string;
   membershipType: string;
   accountAccess: AccountAccess;
+  inviteCode: string;
   idType: string;
   motivation: string;
   isAdultConfirmed: boolean;
@@ -34,6 +36,7 @@ type RegisterState = {
 const initialState: RegisterState = {
   fullName: "",
   displayName: "",
+  username: "",
   email: "",
   password: "",
   confirmPassword: "",
@@ -41,6 +44,7 @@ const initialState: RegisterState = {
   country: "",
   membershipType: "",
   accountAccess: "viewOnly",
+  inviteCode: "",
   idType: "",
   motivation: "",
   isAdultConfirmed: false,
@@ -58,6 +62,7 @@ export default function RegisterPage() {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] =
     useState(false);
+  const [isInviteMode, setIsInviteMode] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -66,19 +71,46 @@ export default function RegisterPage() {
         router.replace("/");
       }
     });
+
+    const searchParams = new URLSearchParams(window.location.search);
+    const hasInviteLink = searchParams.has("invite");
+    const inviteCode = searchParams.get("invite") ?? "";
+
+    if (hasInviteLink) {
+      setIsInviteMode(true);
+      setForm((prev) => ({
+        ...prev,
+        accountAccess: "invite",
+        inviteCode: inviteCode.trim(),
+        idType: "",
+        idDocument: null,
+        isSensitiveIdDetailsHidden: false,
+        motivation: "",
+      }));
+    }
   }, [router]);
 
   const isVerifiedApplication = form.accountAccess === "verified";
-  const accountAccessLabel = isVerifiedApplication
-    ? "Verified member"
-    : "7-day Visitor Pass";
+  const isInviteRegistration = form.accountAccess === "invite";
+  const accountAccessLabel = isInviteRegistration
+    ? "Trusted partner invite"
+    : isVerifiedApplication
+      ? "Verified member"
+      : "7-day Visitor Pass";
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setStatus("");
 
-    if (form.password !== form.confirmPassword) {
+    if (!isInviteRegistration && form.password !== form.confirmPassword) {
       setStatus("Passwords do not match.");
+      return;
+    }
+
+    if (isInviteRegistration && !form.inviteCode.trim()) {
+      setStatus(
+        "Enter the invite code supplied by your trusted verification partner.",
+      );
       return;
     }
 
@@ -101,13 +133,18 @@ export default function RegisterPage() {
     try {
       const payload = new FormData();
       payload.set("fullName", form.fullName);
-      payload.set("displayName", form.displayName);
+      payload.set(
+        "displayName",
+        isInviteRegistration ? form.fullName : form.displayName,
+      );
+      payload.set("username", form.username);
       payload.set("email", form.email);
       payload.set("password", form.password);
       payload.set("dateOfBirth", form.dateOfBirth);
       payload.set("country", form.country);
       payload.set("membershipType", form.membershipType);
       payload.set("accountAccess", form.accountAccess);
+      payload.set("inviteCode", form.inviteCode);
       payload.set("idType", form.idType);
       payload.set("motivation", form.motivation);
       payload.set("isAdultConfirmed", String(form.isAdultConfirmed));
@@ -145,6 +182,128 @@ export default function RegisterPage() {
     } finally {
       setIsLoading(false);
     }
+  }
+
+  if (isInviteMode) {
+    return (
+      <main className={styles.page}>
+        <section className={styles.shell}>
+          <p className={styles.brand}>
+            <Image
+              src="/logo.png"
+              alt=""
+              width={1254}
+              height={1254}
+              className={styles.brandLogo}
+              priority
+            />
+            <span>BareUnity • Trusted partner invite</span>
+          </p>
+          <article className={styles.card}>
+            <h1 className={styles.title}>Create your verified account</h1>
+            <p className={styles.subtitle}>
+              Your trusted partner has already completed age verification. Fill
+              in only these invite details to create a verified BareUnity
+              profile.
+            </p>
+
+            <form className={styles.form} onSubmit={onSubmit}>
+              <label className={styles.field}>
+                <span className={styles.label}>Name</span>
+                <input
+                  className={styles.input}
+                  placeholder="Alex Morgan"
+                  type="text"
+                  value={form.fullName}
+                  onChange={(event) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      fullName: event.target.value,
+                    }))
+                  }
+                  required
+                />
+              </label>
+
+              <label className={styles.field}>
+                <span className={styles.label}>Username</span>
+                <input
+                  className={styles.input}
+                  placeholder="nature-alex"
+                  type="text"
+                  value={form.username}
+                  onChange={(event) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      username: event.target.value,
+                    }))
+                  }
+                  required
+                />
+              </label>
+
+              <label className={styles.field}>
+                <span className={styles.label}>Email</span>
+                <input
+                  className={styles.input}
+                  placeholder="you@example.com"
+                  type="email"
+                  value={form.email}
+                  onChange={(event) =>
+                    setForm((prev) => ({ ...prev, email: event.target.value }))
+                  }
+                  required
+                />
+              </label>
+
+              <label className={styles.field}>
+                <span className={styles.label}>Invite code</span>
+                <input
+                  className={styles.input}
+                  type="text"
+                  autoCapitalize="characters"
+                  value={form.inviteCode}
+                  onChange={(event) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      inviteCode: event.target.value,
+                    }))
+                  }
+                  placeholder="BARE-PARTNER-2026"
+                  required
+                />
+              </label>
+
+              <div className={styles.stageBanner}>
+                <strong>No BareUnity ID upload required.</strong> After the
+                invite is accepted, your profile is marked as verified
+                immediately. We will email you an invite link to finish account
+                access.
+              </div>
+
+              <button
+                className={styles.button}
+                type="submit"
+                disabled={isLoading}
+              >
+                {isLoading
+                  ? "Creating verified account..."
+                  : "Create verified account"}
+              </button>
+
+              {status ? <p className={styles.help}>{status}</p> : null}
+
+              <p className={styles.alt}>
+                Already have an account?{" "}
+                <Link className={styles.link} href="/login">
+                  Sign in
+                </Link>
+              </p>
+            </form>
+          </article>
+        </section>
+      </main>
+    );
   }
 
   return (
@@ -347,13 +506,13 @@ export default function RegisterPage() {
                 How would you like to join?
               </legend>
               <label
-                className={`${styles.choiceCard} ${!isVerifiedApplication ? styles.choiceCardActive : ""}`}
+                className={`${styles.choiceCard} ${!isVerifiedApplication && !isInviteRegistration ? styles.choiceCardActive : ""}`}
               >
                 <input
                   type="radio"
                   name="accountAccess"
                   value="viewOnly"
-                  checked={!isVerifiedApplication}
+                  checked={!isVerifiedApplication && !isInviteRegistration}
                   onChange={() =>
                     setForm((prev) => ({
                       ...prev,
@@ -362,6 +521,7 @@ export default function RegisterPage() {
                       idDocument: null,
                       isSensitiveIdDetailsHidden: false,
                       motivation: "",
+                      inviteCode: "",
                     }))
                   }
                 />
@@ -383,7 +543,11 @@ export default function RegisterPage() {
                   value="verified"
                   checked={isVerifiedApplication}
                   onChange={() =>
-                    setForm((prev) => ({ ...prev, accountAccess: "verified" }))
+                    setForm((prev) => ({
+                      ...prev,
+                      accountAccess: "verified",
+                      inviteCode: "",
+                    }))
                   }
                 />
                 <span>
