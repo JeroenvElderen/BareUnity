@@ -294,6 +294,12 @@ export default function RegisterPage() {
               {status ? <p className={styles.help}>{status}</p> : null}
 
               <p className={styles.alt}>
+                No invite code?{" "}
+                <Link className={styles.link} href="/register">
+                  Use standard registration
+                </Link>
+              </p>
+              <p className={styles.alt}>
                 Already have an account?{" "}
                 <Link className={styles.link} href="/login">
                   Sign in
@@ -753,6 +759,12 @@ export default function RegisterPage() {
 
             {status ? <p className={styles.help}>{status}</p> : null}
 
+            <p className={styles.alt}>
+              Have a trusted partner invite code?{" "}
+              <Link className={styles.link} href="/register?invite">
+                Register with invite code
+              </Link>
+            </p>
             <p className={styles.alt}>
               Already have an account?{" "}
               <Link className={styles.link} href="/login">

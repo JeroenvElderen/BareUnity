@@ -1,5 +1,6 @@
 -- Trusted partner registration invite codes
--- Apply this in Supabase SQL editor before enabling the invite-code path.
+-- Apply this whole file in the Supabase SQL editor first; it creates the
+-- registration_invite_codes table, redemption audit table, and RPC helpers.
 -- Codes are stored as SHA-256 hashes of UPPER(TRIM(code)); do not store raw invite codes.
 
 create extension if not exists pgcrypto;
@@ -113,7 +114,77 @@ grant select, insert, update on public.registration_invite_codes to service_role
 grant select, insert on public.registration_invite_code_redemptions to service_role;
 grant execute on function public.redeem_registration_invite_code(text, uuid) to service_role;
 
+-- Helper: create an invite code from a raw code in Supabase SQL editor.
+-- Send only p_raw_code to the trusted partner; this function stores only the SHA-256 hash.
+create or replace function public.create_registration_invite_code(
+  p_raw_code text,
+  p_label text,
+  p_partner_name text default null,
+  p_max_uses integer default 1,
+  p_expires_at timestamptz default now() + interval '30 days',
+  p_created_by uuid default null
+)
+returns table(id uuid, code_hash text, label text, partner_name text, max_uses integer, expires_at timestamptz)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_code_hash text;
+begin
+  if p_raw_code is null or length(trim(p_raw_code)) < 6 then
+    raise exception 'Invite code must be at least 6 characters.';
+  end if;
+
+  if p_label is null or length(trim(p_label)) = 0 then
+    raise exception 'Invite code label is required.';
+  end if;
+
+  if p_max_uses is null or p_max_uses <= 0 then
+    raise exception 'Invite code max uses must be greater than zero.';
+  end if;
+
+  v_code_hash := encode(digest(upper(trim(p_raw_code)), 'sha256'), 'hex');
+
+  return query
+  insert into public.registration_invite_codes (
+    code_hash,
+    label,
+    partner_name,
+    max_uses,
+    expires_at,
+    created_by
+  ) values (
+    v_code_hash,
+    trim(p_label),
+    nullif(trim(coalesce(p_partner_name, '')), ''),
+    p_max_uses,
+    p_expires_at,
+    p_created_by
+  )
+  returning
+    registration_invite_codes.id,
+    registration_invite_codes.code_hash,
+    registration_invite_codes.label,
+    registration_invite_codes.partner_name,
+    registration_invite_codes.max_uses,
+    registration_invite_codes.expires_at;
+end;
+$$;
+
+revoke execute on function public.create_registration_invite_code(text, text, text, integer, timestamptz, uuid) from anon, authenticated;
+grant execute on function public.create_registration_invite_code(text, text, text, integer, timestamptz, uuid) to service_role;
+
 -- Example: create a single-use invite code. Send only the raw code to the partner.
+-- select * from public.create_registration_invite_code(
+--   p_raw_code := 'BARE-PARTNER-2026',
+--   p_label := 'Partner 2026 pilot',
+--   p_partner_name := 'Trusted verification partner name',
+--   p_max_uses := 1,
+--   p_expires_at := now() + interval '30 days'
+-- );
+--
+-- Equivalent direct insert if you do not want to use the helper function:
 -- insert into public.registration_invite_codes (code_hash, label, partner_name, max_uses, expires_at)
 -- values (
 --   encode(digest(upper(trim('BARE-PARTNER-2026')), 'sha256'), 'hex'),
