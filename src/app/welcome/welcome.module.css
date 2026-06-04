@@ -91,6 +91,7 @@
 }
 
 .primaryAction,
+.inviteAction,
 .secondaryAction {
   min-height: 46px;
   border-radius: 12px;
@@ -103,6 +104,7 @@
 }
 
 .primaryAction:hover,
+.inviteAction:hover,
 .secondaryAction:hover {
   transform: translateY(-1px);
 }
@@ -110,6 +112,12 @@
 .primaryAction {
   background: linear-gradient(135deg, rgb(var(--accent)), rgb(var(--accent-soft)));
   color: rgb(var(--text));
+}
+
+.inviteAction {
+  border: 1px solid rgb(var(--brand) / 0.55);
+  background: linear-gradient(135deg, rgb(var(--brand) / 0.14), rgb(var(--accent-soft) / 0.2));
+  color: rgb(var(--text-strong));
 }
 
 .secondaryAction {
@@ -128,6 +136,12 @@
 @media (min-width: 560px) {
   .actions {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 760px) {
+  .actions {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 

@@ -90,6 +90,29 @@ function isInviteCodeActive(row: InviteCodeRow | null) {
   return row.uses_count < row.max_uses;
 }
 
+function getSupabaseErrorCode(error: unknown) {
+  if (!error || typeof error !== "object") return "";
+  const code = (error as { code?: unknown }).code;
+  return typeof code === "string" ? code : "";
+}
+
+function getInviteCodeSetupError(error: unknown) {
+  const code = getSupabaseErrorCode(error);
+
+  if (
+    ["42P01", "42883", "PGRST106", "PGRST200", "PGRST202", "PGRST205"]
+      .includes(code)
+  ) {
+    return (
+      "Invite-code tables are not installed yet. " +
+      "Run supabase-registration-invite-codes.sql in the Supabase SQL editor, " +
+      "then create a code with public.create_registration_invite_code(...)."
+    );
+  }
+
+  return null;
+}
+
 function createDocumentFingerprint(buffer: Buffer) {
   const pepper = process.env.VERIFICATION_DOCUMENT_HASH_PEPPER;
 
@@ -417,9 +440,13 @@ export async function POST(req: Request) {
       .maybeSingle<InviteCodeRow>();
 
     if (inviteLookupError) {
+      const setupError = getInviteCodeSetupError(inviteLookupError);
+
       return NextResponse.json(
         {
-          error: `Could not validate invite code: ${inviteLookupError.message}`,
+          error:
+            setupError ??
+            `Could not validate invite code: ${inviteLookupError.message}`,
         },
         { status: 500 },
       );
@@ -619,15 +646,19 @@ export async function POST(req: Request) {
 
     if (redemptionError || redemptionResult?.ok !== true) {
       await supabaseAdmin.auth.admin.deleteUser(userId);
+      const setupError = redemptionError
+        ? getInviteCodeSetupError(redemptionError)
+        : null;
 
       return NextResponse.json(
         {
           error:
+            setupError ??
             redemptionError?.message ??
             redemptionResult?.error ??
             "This invite code could not be redeemed.",
         },
-        { status: 400 },
+        { status: setupError ? 500 : 400 },
       );
     }
   }

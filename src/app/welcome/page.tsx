@@ -45,11 +45,17 @@ export default function WelcomePage() {
             <Link href="/register" className={styles.primaryAction}>
               Join now
             </Link>
+            <Link href="/register?invite" className={styles.inviteAction}>
+              Register with invite code
+            </Link>
             <Link href="/login" className={styles.secondaryAction}>
               Login
             </Link>
           </div>
-          <p className={styles.note}>Your boundaries and privacy stay in your control.</p>
+          <p className={styles.note}>
+            Have a trusted partner code? Use the invite-code form to get
+            verified immediately after the code is accepted.
+          </p>
           <p className={styles.policyLinks}>
             <Link href="/policies">Privacy, Terms, Safety & Legal Policies</Link>
           </p>
