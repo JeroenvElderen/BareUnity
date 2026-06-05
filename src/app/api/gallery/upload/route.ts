@@ -4,6 +4,7 @@ import {
   createSupabaseAdminClient,
   isSupabaseAdminConfigured,
 } from "@/lib/supabase-admin";
+import { ensureUserMediaStorage } from "@/lib/storage-buckets";
 import { loadViewerIdFromRequest } from "@/lib/viewer";
 import { db } from "@/server/db";
 import { ensureMemberCanAct } from "@/lib/action-access";
@@ -65,10 +66,11 @@ export async function POST(request: Request) {
       throw error;
     }
 
-    const storagePath = `gallery/${viewerId}/${Date.now()}-${crypto.randomUUID()}.${validatedUpload.extension}`;
     const supabaseAdmin = createSupabaseAdminClient();
+    const userMediaStorage = await ensureUserMediaStorage({ supabaseAdmin, userId: viewerId });
+    const storagePath = `${userMediaStorage.galleryFolder}/${Date.now()}-${crypto.randomUUID()}.${validatedUpload.extension}`;
     const { error } = await supabaseAdmin.storage
-      .from("media")
+      .from(userMediaStorage.bucketId)
       .upload(storagePath, validatedUpload.buffer, {
         contentType: validatedUpload.contentType,
         upsert: false,
@@ -80,7 +82,7 @@ export async function POST(request: Request) {
 
     const [{ data: signedUrlData }, profile] = await Promise.all([
       supabaseAdmin.storage
-        .from("media")
+        .from(userMediaStorage.bucketId)
         .createSignedUrl(storagePath, 60 * 60 * 24 * 7, {
           transform: {
             quality: 78,

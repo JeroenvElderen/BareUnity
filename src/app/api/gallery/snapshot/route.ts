@@ -34,6 +34,7 @@ type SupabaseListEntry = {
 };
 
 const IMAGE_EXTENSION_PATTERN = /\.(avif|webp|jpe?g|png|gif)$/i;
+const GALLERY_VISIBLE_MEDIA_DIRECTORIES = ["gallery", "posts"] as const;
 
 function toStoragePath(pathOrUrl: string): string {
   const value = pathOrUrl.trim();
@@ -71,9 +72,11 @@ function humanizeFileName(path: string): string {
   return withoutExtension.replace(/[\-_]+/g, " ").trim() || "Untitled capture";
 }
 
-async function listAllMediaObjects(): Promise<SupabaseListEntry[]> {
+async function listMediaObjectsInDirectories(
+  directories: readonly string[],
+): Promise<SupabaseListEntry[]> {
   const supabaseAdmin = createSupabaseAdminClient();
-  const queue = [""];
+  const queue = [...directories];
   const files: SupabaseListEntry[] = [];
 
   while (queue.length > 0) {
@@ -119,7 +122,7 @@ async function listAllMediaObjects(): Promise<SupabaseListEntry[]> {
 
 async function buildGalleryFromStorage(): Promise<GalleryStorageItem[]> {
   const [objects, storyRows] = await Promise.all([
-    listAllMediaObjects(),
+    listMediaObjectsInDirectories(GALLERY_VISIBLE_MEDIA_DIRECTORIES),
     db.posts.findMany({
       where: { post_type: "story", media_url: { not: null } },
       select: { media_url: true },

@@ -12,6 +12,7 @@ import {
   getHomeFeedSourceVersion,
 } from "@/lib/homefeed-server";
 import { readServerCache, writeServerCache } from "@/lib/server-user-cache";
+import { ensureUserMediaStorage } from "@/lib/storage-buckets";
 import { ensureMemberCanAct } from "@/lib/action-access";
 import { UploadValidationError, validateImageBuffer } from "@/lib/upload-security";
 
@@ -41,11 +42,14 @@ async function uploadMediaDataUrl(args: {
     contentType: mimeType,
     maxBytes: MAX_HOMEFEED_IMAGE_BYTES,
   });
-  const fileName = `${args.viewerId}/${args.kind}-${Date.now()}-${crypto.randomUUID()}.${extension}`;
-  const storagePath = `posts/${fileName}`;
   const supabaseAdmin = createSupabaseAdminClient();
+  const userMediaStorage = await ensureUserMediaStorage({
+    supabaseAdmin,
+    userId: args.viewerId,
+  });
+  const storagePath = `${userMediaStorage.postsFolder}/${args.kind}-${Date.now()}-${crypto.randomUUID()}.${extension}`;
   const { error } = await supabaseAdmin.storage
-    .from("media")
+    .from(userMediaStorage.bucketId)
     .upload(storagePath, buffer, {
       contentType,
       upsert: false,
@@ -58,7 +62,7 @@ async function uploadMediaDataUrl(args: {
   }
 
   const { data } = supabaseAdmin.storage
-    .from("media")
+    .from(userMediaStorage.bucketId)
     .getPublicUrl(storagePath);
   return data.publicUrl;
 }
