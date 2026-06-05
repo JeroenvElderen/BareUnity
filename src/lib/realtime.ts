@@ -46,7 +46,7 @@ export function subscribeToTables(args: SubscribeToTablesArgs): TeardownRealtime
   };
 }
 
-export const HOME_FEED_REALTIME_TABLES = ["posts", "comments", "friendships", "profiles"] as const;
-export const PROFILE_REALTIME_TABLES = ["profiles", "posts", "comments", "friendships", "interests"] as const;
+export const HOME_FEED_REALTIME_TABLES = ["posts", "comments", "profiles"] as const;
+export const PROFILE_REALTIME_TABLES = ["profiles", "posts", "comments", "interests"] as const;
 export const GALLERY_REALTIME_TABLES = ["posts", "gallery_image_likes", "profiles"] as const;
-export const MEMBERS_REALTIME_TABLES = ["profiles", "friendships", "friend_requests"] as const;
+export const MEMBERS_REALTIME_TABLES = ["profiles"] as const;

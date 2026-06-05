@@ -5,7 +5,7 @@ import { isPlatformAdminEmail } from "@/lib/platform-admin";
 import { db } from "@/server/db";
 
 export const VIEW_ONLY_ACTION_ERROR =
-  "Your Visitor Pass lets you browse and preview BareUnity, but posting, messaging, friend requests, check-ins, and submissions require ID verification.";
+  "Your Visitor Pass lets you browse and preview BareUnity, but posting, check-ins, and submissions require ID verification.";
 
 export const PROFILE_UPDATE_VISITOR_ERROR =
   "Your Visitor Pass lets you browse and preview BareUnity, but profile editing requires invite or ID verification.";

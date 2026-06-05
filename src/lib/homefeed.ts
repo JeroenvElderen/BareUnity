@@ -10,13 +10,6 @@ export type HomeFeedStory = {
   createdAt: string;
 };
 
-export type HomeFeedFriend = {
-  id: string;
-  name: string;
-  fallback: string;
-  status: "Online" | "Offline";
-};
-
 export type HomeFeedPost = {
   id: string;
   author: string;
@@ -44,7 +37,6 @@ export type HomeFeedComment = {
 
 export type HomeFeedPayload = {
   stories: HomeFeedStory[];
-  friends: HomeFeedFriend[];
   posts: HomeFeedPost[];
   viewerId: string | null;
 };

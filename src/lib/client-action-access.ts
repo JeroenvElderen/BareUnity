@@ -2,7 +2,7 @@ import { isPlatformAdminEmail } from "@/lib/platform-admin";
 import { supabase } from "@/lib/supabase";
 
 export const VIEW_ONLY_ACTION_MESSAGE =
-  "Your Visitor Pass lets you browse and preview BareUnity, but posting, messaging, friend requests, check-ins, and submissions require ID verification.";
+  "Your Visitor Pass lets you browse and preview BareUnity, but posting, check-ins, and submissions require ID verification.";
 
 type ActionSettingsRow = {
   onboarding_completed: boolean | null;

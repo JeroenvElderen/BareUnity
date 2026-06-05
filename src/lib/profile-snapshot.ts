@@ -10,7 +10,7 @@ import { db } from "@/server/db";
 
 type VisibilityContext = {
   isOwner: boolean;
-  isFriend: boolean;
+  isMember: boolean;
 };
 
 function normalizeStoredOptionStates(value: unknown) {
@@ -24,7 +24,7 @@ function canViewState(
   const level = state ?? "Everyone";
   if (context.isOwner) return true;
   if (level === "Everyone") return true;
-  if (level === "Friends only") return context.isFriend;
+  if (level === "Members only") return context.isMember;
   return false;
 }
 
@@ -33,19 +33,7 @@ async function getViewerContext(
   viewerId?: string | null,
 ): Promise<VisibilityContext> {
   const isOwner = Boolean(viewerId && viewerId === targetUserId);
-  if (!viewerId || isOwner) return { isOwner, isFriend: false };
-
-  const friendship = await db.friendships.findFirst({
-    where: {
-      OR: [
-        { user_id: viewerId, friend_user_id: targetUserId },
-        { user_id: targetUserId, friend_user_id: viewerId },
-      ],
-    },
-    select: { id: true },
-  });
-
-  return { isOwner, isFriend: Boolean(friendship) };
+  return { isOwner, isMember: Boolean(viewerId) };
 }
 
 export type ProfileSnapshotProfile = {
@@ -70,14 +58,14 @@ export type ProfileSnapshotPayload = {
   profile: ProfileSnapshotProfile | null;
   posts: ProfileSnapshotPost[];
   interests: string[];
-  stats: { posts: number; friends: number; comments: number };
+  stats: { posts: number; comments: number };
 };
 
 export const EMPTY_PROFILE_SNAPSHOT: ProfileSnapshotPayload = {
   profile: null,
   posts: [],
   interests: [],
-  stats: { posts: 0, friends: 0, comments: 0 },
+  stats: { posts: 0, comments: 0 },
 };
 
 export async function buildProfileSnapshotPayload(
@@ -103,7 +91,6 @@ export async function buildProfileSnapshotPayload(
     posts,
     settings,
     postsCount,
-    friendships,
     commentsCount,
   ] = await Promise.all([
     getViewerContext(profile.id, viewerId),
@@ -130,15 +117,6 @@ export async function buildProfileSnapshotPayload(
         OR: [{ post_type: null }, { post_type: { not: "story" } }],
       },
     }),
-    db.friendships.findMany({
-      where: {
-        OR: [{ user_id: profile.id }, { friend_user_id: profile.id }],
-      },
-      select: {
-        user_id: true,
-        friend_user_id: true,
-      },
-    }),
     db.comments.count({
       where: { author_id: profile.id },
     }),
@@ -162,16 +140,6 @@ export async function buildProfileSnapshotPayload(
     viewerContext,
   );
 
-  const uniqueFriendIds = new Set(
-    friendships
-      .map((friendship) =>
-        friendship.user_id === profile.id
-          ? friendship.friend_user_id
-          : friendship.user_id,
-      )
-      .filter(Boolean),
-  );
-
   return {
     profile: {
       ...profile,
@@ -185,7 +153,6 @@ export async function buildProfileSnapshotPayload(
     interests: (settings?.interests ?? []).slice(0, 8),
     stats: {
       posts: postsCount,
-      friends: uniqueFriendIds.size,
       comments: commentsCount,
     },
   };
@@ -194,7 +161,7 @@ export async function buildProfileSnapshotPayload(
 export async function getProfileSnapshotSourceVersion(
   userId: string,
 ): Promise<string> {
-  const [profile, latestPost, latestFriendship, latestComment, settings] =
+  const [profile, latestPost, latestComment, settings] =
     await Promise.all([
       db.profiles.findUnique({
         where: { id: userId },
@@ -215,13 +182,6 @@ export async function getProfileSnapshotSourceVersion(
         orderBy: { created_at: "desc" },
         select: { id: true, created_at: true },
       }),
-      db.friendships.findFirst({
-        where: {
-          OR: [{ user_id: userId }, { friend_user_id: userId }],
-        },
-        orderBy: { created_at: "desc" },
-        select: { id: true, created_at: true },
-      }),
       db.comments.findFirst({
         where: { author_id: userId },
         orderBy: { created_at: "desc" },
@@ -234,9 +194,6 @@ export async function getProfileSnapshotSourceVersion(
     profile,
     latestPostId: latestPost?.id ?? null,
     latestPostCreatedAt: latestPost?.created_at?.toISOString() ?? null,
-    latestFriendshipId: latestFriendship?.id ?? null,
-    latestFriendshipCreatedAt:
-      latestFriendship?.created_at?.toISOString() ?? null,
     latestCommentId: latestComment?.id ?? null,
     latestCommentCreatedAt: latestComment?.created_at?.toISOString() ?? null,
     settingsUpdatedAt: settings?.updated_at?.toISOString() ?? null,

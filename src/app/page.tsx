@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buildUserScopedCacheKey, hasFreshCachedValue, readCachedValue, writeCachedValue } from "@/lib/client-cache";
-import type { HomeFeedComment, HomeFeedFriend, HomeFeedPayload, HomeFeedPost, HomeFeedStory } from "@/lib/homefeed";
+import type { HomeFeedComment, HomeFeedPayload, HomeFeedPost, HomeFeedStory } from "@/lib/homefeed";
 import { sanitizeImageUpload } from "@/lib/image";
 import { HOME_FEED_REALTIME_TABLES, subscribeToTables } from "@/lib/realtime";
 import { promptAndSubmitReport, type ReportTargetType } from "@/lib/reporting";
@@ -24,7 +24,6 @@ import styles from "./page.module.css";
 
 const defaultFeed: HomeFeedPayload = {
   stories: [],
-  friends: [],
   posts: [],
   viewerId: null,
 };
@@ -34,7 +33,6 @@ function normalizeFeedPayload(payload: HomeFeedPayload | null | undefined): Home
   return {
     ...source,
     stories: Array.isArray(source.stories) ? source.stories : [],
-    friends: Array.isArray(source.friends) ? source.friends : [],
     posts: Array.isArray(source.posts)
       ? source.posts.map((post) => ({
           ...post,
@@ -448,7 +446,6 @@ export default function HomePage() {
   const activePost = activePostId ? feed.posts.find((post) => post.id === activePostId) ?? null : null;
   const posts = feed.posts;
   const stories: HomeFeedStory[] = feed.stories;
-  const friends: HomeFeedFriend[] = feed.friends;
   const groupedStories = useMemo(() => {
     const grouped = new Map<string, HomeFeedStory[]>();
     stories.forEach((story) => {
@@ -611,7 +608,7 @@ export default function HomePage() {
     const visitorPrefix = visitorTrialStatus?.isActive
       ? `Your Visitor Pass has ${visitorTrialStatus.daysRemaining} day${visitorTrialStatus.daysRemaining === 1 ? "" : "s"} left for browsing and previewing.`
       : "Visitor and pending accounts can browse BareUnity.";
-    setReportStatus(`${visitorPrefix} Verify with ID to post, comment, message, send friend requests, check in, or submit places.`);
+    setReportStatus(`${visitorPrefix} Verify with ID to post, comment, comment, check in, or submit places.`);
     window.setTimeout(() => setReportStatus(""), 6500);
   };
 
@@ -905,30 +902,6 @@ export default function HomePage() {
                 </Card>
               )})}
             </div>
-
-            <aside className="hidden space-y-4 min-[1100px]:block">
-              <Card className="border-0 bg-[rgb(var(--bg-soft))]">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm uppercase tracking-[0.12em] text-[rgb(var(--muted))]">Friends</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {friends.map((friend) => (
-                    <div key={friend.id} className="flex items-center justify-between rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] px-3 py-2">
-                      <div className="flex items-center gap-2">
-                        <Avatar alt={friend.name} fallback={friend.fallback} className="h-10 w-10" />
-                        <div>
-                          <p className="text-sm font-semibold text-[rgb(var(--text-strong))]">{friend.name}</p>
-                        </div>
-                      </div>
-                      <span
-                        className={`h-2.5 w-2.5 rounded-full ${friend.status === "Online" ? "bg-emerald-500" : "bg-rose-400"}`}
-                      />
-                    </div>
-                  ))}
-                  {friends.length === 0 && <p className="text-sm text-[rgb(var(--muted))]">No friends added yet.</p>}
-                </CardContent>
-              </Card>
-            </aside>
           </div>
         </div>
       </section>

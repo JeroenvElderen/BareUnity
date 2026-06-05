@@ -613,8 +613,8 @@ export default function RegisterPage() {
                   <strong>7-day Visitor Pass</strong>
                   <small>
                     No ID upload is needed. Browse and preview the community for
-                    7 days; posting, messaging, friend requests, check-ins, and
-                    submissions stay locked until ID verification.
+                    7 days; posting, check-ins, and submissions stay locked until
+                    ID verification.
                   </small>
                 </span>
               </label>
@@ -638,7 +638,7 @@ export default function RegisterPage() {
                   <strong>Verified with ID</strong>
                   <small>
                     Upload a government ID to unlock full member participation:
-                    post, comment, like, message, request friendships, check in,
+                    post, comment, like, check in,
                     and submit places once verification is complete.
                   </small>
                 </span>
@@ -756,7 +756,7 @@ export default function RegisterPage() {
               <div className={styles.stageBanner}>
                 <strong>View-only account selected.</strong> You will be able to
                 browse the community after signing in, but posting, comments,
-                likes, messages, check-ins, friend requests, and place
+                likes, check-ins, and place
                 submissions stay locked until you complete ID verification.
               </div>
             )}

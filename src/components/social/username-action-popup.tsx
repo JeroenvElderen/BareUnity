@@ -5,7 +5,6 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
-import { sendFriendRequestToProfile } from "@/lib/friend-requests";
 import { promptAndSubmitReport } from "@/lib/reporting";
 import { supabase } from "@/lib/supabase";
 
@@ -41,7 +40,6 @@ export function UsernameActionPopup({
   const [viewerId, setViewerId] = useState<string | null>(null);
   const [viewerUsername, setViewerUsername] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
-  const [isSending, setIsSending] = useState(false);
   const [isReporting, setIsReporting] = useState(false);
 
   useEffect(() => {
@@ -131,13 +129,6 @@ export function UsernameActionPopup({
     }
   };
 
-  const sendRequest = async () => {
-    setIsSending(true);
-    const result = await sendFriendRequestToProfile({ id: userId, username });
-    setStatus(result.message);
-    setIsSending(false);
-  };
-
   const reportUser = async () => {
     setIsReporting(true);
     const result = await promptAndSubmitReport({ targetType: "user", targetId: userId, label: "member" });
@@ -160,15 +151,6 @@ export function UsernameActionPopup({
         role="menuitem"
       >
         {isSelf ? "Open my profile" : "View profile"}
-      </button>
-      <button
-        type="button"
-        disabled={isSending || isSelf}
-        className="mt-1 w-full rounded-md px-2 py-1.5 text-left text-sm hover:bg-[rgb(var(--bg-soft))] disabled:cursor-not-allowed disabled:opacity-60"
-        onClick={() => void sendRequest()}
-        role="menuitem"
-      >
-        {isSelf ? "Send friend request (disabled)" : isSending ? "Sending request..." : "Send friend request"}
       </button>
       <button
         type="button"

@@ -1,4 +1,4 @@
-export type OptionState = "No-one" | "Friends only" | "Everyone";
+export type OptionState = "No-one" | "Members only" | "Everyone";
 
 export const SETTING_OPTION_DEFAULTS: Record<string, OptionState> = {
   "privacy.Profile visibility": "Everyone",
@@ -18,10 +18,11 @@ export function normalizeSettingOptionStates(value: unknown) {
 
     if (
       state === "No-one" ||
+      state === "Members only" ||
       state === "Friends only" ||
       state === "Everyone"
     ) {
-      states[key] = state;
+      states[key] = state === "Friends only" ? "Members only" : state;
     }
   }
 

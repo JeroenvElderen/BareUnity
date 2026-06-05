@@ -152,6 +152,8 @@ export async function deleteAccountCompletely(userId: string) {
   const optionalTables = await loadExistingPublicTables([
     "dm_messages",
     "dm_conversations",
+    "friend_requests",
+    "friendships",
     "feedback_messages",
     "registration_invite_code_redemptions",
     "registration_invite_codes",
@@ -200,14 +202,22 @@ export async function deleteAccountCompletely(userId: string) {
       where user_id = ${userId}::uuid
         or post_id in (select id from public.posts where author_id = ${userId}::uuid)
     `),
-    db.$executeRaw(Prisma.sql`
-      delete from public.friend_requests
-      where sender_id = ${userId}::uuid or receiver_id = ${userId}::uuid
-    `),
-    db.$executeRaw(Prisma.sql`
-      delete from public.friendships
-      where user_id = ${userId}::uuid or friend_user_id = ${userId}::uuid
-    `),
+    ...(optionalTables.has("friend_requests")
+      ? [
+          db.$executeRaw(Prisma.sql`
+            delete from public.friend_requests
+            where sender_id = ${userId}::uuid or receiver_id = ${userId}::uuid
+          `),
+        ]
+      : []),
+    ...(optionalTables.has("friendships")
+      ? [
+          db.$executeRaw(Prisma.sql`
+            delete from public.friendships
+            where user_id = ${userId}::uuid or friend_user_id = ${userId}::uuid
+          `),
+        ]
+      : []),
     db.$executeRaw(Prisma.sql`
       delete from public.channel_messages where author_id = ${userId}::uuid
     `),

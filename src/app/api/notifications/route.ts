@@ -15,7 +15,6 @@ type NotificationType =
   | "gallery-like"
   | "general-message"
   | "map-entry"
-  | "friend-request"
   | "admin-report"
   | "admin-registration"
   | "admin-feedback"
@@ -49,11 +48,6 @@ type GalleryLikeRow = {
   image_path: string;
   created_at: Date;
   actor_name: string | null;
-};
-type FriendRequestRow = {
-  id: string;
-  created_at: Date;
-  sender_username: string | null;
 };
 type GeneralMessageRow = {
   id: string;
@@ -171,20 +165,6 @@ export async function GET(request: Request) {
         and (gil.image_path like ${`gallery/${viewerId}/%`} or gil.image_path like ${`%/gallery/${viewerId}/%`})
         and gil.created_at >= ${notificationSince}
       order by gil.created_at desc
-      limit ${MAX_NOTIFICATIONS}
-    `,
-    )
-    .catch(() => []);
-
-  const friendRequests = await db
-    .$queryRaw<Array<FriendRequestRow>>(
-      Prisma.sql`
-      select id, created_at, sender_username
-      from public.friend_requests
-      where receiver_id = ${viewerId}::uuid
-        and status = 'pending'
-        and created_at >= ${notificationSince}
-      order by created_at desc
       limit ${MAX_NOTIFICATIONS}
     `,
     )
@@ -367,15 +347,6 @@ export async function GET(request: Request) {
       type: "gallery-like" as const,
       unread: true,
       targetHref: `/gallery?imagePath=${encodeURIComponent(row.image_path)}`,
-    })),
-    ...friendRequests.map((row) => ({
-      id: `friend-request-${row.id}`,
-      title: "New friend request",
-      detail: `${resolveActorName(row.sender_username, "Someone")} sent you a friend request.`,
-      timestamp: toIso(row.created_at),
-      type: "friend-request" as const,
-      unread: true,
-      targetHref: "/members",
     })),
     ...generalMessages.map((row) => ({
       id: `general-message-${row.id}`,

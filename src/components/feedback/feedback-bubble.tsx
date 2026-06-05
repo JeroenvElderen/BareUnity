@@ -3,7 +3,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Bug, HelpCircle, Lightbulb, MessageCircle, MoreHorizontal, Send, Sparkles, X } from "lucide-react";
 
-import { MessagesPanelContent } from "@/components/messages/messages-overlay";
 import { supabase } from "@/lib/supabase";
 import styles from "./feedback-bubble.module.css";
 
@@ -15,12 +14,10 @@ const categories = [
 ] as const;
 
 type FeedbackState = "idle" | "sending" | "sent" | "error";
-type PopupTab = "feedback" | "messages";
 
 export function FeedbackBubble() {
   const [isOpen, setIsOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [activeTab, setActiveTab] = useState<PopupTab>("messages");
   const [category, setCategory] = useState<(typeof categories)[number]["value"]>("idea");
   const [message, setMessage] = useState("");
   const [status, setStatus] = useState<FeedbackState>("idle");
@@ -92,7 +89,7 @@ export function FeedbackBubble() {
   return (
     <div className={styles.wrapper}>
       {isOpen ? (
-        <section className={styles.panel} data-active-tab={activeTab} aria-labelledby="contact-popup-title">
+        <section className={styles.panel} aria-labelledby="contact-popup-title">
           <div className={styles.glow} aria-hidden="true" />
           <div className={styles.header}>
             <div className={styles.titleBlock}>
@@ -100,39 +97,15 @@ export function FeedbackBubble() {
                 <Sparkles size={14} />
                 Community desk
               </span>
-              <h2 id="contact-popup-title">Feedback & chats</h2>
+              <h2 id="contact-popup-title">Feedback</h2>
             </div>
             <button className={styles.iconButton} type="button" aria-label="Close contact popup" onClick={() => setIsOpen(false)}>
               <X size={18} />
             </button>
           </div>
 
-          <div className={styles.tabs} role="tablist" aria-label="Contact popup sections">
-            <button
-              className={styles.tabButton}
-              type="button"
-              role="tab"
-              aria-selected={activeTab === "messages"}
-              aria-controls="messages-panel"
-              onClick={() => setActiveTab("messages")}
-            >
-              Chats
-            </button>
-            <button
-              className={styles.tabButton}
-              type="button"
-              role="tab"
-              aria-selected={activeTab === "feedback"}
-              aria-controls="feedback-panel"
-              onClick={() => setActiveTab("feedback")}
-            >
-              Feedback
-            </button>
-            
-          </div>
 
-          {activeTab === "feedback" ? (
-            <form id="feedback-panel" className={styles.form} role="tabpanel" onSubmit={submitFeedback}>
+          <form id="feedback-panel" className={styles.form} onSubmit={submitFeedback}>
               <fieldset className={styles.topicGroup}>
                 <legend>Choose a topic</legend>
                 <div className={styles.topicGrid}>
@@ -183,12 +156,7 @@ export function FeedbackBubble() {
 
               {status === "sent" ? <p className={styles.success}>Thanks — your feedback was sent to the admin panel.</p> : null}
               {status === "error" ? <p className={styles.error}>{error}</p> : null}
-            </form>
-          ) : (
-            <div id="messages-panel" className={styles.messagesPanel} role="tabpanel">
-              <MessagesPanelContent />
-            </div>
-          )}
+          </form>
         </section>
       ) : null}
 
@@ -204,7 +172,7 @@ export function FeedbackBubble() {
         }}
       >
         <MessageCircle size={22} />
-        <span>Feedback & messages</span>
+        <span>Feedback</span>
       </button>
     </div>
   );

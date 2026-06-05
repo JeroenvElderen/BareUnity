@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { getActiveCacheUser, loadCachedThenRefresh, readCachedValue } from "@/lib/client-cache";
 import { PROFILE_REALTIME_TABLES, subscribeToTables } from "@/lib/realtime";
-import { subscribeToSocialGraphUpdates } from "@/lib/social-graph-events";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import layoutStyles from "../page.module.css";
 
@@ -37,9 +36,8 @@ type PostRow = {
 type ProfileData = {
   profile: ProfileRow | null;
   posts: PostRow[];
-  friends: Array<{ id: string; username: string }>;
   interests: string[];
-  stats: { posts: number; friends: number; comments: number };
+  stats: { posts: number; comments: number };
 };
 
 type EditableProfileFields = {
@@ -52,9 +50,8 @@ type EditableProfileFields = {
 const EMPTY_PROFILE_DATA: ProfileData = {
   profile: null,
   posts: [],
-  friends: [],
   interests: [],
-  stats: { posts: 0, friends: 0, comments: 0 },
+  stats: { posts: 0, comments: 0 },
 };
 const PROFILE_CACHE_MAX_AGE_MS = 1000 * 60 * 3;
 const DEFAULT_PROFILE_BIO = "Nature-first connection, consent-forward gatherings, and calm community rituals.";
@@ -158,7 +155,7 @@ function toReadableDate(value: string | null): string {
 }
 
 async function getProfileDataForUser(userId: string): Promise<ProfileData> {
-  const [profileResult, postsResult, friendsResult, settingsResult, postsCountResult, friendsCountResult, commentsCountResult] = await Promise.all([
+  const [profileResult, postsResult, settingsResult, postsCountResult, commentsCountResult] = await Promise.all([
     supabase
       .from("profiles")
       .select("id, username, display_name, bio, avatar_url, location")
@@ -172,12 +169,6 @@ async function getProfileDataForUser(userId: string): Promise<ProfileData> {
       .order("created_at", { ascending: false })
       .limit(30),
     supabase
-      .from("friendships")
-      .select("id, friend_user_id, friend_username")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(30),
-    supabase
       .from("profile_settings")
       .select("interests")
       .eq("user_id", userId)
@@ -188,10 +179,6 @@ async function getProfileDataForUser(userId: string): Promise<ProfileData> {
       .eq("author_id", userId)
       .or("post_type.is.null,post_type.neq.story"),
     supabase
-      .from("friendships")
-      .select("friend_user_id")
-      .eq("user_id", userId),
-    supabase
       .from("comments")
       .select("id", { count: "exact", head: true })
       .eq("author_id", userId),
@@ -199,37 +186,16 @@ async function getProfileDataForUser(userId: string): Promise<ProfileData> {
 
   if (profileResult.error) throw profileResult.error;
   if (postsResult.error) throw postsResult.error;
-  if (friendsResult.error) throw friendsResult.error;
   if (settingsResult.error) throw settingsResult.error;
   if (postsCountResult.error) throw postsCountResult.error;
-  if (friendsCountResult.error) throw friendsCountResult.error;
   if (commentsCountResult.error) throw commentsCountResult.error;
-
-  const friendsById = new Map<string, { id: string; username: string }>();
-
-  for (const friend of friendsResult.data ?? []) {
-    if (!friend.friend_user_id || friendsById.has(friend.friend_user_id)) {
-      continue;
-    }
-
-    friendsById.set(friend.friend_user_id, {
-      id: friend.friend_user_id,
-      username: friend.friend_username ?? "member",
-    });
-  }
-
-  const uniqueFriendIds = new Set(
-    (friendsCountResult.data ?? []).map((friendship) => friendship.friend_user_id).filter((friendId): friendId is string => Boolean(friendId)),
-  );
 
   return {
     profile: profileResult.data ?? null,
     posts: (postsResult.data ?? []) as PostRow[],
-    friends: Array.from(friendsById.values()),
     interests: (settingsResult.data?.interests ?? []).slice(0, 8),
     stats: {
       posts: postsCountResult.count ?? 0,
-      friends: uniqueFriendIds.size,
       comments: commentsCountResult.count ?? 0,
     },
   };
@@ -239,7 +205,7 @@ export default function ProfilePage() {
   const [profileData, setProfileData] = useState<ProfileData>(() => {
     const activeUser = getActiveCacheUser();
     if (!activeUser) return EMPTY_PROFILE_DATA;
-    return readCachedValue<ProfileData>(`profile:${activeUser}:v2`, PROFILE_CACHE_MAX_AGE_MS) ?? EMPTY_PROFILE_DATA;
+    return readCachedValue<ProfileData>(`profile:${activeUser}:v3`, PROFILE_CACHE_MAX_AGE_MS) ?? EMPTY_PROFILE_DATA;
   });
   const [isLoading, setIsLoading] = useState(() => profileData.profile === null && profileData.posts.length === 0);
   const [sessionContext, setSessionContext] = useState<{ user: User | null; accessToken: string | null }>({
@@ -331,14 +297,6 @@ export default function ProfilePage() {
   }, [loadProfileForUser, sessionContext.accessToken, sessionContext.user]);
 
   useEffect(() => {
-    if (!sessionContext.user || !sessionContext.accessToken) return;
-
-    return subscribeToSocialGraphUpdates(() => {
-      void loadProfileForUser(sessionContext.user, sessionContext.accessToken, { background: true });
-    });
-  }, [loadProfileForUser, sessionContext.accessToken, sessionContext.user]);
-  
-  useEffect(() => {
     setEditableProfile({
       displayName: profileData.profile?.display_name?.trim() ?? "",
       bio: profileData.profile?.bio?.trim() ?? "",
@@ -359,7 +317,7 @@ export default function ProfilePage() {
     return () => URL.revokeObjectURL(objectUrl);
   }, [avatarFile]);
 
-  const { profile, posts, friends, interests, stats } = profileData;
+  const { profile, posts, interests, stats } = profileData;
 
   const displayName =
     profile?.display_name?.trim() ||
@@ -605,10 +563,9 @@ export default function ProfilePage() {
                 </form>
               ) : null}
 
-              <div className="grid gap-2 sm:grid-cols-3">
+              <div className="grid gap-2 sm:grid-cols-2">
                 {[
                   { label: "Posts", value: stats.posts.toLocaleString() },
-                  { label: "Friends", value: stats.friends.toLocaleString() },
                   { label: "Comments", value: stats.comments.toLocaleString() },
                 ].map((item) => (
                   <article key={item.label} className="rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))/0.55] p-3">
@@ -637,24 +594,6 @@ export default function ProfilePage() {
                   ) : (
                     <p className="mt-2 text-sm text-[rgb(var(--muted))]">No interests selected yet.</p>
                   )}
-
-                  <div className="mt-4 border-t border-[rgb(var(--border))] pt-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[rgb(var(--muted))]">Friends</p>
-                    {friends.length ? (
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {friends.map((friend) => (
-                          <span
-                            key={friend.id}
-                            className="rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--card))] px-2.5 py-1 text-xs font-medium text-[rgb(var(--text-strong))]"
-                          >
-                            @{friend.username}
-                          </span>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="mt-2 text-sm text-[rgb(var(--muted))]">No friends added yet.</p>
-                    )}
-                  </div>
                 </section>
               ) : (
                 <section className="rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))/0.4] p-3">
