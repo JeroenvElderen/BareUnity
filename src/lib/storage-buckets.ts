@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 const MEDIA_BUCKET_ID = "media";
-const MEDIA_BUCKET_FILE_SIZE_LIMIT = 8 * 1024 * 1024;
+const MEDIA_BUCKET_FILE_SIZE_LIMIT = 15 * 1024 * 1024;
 const MEDIA_BUCKET_MIME_TYPES = [
   "image/jpeg",
   "image/png",
