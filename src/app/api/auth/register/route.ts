@@ -47,16 +47,8 @@ const UPLOAD_EXTENSION_BY_TYPE: Record<string, string> = {
 };
 
 type InviteCodeRow = {
-  code_hash: string;
-  max_uses: number;
-  uses_count: number;
-  expires_at: string | null;
-  revoked_at: string | null;
-};
-
-type InviteCodeRedemptionResult = {
-  ok?: boolean;
-  error?: string;
+  code_text: string;
+  status: "pending" | "used";
 };
 
 const SIGNATURE_VALIDATORS: Record<string, (buffer: Buffer) => boolean> = {
@@ -74,20 +66,11 @@ const SIGNATURE_VALIDATORS: Record<string, (buffer: Buffer) => boolean> = {
 };
 
 function normalizeInviteCode(code: string) {
-  return code.trim().toUpperCase();
+  return code.trim();
 }
 
-function hashInviteCode(code: string) {
-  return createHash("sha256").update(normalizeInviteCode(code)).digest("hex");
-}
-
-function isInviteCodeActive(row: InviteCodeRow | null) {
-  if (!row) return false;
-  if (row.revoked_at) return false;
-  if (row.expires_at && new Date(row.expires_at).getTime() <= Date.now()) {
-    return false;
-  }
-  return row.uses_count < row.max_uses;
+function isInviteCodePending(row: InviteCodeRow | null) {
+  return row?.status === "pending";
 }
 
 function getSupabaseErrorCode(error: unknown) {
@@ -104,9 +87,9 @@ function getInviteCodeSetupError(error: unknown) {
       .includes(code)
   ) {
     return (
-      "Invite-code tables are not installed yet. " +
-      "Run supabase-registration-invite-codes.sql in the Supabase SQL editor, " +
-      "then create a code with public.create_registration_invite_code(...)."
+      "Invite-code table is not installed yet. " +
+      "Run supabase-simple-invite-codes.sql in the Supabase SQL editor, " +
+      "then insert your custom text into public.invite_codes."
     );
   }
 
@@ -258,7 +241,6 @@ export async function POST(req: Request) {
   const inviteCode = normalizeInviteCode(
     getStringValue(formData, "inviteCode"),
   );
-  const inviteCodeHash = inviteCode ? hashInviteCode(inviteCode) : "";
   const idType = getStringValue(formData, "idType").trim();
   const motivation = getStringValue(formData, "motivation").trim();
   const idDocument = getUploadedIdDocument(formData);
@@ -437,9 +419,9 @@ export async function POST(req: Request) {
 
   if (isInviteRegistration) {
     const { data: inviteRow, error: inviteLookupError } = await supabaseAdmin
-      .from("registration_invite_codes")
-      .select("code_hash,max_uses,uses_count,expires_at,revoked_at")
-      .eq("code_hash", inviteCodeHash)
+      .from("invite_codes")
+      .select("code_text,status")
+      .eq("code_text", inviteCode)
       .maybeSingle<InviteCodeRow>();
 
     if (inviteLookupError) {
@@ -455,11 +437,10 @@ export async function POST(req: Request) {
       );
     }
 
-    if (!isInviteCodeActive(inviteRow)) {
+    if (!isInviteCodePending(inviteRow)) {
       return NextResponse.json(
         {
-          error:
-            "This invite code is invalid, expired, revoked, or already fully used.",
+          error: "This invite code is invalid or has already been used.",
         },
         { status: 400 },
       );
@@ -514,7 +495,7 @@ export async function POST(req: Request) {
     verification_source: isInviteRegistration
       ? "trusted_partner_invite"
       : undefined,
-    invite_code_hash: isInviteRegistration ? inviteCodeHash : undefined,
+    invite_code: isInviteRegistration ? inviteCode : undefined,
     motivation: isVerifiedApplication ? motivation : "",
     ...visitorTrialMetadata,
   };
@@ -599,7 +580,7 @@ export async function POST(req: Request) {
           isInviteRegistration
             ? {
                 source: "trusted_partner_invite",
-                inviteCodeHash,
+                inviteCode,
                 username,
                 thirdPartyAgeVerification: true,
                 dateOfBirthNotCollectedByBareUnity: true,
@@ -635,15 +616,15 @@ export async function POST(req: Request) {
   }
 
   if (isInviteRegistration) {
-    const { data: redemptionResult, error: redemptionError } =
-      await supabaseAdmin
-        .rpc("redeem_registration_invite_code", {
-          p_code_hash: inviteCodeHash,
-          p_redeemed_by: userId,
-        })
-        .single<InviteCodeRedemptionResult>();
+    const { data: usedInviteCode, error: redemptionError } = await supabaseAdmin
+      .from("invite_codes")
+      .update({ status: "used" })
+      .eq("code_text", inviteCode)
+      .eq("status", "pending")
+      .select("code_text,status")
+      .maybeSingle<InviteCodeRow>();
 
-    if (redemptionError || redemptionResult?.ok !== true) {
+    if (redemptionError || !usedInviteCode) {
       await supabaseAdmin.auth.admin.deleteUser(userId);
       const setupError = redemptionError
         ? getInviteCodeSetupError(redemptionError)
@@ -654,8 +635,7 @@ export async function POST(req: Request) {
           error:
             setupError ??
             redemptionError?.message ??
-            redemptionResult?.error ??
-            "This invite code could not be redeemed.",
+            "This invite code could not be marked as used.",
         },
         { status: setupError ? 500 : 400 },
       );

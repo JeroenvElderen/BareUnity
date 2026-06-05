@@ -261,7 +261,6 @@ export default function RegisterPage() {
                 <input
                   className={styles.input}
                   type="text"
-                  autoCapitalize="characters"
                   value={form.inviteCode}
                   onChange={(event) =>
                     setForm((prev) => ({
@@ -269,7 +268,7 @@ export default function RegisterPage() {
                       inviteCode: event.target.value,
                     }))
                   }
-                  placeholder="BARE-PARTNER-2026"
+                  placeholder="Your custom invite text"
                   required
                 />
               </label>
