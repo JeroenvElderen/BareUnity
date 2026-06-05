@@ -11,6 +11,7 @@ import {
   createSupabaseAdminClient,
   isSupabaseAdminConfigured,
 } from "@/lib/supabase-admin";
+import { ensureUserMediaStorage } from "@/lib/storage-buckets";
 import { loadViewerIdFromRequest } from "@/lib/viewer";
 
 const MAX_AVATAR_UPLOAD_BYTES = 4 * 1024 * 1024;
@@ -93,9 +94,10 @@ export async function PATCH(request: Request) {
         throw error;
       }
 
-      const storagePath = `avatars/${viewerId}/${Date.now()}-${crypto.randomUUID()}.${validatedUpload.extension}`;
+      const userMediaStorage = await ensureUserMediaStorage({ supabaseAdmin, userId: viewerId });
+      const storagePath = `${userMediaStorage.avatarFolder}/${Date.now()}-${crypto.randomUUID()}.${validatedUpload.extension}`;
       const { error: uploadError } = await supabaseAdmin.storage
-        .from("media")
+        .from(userMediaStorage.bucketId)
         .upload(storagePath, validatedUpload.buffer, {
           contentType: validatedUpload.contentType,
           upsert: false,
