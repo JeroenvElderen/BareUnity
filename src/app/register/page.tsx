@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 
 import styles from "@/components/auth/auth-page.module.css";
 import { IdRedactionUploader } from "@/components/verification/id-redaction-uploader";
+import { COUNTRY_NAMES } from "@/lib/countries";
 import { supabase } from "@/lib/supabase";
 
 type AccountAccess = "verified" | "viewOnly" | "invite";
@@ -551,12 +552,11 @@ export default function RegisterPage() {
                   <option value="" disabled>
                     Select country
                   </option>
-                  <option>United States</option>
-                  <option>Canada</option>
-                  <option>United Kingdom</option>
-                  <option>Germany</option>
-                  <option>France</option>
-                  <option>Spain</option>
+                  {COUNTRY_NAMES.map((countryName) => (
+                    <option key={countryName} value={countryName}>
+                      {countryName}
+                    </option>
+                  ))}
                 </select>
               </label>
             </div>
