@@ -14,7 +14,6 @@ import {
 import {
   Building2,
   Calendar,
-  ChevronDown,
   Circle,
   Ellipsis,
   Flag,
@@ -39,7 +38,6 @@ import { AppSidebar } from "@/components/sidebar/sidebar";
 import { UsernameActionPopup } from "@/components/social/username-action-popup";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   buildUserScopedCacheKey,
@@ -92,12 +90,6 @@ const STORY_HOLD_MIN_MS = 180;
 type ViewerActionSettings = {
   onboarding_completed: boolean | null;
   user_role: string | null;
-};
-
-type LikePreviewUser = {
-  userId: string;
-  name: string;
-  avatarUrl: string | null;
 };
 
 type HomeFeedOverview = {
@@ -362,13 +354,6 @@ export default function HomePage() {
     postId: string;
     commentId?: string;
   } | null>(null);
-  const [openLikesPostId, setOpenLikesPostId] = useState<string | null>(null);
-  const [likesByPost, setLikesByPost] = useState<
-    Record<string, LikePreviewUser[]>
-  >({});
-  const [likesLoadingPostId, setLikesLoadingPostId] = useState<string | null>(
-    null,
-  );
   const [expandedCaptionsByPost, setExpandedCaptionsByPost] = useState<
     Record<string, boolean>
   >({});
@@ -831,32 +816,6 @@ export default function HomePage() {
     }));
   };
 
-  const fetchPostLikes = async (postId: string) => {
-    setLikesLoadingPostId(postId);
-    const response = await fetch(`/api/homefeed/posts/${postId}/like`, {
-      method: "GET",
-      headers: (await getAuthHeaders()).headers,
-    });
-    setLikesLoadingPostId(null);
-    if (!response.ok) return;
-
-    const payload = (await response.json()) as { likes?: LikePreviewUser[] };
-    setLikesByPost((current) => ({
-      ...current,
-      [postId]: payload.likes ?? [],
-    }));
-  };
-
-  const toggleLikesDropdown = async (postId: string) => {
-    const opening = openLikesPostId !== postId;
-    setOpenLikesPostId(opening ? postId : null);
-    if (!opening) return;
-
-    if (!likesByPost[postId]) {
-      await fetchPostLikes(postId);
-    }
-  };
-
   const openEditPostModal = (post: HomeFeedPost) => {
     const [existingTitle, ...existingContentLines] = post.text.split("\n");
     setEditingPost(post);
@@ -1237,7 +1196,7 @@ export default function HomePage() {
 
   return (
     <main className={styles.main}>
-      <AppSidebar />
+      {!isComposerOpen ? <AppSidebar /> : null}
 
       <section className={styles.feedLayout}>
         <div className={styles.homeFeedShell}>
@@ -1453,86 +1412,36 @@ export default function HomePage() {
                           <Button
                             size="sm"
                             variant="outline"
-                            className={
+                            className={`w-36 gap-1 px-4 ${
                               post.likedByViewer
                                 ? "border-red-200 bg-red-50 text-red-600 hover:bg-red-100"
                                 : "text-[rgb(var(--text-strong))]"
-                            }
+                            }`}
                             onClick={() => toggleLike(post.id)}
                           >
                             <Heart
-                              className={`mr-1 h-4 w-4 ${post.likedByViewer ? "fill-current text-red-500" : ""}`}
+                              className={`h-4 w-4 ${post.likedByViewer ? "fill-current text-red-500" : ""}`}
                             />
                             Like ({post.likes})
                           </Button>
-                          {feed.viewerId && post.authorId === feed.viewerId ? (
-                            <div className="relative">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() =>
-                                  void toggleLikesDropdown(post.id)
-                                }
-                              >
-                                Liked by
-                                <ChevronDown className="ml-1 h-4 w-4" />
-                              </Button>
-                              {openLikesPostId === post.id ? (
-                                <div className="absolute right-0 top-10 z-20 w-60 max-w-[calc(100vw-2.5rem)] rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-2 shadow-lg sm:left-0 sm:right-auto sm:max-w-none">
-                                  {likesLoadingPostId === post.id ? (
-                                    <p className="px-2 py-1 text-xs text-[rgb(var(--muted))]">
-                                      Loading likes...
-                                    </p>
-                                  ) : likesByPost[post.id]?.length ? (
-                                    <div className="max-h-48 space-y-1 overflow-y-auto">
-                                      {likesByPost[post.id].map((user) => (
-                                        <div
-                                          key={user.userId}
-                                          className="flex items-center gap-2 rounded-md px-2 py-1"
-                                        >
-                                          <Avatar
-                                            src={user.avatarUrl ?? undefined}
-                                            alt={user.name}
-                                            fallback={user.name
-                                              .slice(0, 2)
-                                              .toUpperCase()}
-                                            className="h-7 w-7"
-                                          />
-                                          <span className="text-xs font-medium text-[rgb(var(--text-strong))]">
-                                            {user.name}
-                                          </span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  ) : (
-                                    <p className="px-2 py-1 text-xs text-[rgb(var(--muted))]">
-                                      No likes yet.
-                                    </p>
-                                  )}
-                                </div>
-                              ) : null}
-                            </div>
-                          ) : null}
-                          <button
-                            type="button"
-                            onClick={() => setActivePostId(post.id)}
-                          >
-                            <Badge
-                              variant="outline"
-                              className="px-3 py-1 text-xs hover:bg-[rgb(var(--bg-soft))]"
-                            >
-                              <MessageCircle className="mr-1 h-3.5 w-3.5" />
-                              {post.comments.length} comments
-                            </Badge>
-                          </button>
                           <Button
                             size="sm"
                             variant="outline"
+                            className="w-36 gap-1 px-4 text-[rgb(var(--text-strong))]"
+                            onClick={() => setActivePostId(post.id)}
+                          >
+                            <MessageCircle className="h-4 w-4" />
+                            {post.comments.length} comments
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-36 gap-1 px-4 text-[rgb(var(--text-strong))]"
                             onClick={() =>
                               void reportItem("post", post.id, "post")
                             }
                           >
-                            <Flag className="mr-1 h-4 w-4" />
+                            <Flag className="h-4 w-4" />
                             Report
                           </Button>
                         </div>
@@ -1709,7 +1618,7 @@ export default function HomePage() {
 
       {isComposerOpen ? (
         <div
-          className={`${styles.composerOverlay} fixed inset-0 z-50 flex bg-[rgb(var(--bg))]`}
+          className={`${styles.composerOverlay} fixed inset-0 z-[160] flex bg-[rgb(var(--bg))]`}
           role="dialog"
           aria-modal="true"
         >
