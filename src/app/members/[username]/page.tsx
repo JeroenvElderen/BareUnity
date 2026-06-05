@@ -12,7 +12,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { getActiveCacheUser, loadCachedThenRefresh, readCachedValue } from "@/lib/client-cache";
-import { sendFriendRequestToProfile } from "@/lib/friend-requests";
 import { resolveMediaUrl } from "@/lib/media-url";
 import { promptAndSubmitReport } from "@/lib/reporting";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
@@ -41,14 +40,14 @@ type ProfileData = {
   profile: ProfileRow | null;
   posts: PostRow[];
   interests: string[];
-  stats: { posts: number; friends: number; comments: number };
+  stats: { posts: number; comments: number };
 };
 
 const EMPTY_PROFILE_DATA: ProfileData = {
   profile: null,
   posts: [],
   interests: [],
-  stats: { posts: 0, friends: 0, comments: 0 },
+  stats: { posts: 0, comments: 0 },
 };
 
 const PROFILE_CACHE_MAX_AGE_MS = 1000 * 60 * 2;
@@ -99,10 +98,7 @@ export default function MemberProfilePage() {
   const [isLoading, setIsLoading] = useState(() => profileData.profile === null && profileData.posts.length === 0);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"posts" | "about">("posts");
-  const [friendRequestStatus, setFriendRequestStatus] = useState<string | null>(null);
   const [reportStatus, setReportStatus] = useState<string | null>(null);
-  const [isRequesting, setIsRequesting] = useState(false);
-  const [viewerId, setViewerId] = useState<string | null>(null);
 
   const loadMemberProfile = useCallback(async (sessionUser: User | null, accessToken: string | null) => {
     if (!isSupabaseConfigured || !sessionUser || !accessToken || !requestedUsername) {
@@ -140,14 +136,12 @@ export default function MemberProfilePage() {
 
     void supabase.auth.getSession().then(({ data }) => {
       if (!isMounted) return;
-      setViewerId(data.session?.user?.id ?? null);
       void loadMemberProfile(data.session?.user ?? null, data.session?.access_token ?? null);
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setViewerId(session?.user?.id ?? null);
       void loadMemberProfile(session?.user ?? null, session?.access_token ?? null);
     });
 
@@ -174,14 +168,6 @@ export default function MemberProfilePage() {
     return requestedUsername ? `@${requestedUsername}` : "@member";
   }, [profile?.username, requestedUsername]);
 
-  const sendFriendRequest = async () => {
-    if (!profile?.id || (viewerId && profile.id === viewerId)) return;
-    setIsRequesting(true);
-    const result = await sendFriendRequestToProfile({ id: profile?.id, username: profile?.username ?? requestedUsername });
-    setFriendRequestStatus(result.message);
-    setIsRequesting(false);
-  };
-
   const reportPost = async (postId: string) => {
     const result = await promptAndSubmitReport({ targetType: "post", targetId: postId, label: "post" });
     if (!result.message) return;
@@ -189,8 +175,6 @@ export default function MemberProfilePage() {
     setReportStatus(result.message);
     window.setTimeout(() => setReportStatus(null), 4500);
   };
-
-  const isSelfProfile = Boolean(profile?.id && viewerId && profile.id === viewerId);
 
   return (
     <main className={`${layoutStyles.main} w-full max-w-full`}>
@@ -226,16 +210,10 @@ export default function MemberProfilePage() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <Button size="sm" onClick={() => void sendFriendRequest()} disabled={isRequesting || isSelfProfile || !profile?.id}>
-                    {isSelfProfile ? "Send friend request (disabled)" : isRequesting ? "Sending..." : "Send friend request"}
-                  </Button>
-                  {profile?.location ? <Badge variant="outline">{profile.location}</Badge> : null}
-                </div>
+                {profile?.location ? <Badge variant="outline">{profile.location}</Badge> : null}
               </div>
 
               <p className="rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))/0.65] p-3 text-sm text-[rgb(var(--text))] md:text-base">{bio}</p>
-              {friendRequestStatus ? <p className="text-sm text-[rgb(var(--muted))]">{friendRequestStatus}</p> : null}
               {reportStatus ? <p className="text-sm text-[rgb(var(--muted))]">{reportStatus}</p> : null}
 
               {loadError ? (
@@ -244,10 +222,9 @@ export default function MemberProfilePage() {
                 </section>
               ) : null}
 
-              <div className="grid gap-2 sm:grid-cols-3">
+              <div className="grid gap-2 sm:grid-cols-2">
                 {[
                   { label: "Posts", value: stats.posts.toLocaleString() },
-                  { label: "Friends", value: stats.friends.toLocaleString() },
                   { label: "Comments", value: stats.comments.toLocaleString() },
                 ].map((item) => (
                   <article key={item.label} className="rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))/0.55] p-3">

@@ -24,8 +24,6 @@ export async function GET(request: NextRequest, context: { params: Promise<{ use
     postsResult,
     commentsResult,
     reportsResult,
-    friendRequestsSentResult,
-    friendRequestsReceivedResult,
   ] = await Promise.all([
     supabaseAdmin.auth.admin.getUserById(userId),
     supabaseAdmin.from("profiles").select("*").eq("id", userId).maybeSingle(),
@@ -49,8 +47,6 @@ export async function GET(request: NextRequest, context: { params: Promise<{ use
       .eq("reporter_id", userId)
       .order("created_at", { ascending: false })
       .limit(15),
-    supabaseAdmin.from("friend_requests").select("id", { count: "exact", head: true }).eq("sender_id", userId),
-    supabaseAdmin.from("friend_requests").select("id", { count: "exact", head: true }).eq("receiver_id", userId),
   ]);
 
   if (authUserResult.error || !authUserResult.data.user) {
@@ -76,17 +72,6 @@ export async function GET(request: NextRequest, context: { params: Promise<{ use
     );
   }
 
-  if (friendRequestsSentResult.error || friendRequestsReceivedResult.error) {
-    return NextResponse.json(
-      {
-        error:
-          friendRequestsSentResult.error?.message ??
-          friendRequestsReceivedResult.error?.message ??
-          "Could not fetch user friend request counts.",
-      },
-      { status: 500 },
-    );
-  }
 
   return NextResponse.json({
     user: authUserResult.data.user,
@@ -97,8 +82,6 @@ export async function GET(request: NextRequest, context: { params: Promise<{ use
     comments: commentsResult.data ?? [],
     reports: reportsResult.data ?? [],
     metrics: {
-      friendRequestsSent: friendRequestsSentResult.count ?? 0,
-      friendRequestsReceived: friendRequestsReceivedResult.count ?? 0,
       posts: postsResult.data?.length ?? 0,
       comments: commentsResult.data?.length ?? 0,
       reports: reportsResult.data?.length ?? 0,

@@ -13,7 +13,6 @@ import {
 import { applyColorMode, COLOR_MODE_STORAGE_KEY, ColorModePreference, isColorModePreference } from "@/lib/color-mode";
 import type { HomeFeedPayload } from "@/lib/homefeed";
 import { setPrefetchedRouteData } from "@/lib/prefetched-route-data";
-import { emitSocialGraphUpdatedEvent } from "@/lib/social-graph-events";
 import { supabase } from "@/lib/supabase";
 import { normalizeUsername } from "@/lib/username";
 
@@ -56,16 +55,13 @@ type ProfileSnapshotPayload = {
     post_type: string | null;
   }>;
   interests: string[];
-  stats: { posts: number; friends: number; comments: number };
+  stats: { posts: number; comments: number };
 };
 
-type ProfilePageCachePayload = ProfileSnapshotPayload & {
-  friends: Array<{ id: string; username: string }>;
-};
 
 const PUBLIC_PATHS = new Set(["/welcome", "/login", "/register", "/policies"]);
 const PROFILE_CACHE_KEY_PREFIX = "profile:";
-const LIVE_TABLES = ["posts", "comments", "friendships", "profiles", "profile_settings", "map_spots"] as const;
+const LIVE_TABLES = ["posts", "comments", "profiles", "profile_settings", "map_spots"] as const;
 const POST_LOGIN_LOADER_FLAG = "bareunity_post_login_loading";
 const CRITICAL_ROUTES_TO_PREFETCH = [
   "/",
@@ -360,11 +356,7 @@ export function AuthGate({ children }: AuthGateProps) {
           if (shouldIncludeAuthToken && url === POST_LOGIN_PROFILE_ENDPOINT && viewerUserId && response.ok) {
             try {
               const profilePayload = (await response.clone().json()) as ProfileSnapshotPayload;
-              const profilePagePayload: ProfilePageCachePayload = {
-                ...profilePayload,
-                friends: [],
-              };
-              writeCachedValue(`profile:${viewerUserId}:v2`, profilePagePayload);
+              writeCachedValue(`profile:${viewerUserId}:v3`, profilePayload);
             } catch {
               // own profile warmup is best effort only
             }
@@ -486,38 +478,6 @@ export function AuthGate({ children }: AuthGateProps) {
       void supabase.removeChannel(profileSettingsChannel);
     };
   }, [isAuthenticated, syncViewerImageAccess, viewerId]);
-
-  useEffect(() => {
-    if (!viewerId) return;
-
-    const socialGraphChannel = supabase
-      .channel(`social-graph-updates:${viewerId}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "friendships", filter: `user_id=eq.${viewerId}` },
-        emitSocialGraphUpdatedEvent,
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "friendships", filter: `friend_user_id=eq.${viewerId}` },
-        emitSocialGraphUpdatedEvent,
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "friend_requests", filter: `receiver_id=eq.${viewerId}` },
-        emitSocialGraphUpdatedEvent,
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "friend_requests", filter: `sender_id=eq.${viewerId}` },
-        emitSocialGraphUpdatedEvent,
-      )
-      .subscribe();
-
-    return () => {
-      void supabase.removeChannel(socialGraphChannel);
-    };
-  }, [viewerId]);
 
   useEffect(() => {
     if (!isAuthenticated) return;

@@ -25,7 +25,7 @@ export default function PoliciesPage() {
         <div className={styles.heroGrid}>
           <div className={styles.notice}>
             <strong>Important:</strong> These expanded policies explain the rules that apply when members use BareUnity, including privacy,
-            verification, consent, content, messaging, offline safety, venue discovery, payments, enforcement, and legal
+            verification, consent, content, discussion, offline safety, venue discovery, payments, enforcement, and legal
             requests. They may be updated as features, safety practices, vendors, or legal requirements change.
           </div>
           <div className={styles.quickFacts} aria-label="Policy center highlights">

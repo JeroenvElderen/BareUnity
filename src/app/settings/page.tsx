@@ -945,8 +945,7 @@ export default function SettingsPage() {
                 <h2>Your ID verification is pending</h2>
                 <p>
                   Keep browsing as a visitor while the team reviews your
-                  application. Posting, commenting, messaging, friend requests,
-                  check-ins, and creation forms unlock after approval.
+                  application. Posting, commenting, check-ins, and creation forms unlock after approval.
                 </p>
               </div>
               <span className={`${styles.statePill} ${styles.stateLimited}`}>
@@ -963,8 +962,7 @@ export default function SettingsPage() {
                 <p>
                   This form is only for registered Visitor Pass accounts. Submit
                   your ID for manual review to unlock posting, comments,
-                  messaging, friend requests, check-ins, and creation forms
-                  after approval.
+                  check-ins, and creation forms after approval.
                 </p>
               </div>
 
@@ -1430,7 +1428,7 @@ export default function SettingsPage() {
                         stateNode={
                           <div className={styles.visibilityGroup}>
                             {(
-                              ["No-one", "Friends only", "Everyone"] as const
+                              ["No-one", "Members only", "Everyone"] as const
                             ).map((level) => {
                               const current =
                                 optionStates[
@@ -1469,7 +1467,7 @@ export default function SettingsPage() {
               <h2 id="delete-account-title">Delete account</h2>
               <p>
                 Permanently remove your account, profile, posts, gallery uploads,
-                comments, likes, friend connections, and verification files. This
+                comments, likes, and verification files. This
                 cannot be undone.
               </p>
               {deleteAccountStatus ? (

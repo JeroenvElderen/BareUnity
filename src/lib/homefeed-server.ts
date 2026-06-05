@@ -3,12 +3,12 @@ import { getInitials, pickPostTone, pickStoryTone, relativeTime, type HomeFeedPa
 
 export const fallbackFeed: HomeFeedPayload = {
   stories: [],
-  friends: [],
   posts: [],
   viewerId: null,
 };
 
 export async function getHomeFeedSourceVersion(viewerId: string) {
+  void viewerId;
   // Keep these queries sequential so the endpoint remains stable in constrained
   // environments (for example local dev databases configured with connection_limit=1).
   const latestPost = await db.posts.findFirst({
@@ -29,12 +29,6 @@ export async function getHomeFeedSourceVersion(viewerId: string) {
     select: { id: true, updated_at: true },
   });
 
-  const latestFriendship = await db.friendships.findFirst({
-    where: { user_id: viewerId },
-    orderBy: { created_at: "desc" },
-    select: { id: true, created_at: true },
-  });
-
   const postCount = await db.posts.count({
     where: {
       OR: [{ channel_id: null }, { channels: { is: { is_enabled: true } } }],
@@ -43,7 +37,6 @@ export async function getHomeFeedSourceVersion(viewerId: string) {
 
   const commentCount = await db.comments.count();
   const voteCount = await db.post_votes.count();
-  const friendshipCount = await db.friendships.count({ where: { user_id: viewerId } });
 
   return [
     latestPost?.id ?? "-",
@@ -52,12 +45,9 @@ export async function getHomeFeedSourceVersion(viewerId: string) {
     latestComment?.created_at?.toISOString() ?? "-",
     latestVote?.id ?? "-",
     latestVote?.updated_at?.toISOString() ?? "-",
-    latestFriendship?.id ?? "-",
-    latestFriendship?.created_at?.toISOString() ?? "-",
     postCount,
     commentCount,
     voteCount,
-    friendshipCount,
   ].join("|");
 }
 
@@ -100,14 +90,6 @@ export async function buildHomeFeedPayload(viewerId: string | null): Promise<Hom
     },
   });
 
-  const friendsRaw = viewerId
-    ? await db.friendships.findMany({
-        where: { user_id: viewerId },
-        orderBy: { created_at: "desc" },
-        take: 8,
-      })
-    : [];
-
   const storiesRaw = await db.posts.findMany({
     where: {
       post_type: "story",
@@ -142,13 +124,6 @@ export async function buildHomeFeedPayload(viewerId: string | null): Promise<Hom
       };
     });
 
-  const friends = friendsRaw.map((friend) => ({
-    id: friend.id,
-    name: friend.friend_username,
-    fallback: getInitials(friend.friend_username),
-    status: (friend.status === "online" ? "Online" : "Offline") as "Online" | "Offline",
-  }));
-
   const posts = postsRaw.map((post, index) => {
     const author = post.profiles?.display_name?.trim() || post.profiles?.username || "Community member";
     const likes = post.post_votes.filter((vote) => vote.vote > 0).length;
@@ -182,7 +157,6 @@ export async function buildHomeFeedPayload(viewerId: string | null): Promise<Hom
 
   return {
     stories,
-    friends,
     posts,
     viewerId,
   };

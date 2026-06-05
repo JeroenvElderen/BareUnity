@@ -472,30 +472,6 @@ export function AppSidebar() {
       );
     channels.push(galleryLikesChannel);
 
-    const friendRequestsChannel = supabase
-      .channel(`notifications-friend-requests-${viewerId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "friend_requests",
-          filter: `receiver_id=eq.${viewerId}`,
-        },
-        ({ new: row }) => {
-          const payload = row as { sender_username?: string };
-          pushLiveNotification(
-            createNotification(
-              "New friend request",
-              `${payload.sender_username ?? "Someone"} sent you a friend request.`,
-              "friend-request",
-              "/members",
-            ),
-          );
-        },
-      );
-    channels.push(friendRequestsChannel);
-
     const mapSpotsChannel = supabase
       .channel(`notifications-map-spots-${viewerId}`)
       .on(

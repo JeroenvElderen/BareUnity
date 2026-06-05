@@ -678,6 +678,6 @@ export async function POST(req: Request) {
       ? "Invite accepted. Your verified account is ready. You can sign in now with your email and password."
       : isVerifiedApplication
         ? "Account created with strict safety onboarding. Your profile remains in verification review before full access."
-        : "Your 7-day Visitor Pass is ready. You can browse and preview BareUnity now; posting, messaging, friend requests, check-ins, and submissions unlock after ID verification.",
+        : "Your 7-day Visitor Pass is ready. You can browse and preview BareUnity now; posting, check-ins, and submissions unlock after ID verification.",
   });
 }
