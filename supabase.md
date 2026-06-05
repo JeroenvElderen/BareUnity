@@ -17,26 +17,23 @@ This project is channel-only. Use `supabase-channel-only.sql` to:
 
 ## Invite-code registration setup
 
-If your Supabase project does not have invite-code tables yet, run the full
-`supabase-registration-invite-codes.sql` file in the Supabase SQL editor. That
-script creates `public.registration_invite_codes`,
-`public.registration_invite_code_redemptions`, and the helper RPCs used by
-`/register?invite`.
+For the simplified invite-code flow, run `supabase-simple-invite-codes.sql` in
+the Supabase SQL editor. The app now reads `public.invite_codes`, which has only
+these two columns:
 
-After the script has run, create a raw invite code with:
+- `code_text` — the exact custom invite text you create and give to a person.
+- `status` — `pending` for unused invites or `used` after registration.
+
+Create invite codes with direct inserts:
 
 ```sql
-select * from public.create_registration_invite_code(
-  p_raw_code := 'BARE-PARTNER-2026',
-  p_label := 'Partner 2026 pilot',
-  p_partner_name := 'Trusted verification partner name',
-  p_max_uses := 1,
-  p_expires_at := now() + interval '30 days'
-);
+insert into public.invite_codes (code_text, status)
+values ('My custom invite text', 'pending');
 ```
 
-Give only the raw `p_raw_code` value to the invited person. The database stores
-only its SHA-256 hash.
+When someone registers through `/register?invite=My%20custom%20invite%20text`,
+the server validates the row is `pending` and marks it `used` after the verified
+account is created.
 
 ## SQL files
 
@@ -44,4 +41,5 @@ only its SHA-256 hash.
 - `supabase-channel-reset.sql` — alias of the same canonical script.
 - `supabase-channels-migration.sql` — alias of the same canonical script.
 - `supabase-brand-mode.sql` — alias of the same canonical script.
-- `supabase-registration-invite-codes.sql` — creates invite-code registration tables, redemption auditing, and helper RPCs.
+- `supabase-simple-invite-codes.sql` — creates the simplified two-column invite-code table (`code_text`, `status`).
+- `supabase-registration-invite-codes.sql` — legacy hashed invite-code registration tables and RPC helpers.
