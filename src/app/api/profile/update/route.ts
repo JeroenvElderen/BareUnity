@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { ensureMemberCanAct } from "@/lib/action-access";
+import { ensureCanUpdateOwnProfile } from "@/lib/action-access";
 import {
   IMAGE_UPLOAD_EXTENSION_BY_TYPE,
   IMAGE_UPLOAD_TYPES,
@@ -54,8 +54,8 @@ export async function PATCH(request: Request) {
       );
     }
 
-    const actionAccessError = await ensureMemberCanAct(viewerId);
-    if (actionAccessError) return actionAccessError;
+    const profileAccessError = await ensureCanUpdateOwnProfile(viewerId);
+    if (profileAccessError) return profileAccessError;
 
     if (!isSupabaseAdminConfigured) {
       return NextResponse.json(
