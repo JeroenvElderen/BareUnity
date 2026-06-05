@@ -73,7 +73,7 @@ const nextConfig: NextConfig = {
   },
 
   experimental: {
-    proxyClientMaxBodySize: "12mb",
+    proxyClientMaxBodySize: "16mb",
   },
 
   images: {

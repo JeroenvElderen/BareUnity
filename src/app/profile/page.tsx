@@ -432,7 +432,7 @@ export default function ProfilePage() {
                         type="file"
                         onChange={(event) => setAvatarFile(event.target.files?.[0] ?? null)}
                       />
-                      <span className="text-xs font-medium text-[rgb(var(--muted))]">JPG, PNG, WEBP, GIF, or AVIF up to 4MB.</span>
+                      <span className="text-xs font-medium text-[rgb(var(--muted))]">JPG, PNG, WEBP, GIF, or AVIF up to 15MB.</span>
                     </label>
 
                     <div className="grid flex-1 gap-3 md:grid-cols-2">
