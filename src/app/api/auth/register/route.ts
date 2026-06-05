@@ -73,6 +73,21 @@ function isInviteCodePending(row: InviteCodeRow | null) {
   return row?.status === "pending";
 }
 
+async function resetInviteCodeToPending(
+  supabaseAdmin: ReturnType<typeof createSupabaseAdminClient>,
+  inviteCode: string,
+) {
+  const { error } = await supabaseAdmin
+    .from("invite_codes")
+    .update({ status: "pending" })
+    .eq("code_text", inviteCode)
+    .eq("status", "used");
+
+  if (error) {
+    console.error("Could not release invite code after setup failure", error);
+  }
+}
+
 function getSupabaseErrorCode(error: unknown) {
   if (!error || typeof error !== "object") return "";
   const code = (error as { code?: unknown }).code;
@@ -468,6 +483,37 @@ export async function POST(req: Request) {
     }
   }
 
+  let reservedInviteCode: InviteCodeRow | null = null;
+
+  if (isInviteRegistration) {
+    const { data: updatedInviteCode, error: reservationError } =
+      await supabaseAdmin
+        .from("invite_codes")
+        .update({ status: "used" })
+        .eq("code_text", inviteCode)
+        .eq("status", "pending")
+        .select("code_text,status")
+        .maybeSingle<InviteCodeRow>();
+
+    if (reservationError || !updatedInviteCode) {
+      const setupError = reservationError
+        ? getInviteCodeSetupError(reservationError)
+        : null;
+
+      return NextResponse.json(
+        {
+          error:
+            setupError ??
+            reservationError?.message ??
+            "This invite code is invalid or has already been used.",
+        },
+        { status: setupError ? 500 : 400 },
+      );
+    }
+
+    reservedInviteCode = updatedInviteCode;
+  }
+
   const visitorTrialMetadata = grantsVerifiedAccess
     ? {}
     : buildVisitorTrialMetadata();
@@ -509,6 +555,10 @@ export async function POST(req: Request) {
     });
 
   if (createUserError || !createdUser.user) {
+    if (reservedInviteCode) {
+      await resetInviteCodeToPending(supabaseAdmin, inviteCode);
+    }
+
     return NextResponse.json(
       { error: createUserError?.message ?? "Could not create user." },
       { status: 400 },
@@ -535,6 +585,9 @@ export async function POST(req: Request) {
 
     if (uploadError) {
       await supabaseAdmin.auth.admin.deleteUser(userId);
+      if (reservedInviteCode) {
+        await resetInviteCodeToPending(supabaseAdmin, inviteCode);
+      }
 
       return NextResponse.json(
         {
@@ -602,6 +655,9 @@ export async function POST(req: Request) {
         .remove([idDocumentPath]);
     }
     await supabaseAdmin.auth.admin.deleteUser(userId);
+    if (reservedInviteCode) {
+      await resetInviteCodeToPending(supabaseAdmin, inviteCode);
+    }
 
     return NextResponse.json(
       {
@@ -615,32 +671,6 @@ export async function POST(req: Request) {
     );
   }
 
-  if (isInviteRegistration) {
-    const { data: usedInviteCode, error: redemptionError } = await supabaseAdmin
-      .from("invite_codes")
-      .update({ status: "used" })
-      .eq("code_text", inviteCode)
-      .eq("status", "pending")
-      .select("code_text,status")
-      .maybeSingle<InviteCodeRow>();
-
-    if (redemptionError || !usedInviteCode) {
-      await supabaseAdmin.auth.admin.deleteUser(userId);
-      const setupError = redemptionError
-        ? getInviteCodeSetupError(redemptionError)
-        : null;
-
-      return NextResponse.json(
-        {
-          error:
-            setupError ??
-            redemptionError?.message ??
-            "This invite code could not be marked as used.",
-        },
-        { status: setupError ? 500 : 400 },
-      );
-    }
-  }
 
   return NextResponse.json({
     ok: true,

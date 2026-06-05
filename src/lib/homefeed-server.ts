@@ -64,62 +64,65 @@ export async function getHomeFeedSourceVersion(viewerId: string) {
 export async function buildHomeFeedPayload(viewerId: string | null): Promise<HomeFeedPayload> {
   const now = new Date();
 
-  const [postsRaw, friendsRaw, storiesRaw] = await Promise.all([
-    db.posts.findMany({
-      take: 20,
-      orderBy: { created_at: "desc" },
-      where: {
-        post_type: { not: "story" },
-        OR: [{ channel_id: null }, { channels: { is: { is_enabled: true } } }],
+  // Keep runtime queries sequential. Production uses the Supabase pooler with
+  // connection_limit=1, so parallel Prisma operations can exhaust the single
+  // client-side connection and surface as intermittent homefeed timeouts.
+  const postsRaw = await db.posts.findMany({
+    take: 20,
+    orderBy: { created_at: "desc" },
+    where: {
+      post_type: { not: "story" },
+      OR: [{ channel_id: null }, { channels: { is: { is_enabled: true } } }],
+    },
+    include: {
+      profiles: {
+        select: { username: true, display_name: true },
       },
-      include: {
-        profiles: {
-          select: { username: true, display_name: true },
-        },
-        comments: {
-          select: {
-            id: true,
-            content: true,
-            author_id: true,
-            parent_id: true,
-            profiles: {
-              select: {
-                username: true,
-                display_name: true,
-                avatar_url: true,
-              },
+      comments: {
+        select: {
+          id: true,
+          content: true,
+          author_id: true,
+          parent_id: true,
+          profiles: {
+            select: {
+              username: true,
+              display_name: true,
+              avatar_url: true,
             },
           },
-          orderBy: { created_at: "asc" },
         },
-        post_votes: {
-          select: { user_id: true, vote: true },
-        },
+        orderBy: { created_at: "asc" },
       },
-    }),
-    viewerId
-      ? db.friendships.findMany({
-          where: { user_id: viewerId },
-          orderBy: { created_at: "desc" },
-          take: 8,
-        })
-      : Promise.resolve([]),
-    db.posts.findMany({
-      where: {
-        post_type: "story",
-        author_id: { not: null },
-        media_url: { not: null },
-        expires_at: { gt: now },
+      post_votes: {
+        select: { user_id: true, vote: true },
       },
-      orderBy: { created_at: "asc" },
-      take: 20,
-      include: {
-        profiles: {
-          select: { username: true, display_name: true },
-        },
+    },
+  });
+
+  const friendsRaw = viewerId
+    ? await db.friendships.findMany({
+        where: { user_id: viewerId },
+        orderBy: { created_at: "desc" },
+        take: 8,
+      })
+    : [];
+
+  const storiesRaw = await db.posts.findMany({
+    where: {
+      post_type: "story",
+      author_id: { not: null },
+      media_url: { not: null },
+      expires_at: { gt: now },
+    },
+    orderBy: { created_at: "asc" },
+    take: 20,
+    include: {
+      profiles: {
+        select: { username: true, display_name: true },
       },
-    }),
-  ]);
+    },
+  });
 
   const stories = storiesRaw
     .filter((post) => post.author_id)

@@ -122,17 +122,12 @@ export async function GET(request: Request) {
     Date.now() - NOTIFICATION_LOOKBACK_DAYS * 24 * 60 * 60 * 1000,
   );
 
-  const [
-    feedLikes,
-    feedComments,
-    galleryLikes,
-    friendRequests,
-    generalMessages,
-    mapSpots,
-  ] = await Promise.all([
-    db
-      .$queryRaw<Array<FeedLikeRow>>(
-        Prisma.sql`
+  // Run notification lookups sequentially because production Prisma uses the
+  // Supabase pooler with connection_limit=1. Parallel queries can exhaust the
+  // single connection and hide useful notifications behind pool timeouts.
+  const feedLikes = await db
+    .$queryRaw<Array<FeedLikeRow>>(
+      Prisma.sql`
       select pv.id, pv.post_id, pv.created_at, coalesce(nullif(pr.display_name, ''), pr.username) as actor_name
       from public.post_votes pv
       inner join public.posts p on p.id = pv.post_id
@@ -144,11 +139,12 @@ export async function GET(request: Request) {
       order by pv.created_at desc
       limit ${MAX_NOTIFICATIONS}
     `,
-      )
-      .catch(() => []),
-    db
-      .$queryRaw<Array<FeedCommentRow>>(
-        Prisma.sql`
+    )
+    .catch(() => []);
+
+  const feedComments = await db
+    .$queryRaw<Array<FeedCommentRow>>(
+      Prisma.sql`
       select c.id, c.post_id, c.created_at, coalesce(nullif(pr.display_name, ''), pr.username) as actor_name
       from public.comments c
       inner join public.posts p on p.id = c.post_id
@@ -159,12 +155,16 @@ export async function GET(request: Request) {
       order by c.created_at desc
       limit ${MAX_NOTIFICATIONS}
     `,
-      )
-      .catch(() => []),
-    db
-      .$queryRaw<Array<GalleryLikeRow>>(
-        Prisma.sql`
-      select gil.id, gil.image_path, gil.created_at, coalesce(nullif(pr.display_name, ''), pr.username) as actor_name
+    )
+    .catch(() => []);
+
+  const galleryLikes = await db
+    .$queryRaw<Array<GalleryLikeRow>>(
+      Prisma.sql`
+      select concat(gil.image_path, ':', gil.user_id::text, ':', gil.created_at::text) as id,
+             gil.image_path,
+             gil.created_at,
+             coalesce(nullif(pr.display_name, ''), pr.username) as actor_name
       from public.gallery_image_likes gil
       left join public.profiles pr on pr.id = gil.user_id
       where gil.user_id <> ${viewerId}::uuid
@@ -173,11 +173,12 @@ export async function GET(request: Request) {
       order by gil.created_at desc
       limit ${MAX_NOTIFICATIONS}
     `,
-      )
-      .catch(() => []),
-    db
-      .$queryRaw<Array<FriendRequestRow>>(
-        Prisma.sql`
+    )
+    .catch(() => []);
+
+  const friendRequests = await db
+    .$queryRaw<Array<FriendRequestRow>>(
+      Prisma.sql`
       select id, created_at, sender_username
       from public.friend_requests
       where receiver_id = ${viewerId}::uuid
@@ -186,11 +187,12 @@ export async function GET(request: Request) {
       order by created_at desc
       limit ${MAX_NOTIFICATIONS}
     `,
-      )
-      .catch(() => []),
-    db
-      .$queryRaw<Array<GeneralMessageRow>>(
-        Prisma.sql`
+    )
+    .catch(() => []);
+
+  const generalMessages = await db
+    .$queryRaw<Array<GeneralMessageRow>>(
+      Prisma.sql`
       select cm.id, cm.created_at, coalesce(nullif(pr.display_name, ''), pr.username) as actor_name
       from public.channel_messages cm
       inner join public.channels ch on ch.id = cm.channel_id and ch.slug = 'general'
@@ -200,11 +202,12 @@ export async function GET(request: Request) {
       order by cm.created_at desc
       limit 25
     `,
-      )
-      .catch(() => []),
-    db
-      .$queryRaw<Array<MapSpotRow>>(
-        Prisma.sql`
+    )
+    .catch(() => []);
+
+  const mapSpots = await db
+    .$queryRaw<Array<MapSpotRow>>(
+      Prisma.sql`
       select id, name, created_at
       from public.naturist_map_spots
       where submitted_by is distinct from ${viewerId}::uuid
@@ -212,23 +215,15 @@ export async function GET(request: Request) {
       order by created_at desc
       limit 25
     `,
-      )
-      .catch(() => []),
-  ]);
+    )
+    .catch(() => []);
 
   let adminNotifications: NotificationResponseItem[] = [];
 
   if (isAdmin) {
-    const [
-      reports,
-      registrations,
-      feedback,
-      locationRequests,
-      verificationRequests,
-    ] = await Promise.all([
-      db
-        .$queryRaw<Array<AdminReportRow>>(
-          Prisma.sql`
+    const reports = await db
+      .$queryRaw<Array<AdminReportRow>>(
+        Prisma.sql`
         select r.id, r.target_type, r.created_at, coalesce(nullif(pr.display_name, ''), pr.username) as actor_name
         from public.reports r
         left join public.profiles pr on pr.id = r.reporter_id
@@ -236,22 +231,24 @@ export async function GET(request: Request) {
         order by r.created_at desc
         limit ${MAX_NOTIFICATIONS}
       `,
-        )
-        .catch(() => []),
-      db
-        .$queryRaw<Array<AdminRegistrationRow>>(
-          Prisma.sql`
+      )
+      .catch(() => []);
+
+    const registrations = await db
+      .$queryRaw<Array<AdminRegistrationRow>>(
+        Prisma.sql`
         select p.id, p.created_at, coalesce(nullif(p.display_name, ''), p.username) as actor_name
         from public.profiles p
         where p.created_at >= ${notificationSince}
         order by p.created_at desc
         limit 25
       `,
-        )
-        .catch(() => []),
-      db
-        .$queryRaw<Array<AdminFeedbackRow>>(
-          Prisma.sql`
+      )
+      .catch(() => []);
+
+    const feedback = await db
+      .$queryRaw<Array<AdminFeedbackRow>>(
+        Prisma.sql`
         select id, category, message, created_at
         from public.feedback_messages
         where message not like ${`${LOCATION_REQUEST_PREFIX}%`}
@@ -259,11 +256,12 @@ export async function GET(request: Request) {
         order by created_at desc
         limit ${MAX_NOTIFICATIONS}
       `,
-        )
-        .catch(() => []),
-      db
-        .$queryRaw<Array<AdminFeedbackRow>>(
-          Prisma.sql`
+      )
+      .catch(() => []);
+
+    const locationRequests = await db
+      .$queryRaw<Array<AdminFeedbackRow>>(
+        Prisma.sql`
         select id, category, message, created_at
         from public.feedback_messages
         where message like ${`${LOCATION_REQUEST_PREFIX}%`}
@@ -271,11 +269,12 @@ export async function GET(request: Request) {
         order by created_at desc
         limit ${MAX_NOTIFICATIONS}
       `,
-        )
-        .catch(() => []),
-      db
-        .$queryRaw<Array<AdminVerificationRow>>(
-          Prisma.sql`
+      )
+      .catch(() => []);
+
+    const verificationRequests = await db
+      .$queryRaw<Array<AdminVerificationRow>>(
+        Prisma.sql`
         select user_id, created_at, display_name, legal_name
         from public.verification_submissions
         where status = 'pending'
@@ -283,9 +282,8 @@ export async function GET(request: Request) {
         order by created_at desc
         limit ${MAX_NOTIFICATIONS}
       `,
-        )
-        .catch(() => []),
-    ]);
+      )
+      .catch(() => []);
 
     adminNotifications = [
       ...reports.map((row) => ({
