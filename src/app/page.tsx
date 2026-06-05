@@ -11,12 +11,14 @@ import {
   type PointerEvent,
 } from "react";
 import {
+  BarChart3,
   Calendar,
   ChevronDown,
   Circle,
   Ellipsis,
   Flag,
   Heart,
+  ImageIcon,
   MapPin,
   MessageCircle,
   Pencil,
@@ -32,7 +34,8 @@ import { AppSidebar } from "@/components/sidebar/sidebar";
 import { UsernameActionPopup } from "@/components/social/username-action-popup";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   buildUserScopedCacheKey,
   hasFreshCachedValue,
@@ -233,9 +236,7 @@ export default function HomePage() {
   const [storyTimeRemainingMs, setStoryTimeRemainingMs] =
     useState(STORY_VIEW_MS);
   const [isStoryTimerPaused, setStoryTimerPaused] = useState(false);
-  const [seenStoryIds, setSeenStoryIds] = useState<Set<string>>(
-    () => new Set(),
-  );
+  const [, setSeenStoryIds] = useState<Set<string>>(() => new Set());
   const [reportStatus, setReportStatus] = useState("");
   const [visitorTrialStatus, setVisitorTrialStatus] =
     useState<VisitorTrialStatus | null>(null);
@@ -800,17 +801,6 @@ export default function HomePage() {
     });
     return grouped;
   }, [stories]);
-  const storyCards = useMemo(() => {
-    const cards: HomeFeedStory[] = [];
-    groupedStories.forEach((authorStories) => {
-      if (!authorStories.length) return;
-      const firstUnseenStory = authorStories.find(
-        (story) => !seenStoryIds.has(story.id),
-      );
-      cards.push(firstUnseenStory ?? authorStories[authorStories.length - 1]!);
-    });
-    return cards;
-  }, [groupedStories, seenStoryIds]);
   const activeStorySeries = useMemo(
     () =>
       activeStoryAuthorId
@@ -822,23 +812,6 @@ export default function HomePage() {
     activeStoryIndex !== null
       ? (activeStorySeries[activeStoryIndex] ?? null)
       : null;
-  const openStory = (authorId: string) => {
-    const authorStories = groupedStories.get(authorId) ?? [];
-    if (!authorStories.length) return;
-    const firstUnseenStoryIndex = authorStories.findIndex(
-      (story) => !seenStoryIds.has(story.id),
-    );
-    const startIndex =
-      firstUnseenStoryIndex >= 0
-        ? firstUnseenStoryIndex
-        : authorStories.length - 1;
-    setActiveStoryAuthorId(authorId);
-    setActiveStoryIndex(startIndex);
-    setStoryTimerPaused(false);
-    setStoryTimeRemainingMs(STORY_VIEW_MS);
-    setStoryTimerCycle((current) => current + 1);
-  };
-
   const closeStory = () => {
     setActiveStoryAuthorId(null);
     setActiveStoryIndex(null);
@@ -1067,349 +1040,295 @@ export default function HomePage() {
               <p className={styles.reportStatus}>{reportStatus}</p>
             ) : null}
 
-            <div className="space-y-4">
-              <Card className="border-0 bg-[rgb(var(--bg-soft))]">
-                <CardHeader className="pb-4">
-                  <CardTitle className="text-sm uppercase tracking-[0.12em] text-[rgb(var(--muted))]">
-                    Bare Moments
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="flex items-center gap-2 overflow-x-auto pb-1 min-[1100px]:grid min-[1100px]:gap-3 min-[1100px]:grid-cols-4">
-                  {storyCards.map((story) => (
-                    <button
-                      key={story.id}
-                      type="button"
-                      onClick={() => openStory(story.authorId)}
-                      className="relative flex shrink-0 flex-col items-center gap-1 text-left min-[1100px]:items-stretch min-[1100px]:gap-0 min-[1100px]:overflow-hidden min-[1100px]:rounded-2xl min-[1100px]:border min-[1100px]:border-white/60 min-[1100px]:bg-[rgb(var(--card))] min-[1100px]:shadow-sm"
-                    >
-                      {story.imageUrl ? (
-                        <Image
-                          src={story.imageUrl}
-                          alt={`${story.name}'s story`}
-                          width={720}
-                          height={960}
-                          sizes="(min-width: 1100px) 18vw, 0px"
-                          className="hidden h-48 w-full object-cover min-[1100px]:block"
-                        />
-                      ) : (
-                        <div
-                          className={`hidden min-[1100px]:block min-[1100px]:h-48 min-[1100px]:bg-linear-to-b ${story.tone}`}
-                        />
-                      )}
-                      <div className="rounded-full bg-linear-to-br from-fuchsia-500 via-rose-500 to-amber-400 p-0.5 min-[1100px]:absolute min-[1100px]:left-3 min-[1100px]:top-3">
-                        <Avatar
-                          alt={story.name}
-                          fallback={story.fallback}
-                          className="h-10 w-10 border-2 border-white min-[1100px]:h-10 min-[1100px]:w-10"
-                        />
-                      </div>
-                      <p className="max-w-16 truncate text-center text-[11px] font-medium text-[rgb(var(--text-strong))] min-[1100px]:hidden">
-                        {story.name.split(" ")[0]}
-                      </p>
-                      <p className="hidden min-[1100px]:absolute min-[1100px]:bottom-3 min-[1100px]:left-3 min-[1100px]:block min-[1100px]:text-sm min-[1100px]:font-semibold min-[1100px]:text-white">
-                        {story.name}
-                      </p>
-                      <p className="hidden min-[1100px]:absolute min-[1100px]:bottom-0 min-[1100px]:right-3 min-[1100px]:block min-[1100px]:text-[11px] min-[1100px]:text-white/90">
-                        {story.posted}
-                      </p>
-                    </button>
-                  ))}
-                  {storyCards.length === 0 && (
-                    <p className="text-sm text-[rgb(var(--muted))]">
-                      No Bare Moments yet.
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-
-            {reportStatus ? (
-              <p className={styles.reportStatus}>{reportStatus}</p>
-            ) : null}
-
-            <section
-              className={styles.quickComposer}
-              aria-label="Create a community post"
-            >
-              <div className={styles.quickComposerRow}>
-                <Avatar
-                  alt="Your profile"
-                  fallback="J"
-                  className={styles.quickComposerAvatar}
-                />
-                <button
-                  type="button"
-                  onClick={openComposer}
-                  className={styles.quickComposerInput}
-                >
-                  Share a bare moment, ask a question, or start a discussion...
-                </button>
-              </div>
-              <div className={styles.quickComposerActions}>
-                <button type="button" onClick={openComposer}>
-                  <ImageIcon className="h-4 w-4" />
-                  Photo
-                </button>
-                <button type="button" onClick={openComposer}>
-                  <MapPin className="h-4 w-4" />
-                  Location
-                </button>
-                <button type="button" onClick={openComposer}>
-                  <BarChart3 className="h-4 w-4" />
-                  Poll
-                </button>
-                <Button
-                  size="sm"
-                  onClick={openComposer}
-                  className={styles.quickPostButton}
-                >
-                  Post
-                </Button>
-              </div>
-            </section>
-
-            <nav className={styles.feedPills} aria-label="Post categories">
-              {[
-                "All Posts",
-                "Naturist Moments",
-                "Discussions",
-                "Locations",
-                "Experiences",
-              ].map((label, index) => (
-                <button
-                  key={label}
-                  type="button"
-                  className={index === 0 ? styles.feedPillActive : ""}
-                >
-                  {label}
-                </button>
-              ))}
-            </nav>
-
-            <div className={styles.feedList}>
-              {isLoadingFeed && posts.length === 0 ? (
-                <Card className="border-0 bg-[rgb(var(--card))]">
-                  <CardContent className="p-4 text-sm text-[rgb(var(--muted))]">
-                    Loading your feed…
-                  </CardContent>
-                </Card>
-              ) : null}
-
-              {posts.map((post: HomeFeedPost) => {
-                const caption = post.text.trim();
-                const isCaptionExpanded = Boolean(
-                  expandedCaptionsByPost[post.id],
-                );
-                const shouldClampCaption =
-                  caption.length > 160 || caption.includes("\n");
-
-                return (
-                  <Card
-                    key={post.id}
-                    className="border-0 bg-[rgb(var(--card))]"
+            <div className={styles.feedStack}>
+              <section
+                className={styles.quickComposer}
+                aria-label="Create a community post"
+              >
+                <div className={styles.quickComposerRow}>
+                  <Avatar
+                    alt="Your profile"
+                    fallback="J"
+                    className={styles.quickComposerAvatar}
+                  />
+                  <button
+                    type="button"
+                    onClick={openComposer}
+                    className={styles.quickComposerInput}
                   >
-                    <CardContent className="p-4">
-                      <div className="mb-3 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <Avatar
-                            alt={post.author}
-                            fallback={post.fallback}
-                            className="h-11 w-11"
-                          />
-                          <div>
-                            <UsernameActionPopup
-                              userId={post.authorId}
-                              displayName={post.author}
-                              triggerClassName="text-sm font-semibold text-[rgb(var(--text-strong))] underline-offset-2 hover:underline"
+                    Share a bare moment, ask a question, or start a
+                    discussion...
+                  </button>
+                </div>
+                <div className={styles.quickComposerActions}>
+                  <button type="button" onClick={openComposer}>
+                    <ImageIcon className="h-4 w-4" />
+                    Photo
+                  </button>
+                  <button type="button" onClick={openComposer}>
+                    <MapPin className="h-4 w-4" />
+                    Location
+                  </button>
+                  <button type="button" onClick={openComposer}>
+                    <BarChart3 className="h-4 w-4" />
+                    Poll
+                  </button>
+                  <Button
+                    size="sm"
+                    onClick={openComposer}
+                    className={styles.quickPostButton}
+                  >
+                    Post
+                  </Button>
+                </div>
+              </section>
+
+              <nav className={styles.feedPills} aria-label="Post categories">
+                {[
+                  "All Posts",
+                  "Naturist Moments",
+                  "Discussions",
+                  "Locations",
+                  "Experiences",
+                ].map((label, index) => (
+                  <button
+                    key={label}
+                    type="button"
+                    className={index === 0 ? styles.feedPillActive : ""}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </nav>
+
+              <div className={styles.feedList}>
+                {isLoadingFeed && posts.length === 0 ? (
+                  <Card className="border-0 bg-[rgb(var(--card))]">
+                    <CardContent className="p-4 text-sm text-[rgb(var(--muted))]">
+                      Loading your feed…
+                    </CardContent>
+                  </Card>
+                ) : null}
+
+                {posts.map((post: HomeFeedPost) => {
+                  const caption = post.text.trim();
+                  const isCaptionExpanded = Boolean(
+                    expandedCaptionsByPost[post.id],
+                  );
+                  const shouldClampCaption =
+                    caption.length > 160 || caption.includes("\n");
+
+                  return (
+                    <Card
+                      key={post.id}
+                      className="border-0 bg-[rgb(var(--card))]"
+                    >
+                      <CardContent className="p-4">
+                        <div className="mb-3 flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <Avatar
+                              alt={post.author}
+                              fallback={post.fallback}
+                              className="h-11 w-11"
                             />
-                            <p className="text-xs text-[rgb(var(--muted))]">
-                              {post.posted}
-                            </p>
-                          </div>
-                        </div>
-                        {feed.viewerId && post.authorId === feed.viewerId ? (
-                          <div className="relative">
-                            <button
-                              type="button"
-                              aria-label="Open post actions"
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[rgb(var(--muted))] hover:bg-[rgb(var(--bg-soft))]"
-                              onClick={() =>
-                                setOpenPostMenuId((current) =>
-                                  current === post.id ? null : post.id,
-                                )
-                              }
-                            >
-                              <Ellipsis className="h-4 w-4" />
-                            </button>
-                            {openPostMenuId === post.id ? (
-                              <div className="absolute right-0 top-9 z-20 min-w-32 rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-1 shadow-lg">
-                                <button
-                                  type="button"
-                                  onClick={() => openEditPostModal(post)}
-                                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-[rgb(var(--text))] hover:bg-[rgb(var(--bg-soft))]"
-                                >
-                                  <Pencil className="h-3.5 w-3.5" />
-                                  Edit post
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => openDeleteModal(post.id)}
-                                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-rose-600 hover:bg-rose-50"
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                  Delete post
-                                </button>
-                              </div>
-                            ) : null}
-                          </div>
-                        ) : null}
-                      </div>
-                      <div className="mb-4 block w-full text-left">
-                        {post.mediaUrl ? (
-                          <Image
-                            src={post.mediaUrl}
-                            alt={`${post.author}'s post`}
-                            width={1200}
-                            height={1200}
-                            sizes="(min-width: 1280px) 60vw, 100vw"
-                            className="h-130 w-full rounded-2xl bg-[rgb(var(--bg-soft))] object-contain"
-                          />
-                        ) : null}
-                      </div>
-                      {caption ? (
-                        <div className="mb-3">
-                          <p
-                            className="whitespace-pre-line break-words text-sm text-[rgb(var(--text))] [overflow-wrap:anywhere]"
-                            style={
-                              !isCaptionExpanded && shouldClampCaption
-                                ? {
-                                    display: "-webkit-box",
-                                    WebkitLineClamp: 3,
-                                    WebkitBoxOrient: "vertical",
-                                    overflow: "hidden",
-                                  }
-                                : undefined
-                            }
-                          >
-                            <span className="mr-1">
+                            <div>
                               <UsernameActionPopup
                                 userId={post.authorId}
                                 displayName={post.author}
-                                triggerClassName="font-semibold text-[rgb(var(--text-strong))] underline-offset-2 hover:underline"
+                                triggerClassName="text-sm font-semibold text-[rgb(var(--text-strong))] underline-offset-2 hover:underline"
                               />
-                            </span>
-                            {caption}
-                          </p>
-                          {shouldClampCaption ? (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setExpandedCaptionsByPost((current) => ({
-                                  ...current,
-                                  [post.id]: !current[post.id],
-                                }))
-                              }
-                              className="mt-1 inline-block text-left text-xs font-medium text-[rgb(var(--muted))]"
-                              aria-expanded={isCaptionExpanded}
-                              aria-label={
-                                isCaptionExpanded
-                                  ? "Collapse caption"
-                                  : "Expand caption"
-                              }
-                            >
-                              {isCaptionExpanded ? "Show less" : "Show more"}
-                            </button>
+                              <p className="text-xs text-[rgb(var(--muted))]">
+                                {post.posted}
+                              </p>
+                            </div>
+                          </div>
+                          {feed.viewerId && post.authorId === feed.viewerId ? (
+                            <div className="relative">
+                              <button
+                                type="button"
+                                aria-label="Open post actions"
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[rgb(var(--muted))] hover:bg-[rgb(var(--bg-soft))]"
+                                onClick={() =>
+                                  setOpenPostMenuId((current) =>
+                                    current === post.id ? null : post.id,
+                                  )
+                                }
+                              >
+                                <Ellipsis className="h-4 w-4" />
+                              </button>
+                              {openPostMenuId === post.id ? (
+                                <div className="absolute right-0 top-9 z-20 min-w-32 rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-1 shadow-lg">
+                                  <button
+                                    type="button"
+                                    onClick={() => openEditPostModal(post)}
+                                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-[rgb(var(--text))] hover:bg-[rgb(var(--bg-soft))]"
+                                  >
+                                    <Pencil className="h-3.5 w-3.5" />
+                                    Edit post
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => openDeleteModal(post.id)}
+                                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-rose-600 hover:bg-rose-50"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                    Delete post
+                                  </button>
+                                </div>
+                              ) : null}
+                            </div>
                           ) : null}
                         </div>
-                      ) : null}
-                      <div className="mb-3 flex flex-wrap items-center gap-2 border-t border-[rgb(var(--border))] pt-3">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className={
-                            post.likedByViewer
-                              ? "border-red-200 bg-red-50 text-red-600 hover:bg-red-100"
-                              : "text-[rgb(var(--text-strong))]"
-                          }
-                          onClick={() => toggleLike(post.id)}
-                        >
-                          <Heart
-                            className={`mr-1 h-4 w-4 ${post.likedByViewer ? "fill-current text-red-500" : ""}`}
-                          />
-                          Like ({post.likes})
-                        </Button>
-                        {feed.viewerId && post.authorId === feed.viewerId ? (
-                          <div className="relative">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => void toggleLikesDropdown(post.id)}
+                        <div className="mb-4 block w-full text-left">
+                          {post.mediaUrl ? (
+                            <Image
+                              src={post.mediaUrl}
+                              alt={`${post.author}'s post`}
+                              width={1200}
+                              height={1200}
+                              sizes="(min-width: 1280px) 60vw, 100vw"
+                              className="h-130 w-full rounded-2xl bg-[rgb(var(--bg-soft))] object-contain"
+                            />
+                          ) : null}
+                        </div>
+                        {caption ? (
+                          <div className="mb-3">
+                            <p
+                              className="whitespace-pre-line break-words text-sm text-[rgb(var(--text))] [overflow-wrap:anywhere]"
+                              style={
+                                !isCaptionExpanded && shouldClampCaption
+                                  ? {
+                                      display: "-webkit-box",
+                                      WebkitLineClamp: 3,
+                                      WebkitBoxOrient: "vertical",
+                                      overflow: "hidden",
+                                    }
+                                  : undefined
+                              }
                             >
-                              Liked by
-                              <ChevronDown className="ml-1 h-4 w-4" />
-                            </Button>
-                            {openLikesPostId === post.id ? (
-                              <div className="absolute right-0 top-10 z-20 w-60 max-w-[calc(100vw-2.5rem)] rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-2 shadow-lg sm:left-0 sm:right-auto sm:max-w-none">
-                                {likesLoadingPostId === post.id ? (
-                                  <p className="px-2 py-1 text-xs text-[rgb(var(--muted))]">
-                                    Loading likes...
-                                  </p>
-                                ) : likesByPost[post.id]?.length ? (
-                                  <div className="max-h-48 space-y-1 overflow-y-auto">
-                                    {likesByPost[post.id].map((user) => (
-                                      <div
-                                        key={user.userId}
-                                        className="flex items-center gap-2 rounded-md px-2 py-1"
-                                      >
-                                        <Avatar
-                                          src={user.avatarUrl ?? undefined}
-                                          alt={user.name}
-                                          fallback={user.name
-                                            .slice(0, 2)
-                                            .toUpperCase()}
-                                          className="h-7 w-7"
-                                        />
-                                        <span className="text-xs font-medium text-[rgb(var(--text-strong))]">
-                                          {user.name}
-                                        </span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <p className="px-2 py-1 text-xs text-[rgb(var(--muted))]">
-                                    No likes yet.
-                                  </p>
-                                )}
-                              </div>
+                              <span className="mr-1">
+                                <UsernameActionPopup
+                                  userId={post.authorId}
+                                  displayName={post.author}
+                                  triggerClassName="font-semibold text-[rgb(var(--text-strong))] underline-offset-2 hover:underline"
+                                />
+                              </span>
+                              {caption}
+                            </p>
+                            {shouldClampCaption ? (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setExpandedCaptionsByPost((current) => ({
+                                    ...current,
+                                    [post.id]: !current[post.id],
+                                  }))
+                                }
+                                className="mt-1 inline-block text-left text-xs font-medium text-[rgb(var(--muted))]"
+                                aria-expanded={isCaptionExpanded}
+                                aria-label={
+                                  isCaptionExpanded
+                                    ? "Collapse caption"
+                                    : "Expand caption"
+                                }
+                              >
+                                {isCaptionExpanded ? "Show less" : "Show more"}
+                              </button>
                             ) : null}
                           </div>
                         ) : null}
-                        <button
-                          type="button"
-                          onClick={() => setActivePostId(post.id)}
-                        >
-                          <Badge
+                        <div className="mb-3 flex flex-wrap items-center gap-2 border-t border-[rgb(var(--border))] pt-3">
+                          <Button
+                            size="sm"
                             variant="outline"
-                            className="px-3 py-1 text-xs hover:bg-[rgb(var(--bg-soft))]"
+                            className={
+                              post.likedByViewer
+                                ? "border-red-200 bg-red-50 text-red-600 hover:bg-red-100"
+                                : "text-[rgb(var(--text-strong))]"
+                            }
+                            onClick={() => toggleLike(post.id)}
                           >
-                            <MessageCircle className="mr-1 h-3.5 w-3.5" />
-                            {post.comments.length} comments
-                          </Badge>
-                        </button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() =>
-                            void reportItem("post", post.id, "post")
-                          }
-                        >
-                          <Flag className="mr-1 h-4 w-4" />
-                          Report
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
+                            <Heart
+                              className={`mr-1 h-4 w-4 ${post.likedByViewer ? "fill-current text-red-500" : ""}`}
+                            />
+                            Like ({post.likes})
+                          </Button>
+                          {feed.viewerId && post.authorId === feed.viewerId ? (
+                            <div className="relative">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() =>
+                                  void toggleLikesDropdown(post.id)
+                                }
+                              >
+                                Liked by
+                                <ChevronDown className="ml-1 h-4 w-4" />
+                              </Button>
+                              {openLikesPostId === post.id ? (
+                                <div className="absolute right-0 top-10 z-20 w-60 max-w-[calc(100vw-2.5rem)] rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-2 shadow-lg sm:left-0 sm:right-auto sm:max-w-none">
+                                  {likesLoadingPostId === post.id ? (
+                                    <p className="px-2 py-1 text-xs text-[rgb(var(--muted))]">
+                                      Loading likes...
+                                    </p>
+                                  ) : likesByPost[post.id]?.length ? (
+                                    <div className="max-h-48 space-y-1 overflow-y-auto">
+                                      {likesByPost[post.id].map((user) => (
+                                        <div
+                                          key={user.userId}
+                                          className="flex items-center gap-2 rounded-md px-2 py-1"
+                                        >
+                                          <Avatar
+                                            src={user.avatarUrl ?? undefined}
+                                            alt={user.name}
+                                            fallback={user.name
+                                              .slice(0, 2)
+                                              .toUpperCase()}
+                                            className="h-7 w-7"
+                                          />
+                                          <span className="text-xs font-medium text-[rgb(var(--text-strong))]">
+                                            {user.name}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <p className="px-2 py-1 text-xs text-[rgb(var(--muted))]">
+                                      No likes yet.
+                                    </p>
+                                  )}
+                                </div>
+                              ) : null}
+                            </div>
+                          ) : null}
+                          <button
+                            type="button"
+                            onClick={() => setActivePostId(post.id)}
+                          >
+                            <Badge
+                              variant="outline"
+                              className="px-3 py-1 text-xs hover:bg-[rgb(var(--bg-soft))]"
+                            >
+                              <MessageCircle className="mr-1 h-3.5 w-3.5" />
+                              {post.comments.length} comments
+                            </Badge>
+                          </button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() =>
+                              void reportItem("post", post.id, "post")
+                            }
+                          >
+                            <Flag className="mr-1 h-4 w-4" />
+                            Report
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
