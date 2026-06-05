@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ensureAdminRequest } from "@/lib/request-auth";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase-admin";
+import { deleteAccountCompletely } from "@/lib/account-deletion";
 
 export async function GET(request: NextRequest, context: { params: Promise<{ userId: string }> }) {
   if (!isSupabaseAdminConfigured) {
@@ -103,4 +104,25 @@ export async function GET(request: NextRequest, context: { params: Promise<{ use
       reports: reportsResult.data?.length ?? 0,
     },
   });
+}
+
+export async function DELETE(request: NextRequest, context: { params: Promise<{ userId: string }> }) {
+  const adminResult = await ensureAdminRequest(request);
+  if ("error" in adminResult) return adminResult.error;
+
+  const { userId } = await context.params;
+  if (!userId) return NextResponse.json({ error: "Missing user id." }, { status: 400 });
+
+  try {
+    const result = await deleteAccountCompletely(userId);
+
+    if (!result.ok) {
+      return NextResponse.json({ error: result.error }, { status: result.status });
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error("Unable to delete user from admin", error);
+    return NextResponse.json({ error: "Could not delete this user right now." }, { status: 503 });
+  }
 }

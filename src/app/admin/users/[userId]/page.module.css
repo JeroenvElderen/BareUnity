@@ -106,3 +106,127 @@
     grid-template-columns: 1fr;
   }
 }
+
+.success {
+  margin: 0.85rem 0 0;
+  border: 1px solid rgb(var(--success) / 0.4);
+  border-radius: 12px;
+  background: rgb(var(--success) / 0.16);
+  color: rgb(var(--success));
+  padding: 0.72rem 0.9rem;
+}
+
+.dangerActions {
+  margin-top: 1rem;
+  border: 1px solid rgb(var(--error) / 0.42);
+  border-radius: 14px;
+  background: rgb(var(--error) / 0.1);
+  padding: 0.85rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.dangerActions div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.dangerActions strong {
+  color: rgb(var(--text-strong));
+}
+
+.dangerActions span {
+  color: rgb(var(--muted));
+  font-size: 0.9rem;
+}
+
+.dangerActions button {
+  border: 1px solid rgb(var(--error) / 0.58);
+  border-radius: 12px;
+  background: rgb(var(--error));
+  color: white;
+  cursor: pointer;
+  font-weight: 800;
+  padding: 0.58rem 0.95rem;
+  white-space: nowrap;
+}
+
+.dangerActions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.dataList {
+  margin: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.dataList div {
+  border-top: 1px solid rgb(var(--border) / 0.5);
+  padding-top: 0.5rem;
+}
+
+.dataList dt {
+  color: rgb(var(--muted));
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.dataList dd {
+  margin: 0.18rem 0 0;
+  color: rgb(var(--text));
+  overflow-wrap: anywhere;
+}
+
+.emptyState,
+.activitySecondary {
+  color: rgb(var(--muted));
+}
+
+.activityList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.activityList li {
+  border-top: 1px solid rgb(var(--border) / 0.5);
+  padding-top: 0.55rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.activityPrimary,
+.activitySecondary {
+  margin: 0;
+}
+
+.activityPrimary {
+  color: rgb(var(--text-strong));
+  font-weight: 700;
+}
+
+.activityList span {
+  color: rgb(var(--muted));
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+@media (max-width: 700px) {
+  .dangerActions,
+  .activityList li {
+    display: grid;
+  }
+
+  .dangerActions button {
+    width: 100%;
+  }
+}

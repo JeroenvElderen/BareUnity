@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import styles from "./page.module.css";
@@ -116,6 +117,9 @@ export default function AdminUserDetailPage({ params }: { params: Promise<{ user
   const [error, setError] = useState("");
   const [userId, setUserId] = useState("");
   const [details, setDetails] = useState<UserDetailsPayload | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteStatus, setDeleteStatus] = useState("");
+  const router = useRouter();
 
   useEffect(() => {
     let active = true;
@@ -168,6 +172,66 @@ export default function AdminUserDetailPage({ params }: { params: Promise<{ user
     };
   }, [params]);
 
+
+  async function deleteUserAccount() {
+    if (!userId || !details?.user) return;
+
+    setError("");
+    setDeleteStatus("");
+
+    const confirmation = window.prompt(
+      `This permanently deletes ${details.user.email || userId}, including auth, profile, posts, comments, messages, uploads, verification files, and settings. Type DELETE to confirm.`,
+    );
+
+    if (confirmation !== "DELETE") {
+      setError("Account deletion cancelled. Type DELETE exactly to confirm.");
+      return;
+    }
+
+    setIsDeleting(true);
+
+    try {
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
+
+      if (sessionError || !session?.access_token) {
+        setError("Please sign in first. We could not verify your admin session.");
+        return;
+      }
+
+      const response = await fetch(`/api/admin/users/${userId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+
+      if (!response.ok) {
+        setError(payload.error ?? "Could not delete this account.");
+        return;
+      }
+
+      setDeleteStatus("Account deleted. Returning to user admin…");
+
+      if (session.user.id === userId) {
+        await supabase.auth.signOut();
+        router.replace("/welcome");
+        return;
+      }
+
+      router.replace("/admin/users");
+      router.refresh();
+    } catch {
+      setError("Something went wrong while deleting this account.");
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
   return (
     <main className={styles.page}>
       <section className={styles.shell}>
@@ -184,6 +248,18 @@ export default function AdminUserDetailPage({ params }: { params: Promise<{ user
               {formatDate(details.user.last_sign_in_at)}
             </p>
           ) : null}
+          {details?.user ? (
+            <div className={styles.dangerActions}>
+              <div>
+                <strong>Delete this account</strong>
+                <span>Removes this user, content, messages, media, verification files, and sessions.</span>
+              </div>
+              <button type="button" onClick={() => void deleteUserAccount()} disabled={isDeleting}>
+                {isDeleting ? "Deleting account…" : "Delete account"}
+              </button>
+            </div>
+          ) : null}
+          {deleteStatus ? <p className={styles.success}>{deleteStatus}</p> : null}
         </header>
 
         {error ? <p className={styles.error}>{error}</p> : null}
