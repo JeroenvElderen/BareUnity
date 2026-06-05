@@ -31,7 +31,6 @@ import { useSearchParams } from "next/navigation";
 import { AppSidebar } from "@/components/sidebar/sidebar";
 import { UsernameActionPopup } from "@/components/social/username-action-popup";
 import { Avatar } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -1123,6 +1122,70 @@ export default function HomePage() {
                 </CardContent>
               </Card>
 
+            {reportStatus ? (
+              <p className={styles.reportStatus}>{reportStatus}</p>
+            ) : null}
+
+            <section
+              className={styles.quickComposer}
+              aria-label="Create a community post"
+            >
+              <div className={styles.quickComposerRow}>
+                <Avatar
+                  alt="Your profile"
+                  fallback="J"
+                  className={styles.quickComposerAvatar}
+                />
+                <button
+                  type="button"
+                  onClick={openComposer}
+                  className={styles.quickComposerInput}
+                >
+                  Share a bare moment, ask a question, or start a discussion...
+                </button>
+              </div>
+              <div className={styles.quickComposerActions}>
+                <button type="button" onClick={openComposer}>
+                  <ImageIcon className="h-4 w-4" />
+                  Photo
+                </button>
+                <button type="button" onClick={openComposer}>
+                  <MapPin className="h-4 w-4" />
+                  Location
+                </button>
+                <button type="button" onClick={openComposer}>
+                  <BarChart3 className="h-4 w-4" />
+                  Poll
+                </button>
+                <Button
+                  size="sm"
+                  onClick={openComposer}
+                  className={styles.quickPostButton}
+                >
+                  Post
+                </Button>
+              </div>
+            </section>
+
+            <nav className={styles.feedPills} aria-label="Post categories">
+              {[
+                "All Posts",
+                "Naturist Moments",
+                "Discussions",
+                "Locations",
+                "Experiences",
+              ].map((label, index) => (
+                <button
+                  key={label}
+                  type="button"
+                  className={index === 0 ? styles.feedPillActive : ""}
+                >
+                  {label}
+                </button>
+              ))}
+            </nav>
+
+            <div className={styles.feedList}>
               {isLoadingFeed && posts.length === 0 ? (
                 <Card className="border-0 bg-[rgb(var(--card))]">
                   <CardContent className="p-4 text-sm text-[rgb(var(--muted))]">
