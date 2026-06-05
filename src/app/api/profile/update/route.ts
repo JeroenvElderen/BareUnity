@@ -12,7 +12,7 @@ import {
   isSupabaseAdminConfigured,
 } from "@/lib/supabase-admin";
 import { ensureUserMediaStorage } from "@/lib/storage-buckets";
-import { loadViewerIdFromRequest } from "@/lib/viewer";
+import { loadViewerFromRequest } from "@/lib/viewer";
 
 const MAX_AVATAR_UPLOAD_BYTES = 8 * 1024 * 1024;
 const MAX_DISPLAY_NAME_LENGTH = 80;
@@ -46,7 +46,8 @@ function cleanInterests(value: FormDataEntryValue | null) {
 
 export async function PATCH(request: Request) {
   try {
-    const viewerId = await loadViewerIdFromRequest(request);
+    const viewer = await loadViewerFromRequest(request);
+    const viewerId = viewer?.id ?? null;
 
     if (!viewerId) {
       return NextResponse.json(
@@ -55,7 +56,7 @@ export async function PATCH(request: Request) {
       );
     }
 
-    const profileAccessError = await ensureCanUpdateOwnProfile(viewerId);
+    const profileAccessError = await ensureCanUpdateOwnProfile(viewerId, viewer?.email);
     if (profileAccessError) return profileAccessError;
 
     if (!isSupabaseAdminConfigured) {

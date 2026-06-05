@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-export async function loadViewerIdFromRequest(request: Request) {
+export async function loadViewerFromRequest(request: Request) {
   const authHeader = request.headers.get("authorization");
   if (!authHeader?.toLowerCase().startsWith("bearer ")) return null;
 
@@ -22,5 +22,10 @@ export async function loadViewerIdFromRequest(request: Request) {
   const { data, error } = await supabase.auth.getUser();
   if (error || !data.user) return null;
 
-  return data.user.id;
+  return data.user;
+}
+
+export async function loadViewerIdFromRequest(request: Request) {
+  const viewer = await loadViewerFromRequest(request);
+  return viewer?.id ?? null;
 }
