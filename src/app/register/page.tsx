@@ -102,7 +102,7 @@ export default function RegisterPage() {
     event.preventDefault();
     setStatus("");
 
-    if (!isInviteRegistration && form.password !== form.confirmPassword) {
+    if (form.password !== form.confirmPassword) {
       setStatus("Passwords do not match.");
       return;
     }
@@ -274,11 +274,66 @@ export default function RegisterPage() {
                 />
               </label>
 
+              <div className={styles.split}>
+                <label className={styles.field}>
+                  <span className={styles.label}>Password (12+ chars)</span>
+                  <div className={styles.inputWrap}>
+                    <input
+                      className={styles.input}
+                      type={isPasswordVisible ? "text" : "password"}
+                      value={form.password}
+                      onChange={(event) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          password: event.target.value,
+                        }))
+                      }
+                      autoComplete="new-password"
+                      required
+                    />
+                    <button
+                      type="button"
+                      className={styles.eyeButton}
+                      onClick={() => setIsPasswordVisible((prev) => !prev)}
+                    >
+                      {isPasswordVisible ? "Hide" : "Show"}
+                    </button>
+                  </div>
+                </label>
+                <label className={styles.field}>
+                  <span className={styles.label}>Confirm password</span>
+                  <div className={styles.inputWrap}>
+                    <input
+                      className={styles.input}
+                      type={isConfirmPasswordVisible ? "text" : "password"}
+                      value={form.confirmPassword}
+                      onChange={(event) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          confirmPassword: event.target.value,
+                        }))
+                      }
+                      autoComplete="new-password"
+                      required
+                    />
+                    <button
+                      type="button"
+                      className={styles.eyeButton}
+                      onClick={() =>
+                        setIsConfirmPasswordVisible((prev) => !prev)
+                      }
+                    >
+                      {isConfirmPasswordVisible ? "Hide" : "Show"}
+                    </button>
+                  </div>
+                </label>
+              </div>
+
               <div className={styles.stageBanner}>
-                <strong>No BareUnity ID upload required.</strong> After the
-                invite is accepted, your profile is marked as verified
-                immediately. We will email you an invite link to finish account
-                access.
+                <strong>No BareUnity ID upload required.</strong> We check the
+                invite code before creating your verified account. No email
+                confirmation is needed, so you can sign in with this password
+                after the invite is accepted.
               </div>
 
               <button
