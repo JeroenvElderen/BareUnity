@@ -1,26 +1,63 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type MouseEvent, type PointerEvent } from "react";
-import { ChevronDown, Ellipsis, Flag, Heart, MessageCircle, Pencil, Trash2, X } from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type MouseEvent,
+  type PointerEvent,
+} from "react";
+import {
+  BarChart3,
+  Bookmark,
+  Calendar,
+  Circle,
+  Ellipsis,
+  Flag,
+  Heart,
+  ImageIcon,
+  MapPin,
+  MessageCircle,
+  Pencil,
+  Send,
+  TrendingUp,
+  Trash2,
+  Users,
+  X,
+} from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { AppSidebar } from "@/components/sidebar/sidebar";
 import { UsernameActionPopup } from "@/components/social/username-action-popup";
 import { Avatar } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { buildUserScopedCacheKey, hasFreshCachedValue, readCachedValue, writeCachedValue } from "@/lib/client-cache";
-import type { HomeFeedComment, HomeFeedPayload, HomeFeedPost, HomeFeedStory } from "@/lib/homefeed";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  buildUserScopedCacheKey,
+  hasFreshCachedValue,
+  readCachedValue,
+  writeCachedValue,
+} from "@/lib/client-cache";
+import type {
+  HomeFeedComment,
+  HomeFeedPayload,
+  HomeFeedPost,
+  HomeFeedStory,
+} from "@/lib/homefeed";
 import { sanitizeImageUpload } from "@/lib/image";
 import { HOME_FEED_REALTIME_TABLES, subscribeToTables } from "@/lib/realtime";
 import { promptAndSubmitReport, type ReportTargetType } from "@/lib/reporting";
 import { takePrefetchedRouteData } from "@/lib/prefetched-route-data";
 import { supabase } from "@/lib/supabase";
-import { getVisitorTrialStatus, type VisitorTrialStatus } from "@/lib/visitor-trial";
+import {
+  getVisitorTrialStatus,
+  type VisitorTrialStatus,
+} from "@/lib/visitor-trial";
 import styles from "./page.module.css";
-
 
 const defaultFeed: HomeFeedPayload = {
   stories: [],
@@ -28,7 +65,9 @@ const defaultFeed: HomeFeedPayload = {
   viewerId: null,
 };
 
-function normalizeFeedPayload(payload: HomeFeedPayload | null | undefined): HomeFeedPayload {
+function normalizeFeedPayload(
+  payload: HomeFeedPayload | null | undefined,
+): HomeFeedPayload {
   const source = payload ?? defaultFeed;
   return {
     ...source,
@@ -58,49 +97,83 @@ type LikePreviewUser = {
 
 export default function HomePage() {
   const searchParams = useSearchParams();
-  const [homeFeedCacheKey] = useState(() => buildUserScopedCacheKey("home-feed"));
+  const [homeFeedCacheKey] = useState(() =>
+    buildUserScopedCacheKey("home-feed"),
+  );
   const [cachedFeed] = useState<HomeFeedPayload | null>(() =>
     readCachedValue<HomeFeedPayload>(homeFeedCacheKey, {
       maxAgeMs: HOME_FEED_CACHE_MAX_AGE_MS,
       allowExpired: true,
     }),
   );
-  const [prefetchedFeed] = useState<HomeFeedPayload | null>(() => takePrefetchedRouteData<HomeFeedPayload>("homefeed"));
-  const [hasFreshCacheOnMount] = useState(() => hasFreshCachedValue(homeFeedCacheKey, HOME_FEED_CACHE_MAX_AGE_MS));
+  const [prefetchedFeed] = useState<HomeFeedPayload | null>(() =>
+    takePrefetchedRouteData<HomeFeedPayload>("homefeed"),
+  );
+  const [hasFreshCacheOnMount] = useState(() =>
+    hasFreshCachedValue(homeFeedCacheKey, HOME_FEED_CACHE_MAX_AGE_MS),
+  );
   const [isComposerOpen, setComposerOpen] = useState(false);
-  const [composerKind, setComposerKind] = useState<"post" | "story" | null>(null);
-  const [activeFeedTab, setActiveFeedTab] = useState<"following" | "forYou">("following");
+  const [composerKind, setComposerKind] = useState<"post" | "story" | null>(
+    null,
+  );
+  const [activeFeedTab, setActiveFeedTab] = useState<"following" | "forYou">(
+    "following",
+  );
   const [postTitle, setPostTitle] = useState("");
   const [postContent, setPostContent] = useState("");
   const [postImagePreview, setPostImagePreview] = useState<string>("");
   const [postImageDataUrl, setPostImageDataUrl] = useState<string>("");
   const galleryImageInputRef = useRef<HTMLInputElement | null>(null);
   const cameraImageInputRef = useRef<HTMLInputElement | null>(null);
-  const [feed, setFeed] = useState<HomeFeedPayload>(() => normalizeFeedPayload(prefetchedFeed ?? cachedFeed ?? defaultFeed));
-  const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
-  const [activeReplyByPost, setActiveReplyByPost] = useState<Record<string, string | null>>({});
-  const [expandedCommentThreadsByPost, setExpandedCommentThreadsByPost] = useState<Record<string, Record<string, boolean>>>({});
+  const [feed, setFeed] = useState<HomeFeedPayload>(() =>
+    normalizeFeedPayload(prefetchedFeed ?? cachedFeed ?? defaultFeed),
+  );
+  const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>(
+    {},
+  );
+  const [activeReplyByPost, setActiveReplyByPost] = useState<
+    Record<string, string | null>
+  >({});
+  const [expandedCommentThreadsByPost, setExpandedCommentThreadsByPost] =
+    useState<Record<string, Record<string, boolean>>>({});
   const [activePostId, setActivePostId] = useState<string | null>(null);
-  const [isLoadingFeed, setLoadingFeed] = useState(() => !prefetchedFeed && !cachedFeed);
+  const [isLoadingFeed, setLoadingFeed] = useState(
+    () => !prefetchedFeed && !cachedFeed,
+  );
   const [openPostMenuId, setOpenPostMenuId] = useState<string | null>(null);
   const [editingPost, setEditingPost] = useState<HomeFeedPost | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editContent, setEditContent] = useState("");
   const [editImagePreview, setEditImagePreview] = useState<string>("");
   const [editImageDataUrl, setEditImageDataUrl] = useState<string>("");
-  const [deleteTarget, setDeleteTarget] = useState<{ postId: string; commentId?: string } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{
+    postId: string;
+    commentId?: string;
+  } | null>(null);
   const [openLikesPostId, setOpenLikesPostId] = useState<string | null>(null);
-  const [likesByPost, setLikesByPost] = useState<Record<string, LikePreviewUser[]>>({});
-  const [likesLoadingPostId, setLikesLoadingPostId] = useState<string | null>(null);
-  const [expandedCaptionsByPost, setExpandedCaptionsByPost] = useState<Record<string, boolean>>({});
+  const [likesByPost, setLikesByPost] = useState<
+    Record<string, LikePreviewUser[]>
+  >({});
+  const [likesLoadingPostId, setLikesLoadingPostId] = useState<string | null>(
+    null,
+  );
+  const [expandedCaptionsByPost, setExpandedCaptionsByPost] = useState<
+    Record<string, boolean>
+  >({});
   const [activeStoryIndex, setActiveStoryIndex] = useState<number | null>(null);
-  const [activeStoryAuthorId, setActiveStoryAuthorId] = useState<string | null>(null);
+  const [activeStoryAuthorId, setActiveStoryAuthorId] = useState<string | null>(
+    null,
+  );
   const [storyTimerCycle, setStoryTimerCycle] = useState(0);
-  const [storyTimeRemainingMs, setStoryTimeRemainingMs] = useState(STORY_VIEW_MS);
+  const [storyTimeRemainingMs, setStoryTimeRemainingMs] =
+    useState(STORY_VIEW_MS);
   const [isStoryTimerPaused, setStoryTimerPaused] = useState(false);
-  const [seenStoryIds, setSeenStoryIds] = useState<Set<string>>(() => new Set());
+  const [seenStoryIds, setSeenStoryIds] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [reportStatus, setReportStatus] = useState("");
-  const [visitorTrialStatus, setVisitorTrialStatus] = useState<VisitorTrialStatus | null>(null);
+  const [visitorTrialStatus, setVisitorTrialStatus] =
+    useState<VisitorTrialStatus | null>(null);
   const [isViewerActionLocked, setViewerActionLocked] = useState(false);
   const storyTimerStartedAtRef = useRef<number | null>(null);
   const storyHoldStartedAtRef = useRef<number | null>(null);
@@ -110,11 +183,14 @@ export default function HomePage() {
   const canPublish =
     composerKind === "story"
       ? Boolean(postImageDataUrl)
-      : postTitle.trim().length > 0 && (postContent.trim().length > 0 || Boolean(postImageDataUrl));
+      : postTitle.trim().length > 0 &&
+        (postContent.trim().length > 0 || Boolean(postImageDataUrl));
 
   const postPreview = postContent;
 
-  const getAuthHeaders = async (options?: { includeJsonContentType?: boolean }) => {
+  const getAuthHeaders = async (options?: {
+    includeJsonContentType?: boolean;
+  }) => {
     const headers: HeadersInit = {};
     if (options?.includeJsonContentType) {
       headers["Content-Type"] = "application/json";
@@ -155,7 +231,9 @@ export default function HomePage() {
           throw new Error(`Home feed request failed (${response.status})`);
         }
 
-        const data = normalizeFeedPayload((await response.json()) as HomeFeedPayload);
+        const data = normalizeFeedPayload(
+          (await response.json()) as HomeFeedPayload,
+        );
         writeCachedValue(homeFeedCacheKey, data);
         setFeed(data);
       } catch {
@@ -169,7 +247,8 @@ export default function HomePage() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      const shouldRefresh = (!cachedFeed && !prefetchedFeed) || !hasFreshCacheOnMount;
+      const shouldRefresh =
+        (!cachedFeed && !prefetchedFeed) || !hasFreshCacheOnMount;
       if (shouldRefresh) {
         void loadFeed();
       }
@@ -209,7 +288,11 @@ export default function HomePage() {
         .maybeSingle<ViewerActionSettings>();
 
       if (!isMounted) return;
-      setViewerActionLocked(!settings || settings.user_role === "view_only" || settings.onboarding_completed !== true);
+      setViewerActionLocked(
+        !settings ||
+          settings.user_role === "view_only" ||
+          settings.onboarding_completed !== true,
+      );
     });
 
     return () => {
@@ -235,7 +318,12 @@ export default function HomePage() {
     const response = await fetch("/api/homefeed", {
       method: "POST",
       headers: (await getAuthHeaders({ includeJsonContentType: true })).headers,
-      body: JSON.stringify({ title: postTitle, content: postContent, mediaUrl: postImageDataUrl, kind: composerKind }),
+      body: JSON.stringify({
+        title: postTitle,
+        content: postContent,
+        mediaUrl: postImageDataUrl,
+        kind: composerKind,
+      }),
     });
 
     if (!response.ok) return;
@@ -253,7 +341,10 @@ export default function HomePage() {
     const selectedFile = event.target.files?.[0];
     if (!selectedFile) return;
 
-    const sanitized = await sanitizeImageUpload(selectedFile, composerKind === "story" ? 1440 : 1920);
+    const sanitized = await sanitizeImageUpload(
+      selectedFile,
+      composerKind === "story" ? 1440 : 1920,
+    );
     if (postImagePreview) URL.revokeObjectURL(postImagePreview);
     const preview = URL.createObjectURL(sanitized);
     const dataUrl = await new Promise<string>((resolve, reject) => {
@@ -270,7 +361,7 @@ export default function HomePage() {
   const toggleLike = async (postId: string) => {
     const targetPost = feed.posts.find((post) => post.id === postId);
     if (!targetPost) return;
-    
+
     const response = await fetch(`/api/homefeed/posts/${postId}/like`, {
       method: "POST",
       headers: (await getAuthHeaders()).headers,
@@ -279,7 +370,13 @@ export default function HomePage() {
 
     const payload = (await response.json()) as { liked?: boolean };
     const liked = Boolean(payload.liked);
-    const likeDelta = liked ? (targetPost.likedByViewer ? 0 : 1) : targetPost.likedByViewer ? -1 : 0;
+    const likeDelta = liked
+      ? targetPost.likedByViewer
+        ? 0
+        : 1
+      : targetPost.likedByViewer
+        ? -1
+        : 0;
 
     if (!likeDelta && targetPost.likedByViewer === liked) return;
 
@@ -297,7 +394,10 @@ export default function HomePage() {
     }));
   };
 
-  const addComment = async (postId: string, options?: { parentId?: string | null }) => {
+  const addComment = async (
+    postId: string,
+    options?: { parentId?: string | null },
+  ) => {
     const parentId = options?.parentId ?? null;
     const value = commentDrafts[postId]?.trim();
     if (!value) return;
@@ -325,7 +425,8 @@ export default function HomePage() {
     if (!newComment) return;
 
     setCommentDrafts((current) => ({ ...current, [postId]: "" }));
-    if (parentId) setActiveReplyByPost((current) => ({ ...current, [postId]: null }));
+    if (parentId)
+      setActiveReplyByPost((current) => ({ ...current, [postId]: null }));
     setFeed((current) => ({
       ...current,
       posts: current.posts.map((post) =>
@@ -349,7 +450,10 @@ export default function HomePage() {
     if (!response.ok) return;
 
     const payload = (await response.json()) as { likes?: LikePreviewUser[] };
-    setLikesByPost((current) => ({ ...current, [postId]: payload.likes ?? [] }));
+    setLikesByPost((current) => ({
+      ...current,
+      [postId]: payload.likes ?? [],
+    }));
   };
 
   const toggleLikesDropdown = async (postId: string) => {
@@ -377,7 +481,8 @@ export default function HomePage() {
     if (!selectedFile) return;
 
     const sanitized = await sanitizeImageUpload(selectedFile, 1920);
-    if (editImagePreview.startsWith("blob:")) URL.revokeObjectURL(editImagePreview);
+    if (editImagePreview.startsWith("blob:"))
+      URL.revokeObjectURL(editImagePreview);
     const preview = URL.createObjectURL(sanitized);
     const dataUrl = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
@@ -396,11 +501,16 @@ export default function HomePage() {
     const response = await fetch(`/api/homefeed/posts/${editingPost.id}`, {
       method: "PATCH",
       headers: (await getAuthHeaders({ includeJsonContentType: true })).headers,
-      body: JSON.stringify({ title: editTitle, content: editContent, mediaUrl: editImageDataUrl }),
+      body: JSON.stringify({
+        title: editTitle,
+        content: editContent,
+        mediaUrl: editImageDataUrl,
+      }),
     });
 
     if (!response.ok) return;
-    if (editImagePreview.startsWith("blob:")) URL.revokeObjectURL(editImagePreview);
+    if (editImagePreview.startsWith("blob:"))
+      URL.revokeObjectURL(editImagePreview);
     setEditingPost(null);
     setEditTitle("");
     setEditContent("");
@@ -429,21 +539,27 @@ export default function HomePage() {
     );
     if (!response.ok) return;
 
-    if (!deleteTarget.commentId && activePostId === deleteTarget.postId) setActivePostId(null);
+    if (!deleteTarget.commentId && activePostId === deleteTarget.postId)
+      setActivePostId(null);
     setDeleteTarget(null);
     await loadFeed();
   };
 
   const rootCommentsForPost = useCallback((post: HomeFeedPost) => {
     const knownIds = new Set(post.comments.map((comment) => comment.id));
-    return post.comments.filter((comment) => !comment.parentId || !knownIds.has(comment.parentId));
+    return post.comments.filter(
+      (comment) => !comment.parentId || !knownIds.has(comment.parentId),
+    );
   }, []);
   const getChildComments = useCallback(
-    (comments: HomeFeedComment[], parentId: string) => comments.filter((comment) => comment.parentId === parentId),
+    (comments: HomeFeedComment[], parentId: string) =>
+      comments.filter((comment) => comment.parentId === parentId),
     [],
   );
 
-  const activePost = activePostId ? feed.posts.find((post) => post.id === activePostId) ?? null : null;
+  const activePost = activePostId
+    ? (feed.posts.find((post) => post.id === activePostId) ?? null)
+    : null;
   const posts = feed.posts;
   const stories: HomeFeedStory[] = feed.stories;
   const groupedStories = useMemo(() => {
@@ -456,7 +572,8 @@ export default function HomePage() {
     grouped.forEach((authorStories, authorId) => {
       const orderedStories = [...authorStories].sort(
         (firstStory, secondStory) =>
-          new Date(firstStory.createdAt).getTime() - new Date(secondStory.createdAt).getTime(),
+          new Date(firstStory.createdAt).getTime() -
+          new Date(secondStory.createdAt).getTime(),
       );
       grouped.set(authorId, orderedStories);
     });
@@ -466,21 +583,34 @@ export default function HomePage() {
     const cards: HomeFeedStory[] = [];
     groupedStories.forEach((authorStories) => {
       if (!authorStories.length) return;
-      const firstUnseenStory = authorStories.find((story) => !seenStoryIds.has(story.id));
+      const firstUnseenStory = authorStories.find(
+        (story) => !seenStoryIds.has(story.id),
+      );
       cards.push(firstUnseenStory ?? authorStories[authorStories.length - 1]!);
     });
     return cards;
   }, [groupedStories, seenStoryIds]);
   const activeStorySeries = useMemo(
-    () => (activeStoryAuthorId ? groupedStories.get(activeStoryAuthorId) ?? [] : []),
+    () =>
+      activeStoryAuthorId
+        ? (groupedStories.get(activeStoryAuthorId) ?? [])
+        : [],
     [activeStoryAuthorId, groupedStories],
   );
-  const activeStory = activeStoryIndex !== null ? activeStorySeries[activeStoryIndex] ?? null : null;
+  const activeStory =
+    activeStoryIndex !== null
+      ? (activeStorySeries[activeStoryIndex] ?? null)
+      : null;
   const openStory = (authorId: string) => {
     const authorStories = groupedStories.get(authorId) ?? [];
     if (!authorStories.length) return;
-    const firstUnseenStoryIndex = authorStories.findIndex((story) => !seenStoryIds.has(story.id));
-    const startIndex = firstUnseenStoryIndex >= 0 ? firstUnseenStoryIndex : authorStories.length - 1;
+    const firstUnseenStoryIndex = authorStories.findIndex(
+      (story) => !seenStoryIds.has(story.id),
+    );
+    const startIndex =
+      firstUnseenStoryIndex >= 0
+        ? firstUnseenStoryIndex
+        : authorStories.length - 1;
     setActiveStoryAuthorId(authorId);
     setActiveStoryIndex(startIndex);
     setStoryTimerPaused(false);
@@ -550,7 +680,7 @@ export default function HomePage() {
       return updated;
     });
   }, [activeStory]);
-  
+
   const onStoryViewerPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (event.pointerType === "mouse" && event.button !== 0) return;
     if (isStoryTimerPaused || !activeStory) return;
@@ -566,7 +696,10 @@ export default function HomePage() {
   const onStoryViewerPointerUp = () => {
     if (!activeStory) return;
     const holdStartedAt = storyHoldStartedAtRef.current;
-    if (holdStartedAt !== null && Date.now() - holdStartedAt >= STORY_HOLD_MIN_MS) {
+    if (
+      holdStartedAt !== null &&
+      Date.now() - holdStartedAt >= STORY_HOLD_MIN_MS
+    ) {
       suppressStoryTapRef.current = true;
     }
     storyHoldStartedAtRef.current = null;
@@ -597,7 +730,11 @@ export default function HomePage() {
     goToPreviousStory();
   };
 
-  const reportItem = async (targetType: ReportTargetType, targetId: string | null | undefined, label: string) => {
+  const reportItem = async (
+    targetType: ReportTargetType,
+    targetId: string | null | undefined,
+    label: string,
+  ) => {
     const result = await promptAndSubmitReport({ targetType, targetId, label });
     if (!result.message) return;
     setReportStatus(result.message);
@@ -608,7 +745,9 @@ export default function HomePage() {
     const visitorPrefix = visitorTrialStatus?.isActive
       ? `Your Visitor Pass has ${visitorTrialStatus.daysRemaining} day${visitorTrialStatus.daysRemaining === 1 ? "" : "s"} left for browsing and previewing.`
       : "Visitor and pending accounts can browse BareUnity.";
-    setReportStatus(`${visitorPrefix} Verify with ID to post, comment, comment, check in, or submit places.`);
+    setReportStatus(
+      `${visitorPrefix} Verify with ID to post, comment, comment, check in, or submit places.`,
+    );
     window.setTimeout(() => setReportStatus(""), 6500);
   };
 
@@ -633,286 +772,472 @@ export default function HomePage() {
   return (
     <main className={styles.main}>
       <AppSidebar />
-      
+
       <section className={styles.feedLayout}>
-        <div className="w-full rounded-4xl border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))] p-4 shadow-sm md:p-6">
-          <header className={`${styles.feedHeader} mb-4 rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] px-4 py-3`}>
-            <div className={styles.feedHeaderTitleBlock}>
-              <p className="text-xs uppercase tracking-[0.16em] text-[rgb(var(--muted))]">Home feed</p>
-              <h1 className="text-lg font-semibold text-[rgb(var(--text-strong))]">Social dashboard</h1>
-            </div>
-            <div className={styles.feedHeaderControls}>
-              <button
-                type="button"
-                onClick={() => setActiveFeedTab("following")}
-                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
-                  activeFeedTab === "following"
-                    ? "bg-[rgb(var(--card))] text-[rgb(var(--text-strong))] shadow-sm"
-                    : "text-[rgb(var(--muted))] hover:text-[rgb(var(--text-strong))]"
-                }`}
-              >
-                Following
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveFeedTab("forYou")}
-                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
-                  activeFeedTab === "forYou"
-                    ? "bg-[rgb(var(--card))] text-[rgb(var(--text-strong))] shadow-sm"
-                    : "text-[rgb(var(--muted))] hover:text-[rgb(var(--text-strong))]"
-                }`}
-              >
-                For you
-              </button>
-              <Button size="sm" onClick={openComposer} className={styles.feedCreateButton}>
-                {isViewerActionLocked ? "Verify to create" : "Create"}
-              </Button>
-            </div>
-          </header>
-
-          {visitorTrialStatus?.isVisitorTrial ? (
-            <div className={styles.visitorTrialBanner}>
-              <div>
-                <p className={styles.visitorTrialEyebrow}>7-day Visitor Pass</p>
-                <h2>{visitorTrialStatus.isActive ? `${visitorTrialStatus.daysRemaining} day${visitorTrialStatus.daysRemaining === 1 ? "" : "s"} of browsing left` : "Visitor Pass ended"}</h2>
-                <p>
-                  Preview feeds, profiles, places, and community value. Member-impacting actions stay locked until ID verification protects the community.
-                </p>
+        <div className={styles.homeFeedShell}>
+          <div className={styles.homeFeedMain}>
+            <header className={styles.feedHeader}>
+              <div className={styles.feedHeaderTitleBlock}>
+                <h1>Home Feed</h1>
+                <p>What&apos;s happening in the BareUnity community</p>
               </div>
-              <Link href="/settings#verification" className={styles.visitorTrialLink}>
-                Verification settings
-              </Link>
-            </div>
-          ) : null}
+              <div className={styles.feedHeaderActions}>
+                <div
+                  className={styles.feedTabSwitch}
+                  aria-label="Home feed filter"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setActiveFeedTab("following")}
+                    className={
+                      activeFeedTab === "following" ? styles.feedTabActive : ""
+                    }
+                  >
+                    Following
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveFeedTab("forYou")}
+                    className={
+                      activeFeedTab === "forYou" ? styles.feedTabActive : ""
+                    }
+                  >
+                    For you
+                  </button>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={openComposer}
+                  className={styles.feedCreateButton}
+                >
+                  <Pencil className="h-4 w-4" />
+                  {isViewerActionLocked ? "Verify to create" : "Create Post"}
+                </Button>
+              </div>
+            </header>
 
-          {reportStatus ? (
-            <p className="mb-4 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] px-3 py-2 text-sm text-[rgb(var(--text-strong))]">{reportStatus}</p>
-          ) : null}
+            {visitorTrialStatus?.isVisitorTrial ? (
+              <div className={styles.visitorTrialBanner}>
+                <div>
+                  <p className={styles.visitorTrialEyebrow}>
+                    7-day Visitor Pass
+                  </p>
+                  <h2>
+                    {visitorTrialStatus.isActive
+                      ? `${visitorTrialStatus.daysRemaining} day${visitorTrialStatus.daysRemaining === 1 ? "" : "s"} of browsing left`
+                      : "Visitor Pass ended"}
+                  </h2>
+                  <p>
+                    Preview feeds, profiles, places, and community value.
+                    Member-impacting actions stay locked until ID verification
+                    protects the community.
+                  </p>
+                </div>
+                <Link
+                  href="/settings#verification"
+                  className={styles.visitorTrialLink}
+                >
+                  Verification settings
+                </Link>
+              </div>
+            ) : null}
 
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,2.3fr)_minmax(280px,1fr)]">
-            <div className="space-y-4">
-              <Card className="border-0 bg-[rgb(var(--bg-soft))]">
-                <CardHeader className="pb-4">
-                  <CardTitle className="text-sm uppercase tracking-[0.12em] text-[rgb(var(--muted))]">Bare Moments</CardTitle>
-                </CardHeader>
-                <CardContent className="flex items-center gap-2 overflow-x-auto pb-1 min-[1100px]:grid min-[1100px]:gap-3 min-[1100px]:grid-cols-4">
-                  {storyCards.map((story) => (
-                    <button
-                      key={story.id}
-                      type="button"
-                      onClick={() => openStory(story.authorId)}
-                      className="relative flex shrink-0 flex-col items-center gap-1 text-left min-[1100px]:items-stretch min-[1100px]:gap-0 min-[1100px]:overflow-hidden min-[1100px]:rounded-2xl min-[1100px]:border min-[1100px]:border-white/60 min-[1100px]:bg-[rgb(var(--card))] min-[1100px]:shadow-sm"
-                    >
-                      {story.imageUrl ? (
-                        <Image
-                          src={story.imageUrl}
-                          alt={`${story.name}'s story`}
-                          width={720}
-                          height={960}
-                          sizes="(min-width: 1100px) 18vw, 0px"
-                          className="hidden h-48 w-full object-cover min-[1100px]:block"
-                        />
-                      ) : (
-                        <div className={`hidden min-[1100px]:block min-[1100px]:h-48 min-[1100px]:bg-linear-to-b ${story.tone}`} />
-                      )}
-                      <div className="rounded-full bg-linear-to-br from-fuchsia-500 via-rose-500 to-amber-400 p-0.5 min-[1100px]:absolute min-[1100px]:left-3 min-[1100px]:top-3">
-                        <Avatar
-                          alt={story.name}
-                          fallback={story.fallback}
-                          className="h-10 w-10 border-2 border-white min-[1100px]:h-10 min-[1100px]:w-10"
-                        />
-                      </div>
-                      <p className="max-w-16 truncate text-center text-[11px] font-medium text-[rgb(var(--text-strong))] min-[1100px]:hidden">
-                        {story.name.split(" ")[0]}
-                      </p>
-                      <p className="hidden min-[1100px]:absolute min-[1100px]:bottom-3 min-[1100px]:left-3 min-[1100px]:block min-[1100px]:text-sm min-[1100px]:font-semibold min-[1100px]:text-white">
-                        {story.name}
-                      </p>
-                      <p className="hidden min-[1100px]:absolute min-[1100px]:bottom-0 min-[1100px]:right-3 min-[1100px]:block min-[1100px]:text-[11px] min-[1100px]:text-white/90">
-                        {story.posted}
-                      </p>
-                    </button>
-                  ))}
-                  {storyCards.length === 0 && <p className="text-sm text-[rgb(var(--muted))]">No Bare Moments yet.</p>}
-                </CardContent>
-              </Card>
+            {reportStatus ? (
+              <p className={styles.reportStatus}>{reportStatus}</p>
+            ) : null}
 
+            <section
+              className={styles.quickComposer}
+              aria-label="Create a community post"
+            >
+              <div className={styles.quickComposerRow}>
+                <Avatar
+                  alt="Your profile"
+                  fallback="J"
+                  className={styles.quickComposerAvatar}
+                />
+                <button
+                  type="button"
+                  onClick={openComposer}
+                  className={styles.quickComposerInput}
+                >
+                  Share a bare moment, ask a question, or start a discussion...
+                </button>
+              </div>
+              <div className={styles.quickComposerActions}>
+                <button type="button" onClick={openComposer}>
+                  <ImageIcon className="h-4 w-4" />
+                  Photo
+                </button>
+                <button type="button" onClick={openComposer}>
+                  <MapPin className="h-4 w-4" />
+                  Location
+                </button>
+                <button type="button" onClick={openComposer}>
+                  <BarChart3 className="h-4 w-4" />
+                  Poll
+                </button>
+                <Button
+                  size="sm"
+                  onClick={openComposer}
+                  className={styles.quickPostButton}
+                >
+                  Post
+                </Button>
+              </div>
+            </section>
+
+            <nav className={styles.feedPills} aria-label="Post categories">
+              {[
+                "All Posts",
+                "Naturist Moments",
+                "Discussions",
+                "Locations",
+                "Experiences",
+              ].map((label, index) => (
+                <button
+                  key={label}
+                  type="button"
+                  className={index === 0 ? styles.feedPillActive : ""}
+                >
+                  {label}
+                </button>
+              ))}
+            </nav>
+
+            <div className={styles.feedList}>
               {isLoadingFeed && posts.length === 0 ? (
                 <Card className="border-0 bg-[rgb(var(--card))]">
-                  <CardContent className="p-4 text-sm text-[rgb(var(--muted))]">Loading your feed…</CardContent>
+                  <CardContent className="p-4 text-sm text-[rgb(var(--muted))]">
+                    Loading your feed…
+                  </CardContent>
                 </Card>
               ) : null}
 
               {posts.map((post: HomeFeedPost) => {
                 const caption = post.text.trim();
-                const isCaptionExpanded = Boolean(expandedCaptionsByPost[post.id]);
-                const shouldClampCaption = caption.length > 160 || caption.includes("\n");
+                const isCaptionExpanded = Boolean(
+                  expandedCaptionsByPost[post.id],
+                );
+                const shouldClampCaption =
+                  caption.length > 190 || caption.includes("\n");
+                const excerpt =
+                  caption || "Shared a new BareUnity community moment.";
 
                 return (
-                <Card key={post.id} className="border-0 bg-[rgb(var(--card))]">
-                  <CardContent className="p-4">
-                    <div className="mb-3 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <Avatar alt={post.author} fallback={post.fallback} className="h-11 w-11" />
+                  <article key={post.id} className={styles.feedPostCard}>
+                    <div className={styles.feedPostHeader}>
+                      <div className={styles.feedAuthorRow}>
+                        <Avatar
+                          alt={post.author}
+                          fallback={post.fallback}
+                          className={styles.feedAvatar}
+                        />
                         <div>
-                          <UsernameActionPopup
-                            userId={post.authorId}
-                            displayName={post.author}
-                            triggerClassName="text-sm font-semibold text-[rgb(var(--text-strong))] underline-offset-2 hover:underline"
-                          />
-                          <p className="text-xs text-[rgb(var(--muted))]">{post.posted}</p>
+                          <div className={styles.feedAuthorNameRow}>
+                            <UsernameActionPopup
+                              userId={post.authorId}
+                              displayName={post.author}
+                              triggerClassName="font-semibold text-[rgb(var(--text-strong))] underline-offset-2 hover:underline"
+                            />
+                            <span aria-hidden="true">✿</span>
+                          </div>
+                          <p>{post.posted} • Naturist Moments</p>
                         </div>
                       </div>
-                      {feed.viewerId && post.authorId === feed.viewerId ? (
-                        <div className="relative">
-                          <button
-                            type="button"
-                            aria-label="Open post actions"
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[rgb(var(--muted))] hover:bg-[rgb(var(--bg-soft))]"
-                            onClick={() => setOpenPostMenuId((current) => (current === post.id ? null : post.id))}
-                          >
-                            <Ellipsis className="h-4 w-4" />
-                          </button>
-                          {openPostMenuId === post.id ? (
-                            <div className="absolute right-0 top-9 z-20 min-w-32 rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-1 shadow-lg">
-                              <button
-                                type="button"
-                                onClick={() => openEditPostModal(post)}
-                                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-[rgb(var(--text))] hover:bg-[rgb(var(--bg-soft))]"
-                              >
-                                <Pencil className="h-3.5 w-3.5" />
-                                Edit post
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => openDeleteModal(post.id)}
-                                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-rose-600 hover:bg-rose-50"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                                Delete post
-                              </button>
-                            </div>
-                          ) : null}
-                        </div>
-                      ) : null}
+                      <div className="relative">
+                        <button
+                          type="button"
+                          aria-label="Open post actions"
+                          className={styles.postMenuButton}
+                          onClick={() =>
+                            setOpenPostMenuId((current) =>
+                              current === post.id ? null : post.id,
+                            )
+                          }
+                        >
+                          <Ellipsis className="h-4 w-4" />
+                        </button>
+                        {openPostMenuId === post.id ? (
+                          <div className="absolute right-0 top-9 z-20 min-w-36 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-1 shadow-lg">
+                            {feed.viewerId &&
+                            post.authorId === feed.viewerId ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => openEditPostModal(post)}
+                                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-[rgb(var(--text))] hover:bg-[rgb(var(--bg-soft))]"
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                  Edit post
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => openDeleteModal(post.id)}
+                                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-rose-600 hover:bg-rose-50"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                  Delete post
+                                </button>
+                              </>
+                            ) : null}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void reportItem("post", post.id, "post")
+                              }
+                              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-[rgb(var(--text))] hover:bg-[rgb(var(--bg-soft))]"
+                            >
+                              <Flag className="h-3.5 w-3.5" />
+                              Report
+                            </button>
+                          </div>
+                        ) : null}
                       </div>
-                    <div className="mb-4 block w-full text-left">
+                    </div>
+
+                    <div className={styles.feedPostBody}>
                       {post.mediaUrl ? (
                         <Image
                           src={post.mediaUrl}
                           alt={`${post.author}'s post`}
                           width={1200}
-                          height={1200}
-                          sizes="(min-width: 1280px) 60vw, 100vw"
-                          className="h-130 w-full rounded-2xl bg-[rgb(var(--bg-soft))] object-contain"
+                          height={900}
+                          sizes="(min-width: 1280px) 34vw, 100vw"
+                          className={styles.feedPostImage}
                         />
-                      ) : null}
-                    </div>
-                    {caption ? (
-                      <div className="mb-3">
+                      ) : (
+                        <div className={styles.feedPostImagePlaceholder} />
+                      )}
+                      <div className={styles.feedPostCopy}>
+                        <h2>
+                          {caption.split("\n")[0].slice(0, 64) ||
+                            "Perfect day in nature ☀️"}
+                        </h2>
                         <p
-                          className="whitespace-pre-line break-words text-sm text-[rgb(var(--text))] [overflow-wrap:anywhere]"
+                          className="whitespace-pre-line break-words [overflow-wrap:anywhere]"
                           style={
                             !isCaptionExpanded && shouldClampCaption
                               ? {
                                   display: "-webkit-box",
-                                  WebkitLineClamp: 3,
+                                  WebkitLineClamp: 5,
                                   WebkitBoxOrient: "vertical",
                                   overflow: "hidden",
                                 }
                               : undefined
                           }
                         >
-                          <span className="mr-1">
-                            <UsernameActionPopup
-                              userId={post.authorId}
-                              displayName={post.author}
-                              triggerClassName="font-semibold text-[rgb(var(--text-strong))] underline-offset-2 hover:underline"
-                            />
-                          </span>
-                          {caption}
+                          {excerpt}
                         </p>
                         {shouldClampCaption ? (
                           <button
                             type="button"
                             onClick={() =>
-                              setExpandedCaptionsByPost((current) => ({ ...current, [post.id]: !current[post.id] }))
+                              setExpandedCaptionsByPost((current) => ({
+                                ...current,
+                                [post.id]: !current[post.id],
+                              }))
                             }
-                            className="mt-1 inline-block text-left text-xs font-medium text-[rgb(var(--muted))]"
+                            className={styles.showMoreButton}
                             aria-expanded={isCaptionExpanded}
-                            aria-label={isCaptionExpanded ? "Collapse caption" : "Expand caption"}
+                            aria-label={
+                              isCaptionExpanded
+                                ? "Collapse caption"
+                                : "Expand caption"
+                            }
                           >
                             {isCaptionExpanded ? "Show less" : "Show more"}
                           </button>
                         ) : null}
+                        <p className={styles.feedQuestion}>
+                          What&apos;s your favorite beach moment?
+                        </p>
                       </div>
-                    ) : null}
-                    <div className="mb-3 flex flex-wrap items-center gap-2 border-t border-[rgb(var(--border))] pt-3">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className={
-                          post.likedByViewer
-                            ? "border-red-200 bg-red-50 text-red-600 hover:bg-red-100"
-                            : "text-[rgb(var(--text-strong))]"
-                        }
-                        onClick={() => toggleLike(post.id)}
-                      >
-                        <Heart className={`mr-1 h-4 w-4 ${post.likedByViewer ? "fill-current text-red-500" : ""}`} />
-                        Like ({post.likes})
-                      </Button>
-                      {feed.viewerId && post.authorId === feed.viewerId ? (
-                        <div className="relative">
-                          <Button size="sm" variant="outline" onClick={() => void toggleLikesDropdown(post.id)}>
-                            Liked by
-                            <ChevronDown className="ml-1 h-4 w-4" />
-                          </Button>
-                          {openLikesPostId === post.id ? (
-                            <div className="absolute right-0 top-10 z-20 w-60 max-w-[calc(100vw-2.5rem)] rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-2 shadow-lg sm:left-0 sm:right-auto sm:max-w-none">
-                              {likesLoadingPostId === post.id ? (
-                                <p className="px-2 py-1 text-xs text-[rgb(var(--muted))]">Loading likes...</p>
-                              ) : likesByPost[post.id]?.length ? (
-                                <div className="max-h-48 space-y-1 overflow-y-auto">
-                                  {likesByPost[post.id].map((user) => (
-                                    <div key={user.userId} className="flex items-center gap-2 rounded-md px-2 py-1">
-                                      <Avatar src={user.avatarUrl ?? undefined} alt={user.name} fallback={user.name.slice(0, 2).toUpperCase()} className="h-7 w-7" />
-                                      <span className="text-xs font-medium text-[rgb(var(--text-strong))]">{user.name}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                <p className="px-2 py-1 text-xs text-[rgb(var(--muted))]">No likes yet.</p>
-                              )}
-                            </div>
-                          ) : null}
-                        </div>
-                      ) : null}
-                      <button type="button" onClick={() => setActivePostId(post.id)}>
-                        <Badge variant="outline" className="px-3 py-1 text-xs hover:bg-[rgb(var(--bg-soft))]">
-                          <MessageCircle className="mr-1 h-3.5 w-3.5" />
-                          {post.comments.length} comments
-                        </Badge>
-                      </button>
-                      <Button size="sm" variant="outline" onClick={() => void reportItem("post", post.id, "post")}>
-                        <Flag className="mr-1 h-4 w-4" />
-                        Report
-                      </Button>
                     </div>
-                  </CardContent>
-                </Card>
-              )})}
+
+                    <div className={styles.feedPostMetrics}>
+                      <button
+                        type="button"
+                        onClick={() => toggleLike(post.id)}
+                        className={post.likedByViewer ? styles.likedMetric : ""}
+                      >
+                        <Heart className="h-5 w-5" />
+                        {post.likes}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setActivePostId(post.id)}
+                      >
+                        <MessageCircle className="h-5 w-5" />
+                        {post.comments.length}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setActivePostId(post.id)}
+                      >
+                        <Send className="h-5 w-5" />
+                        {Math.max(1, Math.round(post.comments.length / 2))}
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Save post"
+                        className={styles.savePostButton}
+                      >
+                        <Bookmark className="h-5 w-5" />
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
             </div>
           </div>
+
+          <aside
+            className={styles.homeFeedAside}
+            aria-label="Community sidebar"
+          >
+            <section className={styles.overviewCard}>
+              <div className={styles.asideCardHeader}>
+                <h2>Community Overview</h2>
+                <Link href="/members">View all</Link>
+              </div>
+              <div className={styles.overviewGrid}>
+                {[
+                  { value: "2,487", label: "Members", icon: Users },
+                  { value: "124", label: "Online", icon: Circle },
+                  { value: "387", label: "Locations", icon: MapPin },
+                  { value: "18", label: "Events", icon: Calendar },
+                ].map((item) => (
+                  <div key={item.label} className={styles.overviewStat}>
+                    <div>
+                      <strong>{item.value}</strong>
+                      <span>{item.label}</span>
+                    </div>
+                    <item.icon className="h-5 w-5" />
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className={styles.asideCard}>
+              <div className={styles.asideCardHeader}>
+                <h2>Featured Location</h2>
+                <Link href="/explore">View all</Link>
+              </div>
+              <div className={styles.featuredLocationImage}>
+                <button type="button" aria-label="Previous featured location">
+                  ‹
+                </button>
+                <button type="button" aria-label="Next featured location">
+                  ›
+                </button>
+              </div>
+              <div className={styles.locationMeta}>
+                <div>
+                  <h3>Sallymount Beach</h3>
+                  <p>Ireland</p>
+                  <span aria-label="5 star rating">★★★★★</span>
+                </div>
+                <Link href="/explore" className={styles.locationButton}>
+                  View Location
+                </Link>
+              </div>
+            </section>
+
+            <section className={styles.asideCard}>
+              <div className={styles.asideCardHeader}>
+                <h2>Upcoming Events</h2>
+                <Link href="/bookings/activities">View all</Link>
+              </div>
+              <div className={styles.eventList}>
+                {[
+                  {
+                    month: "MAY",
+                    day: "31",
+                    title: "Naturist Beach Walk",
+                    time: "Saturday, 10:00 AM",
+                    place: "Sallymount Beach, IE",
+                    guests: 23,
+                  },
+                  {
+                    month: "JUN",
+                    day: "07",
+                    title: "Forest Gathering",
+                    time: "Saturday, 2:00 PM",
+                    place: "De Hoge Veluwe, NL",
+                    guests: 18,
+                  },
+                  {
+                    month: "JUN",
+                    day: "14",
+                    title: "Sunset Swim",
+                    time: "Saturday, 7:00 PM",
+                    place: "Cap d’Agde, FR",
+                    guests: 27,
+                  },
+                ].map((event) => (
+                  <div key={event.title} className={styles.eventItem}>
+                    <div className={styles.eventDate}>
+                      <span>{event.month}</span>
+                      <strong>{event.day}</strong>
+                    </div>
+                    <div>
+                      <h3>{event.title}</h3>
+                      <p>{event.time}</p>
+                      <p>{event.place}</p>
+                    </div>
+                    <span className={styles.eventGuests}>
+                      <Users className="h-3.5 w-3.5" />
+                      {event.guests}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className={styles.asideCard}>
+              <div className={styles.asideCardHeader}>
+                <h2>Trending Topics</h2>
+                <Link href="/discussion">View all</Link>
+              </div>
+              <div className={styles.topicList}>
+                {[
+                  { title: "Best beaches in Europe", posts: "128 posts" },
+                  { title: "New to naturism", posts: "96 posts" },
+                ].map((topic) => (
+                  <Link
+                    href="/discussion"
+                    key={topic.title}
+                    className={styles.topicItem}
+                  >
+                    <TrendingUp className="h-5 w-5" />
+                    <span>
+                      <strong>{topic.title}</strong>
+                      <small>{topic.posts}</small>
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          </aside>
         </div>
       </section>
 
       {isComposerOpen ? (
-        <div className={`${styles.composerOverlay} fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 px-4 py-8`} role="dialog" aria-modal="true">
-          <div className={`${styles.composerDialog} w-full max-w-2xl rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-5 shadow-xl`}>
+        <div
+          className={`${styles.composerOverlay} fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 px-4 py-8`}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className={`${styles.composerDialog} w-full max-w-2xl rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-5 shadow-xl`}
+          >
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-lg font-semibold text-[rgb(var(--text-strong))]">
-                  {composerKind === "story" ? "Create story" : "Create new post"}
+                  {composerKind === "story"
+                    ? "Create story"
+                    : "Create new post"}
                 </h2>
                 <p className="text-sm text-[rgb(var(--muted))]">
                   {composerKind === "story"
@@ -937,131 +1262,165 @@ export default function HomePage() {
                   className="rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))] p-4 text-left hover:bg-[rgb(var(--card))]"
                   onClick={() => setComposerKind("post")}
                 >
-                  <p className="font-semibold text-[rgb(var(--text-strong))]">New post</p>
-                  <p className="mt-1 text-sm text-[rgb(var(--muted))]">Share text, markdown formatting, and an image.</p>
+                  <p className="font-semibold text-[rgb(var(--text-strong))]">
+                    New post
+                  </p>
+                  <p className="mt-1 text-sm text-[rgb(var(--muted))]">
+                    Share text, markdown formatting, and an image.
+                  </p>
                 </button>
                 <button
                   type="button"
                   className="rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))] p-4 text-left hover:bg-[rgb(var(--card))]"
                   onClick={() => setComposerKind("story")}
                 >
-                  <p className="font-semibold text-[rgb(var(--text-strong))]">New story</p>
-                  <p className="mt-1 text-sm text-[rgb(var(--muted))]">Photo story that expires after 24 hours.</p>
+                  <p className="font-semibold text-[rgb(var(--text-strong))]">
+                    New story
+                  </p>
+                  <p className="mt-1 text-sm text-[rgb(var(--muted))]">
+                    Photo story that expires after 24 hours.
+                  </p>
                 </button>
               </div>
             ) : null}
 
             {composerKind ? (
-            <div className={`${styles.composerBody} space-y-3`}>
-              {composerKind === "post" ? (
-                <input
-                  type="text"
-                  value={postTitle}
-                  onChange={(event) => setPostTitle(event.target.value)}
-                  placeholder="Post heading"
-                  className="h-10 w-full rounded-lg border border-[rgb(var(--border))] px-3 text-sm outline-none focus:ring-2 focus:ring-[rgb(var(--ring))]"
-                />
-              ) : (
-                <input
-                  type="text"
-                  value={postTitle}
-                  onChange={(event) => setPostTitle(event.target.value)}
-                  placeholder="Story caption (optional)"
-                  className="h-10 w-full rounded-lg border border-[rgb(var(--border))] px-3 text-sm outline-none focus:ring-2 focus:ring-[rgb(var(--ring))]"
-                />
-              )}
-
-              <div>
-                <textarea
-                  value={postContent}
-                  onChange={(event) => setPostContent(event.target.value)}
-                  className="min-h-40 w-full rounded-lg border border-[rgb(var(--border))] px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[rgb(var(--ring))]"
-                  placeholder={composerKind === "story" ? "Add an optional story note..." : "Write your post content here..."}
-                />
-                <p className="mt-1 text-xs text-[rgb(var(--muted))]">Press Enter for a new line. Use the Publish button when you are ready to post.</p>
-              </div>
-
-              <div className="space-y-2">
-                <label className="block text-sm text-[rgb(var(--muted))]">
-                  {composerKind === "story" ? "Story image (required)" : "Post image (optional)"}
-                </label>
-                {composerKind === "story" ? (
-                  <div className="space-y-2">
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => {
-                          if (galleryImageInputRef.current) {
-                            galleryImageInputRef.current.value = "";
-                            galleryImageInputRef.current.click();
-                          }
-                        }}
-                      >
-                        Choose from gallery
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => {
-                          if (cameraImageInputRef.current) {
-                            cameraImageInputRef.current.value = "";
-                            cameraImageInputRef.current.click();
-                          }
-                        }}
-                      >
-                        Use camera
-                      </Button>
-                    </div>
-                    <input
-                      ref={galleryImageInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={(event) => void onPickImage(event)}
-                      className="hidden"
-                    />
-                    <input
-                      ref={cameraImageInputRef}
-                      type="file"
-                      accept="image/*"
-                      capture="environment"
-                      onChange={(event) => void onPickImage(event)}
-                      className="hidden"
-                    />
-                    <p className="text-xs text-[rgb(var(--muted))]">
-                      Pick an existing photo or open your camera to take a new story image.
-                    </p>
-                  </div>
+              <div className={`${styles.composerBody} space-y-3`}>
+                {composerKind === "post" ? (
+                  <input
+                    type="text"
+                    value={postTitle}
+                    onChange={(event) => setPostTitle(event.target.value)}
+                    placeholder="Post heading"
+                    className="h-10 w-full rounded-lg border border-[rgb(var(--border))] px-3 text-sm outline-none focus:ring-2 focus:ring-[rgb(var(--ring))]"
+                  />
                 ) : (
                   <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(event) => void onPickImage(event)}
+                    type="text"
+                    value={postTitle}
+                    onChange={(event) => setPostTitle(event.target.value)}
+                    placeholder="Story caption (optional)"
+                    className="h-10 w-full rounded-lg border border-[rgb(var(--border))] px-3 text-sm outline-none focus:ring-2 focus:ring-[rgb(var(--ring))]"
                   />
                 )}
-                {postImagePreview ? (
-                  <img src={postImagePreview} alt="Selected upload preview" className="max-h-48 w-full rounded-xl object-cover sm:max-h-56" />
-                ) : null}
-              </div>
 
-              <div className={`${styles.composerPreview} rounded-lg bg-[rgb(var(--bg-soft))] p-3`}>
-                <p className="mb-2 text-xs uppercase tracking-[0.12em] text-[rgb(var(--muted))]">Preview</p>
-                {postPreview.trim() ? (
-                  <p className="whitespace-pre-wrap break-words text-sm leading-6 text-[rgb(var(--text))] [overflow-wrap:anywhere]">{postPreview}</p>
-                ) : (
-                  <p className="text-sm text-[rgb(var(--muted))]">Start typing to preview formatted content.</p>
-                )}
-              </div>
+                <div>
+                  <textarea
+                    value={postContent}
+                    onChange={(event) => setPostContent(event.target.value)}
+                    className="min-h-40 w-full rounded-lg border border-[rgb(var(--border))] px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[rgb(var(--ring))]"
+                    placeholder={
+                      composerKind === "story"
+                        ? "Add an optional story note..."
+                        : "Write your post content here..."
+                    }
+                  />
+                  <p className="mt-1 text-xs text-[rgb(var(--muted))]">
+                    Press Enter for a new line. Use the Publish button when you
+                    are ready to post.
+                  </p>
+                </div>
 
-              <div className={`${styles.composerActions} flex justify-end gap-2`}>
-                <Button variant="outline" onClick={closeComposer}>
-                  Cancel
-                </Button>
-                <Button onClick={publishPost} disabled={!canPublish}>
-                  {composerKind === "story" ? "Publish story" : "Publish post"}
-                </Button>
+                <div className="space-y-2">
+                  <label className="block text-sm text-[rgb(var(--muted))]">
+                    {composerKind === "story"
+                      ? "Story image (required)"
+                      : "Post image (optional)"}
+                  </label>
+                  {composerKind === "story" ? (
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            if (galleryImageInputRef.current) {
+                              galleryImageInputRef.current.value = "";
+                              galleryImageInputRef.current.click();
+                            }
+                          }}
+                        >
+                          Choose from gallery
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            if (cameraImageInputRef.current) {
+                              cameraImageInputRef.current.value = "";
+                              cameraImageInputRef.current.click();
+                            }
+                          }}
+                        >
+                          Use camera
+                        </Button>
+                      </div>
+                      <input
+                        ref={galleryImageInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={(event) => void onPickImage(event)}
+                        className="hidden"
+                      />
+                      <input
+                        ref={cameraImageInputRef}
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        onChange={(event) => void onPickImage(event)}
+                        className="hidden"
+                      />
+                      <p className="text-xs text-[rgb(var(--muted))]">
+                        Pick an existing photo or open your camera to take a new
+                        story image.
+                      </p>
+                    </div>
+                  ) : (
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(event) => void onPickImage(event)}
+                    />
+                  )}
+                  {postImagePreview ? (
+                    <img
+                      src={postImagePreview}
+                      alt="Selected upload preview"
+                      className="max-h-48 w-full rounded-xl object-cover sm:max-h-56"
+                    />
+                  ) : null}
+                </div>
+
+                <div
+                  className={`${styles.composerPreview} rounded-lg bg-[rgb(var(--bg-soft))] p-3`}
+                >
+                  <p className="mb-2 text-xs uppercase tracking-[0.12em] text-[rgb(var(--muted))]">
+                    Preview
+                  </p>
+                  {postPreview.trim() ? (
+                    <p className="whitespace-pre-wrap break-words text-sm leading-6 text-[rgb(var(--text))] [overflow-wrap:anywhere]">
+                      {postPreview}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-[rgb(var(--muted))]">
+                      Start typing to preview formatted content.
+                    </p>
+                  )}
+                </div>
+
+                <div
+                  className={`${styles.composerActions} flex justify-end gap-2`}
+                >
+                  <Button variant="outline" onClick={closeComposer}>
+                    Cancel
+                  </Button>
+                  <Button onClick={publishPost} disabled={!canPublish}>
+                    {composerKind === "story"
+                      ? "Publish story"
+                      : "Publish post"}
+                  </Button>
+                </div>
               </div>
-            </div>
             ) : null}
           </div>
         </div>
@@ -1087,7 +1446,11 @@ export default function HomePage() {
             </div>
             <div className="mb-3 flex items-center justify-between text-white">
               <div className="flex items-center gap-3">
-                <Avatar alt={activeStory.name} fallback={activeStory.fallback} className="h-10 w-10 border border-white/70" />
+                <Avatar
+                  alt={activeStory.name}
+                  fallback={activeStory.fallback}
+                  className="h-10 w-10 border border-white/70"
+                />
                 <div>
                   <p className="text-sm font-semibold">{activeStory.name}</p>
                   <p className="text-xs text-white/80">{activeStory.posted}</p>
@@ -1121,12 +1484,19 @@ export default function HomePage() {
             </div>
             <div className="relative min-h-0 flex-1 overflow-hidden rounded-2xl bg-black/40">
               {activeStory.imageUrl ? (
-                <img src={activeStory.imageUrl} alt={`${activeStory.name} story`} className="h-full w-full object-contain" />
+                <img
+                  src={activeStory.imageUrl}
+                  alt={`${activeStory.name} story`}
+                  className="h-full w-full object-contain"
+                />
               ) : (
-                <div className={`h-full w-full bg-gradient-to-br ${activeStory.tone}`} />
+                <div
+                  className={`h-full w-full bg-gradient-to-br ${activeStory.tone}`}
+                />
               )}
               <p className="absolute bottom-4 left-4 right-4 text-sm font-medium text-white drop-shadow">
-                Tap right for next · tap left for previous · press and hold to pause
+                Tap right for next · tap left for previous · press and hold to
+                pause
               </p>
             </div>
           </div>
@@ -1134,12 +1504,20 @@ export default function HomePage() {
       ) : null}
 
       {activePost ? (
-        <div className="fixed inset-0 z-50 bg-[rgb(var(--card))]" role="dialog" aria-modal="true">
+        <div
+          className="fixed inset-0 z-50 bg-[rgb(var(--card))]"
+          role="dialog"
+          aria-modal="true"
+        >
           <div className="mx-auto flex h-full w-full max-w-3xl flex-col overflow-hidden border-x border-[rgb(var(--border))] bg-[rgb(var(--card))]">
             <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-[rgb(var(--border))] bg-[rgb(var(--card))] px-4 py-3">
               <div>
-                <p className="text-base font-semibold text-[rgb(var(--text-strong))]">Comments</p>
-                <p className="text-xs text-[rgb(var(--muted))]">{activePost.comments.length} total</p>
+                <p className="text-base font-semibold text-[rgb(var(--text-strong))]">
+                  Comments
+                </p>
+                <p className="text-xs text-[rgb(var(--muted))]">
+                  {activePost.comments.length} total
+                </p>
               </div>
               <button
                 type="button"
@@ -1165,7 +1543,11 @@ export default function HomePage() {
                     className="mt-3 max-h-[28rem] w-full rounded-xl bg-[rgb(var(--card))] object-contain"
                   />
                 ) : null}
-                {activePost.text ? <p className="mt-1 whitespace-pre-line text-sm text-[rgb(var(--text))]">{activePost.text}</p> : null}
+                {activePost.text ? (
+                  <p className="mt-1 whitespace-pre-line text-sm text-[rgb(var(--text))]">
+                    {activePost.text}
+                  </p>
+                ) : null}
                 <button
                   type="button"
                   className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-rose-600 hover:underline"
@@ -1177,14 +1559,24 @@ export default function HomePage() {
               </div>
               <div className="space-y-2 pb-4">
                 {rootCommentsForPost(activePost).map((comment) => {
-                  const renderComment = (node: HomeFeedComment, depth: number, visited: Set<string>) => {
+                  const renderComment = (
+                    node: HomeFeedComment,
+                    depth: number,
+                    visited: Set<string>,
+                  ) => {
                     if (visited.has(node.id)) return null;
                     const nextVisited = new Set(visited);
                     nextVisited.add(node.id);
-                    const children = getChildComments(activePost.comments, node.id);
-                    const areRepliesExpanded = Boolean(expandedCommentThreadsByPost[activePost.id]?.[node.id]);
+                    const children = getChildComments(
+                      activePost.comments,
+                      node.id,
+                    );
+                    const areRepliesExpanded = Boolean(
+                      expandedCommentThreadsByPost[activePost.id]?.[node.id],
+                    );
                     const visibleChildren = areRepliesExpanded ? children : [];
-                    const commentAuthorName = node.authorName || "Community member";
+                    const commentAuthorName =
+                      node.authorName || "Community member";
                     const commentFallback = node.authorFallback || "BU";
 
                     return (
@@ -1192,23 +1584,43 @@ export default function HomePage() {
                         <div className="rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))] px-3 py-2">
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex items-start gap-2">
-                              <Avatar src={node.authorAvatarUrl ?? undefined} alt={commentAuthorName} fallback={commentFallback} className="h-8 w-8" />
+                              <Avatar
+                                src={node.authorAvatarUrl ?? undefined}
+                                alt={commentAuthorName}
+                                fallback={commentFallback}
+                                className="h-8 w-8"
+                              />
                               <div>
                                 <UsernameActionPopup
                                   userId={node.authorId}
                                   displayName={commentAuthorName}
                                   triggerClassName="text-xs font-semibold text-[rgb(var(--text-strong))] underline-offset-2 hover:underline"
                                 />
-                                <p className="whitespace-pre-line text-sm text-[rgb(var(--text))] break-words [overflow-wrap:anywhere]">{node.content}</p>
+                                <p className="whitespace-pre-line text-sm text-[rgb(var(--text))] break-words [overflow-wrap:anywhere]">
+                                  {node.content}
+                                </p>
                               </div>
                             </div>
                             <div className="flex shrink-0 items-center gap-2">
-                              {feed.viewerId && node.authorId === feed.viewerId ? (
-                                <button type="button" onClick={() => openDeleteModal(activePost.id, node.id)} className="text-xs font-medium text-rose-600 hover:underline">
+                              {feed.viewerId &&
+                              node.authorId === feed.viewerId ? (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    openDeleteModal(activePost.id, node.id)
+                                  }
+                                  className="text-xs font-medium text-rose-600 hover:underline"
+                                >
                                   Delete
                                 </button>
                               ) : null}
-                              <button type="button" onClick={() => void reportItem("comment", node.id, "comment")} className="text-xs font-medium text-rose-600 hover:underline">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  void reportItem("comment", node.id, "comment")
+                                }
+                                className="text-xs font-medium text-rose-600 hover:underline"
+                              >
                                 Report
                               </button>
                             </div>
@@ -1220,7 +1632,10 @@ export default function HomePage() {
                               onClick={() =>
                                 setActiveReplyByPost((current) => ({
                                   ...current,
-                                  [activePost.id]: current[activePost.id] === node.id ? null : node.id,
+                                  [activePost.id]:
+                                    current[activePost.id] === node.id
+                                      ? null
+                                      : node.id,
                                 }))
                               }
                             >
@@ -1242,29 +1657,38 @@ export default function HomePage() {
                               }))
                             }
                           >
-                            {areRepliesExpanded ? "Hide replies" : `${children.length} more repl${children.length === 1 ? "y" : "ies"}`}
+                            {areRepliesExpanded
+                              ? "Hide replies"
+                              : `${children.length} more repl${children.length === 1 ? "y" : "ies"}`}
                           </button>
                         ) : null}
                         {visibleChildren.length ? (
-                          <div className={`space-y-2 border-l border-[rgb(var(--border))] pl-3 ${depth === 0 ? "ml-10" : "ml-6"}`}>
-                            {visibleChildren.map((child) => renderComment(child, depth + 1, nextVisited))}
+                          <div
+                            className={`space-y-2 border-l border-[rgb(var(--border))] pl-3 ${depth === 0 ? "ml-10" : "ml-6"}`}
+                          >
+                            {visibleChildren.map((child) =>
+                              renderComment(child, depth + 1, nextVisited),
+                            )}
                           </div>
                         ) : null}
                       </div>
-                      );
+                    );
                   };
 
                   return renderComment(comment, 0, new Set());
                 })}
               </div>
-              </div>
+            </div>
             <div className="sticky bottom-0 z-10 space-y-2 border-t border-[rgb(var(--border))] bg-[rgb(var(--card))] px-4 py-3">
               {activeReplyByPost[activePost.id] ? (
                 <div className="flex items-center justify-between rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))] px-3 py-2">
                   <p className="text-xs text-[rgb(var(--muted))]">
                     Replying to{" "}
                     <span className="font-semibold text-[rgb(var(--text-strong))]">
-                      {activePost.comments.find((comment) => comment.id === activeReplyByPost[activePost.id])?.authorName || "Community member"}
+                      {activePost.comments.find(
+                        (comment) =>
+                          comment.id === activeReplyByPost[activePost.id],
+                      )?.authorName || "Community member"}
                     </span>
                   </p>
                   <button
@@ -1285,12 +1709,32 @@ export default function HomePage() {
                 <textarea
                   rows={2}
                   value={commentDrafts[activePost.id] ?? ""}
-                  onChange={(event) => setCommentDrafts((current) => ({ ...current, [activePost.id]: event.target.value }))}
-                  placeholder={activeReplyByPost[activePost.id] ? "Write a reply..." : "Write a comment..."}
+                  onChange={(event) =>
+                    setCommentDrafts((current) => ({
+                      ...current,
+                      [activePost.id]: event.target.value,
+                    }))
+                  }
+                  placeholder={
+                    activeReplyByPost[activePost.id]
+                      ? "Write a reply..."
+                      : "Write a comment..."
+                  }
                   className="min-h-9 flex-1 resize-y rounded-lg border border-[rgb(var(--border))] px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[rgb(var(--ring))]"
-                  aria-label={activeReplyByPost[activePost.id] ? "Write a reply" : "Write a comment"}
+                  aria-label={
+                    activeReplyByPost[activePost.id]
+                      ? "Write a reply"
+                      : "Write a comment"
+                  }
                 />
-                <Button size="sm" onClick={() => addComment(activePost.id, { parentId: activeReplyByPost[activePost.id] ?? null })}>
+                <Button
+                  size="sm"
+                  onClick={() =>
+                    addComment(activePost.id, {
+                      parentId: activeReplyByPost[activePost.id] ?? null,
+                    })
+                  }
+                >
                   {activeReplyByPost[activePost.id] ? "Reply" : "Post"}
                 </Button>
               </div>
@@ -1300,17 +1744,26 @@ export default function HomePage() {
       ) : null}
 
       {editingPost ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 py-8" role="dialog" aria-modal="true">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 py-8"
+          role="dialog"
+          aria-modal="true"
+        >
           <div className="w-full max-w-2xl rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-5 shadow-xl">
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-lg font-semibold text-[rgb(var(--text-strong))]">Edit post</h2>
-                <p className="text-sm text-[rgb(var(--muted))]">Adjust your post title, body text, and optional image.</p>
+                <h2 className="text-lg font-semibold text-[rgb(var(--text-strong))]">
+                  Edit post
+                </h2>
+                <p className="text-sm text-[rgb(var(--muted))]">
+                  Adjust your post title, body text, and optional image.
+                </p>
               </div>
               <button
                 type="button"
                 onClick={() => {
-                  if (editImagePreview.startsWith("blob:")) URL.revokeObjectURL(editImagePreview);
+                  if (editImagePreview.startsWith("blob:"))
+                    URL.revokeObjectURL(editImagePreview);
                   setEditingPost(null);
                   setEditTitle("");
                   setEditImagePreview("");
@@ -1338,20 +1791,34 @@ export default function HomePage() {
                   className="min-h-40 w-full rounded-lg border border-[rgb(var(--border))] px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[rgb(var(--ring))]"
                   placeholder="Write your post content here..."
                 />
-                <p className="mt-1 text-xs text-[rgb(var(--muted))]">Press Enter for a new line. Use the Save button when you are done.</p>
+                <p className="mt-1 text-xs text-[rgb(var(--muted))]">
+                  Press Enter for a new line. Use the Save button when you are
+                  done.
+                </p>
               </div>
               <div className="space-y-2">
-                <label className="block text-sm text-[rgb(var(--muted))]">Post image (optional)</label>
-                <input type="file" accept="image/*" onChange={(event) => void onPickEditImage(event)} />
+                <label className="block text-sm text-[rgb(var(--muted))]">
+                  Post image (optional)
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(event) => void onPickEditImage(event)}
+                />
                 {editImagePreview ? (
-                  <img src={editImagePreview} alt="Edited post image preview" className="max-h-64 w-full rounded-xl object-cover" />
+                  <img
+                    src={editImagePreview}
+                    alt="Edited post image preview"
+                    className="max-h-64 w-full rounded-xl object-cover"
+                  />
                 ) : null}
               </div>
               <div className="flex justify-end gap-2">
                 <Button
                   variant="outline"
                   onClick={() => {
-                    if (editImagePreview.startsWith("blob:")) URL.revokeObjectURL(editImagePreview);
+                    if (editImagePreview.startsWith("blob:"))
+                      URL.revokeObjectURL(editImagePreview);
                     setEditingPost(null);
                     setEditTitle("");
                     setEditContent("");
@@ -1369,17 +1836,28 @@ export default function HomePage() {
       ) : null}
 
       {deleteTarget ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 py-8" role="dialog" aria-modal="true">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 py-8"
+          role="dialog"
+          aria-modal="true"
+        >
           <div className="w-full max-w-md rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-5 shadow-xl">
-            <h2 className="text-lg font-semibold text-[rgb(var(--text-strong))]">Delete {deleteTarget.commentId ? "comment" : "post"}?</h2>
+            <h2 className="text-lg font-semibold text-[rgb(var(--text-strong))]">
+              Delete {deleteTarget.commentId ? "comment" : "post"}?
+            </h2>
             <p className="mt-1 text-sm text-[rgb(var(--muted))]">
-              {deleteTarget.commentId ? "Are you sure you want to delete this comment?" : "Are you sure you want to delete this post? This action cannot be undone."}
+              {deleteTarget.commentId
+                ? "Are you sure you want to delete this comment?"
+                : "Are you sure you want to delete this post? This action cannot be undone."}
             </p>
             <div className="mt-4 flex justify-end gap-2">
               <Button variant="outline" onClick={() => setDeleteTarget(null)}>
                 Cancel
               </Button>
-              <Button className="bg-rose-600 text-white hover:bg-rose-700" onClick={confirmDelete}>
+              <Button
+                className="bg-rose-600 text-white hover:bg-rose-700"
+                onClick={confirmDelete}
+              >
                 Delete
               </Button>
             </div>
