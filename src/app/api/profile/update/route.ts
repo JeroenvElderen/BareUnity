@@ -14,7 +14,7 @@ import {
 import { ensureUserMediaStorage } from "@/lib/storage-buckets";
 import { loadViewerFromRequest } from "@/lib/viewer";
 
-const MAX_AVATAR_UPLOAD_BYTES = 8 * 1024 * 1024;
+const MAX_AVATAR_UPLOAD_BYTES = 3.5 * 1024 * 1024;
 const MAX_DISPLAY_NAME_LENGTH = 80;
 const MAX_BIO_LENGTH = 280;
 const MAX_LOCATION_LENGTH = 80;
@@ -151,7 +151,7 @@ export async function PATCH(request: Request) {
           maxBytes: MAX_AVATAR_UPLOAD_BYTES,
           emptyMessage: "Please choose a non-empty profile image.",
           typeMessage: "Unsupported profile image type. Please upload a JPG, PNG, WEBP, GIF, or AVIF image.",
-          sizeMessage: "Profile images must be 8MB or smaller. Large images are resized in the profile editor before upload.",
+          sizeMessage: "Profile images must be 3.5MB or smaller. Large images are resized in the profile editor before upload.",
           signatureMessage: "Profile image contents do not match the declared file type.",
         });
       } catch (error) {

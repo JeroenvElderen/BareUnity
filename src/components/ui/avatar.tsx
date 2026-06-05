@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { resolveMediaUrl } from "@/lib/media-url";
+import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 
 type AvatarProps = {
@@ -12,8 +13,56 @@ type AvatarProps = {
   className?: string;
 };
 
+const ABSOLUTE_OR_BROWSER_URL_PATTERN = /^(?:https?:|data:|blob:|\/)/i;
+
+function normalizeAvatarStoragePath(src: string | undefined) {
+  const value = src?.trim();
+  if (!value || ABSOLUTE_OR_BROWSER_URL_PATTERN.test(value)) return null;
+  return value.includes("/") ? value : `avatars/${value}`;
+}
+
+function useAvatarSource(src: string | undefined) {
+  const storagePath = useMemo(() => normalizeAvatarStoragePath(src), [src]);
+  const immediateSrc = useMemo(
+    () => (storagePath ? null : resolveMediaUrl(src, { defaultFolder: "avatars" })),
+    [src, storagePath],
+  );
+  const [signedSrc, setSignedSrc] = useState<{ path: string; url: string } | null>(null);
+
+  useEffect(() => {
+    let isActive = true;
+
+    if (!storagePath) {
+      return () => {
+        isActive = false;
+      };
+    }
+
+    supabase.storage
+      .from("media")
+      .createSignedUrl(storagePath, 60 * 60 * 24)
+      .then(({ data }) => {
+        if (isActive && data?.signedUrl) {
+          setSignedSrc({ path: storagePath, url: data.signedUrl });
+        }
+      })
+      .catch(() => {
+        const fallbackUrl = resolveMediaUrl(storagePath);
+        if (isActive && fallbackUrl) {
+          setSignedSrc({ path: storagePath, url: fallbackUrl });
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [storagePath]);
+
+  return signedSrc?.path === storagePath ? signedSrc.url : immediateSrc;
+}
+
 export function Avatar({ src, alt, fallback, className }: AvatarProps) {
-  const resolvedSrc = useMemo(() => resolveMediaUrl(src, { defaultFolder: "avatars" }), [src]);
+  const resolvedSrc = useAvatarSource(src);
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
   const shouldShowImage = Boolean(resolvedSrc && failedSrc !== resolvedSrc);
 

@@ -56,9 +56,10 @@ const EMPTY_PROFILE_DATA: ProfileData = {
 const PROFILE_CACHE_MAX_AGE_MS = 1000 * 60 * 3;
 const DEFAULT_PROFILE_BIO = "Nature-first connection, consent-forward gatherings, and calm community rituals.";
 const MAX_AVATAR_SOURCE_BYTES = 15 * 1024 * 1024;
-const MAX_AVATAR_UPLOAD_BYTES = 8 * 1024 * 1024;
-const LARGE_AVATAR_PREVIEW_BYTES = 8 * 1024 * 1024;
-const AVATAR_RESIZE_MAX_DIMENSION = 1024;
+const MAX_AVATAR_UPLOAD_BYTES = 3.5 * 1024 * 1024;
+const LARGE_AVATAR_PREVIEW_BYTES = 3.5 * 1024 * 1024;
+const AVATAR_RESIZE_MAX_DIMENSION = 2048;
+const AVATAR_RESIZE_TARGET_BYTES = MAX_AVATAR_UPLOAD_BYTES * 0.92;
 const AVATAR_UPLOAD_TYPES = new Set(["image/avif", "image/gif", "image/jpeg", "image/png", "image/webp"]);
 const AVATAR_UPLOAD_TYPE_LABEL = "JPG, PNG, WEBP, GIF, or AVIF";
 
@@ -85,7 +86,8 @@ async function readImageElement(file: File) {
 }
 
 async function prepareAvatarUpload(file: File) {
-  if (!AVATAR_UPLOAD_TYPES.has(file.type.toLowerCase())) {
+  const fileType = file.type.toLowerCase();
+  if (!AVATAR_UPLOAD_TYPES.has(fileType)) {
     throw new Error(`Unsupported profile image type. Please upload a ${AVATAR_UPLOAD_TYPE_LABEL} image.`);
   }
 
@@ -93,30 +95,42 @@ async function prepareAvatarUpload(file: File) {
     throw new Error(`Profile images must be ${formatFileSize(MAX_AVATAR_SOURCE_BYTES)} or smaller.`);
   }
 
-  if (file.size <= MAX_AVATAR_UPLOAD_BYTES) {
+  const image = await readImageElement(file);
+  const maxDimension = Math.max(image.naturalWidth, image.naturalHeight);
+  if (file.size <= MAX_AVATAR_UPLOAD_BYTES && maxDimension <= AVATAR_RESIZE_MAX_DIMENSION) {
     return file;
   }
 
-  const image = await readImageElement(file);
-  const scale = Math.min(1, AVATAR_RESIZE_MAX_DIMENSION / Math.max(image.naturalWidth, image.naturalHeight));
-  const width = Math.max(1, Math.round(image.naturalWidth * scale));
-  const height = Math.max(1, Math.round(image.naturalHeight * scale));
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-
-  const context = canvas.getContext("2d");
-  if (!context) {
-    throw new Error("Unable to prepare that profile image. Please choose a smaller image.");
-  }
-
-  context.drawImage(image, 0, 0, width, height);
-
   const sourceName = file.name.replace(/\.[^.]+$/, "").trim() || "profile-avatar";
-  for (const quality of [0.86, 0.76, 0.66, 0.56]) {
-    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
-    if (blob && blob.size <= MAX_AVATAR_UPLOAD_BYTES) {
-      return new File([blob], `${sourceName}.jpg`, { type: "image/jpeg", lastModified: Date.now() });
+  const dimensionTargets = Array.from(
+    new Set(
+      [Math.min(AVATAR_RESIZE_MAX_DIMENSION, maxDimension), 1792, 1536, 1280, 1024].filter(
+        (dimension) => dimension <= maxDimension,
+      ),
+    ),
+  );
+  const qualityTargets = [0.92, 0.86, 0.8, 0.72];
+
+  for (const maxTargetDimension of dimensionTargets) {
+    const scale = Math.min(1, maxTargetDimension / maxDimension);
+    const width = Math.max(1, Math.round(image.naturalWidth * scale));
+    const height = Math.max(1, Math.round(image.naturalHeight * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+
+    const context = canvas.getContext("2d");
+    if (!context) {
+      throw new Error("Unable to prepare that profile image. Please choose a smaller image.");
+    }
+
+    context.drawImage(image, 0, 0, width, height);
+
+  for (const quality of qualityTargets) {
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
+      if (blob && blob.size <= AVATAR_RESIZE_TARGET_BYTES) {
+        return new File([blob], `${sourceName}.jpg`, { type: "image/jpeg", lastModified: Date.now() });
+      }
     }
   }
 
@@ -330,7 +344,7 @@ export default function ProfilePage() {
 
   const avatarFallback = getInitials(displayName);
   const usernameHandle = useMemo(() => `@${profile?.username ?? "member"}`, [profile?.username]);
-  const avatarSrc = avatarPreviewUrl ?? resolveMediaUrl(profile?.avatar_url ?? null) ?? undefined;
+  const avatarSrc = avatarPreviewUrl ?? profile?.avatar_url ?? undefined;
 
   const handleAvatarChange = async (file: File | null) => {
     setAvatarFile(null);
@@ -488,7 +502,7 @@ export default function ProfilePage() {
                         disabled={isPreparingAvatar || isSavingProfile}
                         onChange={(event) => void handleAvatarChange(event.target.files?.[0] ?? null)}
                       />
-                      <span className="text-xs font-medium text-[rgb(var(--muted))]">{AVATAR_UPLOAD_TYPE_LABEL} up to {formatFileSize(MAX_AVATAR_SOURCE_BYTES)}. Images over {formatFileSize(LARGE_AVATAR_PREVIEW_BYTES)} are resized before upload.</span>
+                      <span className="text-xs font-medium text-[rgb(var(--muted))]">{AVATAR_UPLOAD_TYPE_LABEL} up to {formatFileSize(MAX_AVATAR_SOURCE_BYTES)}. Images over {formatFileSize(LARGE_AVATAR_PREVIEW_BYTES)} or {AVATAR_RESIZE_MAX_DIMENSION}px are resized before upload.</span>
                     </label>
 
                     <div className="grid flex-1 gap-3 md:grid-cols-2">
