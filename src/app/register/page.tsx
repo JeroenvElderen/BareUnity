@@ -98,6 +98,10 @@ export default function RegisterPage() {
       ? "Verified member"
       : "7-day Visitor Pass";
 
+  const markPostLoginHydration = () => {
+    window.sessionStorage.setItem("bareunity_post_login_loading", "true");
+  };
+
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setStatus("");
@@ -131,6 +135,8 @@ export default function RegisterPage() {
     setIsLoading(true);
 
     try {
+      const emailForSignIn = form.email.trim().toLowerCase();
+      const passwordForSignIn = form.password;
       const payload = new FormData();
       payload.set("fullName", form.fullName);
       payload.set(
@@ -138,7 +144,7 @@ export default function RegisterPage() {
         isInviteRegistration ? form.fullName : form.displayName,
       );
       payload.set("username", form.username);
-      payload.set("email", form.email);
+      payload.set("email", emailForSignIn);
       payload.set("password", form.password);
       payload.set("dateOfBirth", form.dateOfBirth);
       payload.set("country", form.country);
@@ -175,8 +181,26 @@ export default function RegisterPage() {
         return;
       }
 
-      setStatus(data.message ?? "Account created. You can sign in now.");
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: emailForSignIn,
+        password: passwordForSignIn,
+      });
+
+      if (signInError) {
+        setStatus(
+          signInError.message ||
+            data.message ||
+            "Account created, but automatic sign-in failed. Please sign in manually.",
+        );
+        return;
+      }
+
+      setStatus(data.message ?? "Account created and signed in successfully.");
       setForm({ ...initialState, accountAccess: form.accountAccess });
+      markPostLoginHydration();
+      void router.prefetch("/");
+      router.push("/");
+      router.refresh();
     } catch {
       setStatus("Something went wrong while creating your account.");
     } finally {
