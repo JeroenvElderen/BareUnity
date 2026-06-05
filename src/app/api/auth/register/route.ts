@@ -267,9 +267,12 @@ export async function POST(req: Request) {
   );
 
   if (isInviteRegistration) {
-    if (!fullName || !requestedUsername || !email || !inviteCode) {
+    if (!fullName || !requestedUsername || !email || !password || !inviteCode) {
       return NextResponse.json(
-        { error: "Please fill in name, username, email, and invite code." },
+        {
+          error:
+            "Please fill in name, username, email, password, and invite code.",
+        },
         { status: 400 },
       );
     }
@@ -394,7 +397,7 @@ export async function POST(req: Request) {
     );
   }
 
-  if (!isInviteRegistration && !hasStrongPassword(password)) {
+  if (!hasStrongPassword(password)) {
     return NextResponse.json(
       {
         error:
@@ -516,17 +519,13 @@ export async function POST(req: Request) {
     ...visitorTrialMetadata,
   };
 
-  const { data: createdUser, error: createUserError } = isInviteRegistration
-    ? await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-        data: userMetadata,
-        redirectTo: new URL("/login", req.url).toString(),
-      })
-    : await supabaseAdmin.auth.admin.createUser({
-        email,
-        password,
-        email_confirm: true,
-        user_metadata: userMetadata,
-      });
+  const { data: createdUser, error: createUserError } =
+    await supabaseAdmin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: userMetadata,
+    });
 
   if (createUserError || !createdUser.user) {
     return NextResponse.json(
@@ -666,7 +665,7 @@ export async function POST(req: Request) {
   return NextResponse.json({
     ok: true,
     message: isInviteRegistration
-      ? "Invite accepted. Your account is verified. Check your email for the invite link to finish account access."
+      ? "Invite accepted. Your verified account is ready. You can sign in now with your email and password."
       : isVerifiedApplication
         ? "Account created with strict safety onboarding. Your profile remains in verification review before full access."
         : "Your 7-day Visitor Pass is ready. You can browse and preview BareUnity now; posting, messaging, friend requests, check-ins, and submissions unlock after ID verification.",
