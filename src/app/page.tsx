@@ -1,5 +1,6 @@
 "use client";
 
+import { createRoot } from "react-dom/client";
 import {
   useCallback,
   useEffect,
@@ -11,19 +12,23 @@ import {
   type PointerEvent,
 } from "react";
 import {
-  BarChart3,
+  Building2,
   Calendar,
   ChevronDown,
   Circle,
   Ellipsis,
   Flag,
+  Flame,
   Heart,
-  ImageIcon,
+  Hotel,
   MapPin,
   MessageCircle,
   Pencil,
+  TentTree,
   TrendingUp,
   Trash2,
+  Trees,
+  Umbrella,
   Users,
   X,
 } from "lucide-react";
@@ -110,6 +115,30 @@ type HomeFeedLocation = {
   terrain: string | null;
   safetyLevel: string | null;
   description: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  privacy: string | null;
+};
+
+type HomeFeedMapInstance = {
+  remove: () => void;
+  addControl: (control: unknown, position?: string) => void;
+  flyTo?: (config: { center: [number, number]; zoom?: number }) => void;
+};
+
+type HomeFeedMarkerInstance = {
+  remove: () => void;
+  setLngLat: (lngLat: [number, number]) => HomeFeedMarkerInstance;
+  addTo: (map: unknown) => unknown;
+};
+
+type HomeFeedMapLibreGlobal = {
+  Map: new (config: Record<string, unknown>) => HomeFeedMapInstance;
+  NavigationControl: new () => unknown;
+  Marker: new (config: {
+    element: HTMLElement;
+    anchor?: string;
+  }) => HomeFeedMarkerInstance;
 };
 
 type HomeFeedEvent = {
@@ -161,6 +190,121 @@ function getDailyLocationIndex(locationCount: number) {
   if (locationCount <= 0) return 0;
   const todayUtc = Math.floor(Date.now() / 86_400_000);
   return todayUtc % locationCount;
+}
+
+function getHomeFeedMapLibre() {
+  return (window as Window & { maplibregl?: HomeFeedMapLibreGlobal })
+    .maplibregl;
+}
+
+function addMapLibreStylesheet(href: string) {
+  if (document.querySelector(`link[data-maplibre-css="${href}"]`)) return;
+
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = href;
+  link.dataset.maplibreCss = href;
+  document.head.appendChild(link);
+}
+
+function addMapLibreScript(src: string) {
+  return new Promise<void>((resolve, reject) => {
+    const existing = document.querySelector(
+      `script[data-maplibre-js="${src}"]`,
+    ) as HTMLScriptElement | null;
+
+    if (existing) {
+      if (existing.dataset.loaded === "true") {
+        resolve();
+        return;
+      }
+
+      existing.addEventListener("load", () => resolve(), { once: true });
+      existing.addEventListener(
+        "error",
+        () => reject(new Error("Failed to load MapLibre script.")),
+        { once: true },
+      );
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = src;
+    script.async = true;
+    script.dataset.maplibreJs = src;
+    script.addEventListener("load", () => {
+      script.dataset.loaded = "true";
+      resolve();
+    });
+    script.addEventListener("error", () =>
+      reject(new Error("Failed to load MapLibre script.")),
+    );
+    document.body.appendChild(script);
+  });
+}
+
+function terrainIconComponent(terrain: HomeFeedLocation["terrain"]) {
+  const normalized = (terrain ?? "").toLowerCase();
+
+  if (normalized.includes("beach")) return Umbrella;
+  if (normalized.includes("forest")) return Trees;
+  if (normalized.includes("resort")) return Hotel;
+  if (normalized.includes("camp")) return TentTree;
+  if (normalized.includes("hot spring")) return Flame;
+  if (normalized.includes("urban") || normalized.includes("rooftop"))
+    return Building2;
+  return MapPin;
+}
+
+function buildFeaturedLocationMarkerElement(location: HomeFeedLocation) {
+  const marker = document.createElement("button");
+  marker.type = "button";
+  marker.style.width = "44px";
+  marker.style.height = "44px";
+  marker.style.minWidth = "44px";
+  marker.style.minHeight = "44px";
+  marker.style.display = "grid";
+  marker.style.placeItems = "center";
+  marker.style.padding = "0";
+  marker.style.border = "0";
+  marker.style.borderRadius = "999px";
+  marker.style.background = "transparent";
+  marker.style.cursor = "pointer";
+  marker.style.lineHeight = "1";
+  marker.style.setProperty("-webkit-tap-highlight-color", "transparent");
+  marker.setAttribute("aria-label", location.name);
+
+  const isPublic = location.privacy === "Public";
+  marker.style.color = isPublic
+    ? "rgba(90, 51, 0, 0.92)"
+    : "rgba(225, 255, 242, 0.96)";
+
+  const markerBadge = document.createElement("span");
+  markerBadge.style.width = "30px";
+  markerBadge.style.height = "30px";
+  markerBadge.style.display = "grid";
+  markerBadge.style.placeItems = "center";
+  markerBadge.style.borderRadius = "999px";
+  markerBadge.style.border = "1px solid rgba(255, 255, 255, 0.72)";
+  markerBadge.style.background = isPublic
+    ? "linear-gradient(145deg, rgba(250, 205, 102, 0.98), rgba(236, 165, 66, 0.98))"
+    : "linear-gradient(145deg, rgba(16, 146, 112, 0.98), rgba(13, 108, 92, 0.98))";
+  markerBadge.style.boxShadow = "0 8px 18px rgba(0, 0, 0, 0.26)";
+  markerBadge.style.backdropFilter = "blur(1.5px)";
+
+  const icon = document.createElement("span");
+  icon.style.width = "15px";
+  icon.style.height = "15px";
+  icon.style.display = "inline-grid";
+  icon.style.placeItems = "center";
+  icon.style.filter = "drop-shadow(0 1px 0 rgba(0,0,0,0.12))";
+
+  const Icon = terrainIconComponent(location.terrain);
+  createRoot(icon).render(<Icon size={15} strokeWidth={2.35} />);
+  markerBadge.appendChild(icon);
+  marker.appendChild(markerBadge);
+
+  return marker;
 }
 
 export default function HomePage() {
@@ -241,11 +385,18 @@ export default function HomePage() {
   const [visitorTrialStatus, setVisitorTrialStatus] =
     useState<VisitorTrialStatus | null>(null);
   const [overview, setOverview] = useState<HomeFeedOverview>(defaultOverview);
-  const [featuredLocation, setFeaturedLocation] =
-    useState<HomeFeedLocation | null>(null);
+  const [featuredLocations, setFeaturedLocations] = useState<
+    HomeFeedLocation[]
+  >([]);
+  const [featuredLocationIndex, setFeaturedLocationIndex] = useState(0);
+  const [isFeaturedLocationMapReady, setFeaturedLocationMapReady] =
+    useState(false);
   const [upcomingEvents, setUpcomingEvents] = useState<HomeFeedEvent[]>([]);
   const [trendingTopics, setTrendingTopics] = useState<HomeFeedTopic[]>([]);
   const [isViewerActionLocked, setViewerActionLocked] = useState(false);
+  const featuredLocationMapRef = useRef<HomeFeedMapInstance | null>(null);
+  const featuredLocationMapContainerRef = useRef<HTMLDivElement | null>(null);
+  const featuredLocationMarkerRef = useRef<HomeFeedMarkerInstance | null>(null);
   const storyTimerStartedAtRef = useRef<number | null>(null);
   const storyHoldStartedAtRef = useRef<number | null>(null);
   const suppressStoryTapRef = useRef(false);
@@ -262,9 +413,12 @@ export default function HomePage() {
       supabase.from("profiles").select("id", { count: "exact", head: true }),
       supabase
         .from("naturist_map_spots")
-        .select("id,name,country,region,terrain,safety_level,description", {
-          count: "exact",
-        })
+        .select(
+          "id,name,country,region,terrain,safety_level,description,latitude,longitude,privacy",
+          {
+            count: "exact",
+          },
+        )
         .order("name", { ascending: true })
         .limit(500),
       supabase
@@ -297,22 +451,37 @@ export default function HomePage() {
       terrain: string | null;
       safety_level: string | null;
       description: string | null;
+      latitude: number | string | null;
+      longitude: number | string | null;
+      privacy: string | null;
     }>;
-    const dailyLocation =
-      locations[getDailyLocationIndex(locations.length)] ?? null;
-    setFeaturedLocation(
-      dailyLocation
-        ? {
-            id: dailyLocation.id,
-            name: dailyLocation.name,
-            country: dailyLocation.country,
-            region: dailyLocation.region,
-            terrain: dailyLocation.terrain,
-            safetyLevel: dailyLocation.safety_level,
-            description: dailyLocation.description,
-          }
-        : null,
-    );
+    const mappedLocations = locations
+      .map((location) => ({
+        id: location.id,
+        name: location.name,
+        country: location.country,
+        region: location.region,
+        terrain: location.terrain,
+        safetyLevel: location.safety_level,
+        description: location.description,
+        latitude: Number.isFinite(Number(location.latitude))
+          ? Number(location.latitude)
+          : null,
+        longitude: Number.isFinite(Number(location.longitude))
+          ? Number(location.longitude)
+          : null,
+        privacy: location.privacy,
+      }))
+      .filter(
+        (location) =>
+          location.latitude !== null && location.longitude !== null,
+      );
+    setFeaturedLocations(mappedLocations);
+    setFeaturedLocationIndex((current) => {
+      if (!mappedLocations.length) return 0;
+      if (current > 0 && current < mappedLocations.length) return current;
+      return getDailyLocationIndex(mappedLocations.length);
+    });
 
     setUpcomingEvents(
       (
@@ -783,6 +952,9 @@ export default function HomePage() {
     ? (feed.posts.find((post) => post.id === activePostId) ?? null)
     : null;
   const posts = feed.posts;
+  const featuredLocation =
+    featuredLocations[featuredLocationIndex] ?? featuredLocations[0] ?? null;
+  const canCycleFeaturedLocations = featuredLocations.length > 1;
   const stories: HomeFeedStory[] = feed.stories;
   const groupedStories = useMemo(() => {
     const grouped = new Map<string, HomeFeedStory[]>();
@@ -812,6 +984,106 @@ export default function HomePage() {
     activeStoryIndex !== null
       ? (activeStorySeries[activeStoryIndex] ?? null)
       : null;
+
+  const showPreviousFeaturedLocation = () => {
+    if (!featuredLocations.length) return;
+    setFeaturedLocationIndex((current) =>
+      current <= 0 ? featuredLocations.length - 1 : current - 1,
+    );
+  };
+
+  const showNextFeaturedLocation = () => {
+    if (!featuredLocations.length) return;
+    setFeaturedLocationIndex((current) =>
+      current >= featuredLocations.length - 1 ? 0 : current + 1,
+    );
+  };
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function initFeaturedLocationMap() {
+      if (!featuredLocationMapContainerRef.current) return;
+      if (featuredLocationMapRef.current) return;
+
+      try {
+        addMapLibreStylesheet(
+          "https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css",
+        );
+        await addMapLibreScript(
+          "https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js",
+        );
+
+        const maplibregl = getHomeFeedMapLibre();
+        if (!mounted || !featuredLocationMapContainerRef.current || !maplibregl)
+          return;
+
+        const map = new maplibregl.Map({
+          container: featuredLocationMapContainerRef.current,
+          center: [0, 20],
+          zoom: 1.4,
+          interactive: false,
+          attributionControl: false,
+          style: {
+            version: 8,
+            sources: {
+              osm: {
+                type: "raster",
+                tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+                tileSize: 256,
+                attribution: "© OpenStreetMap contributors",
+              },
+            },
+            layers: [
+              {
+                id: "osm",
+                type: "raster",
+                source: "osm",
+              },
+            ],
+          },
+        });
+
+        featuredLocationMapRef.current = map;
+        setFeaturedLocationMapReady(true);
+      } catch (error) {
+        console.error("Failed to load featured location map", error);
+      }
+    }
+
+    void initFeaturedLocationMap();
+
+    return () => {
+      mounted = false;
+      featuredLocationMarkerRef.current?.remove();
+      featuredLocationMarkerRef.current = null;
+      featuredLocationMapRef.current?.remove();
+      featuredLocationMapRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const map = featuredLocationMapRef.current;
+    const maplibregl = getHomeFeedMapLibre();
+    if (!map || !maplibregl || !featuredLocation) return;
+    if (
+      featuredLocation.latitude === null ||
+      featuredLocation.longitude === null
+    )
+      return;
+
+    featuredLocationMarkerRef.current?.remove();
+    const markerElement = buildFeaturedLocationMarkerElement(featuredLocation);
+    featuredLocationMarkerRef.current = new maplibregl.Marker({
+      element: markerElement,
+      anchor: "center",
+    }).setLngLat([featuredLocation.longitude, featuredLocation.latitude]);
+    featuredLocationMarkerRef.current.addTo(map);
+    map.flyTo?.({
+      center: [featuredLocation.longitude, featuredLocation.latitude],
+      zoom: 9,
+    });
+  }, [featuredLocation, isFeaturedLocationMapReady]);
   const closeStory = () => {
     setActiveStoryAuthorId(null);
     setActiveStoryIndex(null);
@@ -1041,66 +1313,6 @@ export default function HomePage() {
             ) : null}
 
             <div className={styles.feedStack}>
-              <section
-                className={styles.quickComposer}
-                aria-label="Create a community post"
-              >
-                <div className={styles.quickComposerRow}>
-                  <Avatar
-                    alt="Your profile"
-                    fallback="J"
-                    className={styles.quickComposerAvatar}
-                  />
-                  <button
-                    type="button"
-                    onClick={openComposer}
-                    className={styles.quickComposerInput}
-                  >
-                    Share a bare moment, ask a question, or start a
-                    discussion...
-                  </button>
-                </div>
-                <div className={styles.quickComposerActions}>
-                  <button type="button" onClick={openComposer}>
-                    <ImageIcon className="h-4 w-4" />
-                    Photo
-                  </button>
-                  <button type="button" onClick={openComposer}>
-                    <MapPin className="h-4 w-4" />
-                    Location
-                  </button>
-                  <button type="button" onClick={openComposer}>
-                    <BarChart3 className="h-4 w-4" />
-                    Poll
-                  </button>
-                  <Button
-                    size="sm"
-                    onClick={openComposer}
-                    className={styles.quickPostButton}
-                  >
-                    Post
-                  </Button>
-                </div>
-              </section>
-
-              <nav className={styles.feedPills} aria-label="Post categories">
-                {[
-                  "All Posts",
-                  "Naturist Moments",
-                  "Discussions",
-                  "Locations",
-                  "Experiences",
-                ].map((label, index) => (
-                  <button
-                    key={label}
-                    type="button"
-                    className={index === 0 ? styles.feedPillActive : ""}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </nav>
-
               <div className={styles.feedList}>
                 {isLoadingFeed && posts.length === 0 ? (
                   <Card className="border-0 bg-[rgb(var(--card))]">
@@ -1339,7 +1551,6 @@ export default function HomePage() {
             <section className={styles.overviewCard}>
               <div className={styles.asideCardHeader}>
                 <h2>Community Overview</h2>
-                <Link href="/members">View all</Link>
               </div>
               <div className={styles.overviewGrid}>
                 {[
@@ -1380,11 +1591,32 @@ export default function HomePage() {
                 <h2>Featured Location</h2>
                 <Link href="/explore">View all</Link>
               </div>
-              <div className={styles.featuredLocationImage}>
-                <button type="button" aria-label="Previous featured location">
+              <div className={styles.featuredLocationMapWrap}>
+                <div
+                  ref={featuredLocationMapContainerRef}
+                  className={styles.featuredLocationMap}
+                  aria-label={
+                    featuredLocation
+                      ? `${featuredLocation.name} map`
+                      : "Featured location map"
+                  }
+                />
+                <button
+                  type="button"
+                  aria-label="Previous featured location"
+                  onClick={showPreviousFeaturedLocation}
+                  disabled={!canCycleFeaturedLocations}
+                  className={styles.featuredLocationPrevious}
+                >
                   ‹
                 </button>
-                <button type="button" aria-label="Next featured location">
+                <button
+                  type="button"
+                  aria-label="Next featured location"
+                  onClick={showNextFeaturedLocation}
+                  disabled={!canCycleFeaturedLocations}
+                  className={styles.featuredLocationNext}
+                >
                   ›
                 </button>
               </div>
@@ -1477,12 +1709,12 @@ export default function HomePage() {
 
       {isComposerOpen ? (
         <div
-          className={`${styles.composerOverlay} fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 px-4 py-8`}
+          className={`${styles.composerOverlay} fixed inset-0 z-50 flex bg-[rgb(var(--bg))]`}
           role="dialog"
           aria-modal="true"
         >
           <div
-            className={`${styles.composerDialog} w-full max-w-2xl rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-5 shadow-xl`}
+            className={`${styles.composerDialog} w-full bg-[rgb(var(--card))] p-5`}
           >
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
