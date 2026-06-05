@@ -11,18 +11,15 @@ import {
   type PointerEvent,
 } from "react";
 import {
-  BarChart3,
-  Bookmark,
   Calendar,
+  ChevronDown,
   Circle,
   Ellipsis,
   Flag,
   Heart,
-  ImageIcon,
   MapPin,
   MessageCircle,
   Pencil,
-  Send,
   TrendingUp,
   Trash2,
   Users,
@@ -35,7 +32,7 @@ import { AppSidebar } from "@/components/sidebar/sidebar";
 import { UsernameActionPopup } from "@/components/social/username-action-popup";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   buildUserScopedCacheKey,
   hasFreshCachedValue,
@@ -94,6 +91,74 @@ type LikePreviewUser = {
   name: string;
   avatarUrl: string | null;
 };
+
+type HomeFeedOverview = {
+  members: number | null;
+  online: number | null;
+  locations: number | null;
+  events: number | null;
+};
+
+type HomeFeedLocation = {
+  id: string;
+  name: string;
+  country: string | null;
+  region: string | null;
+  terrain: string | null;
+  safetyLevel: string | null;
+  description: string | null;
+};
+
+type HomeFeedEvent = {
+  id: string;
+  title: string;
+  location: string | null;
+  startTime: string | null;
+};
+
+type HomeFeedTopic = {
+  id: string;
+  title: string;
+  postCount: number;
+};
+
+const defaultOverview: HomeFeedOverview = {
+  members: null,
+  online: null,
+  locations: null,
+  events: null,
+};
+
+function formatStat(value: number | null) {
+  return typeof value === "number"
+    ? new Intl.NumberFormat("en-US").format(value)
+    : "—";
+}
+
+function formatEventDateParts(startTime: string | null) {
+  if (!startTime)
+    return { month: "TBA", day: "--", time: "Date to be announced" };
+
+  const date = new Date(startTime);
+  if (Number.isNaN(date.getTime()))
+    return { month: "TBA", day: "--", time: "Date to be announced" };
+
+  return {
+    month: date.toLocaleDateString("en-US", { month: "short" }).toUpperCase(),
+    day: date.toLocaleDateString("en-US", { day: "2-digit" }),
+    time: date.toLocaleDateString("en-US", {
+      weekday: "long",
+      hour: "numeric",
+      minute: "2-digit",
+    }),
+  };
+}
+
+function getDailyLocationIndex(locationCount: number) {
+  if (locationCount <= 0) return 0;
+  const todayUtc = Math.floor(Date.now() / 86_400_000);
+  return todayUtc % locationCount;
+}
 
 export default function HomePage() {
   const searchParams = useSearchParams();
@@ -174,11 +239,129 @@ export default function HomePage() {
   const [reportStatus, setReportStatus] = useState("");
   const [visitorTrialStatus, setVisitorTrialStatus] =
     useState<VisitorTrialStatus | null>(null);
+  const [overview, setOverview] = useState<HomeFeedOverview>(defaultOverview);
+  const [featuredLocation, setFeaturedLocation] =
+    useState<HomeFeedLocation | null>(null);
+  const [upcomingEvents, setUpcomingEvents] = useState<HomeFeedEvent[]>([]);
+  const [trendingTopics, setTrendingTopics] = useState<HomeFeedTopic[]>([]);
   const [isViewerActionLocked, setViewerActionLocked] = useState(false);
   const storyTimerStartedAtRef = useRef<number | null>(null);
   const storyHoldStartedAtRef = useRef<number | null>(null);
   const suppressStoryTapRef = useRef(false);
   const hasOpenedLinkedPostRef = useRef(false);
+
+  const loadHomeFeedSidebar = useCallback(async () => {
+    const [
+      membersResult,
+      locationsResult,
+      eventsResult,
+      postsResult,
+      commentsResult,
+    ] = await Promise.all([
+      supabase.from("profiles").select("id", { count: "exact", head: true }),
+      supabase
+        .from("naturist_map_spots")
+        .select("id,name,country,region,terrain,safety_level,description", {
+          count: "exact",
+        })
+        .order("name", { ascending: true })
+        .limit(500),
+      supabase
+        .from("events")
+        .select("id,title,location,start_time", { count: "exact" })
+        .gte("start_time", new Date().toISOString())
+        .order("start_time", { ascending: true })
+        .limit(3),
+      supabase
+        .from("posts")
+        .select("id,title,content,created_at")
+        .is("expires_at", null)
+        .order("created_at", { ascending: false })
+        .limit(24),
+      supabase.from("comments").select("post_id"),
+    ]);
+
+    setOverview((current) => ({
+      members: membersResult.count ?? null,
+      online: current.online,
+      locations: locationsResult.count ?? null,
+      events: eventsResult.count ?? null,
+    }));
+
+    const locations = (locationsResult.data ?? []) as Array<{
+      id: string;
+      name: string;
+      country: string | null;
+      region: string | null;
+      terrain: string | null;
+      safety_level: string | null;
+      description: string | null;
+    }>;
+    const dailyLocation =
+      locations[getDailyLocationIndex(locations.length)] ?? null;
+    setFeaturedLocation(
+      dailyLocation
+        ? {
+            id: dailyLocation.id,
+            name: dailyLocation.name,
+            country: dailyLocation.country,
+            region: dailyLocation.region,
+            terrain: dailyLocation.terrain,
+            safetyLevel: dailyLocation.safety_level,
+            description: dailyLocation.description,
+          }
+        : null,
+    );
+
+    setUpcomingEvents(
+      (
+        (eventsResult.data ?? []) as Array<{
+          id: string;
+          title: string;
+          location: string | null;
+          start_time: string | null;
+        }>
+      ).map((event) => ({
+        id: event.id,
+        title: event.title,
+        location: event.location,
+        startTime: event.start_time,
+      })),
+    );
+
+    const commentCounts = new Map<string, number>();
+    ((commentsResult.data ?? []) as Array<{ post_id: string | null }>).forEach(
+      (comment) => {
+        if (!comment.post_id) return;
+        commentCounts.set(
+          comment.post_id,
+          (commentCounts.get(comment.post_id) ?? 0) + 1,
+        );
+      },
+    );
+
+    const topics = (
+      (postsResult.data ?? []) as Array<{
+        id: string;
+        title: string | null;
+        content: string | null;
+      }>
+    ).map((post) => {
+      const firstLine = (post.title || post.content || "Community discussion")
+        .split("\n")[0]
+        .trim();
+      return {
+        id: post.id,
+        title:
+          firstLine.length > 58 ? `${firstLine.slice(0, 55)}...` : firstLine,
+        postCount: Math.max(1, commentCounts.get(post.id) ?? 0),
+      };
+    });
+
+    setTrendingTopics(
+      topics.sort((a, b) => b.postCount - a.postCount).slice(0, 2),
+    );
+  }, []);
 
   const canPublish =
     composerKind === "story"
@@ -256,6 +439,44 @@ export default function HomePage() {
 
     return () => window.clearTimeout(timer);
   }, [cachedFeed, hasFreshCacheOnMount, loadFeed, prefetchedFeed]);
+
+  useEffect(() => {
+    void loadHomeFeedSidebar();
+
+    return subscribeToTables({
+      channelName: "homefeed-sidebar-live-updates",
+      client: supabase,
+      tables: ["profiles", "naturist_map_spots", "events", "posts", "comments"],
+      onChange: () => void loadHomeFeedSidebar(),
+      debounceMs: 600,
+    });
+  }, [loadHomeFeedSidebar]);
+
+  useEffect(() => {
+    const presenceName =
+      feed.viewerId ?? `guest-${Math.random().toString(36).slice(2)}`;
+    const onlineChannel = supabase.channel("homefeed-sidebar-online", {
+      config: { presence: { key: presenceName } },
+    });
+
+    onlineChannel.on("presence", { event: "sync" }, () => {
+      const presenceState = onlineChannel.presenceState();
+      setOverview((current) => ({
+        ...current,
+        online: Object.keys(presenceState).length,
+      }));
+    });
+
+    void onlineChannel.subscribe(async (status) => {
+      if (status !== "SUBSCRIBED") return;
+      await onlineChannel.track({ online_at: new Date().toISOString() });
+    });
+
+    return () => {
+      void onlineChannel.untrack();
+      void supabase.removeChannel(onlineChannel);
+    };
+  }, [feed.viewerId]);
 
   useEffect(() => {
     if (hasOpenedLinkedPostRef.current) return;
@@ -846,6 +1067,65 @@ export default function HomePage() {
               <p className={styles.reportStatus}>{reportStatus}</p>
             ) : null}
 
+            <div className="space-y-4">
+              <Card className="border-0 bg-[rgb(var(--bg-soft))]">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-sm uppercase tracking-[0.12em] text-[rgb(var(--muted))]">
+                    Bare Moments
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="flex items-center gap-2 overflow-x-auto pb-1 min-[1100px]:grid min-[1100px]:gap-3 min-[1100px]:grid-cols-4">
+                  {storyCards.map((story) => (
+                    <button
+                      key={story.id}
+                      type="button"
+                      onClick={() => openStory(story.authorId)}
+                      className="relative flex shrink-0 flex-col items-center gap-1 text-left min-[1100px]:items-stretch min-[1100px]:gap-0 min-[1100px]:overflow-hidden min-[1100px]:rounded-2xl min-[1100px]:border min-[1100px]:border-white/60 min-[1100px]:bg-[rgb(var(--card))] min-[1100px]:shadow-sm"
+                    >
+                      {story.imageUrl ? (
+                        <Image
+                          src={story.imageUrl}
+                          alt={`${story.name}'s story`}
+                          width={720}
+                          height={960}
+                          sizes="(min-width: 1100px) 18vw, 0px"
+                          className="hidden h-48 w-full object-cover min-[1100px]:block"
+                        />
+                      ) : (
+                        <div
+                          className={`hidden min-[1100px]:block min-[1100px]:h-48 min-[1100px]:bg-linear-to-b ${story.tone}`}
+                        />
+                      )}
+                      <div className="rounded-full bg-linear-to-br from-fuchsia-500 via-rose-500 to-amber-400 p-0.5 min-[1100px]:absolute min-[1100px]:left-3 min-[1100px]:top-3">
+                        <Avatar
+                          alt={story.name}
+                          fallback={story.fallback}
+                          className="h-10 w-10 border-2 border-white min-[1100px]:h-10 min-[1100px]:w-10"
+                        />
+                      </div>
+                      <p className="max-w-16 truncate text-center text-[11px] font-medium text-[rgb(var(--text-strong))] min-[1100px]:hidden">
+                        {story.name.split(" ")[0]}
+                      </p>
+                      <p className="hidden min-[1100px]:absolute min-[1100px]:bottom-3 min-[1100px]:left-3 min-[1100px]:block min-[1100px]:text-sm min-[1100px]:font-semibold min-[1100px]:text-white">
+                        {story.name}
+                      </p>
+                      <p className="hidden min-[1100px]:absolute min-[1100px]:bottom-0 min-[1100px]:right-3 min-[1100px]:block min-[1100px]:text-[11px] min-[1100px]:text-white/90">
+                        {story.posted}
+                      </p>
+                    </button>
+                  ))}
+                  {storyCards.length === 0 && (
+                    <p className="text-sm text-[rgb(var(--muted))]">
+                      No Bare Moments yet.
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+
+            {reportStatus ? (
+              <p className={styles.reportStatus}>{reportStatus}</p>
+            ) : null}
+
             <section
               className={styles.quickComposer}
               aria-label="Create a community post"
@@ -920,49 +1200,48 @@ export default function HomePage() {
                   expandedCaptionsByPost[post.id],
                 );
                 const shouldClampCaption =
-                  caption.length > 190 || caption.includes("\n");
-                const excerpt =
-                  caption || "Shared a new BareUnity community moment.";
+                  caption.length > 160 || caption.includes("\n");
 
                 return (
-                  <article key={post.id} className={styles.feedPostCard}>
-                    <div className={styles.feedPostHeader}>
-                      <div className={styles.feedAuthorRow}>
-                        <Avatar
-                          alt={post.author}
-                          fallback={post.fallback}
-                          className={styles.feedAvatar}
-                        />
-                        <div>
-                          <div className={styles.feedAuthorNameRow}>
+                  <Card
+                    key={post.id}
+                    className="border-0 bg-[rgb(var(--card))]"
+                  >
+                    <CardContent className="p-4">
+                      <div className="mb-3 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <Avatar
+                            alt={post.author}
+                            fallback={post.fallback}
+                            className="h-11 w-11"
+                          />
+                          <div>
                             <UsernameActionPopup
                               userId={post.authorId}
                               displayName={post.author}
-                              triggerClassName="font-semibold text-[rgb(var(--text-strong))] underline-offset-2 hover:underline"
+                              triggerClassName="text-sm font-semibold text-[rgb(var(--text-strong))] underline-offset-2 hover:underline"
                             />
-                            <span aria-hidden="true">✿</span>
+                            <p className="text-xs text-[rgb(var(--muted))]">
+                              {post.posted}
+                            </p>
                           </div>
-                          <p>{post.posted} • Naturist Moments</p>
                         </div>
-                      </div>
-                      <div className="relative">
-                        <button
-                          type="button"
-                          aria-label="Open post actions"
-                          className={styles.postMenuButton}
-                          onClick={() =>
-                            setOpenPostMenuId((current) =>
-                              current === post.id ? null : post.id,
-                            )
-                          }
-                        >
-                          <Ellipsis className="h-4 w-4" />
-                        </button>
-                        {openPostMenuId === post.id ? (
-                          <div className="absolute right-0 top-9 z-20 min-w-36 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-1 shadow-lg">
-                            {feed.viewerId &&
-                            post.authorId === feed.viewerId ? (
-                              <>
+                        {feed.viewerId && post.authorId === feed.viewerId ? (
+                          <div className="relative">
+                            <button
+                              type="button"
+                              aria-label="Open post actions"
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[rgb(var(--muted))] hover:bg-[rgb(var(--bg-soft))]"
+                              onClick={() =>
+                                setOpenPostMenuId((current) =>
+                                  current === post.id ? null : post.id,
+                                )
+                              }
+                            >
+                              <Ellipsis className="h-4 w-4" />
+                            </button>
+                            {openPostMenuId === post.id ? (
+                              <div className="absolute right-0 top-9 z-20 min-w-32 rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-1 shadow-lg">
                                 <button
                                   type="button"
                                   onClick={() => openEditPostModal(post)}
@@ -979,114 +1258,156 @@ export default function HomePage() {
                                   <Trash2 className="h-3.5 w-3.5" />
                                   Delete post
                                 </button>
-                              </>
+                              </div>
                             ) : null}
-                            <button
-                              type="button"
-                              onClick={() =>
-                                void reportItem("post", post.id, "post")
-                              }
-                              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-[rgb(var(--text))] hover:bg-[rgb(var(--bg-soft))]"
-                            >
-                              <Flag className="h-3.5 w-3.5" />
-                              Report
-                            </button>
                           </div>
                         ) : null}
                       </div>
-                    </div>
-
-                    <div className={styles.feedPostBody}>
-                      {post.mediaUrl ? (
-                        <Image
-                          src={post.mediaUrl}
-                          alt={`${post.author}'s post`}
-                          width={1200}
-                          height={900}
-                          sizes="(min-width: 1280px) 34vw, 100vw"
-                          className={styles.feedPostImage}
-                        />
-                      ) : (
-                        <div className={styles.feedPostImagePlaceholder} />
-                      )}
-                      <div className={styles.feedPostCopy}>
-                        <h2>
-                          {caption.split("\n")[0].slice(0, 64) ||
-                            "Perfect day in nature ☀️"}
-                        </h2>
-                        <p
-                          className="whitespace-pre-line break-words [overflow-wrap:anywhere]"
-                          style={
-                            !isCaptionExpanded && shouldClampCaption
-                              ? {
-                                  display: "-webkit-box",
-                                  WebkitLineClamp: 5,
-                                  WebkitBoxOrient: "vertical",
-                                  overflow: "hidden",
-                                }
-                              : undefined
-                          }
-                        >
-                          {excerpt}
-                        </p>
-                        {shouldClampCaption ? (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setExpandedCaptionsByPost((current) => ({
-                                ...current,
-                                [post.id]: !current[post.id],
-                              }))
-                            }
-                            className={styles.showMoreButton}
-                            aria-expanded={isCaptionExpanded}
-                            aria-label={
-                              isCaptionExpanded
-                                ? "Collapse caption"
-                                : "Expand caption"
+                      <div className="mb-4 block w-full text-left">
+                        {post.mediaUrl ? (
+                          <Image
+                            src={post.mediaUrl}
+                            alt={`${post.author}'s post`}
+                            width={1200}
+                            height={1200}
+                            sizes="(min-width: 1280px) 60vw, 100vw"
+                            className="h-130 w-full rounded-2xl bg-[rgb(var(--bg-soft))] object-contain"
+                          />
+                        ) : null}
+                      </div>
+                      {caption ? (
+                        <div className="mb-3">
+                          <p
+                            className="whitespace-pre-line break-words text-sm text-[rgb(var(--text))] [overflow-wrap:anywhere]"
+                            style={
+                              !isCaptionExpanded && shouldClampCaption
+                                ? {
+                                    display: "-webkit-box",
+                                    WebkitLineClamp: 3,
+                                    WebkitBoxOrient: "vertical",
+                                    overflow: "hidden",
+                                  }
+                                : undefined
                             }
                           >
-                            {isCaptionExpanded ? "Show less" : "Show more"}
-                          </button>
+                            <span className="mr-1">
+                              <UsernameActionPopup
+                                userId={post.authorId}
+                                displayName={post.author}
+                                triggerClassName="font-semibold text-[rgb(var(--text-strong))] underline-offset-2 hover:underline"
+                              />
+                            </span>
+                            {caption}
+                          </p>
+                          {shouldClampCaption ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setExpandedCaptionsByPost((current) => ({
+                                  ...current,
+                                  [post.id]: !current[post.id],
+                                }))
+                              }
+                              className="mt-1 inline-block text-left text-xs font-medium text-[rgb(var(--muted))]"
+                              aria-expanded={isCaptionExpanded}
+                              aria-label={
+                                isCaptionExpanded
+                                  ? "Collapse caption"
+                                  : "Expand caption"
+                              }
+                            >
+                              {isCaptionExpanded ? "Show less" : "Show more"}
+                            </button>
+                          ) : null}
+                        </div>
+                      ) : null}
+                      <div className="mb-3 flex flex-wrap items-center gap-2 border-t border-[rgb(var(--border))] pt-3">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className={
+                            post.likedByViewer
+                              ? "border-red-200 bg-red-50 text-red-600 hover:bg-red-100"
+                              : "text-[rgb(var(--text-strong))]"
+                          }
+                          onClick={() => toggleLike(post.id)}
+                        >
+                          <Heart
+                            className={`mr-1 h-4 w-4 ${post.likedByViewer ? "fill-current text-red-500" : ""}`}
+                          />
+                          Like ({post.likes})
+                        </Button>
+                        {feed.viewerId && post.authorId === feed.viewerId ? (
+                          <div className="relative">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => void toggleLikesDropdown(post.id)}
+                            >
+                              Liked by
+                              <ChevronDown className="ml-1 h-4 w-4" />
+                            </Button>
+                            {openLikesPostId === post.id ? (
+                              <div className="absolute right-0 top-10 z-20 w-60 max-w-[calc(100vw-2.5rem)] rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-2 shadow-lg sm:left-0 sm:right-auto sm:max-w-none">
+                                {likesLoadingPostId === post.id ? (
+                                  <p className="px-2 py-1 text-xs text-[rgb(var(--muted))]">
+                                    Loading likes...
+                                  </p>
+                                ) : likesByPost[post.id]?.length ? (
+                                  <div className="max-h-48 space-y-1 overflow-y-auto">
+                                    {likesByPost[post.id].map((user) => (
+                                      <div
+                                        key={user.userId}
+                                        className="flex items-center gap-2 rounded-md px-2 py-1"
+                                      >
+                                        <Avatar
+                                          src={user.avatarUrl ?? undefined}
+                                          alt={user.name}
+                                          fallback={user.name
+                                            .slice(0, 2)
+                                            .toUpperCase()}
+                                          className="h-7 w-7"
+                                        />
+                                        <span className="text-xs font-medium text-[rgb(var(--text-strong))]">
+                                          {user.name}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <p className="px-2 py-1 text-xs text-[rgb(var(--muted))]">
+                                    No likes yet.
+                                  </p>
+                                )}
+                              </div>
+                            ) : null}
+                          </div>
                         ) : null}
-                        <p className={styles.feedQuestion}>
-                          What&apos;s your favorite beach moment?
-                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setActivePostId(post.id)}
+                        >
+                          <Badge
+                            variant="outline"
+                            className="px-3 py-1 text-xs hover:bg-[rgb(var(--bg-soft))]"
+                          >
+                            <MessageCircle className="mr-1 h-3.5 w-3.5" />
+                            {post.comments.length} comments
+                          </Badge>
+                        </button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            void reportItem("post", post.id, "post")
+                          }
+                        >
+                          <Flag className="mr-1 h-4 w-4" />
+                          Report
+                        </Button>
                       </div>
-                    </div>
-
-                    <div className={styles.feedPostMetrics}>
-                      <button
-                        type="button"
-                        onClick={() => toggleLike(post.id)}
-                        className={post.likedByViewer ? styles.likedMetric : ""}
-                      >
-                        <Heart className="h-5 w-5" />
-                        {post.likes}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setActivePostId(post.id)}
-                      >
-                        <MessageCircle className="h-5 w-5" />
-                        {post.comments.length}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setActivePostId(post.id)}
-                      >
-                        <Send className="h-5 w-5" />
-                        {Math.max(1, Math.round(post.comments.length / 2))}
-                      </button>
-                      <button
-                        type="button"
-                        aria-label="Save post"
-                        className={styles.savePostButton}
-                      >
-                        <Bookmark className="h-5 w-5" />
-                      </button>
-                    </div>
-                  </article>
+                    </CardContent>
+                  </Card>
                 );
               })}
             </div>
@@ -1103,10 +1424,26 @@ export default function HomePage() {
               </div>
               <div className={styles.overviewGrid}>
                 {[
-                  { value: "2,487", label: "Members", icon: Users },
-                  { value: "124", label: "Online", icon: Circle },
-                  { value: "387", label: "Locations", icon: MapPin },
-                  { value: "18", label: "Events", icon: Calendar },
+                  {
+                    value: formatStat(overview.members),
+                    label: "Members",
+                    icon: Users,
+                  },
+                  {
+                    value: formatStat(overview.online),
+                    label: "Online",
+                    icon: Circle,
+                  },
+                  {
+                    value: formatStat(overview.locations),
+                    label: "Locations",
+                    icon: MapPin,
+                  },
+                  {
+                    value: formatStat(overview.events),
+                    label: "Events",
+                    icon: Calendar,
+                  },
                 ].map((item) => (
                   <div key={item.label} className={styles.overviewStat}>
                     <div>
@@ -1134,9 +1471,19 @@ export default function HomePage() {
               </div>
               <div className={styles.locationMeta}>
                 <div>
-                  <h3>Sallymount Beach</h3>
-                  <p>Ireland</p>
-                  <span aria-label="5 star rating">★★★★★</span>
+                  <h3>
+                    {featuredLocation?.name ?? "No featured location yet"}
+                  </h3>
+                  <p>
+                    {[featuredLocation?.region, featuredLocation?.country]
+                      .filter(Boolean)
+                      .join(", ") ||
+                      featuredLocation?.terrain ||
+                      "Explore locations"}
+                  </p>
+                  <span>
+                    {featuredLocation?.safetyLevel ?? "Rotates daily"}
+                  </span>
                 </div>
                 <Link href="/explore" className={styles.locationButton}>
                   View Location
@@ -1150,48 +1497,28 @@ export default function HomePage() {
                 <Link href="/bookings/activities">View all</Link>
               </div>
               <div className={styles.eventList}>
-                {[
-                  {
-                    month: "MAY",
-                    day: "31",
-                    title: "Naturist Beach Walk",
-                    time: "Saturday, 10:00 AM",
-                    place: "Sallymount Beach, IE",
-                    guests: 23,
-                  },
-                  {
-                    month: "JUN",
-                    day: "07",
-                    title: "Forest Gathering",
-                    time: "Saturday, 2:00 PM",
-                    place: "De Hoge Veluwe, NL",
-                    guests: 18,
-                  },
-                  {
-                    month: "JUN",
-                    day: "14",
-                    title: "Sunset Swim",
-                    time: "Saturday, 7:00 PM",
-                    place: "Cap d’Agde, FR",
-                    guests: 27,
-                  },
-                ].map((event) => (
-                  <div key={event.title} className={styles.eventItem}>
-                    <div className={styles.eventDate}>
-                      <span>{event.month}</span>
-                      <strong>{event.day}</strong>
-                    </div>
-                    <div>
-                      <h3>{event.title}</h3>
-                      <p>{event.time}</p>
-                      <p>{event.place}</p>
-                    </div>
-                    <span className={styles.eventGuests}>
-                      <Users className="h-3.5 w-3.5" />
-                      {event.guests}
-                    </span>
-                  </div>
-                ))}
+                {upcomingEvents.length ? (
+                  upcomingEvents.map((event) => {
+                    const dateParts = formatEventDateParts(event.startTime);
+                    return (
+                      <div key={event.id} className={styles.eventItem}>
+                        <div className={styles.eventDate}>
+                          <span>{dateParts.month}</span>
+                          <strong>{dateParts.day}</strong>
+                        </div>
+                        <div>
+                          <h3>{event.title}</h3>
+                          <p>{dateParts.time}</p>
+                          <p>{event.location ?? "Community event"}</p>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <p className={styles.asideEmptyState}>
+                    No upcoming events yet.
+                  </p>
+                )}
               </div>
             </section>
 
@@ -1201,22 +1528,28 @@ export default function HomePage() {
                 <Link href="/discussion">View all</Link>
               </div>
               <div className={styles.topicList}>
-                {[
-                  { title: "Best beaches in Europe", posts: "128 posts" },
-                  { title: "New to naturism", posts: "96 posts" },
-                ].map((topic) => (
-                  <Link
-                    href="/discussion"
-                    key={topic.title}
-                    className={styles.topicItem}
-                  >
-                    <TrendingUp className="h-5 w-5" />
-                    <span>
-                      <strong>{topic.title}</strong>
-                      <small>{topic.posts}</small>
-                    </span>
-                  </Link>
-                ))}
+                {trendingTopics.length ? (
+                  trendingTopics.map((topic) => (
+                    <Link
+                      href={`/discussion?postId=${topic.id}`}
+                      key={topic.id}
+                      className={styles.topicItem}
+                    >
+                      <TrendingUp className="h-5 w-5" />
+                      <span>
+                        <strong>{topic.title}</strong>
+                        <small>
+                          {topic.postCount}{" "}
+                          {topic.postCount === 1 ? "reply" : "replies"}
+                        </small>
+                      </span>
+                    </Link>
+                  ))
+                ) : (
+                  <p className={styles.asideEmptyState}>
+                    No trending posts yet.
+                  </p>
+                )}
               </div>
             </section>
           </aside>
