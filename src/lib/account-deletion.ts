@@ -36,6 +36,8 @@ function toStoragePath(pathOrUrl: string | null | undefined): string {
     } catch {
       return "";
     }
+
+    return "";
   }
 
   return value.replace(/^\/+/, "");
@@ -55,7 +57,11 @@ async function listStorageFiles(bucket: string, prefix: string) {
     while (true) {
       const { data, error } = await supabaseAdmin.storage
         .from(bucket)
-        .list(directory, { limit: 100, offset, sortBy: { column: "name", order: "asc" } });
+        .list(directory, {
+          limit: 100,
+          offset,
+          sortBy: { column: "name", order: "asc" },
+        });
 
       if (error || !data?.length) break;
 
@@ -100,12 +106,76 @@ async function loadExistingPublicTables(tableNames: string[]) {
   return new Set(rows.map((row) => row.table_name));
 }
 
+type DirectUserReference = {
+  table_name: string;
+  column_name: string;
+  is_nullable: "YES" | "NO";
+};
+
+const SQL_IDENTIFIER_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+function quoteIdentifier(identifier: string) {
+  if (!SQL_IDENTIFIER_PATTERN.test(identifier)) {
+    throw new Error(
+      `Unsafe SQL identifier discovered during account deletion: ${identifier}`,
+    );
+  }
+
+  return `"${identifier}"`;
+}
+
+async function cleanupRemainingAuthUserReferences(userId: string) {
+  const references = await db.$queryRaw<DirectUserReference[]>(Prisma.sql`
+    select
+      kcu.table_name,
+      kcu.column_name,
+      columns.is_nullable
+    from information_schema.table_constraints constraints
+    join information_schema.key_column_usage kcu
+      on kcu.constraint_schema = constraints.constraint_schema
+     and kcu.constraint_name = constraints.constraint_name
+     and kcu.table_schema = constraints.table_schema
+     and kcu.table_name = constraints.table_name
+    join information_schema.constraint_column_usage ccu
+      on ccu.constraint_schema = constraints.constraint_schema
+     and ccu.constraint_name = constraints.constraint_name
+    join information_schema.columns columns
+      on columns.table_schema = kcu.table_schema
+     and columns.table_name = kcu.table_name
+     and columns.column_name = kcu.column_name
+    where constraints.constraint_type = 'FOREIGN KEY'
+      and kcu.table_schema = 'public'
+      and ccu.table_schema = 'auth'
+      and ccu.table_name = 'users'
+      and ccu.column_name = 'id'
+      and kcu.table_name not in ('profiles', 'profile_settings')
+  `);
+
+  for (const reference of references) {
+    const tableName = quoteIdentifier(reference.table_name);
+    const columnName = quoteIdentifier(reference.column_name);
+
+    if (reference.is_nullable === "YES") {
+      await db.$executeRawUnsafe(
+        `update public.${tableName} set ${columnName} = null where ${columnName} = $1::uuid`,
+        userId,
+      );
+    } else {
+      await db.$executeRawUnsafe(
+        `delete from public.${tableName} where ${columnName} = $1::uuid`,
+        userId,
+      );
+    }
+  }
+}
+
 export async function deleteAccountCompletely(userId: string) {
   if (!isSupabaseAdminConfigured) {
     return {
       ok: false as const,
       status: 503,
-      error: "Account deletion is unavailable because Supabase admin access is not configured.",
+      error:
+        "Account deletion is unavailable because Supabase admin access is not configured.",
     };
   }
 
@@ -144,65 +214,105 @@ export async function deleteAccountCompletely(userId: string) {
   ]);
 
   await Promise.all([
-    removeStorageFiles("media", [...mediaPaths, ...galleryFiles, ...avatarFiles]),
+    removeStorageFiles("media", [
+      ...mediaPaths,
+      ...galleryFiles,
+      ...avatarFiles,
+    ]),
     removeStorageFiles("verification-documents", verificationFiles),
   ]);
 
   const postMediaPaths = mediaPaths.filter((path) => path.startsWith("posts/"));
-  const optionalTables = await loadExistingPublicTables([
+  const existingTables = await loadExistingPublicTables([
+    "channel_messages",
+    "channels",
+    "comments",
     "dm_messages",
     "dm_conversations",
+    "events",
+    "feedback_messages",
     "friend_requests",
     "friendships",
-    "feedback_messages",
+    "gallery_image_likes",
+    "naturist_map_spots",
+    "post_votes",
+    "posts",
+    "profile_settings",
+    "profiles",
     "registration_invite_code_redemptions",
     "registration_invite_codes",
+    "reports",
+    "user_badges",
+    "user_cache_entries",
+    "verification_submissions",
   ]);
 
+  const hasTable = (tableName: string) => existingTables.has(tableName);
+
   await db.$transaction([
-    db.$executeRaw(Prisma.sql`
-      delete from public.reports
-      where reporter_id = ${userId}::uuid
-        or post_id in (select id from public.posts where author_id = ${userId}::uuid)
-        or comment_id in (select id from public.comments where author_id = ${userId}::uuid)
-        or target_id = ${userId}
-        or target_id like ${`gallery/${userId}/%`}
-    `),
-    db.$executeRaw(Prisma.sql`
-      delete from public.gallery_image_likes
-      where user_id = ${userId}::uuid
-        or image_path like ${`gallery/${userId}/%`}
-        or image_path like ${`%/gallery/${userId}/%`}
-        ${postMediaPaths.length ? Prisma.sql`or image_path in (${Prisma.join(postMediaPaths)})` : Prisma.empty}
-    `),
-    db.$executeRaw(Prisma.sql`
-      with recursive doomed_comments as (
-        select id from public.comments where author_id = ${userId}::uuid
-        union
-        select child.id
-        from public.comments child
-        inner join doomed_comments parent on child.parent_id = parent.id
-      )
-      delete from public.reports
-      where comment_id in (select id from doomed_comments)
-    `),
-    db.$executeRaw(Prisma.sql`
-      with recursive doomed_comments as (
-        select id from public.comments where author_id = ${userId}::uuid
-        union
-        select child.id
-        from public.comments child
-        inner join doomed_comments parent on child.parent_id = parent.id
-      )
-      delete from public.comments
-      where id in (select id from doomed_comments)
-    `),
-    db.$executeRaw(Prisma.sql`
-      delete from public.post_votes
-      where user_id = ${userId}::uuid
-        or post_id in (select id from public.posts where author_id = ${userId}::uuid)
-    `),
-    ...(optionalTables.has("friend_requests")
+    ...(hasTable("reports")
+      ? [
+          db.$executeRaw(Prisma.sql`
+            delete from public.reports
+            where reporter_id = ${userId}::uuid
+              ${hasTable("posts") ? Prisma.sql`or post_id in (select id from public.posts where author_id = ${userId}::uuid)` : Prisma.empty}
+              ${hasTable("comments") ? Prisma.sql`or comment_id in (select id from public.comments where author_id = ${userId}::uuid)` : Prisma.empty}
+              or target_id = ${userId}
+              or target_id like ${`gallery/${userId}/%`}
+          `),
+        ]
+      : []),
+    ...(hasTable("gallery_image_likes")
+      ? [
+          db.$executeRaw(Prisma.sql`
+            delete from public.gallery_image_likes
+            where user_id = ${userId}::uuid
+              or image_path like ${`gallery/${userId}/%`}
+              or image_path like ${`%/gallery/${userId}/%`}
+              ${postMediaPaths.length ? Prisma.sql`or image_path in (${Prisma.join(postMediaPaths)})` : Prisma.empty}
+          `),
+        ]
+      : []),
+    ...(hasTable("comments") && hasTable("reports")
+      ? [
+          db.$executeRaw(Prisma.sql`
+            with recursive doomed_comments as (
+              select id from public.comments where author_id = ${userId}::uuid
+              union
+              select child.id
+              from public.comments child
+              inner join doomed_comments parent on child.parent_id = parent.id
+            )
+            delete from public.reports
+            where comment_id in (select id from doomed_comments)
+          `),
+        ]
+      : []),
+    ...(hasTable("comments")
+      ? [
+          db.$executeRaw(Prisma.sql`
+            with recursive doomed_comments as (
+              select id from public.comments where author_id = ${userId}::uuid
+              union
+              select child.id
+              from public.comments child
+              inner join doomed_comments parent on child.parent_id = parent.id
+            )
+            delete from public.comments
+            where id in (select id from doomed_comments)
+          `),
+        ]
+      : []),
+    ...(hasTable("post_votes")
+      ? [
+          db.$executeRaw(Prisma.sql`
+            delete from public.post_votes
+            where user_id = ${userId}::uuid
+              ${hasTable("posts") ? Prisma.sql`or post_id in (select id from public.posts where author_id = ${userId}::uuid)` : Prisma.empty}
+          `),
+        ]
+      : []),
+    ...(hasTable("friend_requests")
       ? [
           db.$executeRaw(Prisma.sql`
             delete from public.friend_requests
@@ -210,7 +320,7 @@ export async function deleteAccountCompletely(userId: string) {
           `),
         ]
       : []),
-    ...(optionalTables.has("friendships")
+    ...(hasTable("friendships")
       ? [
           db.$executeRaw(Prisma.sql`
             delete from public.friendships
@@ -218,31 +328,63 @@ export async function deleteAccountCompletely(userId: string) {
           `),
         ]
       : []),
-    db.$executeRaw(Prisma.sql`
-      delete from public.channel_messages where author_id = ${userId}::uuid
-    `),
-    db.$executeRaw(Prisma.sql`
-      delete from public.events where organizer_id = ${userId}::uuid
-    `),
-    db.$executeRaw(Prisma.sql`
-      delete from public.naturist_map_spots where submitted_by = ${userId}::uuid
-    `),
-    db.$executeRaw(Prisma.sql`
-      update public.channels set created_by = null where created_by = ${userId}::uuid
-    `),
-    db.$executeRaw(Prisma.sql`
-      delete from public.posts where author_id = ${userId}::uuid
-    `),
-    db.$executeRaw(Prisma.sql`
-      delete from public.user_badges where user_id = ${userId}::uuid
-    `),
-    db.$executeRaw(Prisma.sql`
-      delete from public.user_cache_entries where user_id = ${userId}::uuid
-    `),
-    db.$executeRaw(Prisma.sql`
-      delete from public.verification_submissions where user_id = ${userId}::uuid
-    `),
-    ...(optionalTables.has("dm_messages") && optionalTables.has("dm_conversations")
+    ...(hasTable("channel_messages")
+      ? [
+          db.$executeRaw(Prisma.sql`
+            delete from public.channel_messages where author_id = ${userId}::uuid
+          `),
+        ]
+      : []),
+    ...(hasTable("events")
+      ? [
+          db.$executeRaw(Prisma.sql`
+            delete from public.events where organizer_id = ${userId}::uuid
+          `),
+        ]
+      : []),
+    ...(hasTable("naturist_map_spots")
+      ? [
+          db.$executeRaw(Prisma.sql`
+            delete from public.naturist_map_spots where submitted_by = ${userId}::uuid
+          `),
+        ]
+      : []),
+    ...(hasTable("channels")
+      ? [
+          db.$executeRaw(Prisma.sql`
+            update public.channels set created_by = null where created_by = ${userId}::uuid
+          `),
+        ]
+      : []),
+    ...(hasTable("posts")
+      ? [
+          db.$executeRaw(Prisma.sql`
+            delete from public.posts where author_id = ${userId}::uuid
+          `),
+        ]
+      : []),
+    ...(hasTable("user_badges")
+      ? [
+          db.$executeRaw(Prisma.sql`
+            delete from public.user_badges where user_id = ${userId}::uuid
+          `),
+        ]
+      : []),
+    ...(hasTable("user_cache_entries")
+      ? [
+          db.$executeRaw(Prisma.sql`
+            delete from public.user_cache_entries where user_id = ${userId}::uuid
+          `),
+        ]
+      : []),
+    ...(hasTable("verification_submissions")
+      ? [
+          db.$executeRaw(Prisma.sql`
+            delete from public.verification_submissions where user_id = ${userId}::uuid
+          `),
+        ]
+      : []),
+    ...(hasTable("dm_messages") && hasTable("dm_conversations")
       ? [
           db.$executeRaw(Prisma.sql`
             delete from public.dm_messages
@@ -254,7 +396,7 @@ export async function deleteAccountCompletely(userId: string) {
           `),
         ]
       : []),
-    ...(optionalTables.has("dm_conversations")
+    ...(hasTable("dm_conversations")
       ? [
           db.$executeRaw(Prisma.sql`
             delete from public.dm_conversations
@@ -262,34 +404,44 @@ export async function deleteAccountCompletely(userId: string) {
           `),
         ]
       : []),
-    ...(optionalTables.has("feedback_messages")
+    ...(hasTable("feedback_messages")
       ? [
           db.$executeRaw(Prisma.sql`
             delete from public.feedback_messages where user_id = ${userId}::uuid
           `),
         ]
       : []),
-    ...(optionalTables.has("registration_invite_code_redemptions")
+    ...(hasTable("registration_invite_code_redemptions")
       ? [
           db.$executeRaw(Prisma.sql`
             delete from public.registration_invite_code_redemptions where redeemed_by = ${userId}::uuid
           `),
         ]
       : []),
-    ...(optionalTables.has("registration_invite_codes")
+    ...(hasTable("registration_invite_codes")
       ? [
           db.$executeRaw(Prisma.sql`
             update public.registration_invite_codes set created_by = null where created_by = ${userId}::uuid
           `),
         ]
       : []),
-    db.$executeRaw(Prisma.sql`
-      delete from public.profile_settings where user_id = ${userId}::uuid
-    `),
-    db.$executeRaw(Prisma.sql`
-      delete from public.profiles where id = ${userId}::uuid
-    `),
+    ...(hasTable("profile_settings")
+      ? [
+          db.$executeRaw(Prisma.sql`
+            delete from public.profile_settings where user_id = ${userId}::uuid
+          `),
+        ]
+      : []),
+    ...(hasTable("profiles")
+      ? [
+          db.$executeRaw(Prisma.sql`
+            delete from public.profiles where id = ${userId}::uuid
+          `),
+        ]
+      : []),
   ]);
+
+  await cleanupRemainingAuthUserReferences(userId);
 
   const supabaseAdmin = createSupabaseAdminClient();
   const { error } = await supabaseAdmin.auth.admin.deleteUser(userId);

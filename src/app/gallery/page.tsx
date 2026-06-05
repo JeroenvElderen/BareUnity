@@ -629,9 +629,6 @@ export default function GalleryPage() {
                   >
                     <Flag className={styles.likeIcon} />
                   </button>
-                <Link href={`/members/${encodeURIComponent(item.username)}`} className={styles.username}>
-                    @{item.username}
-                  </Link>
                 </figcaption>
               </figure>
             ))}
