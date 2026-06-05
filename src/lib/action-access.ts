@@ -46,7 +46,9 @@ export async function ensureMemberCanAct(userId: string) {
   return NextResponse.json({ error: VIEW_ONLY_ACTION_ERROR }, { status: 403 });
 }
 
-export async function canUpdateOwnProfile(userId: string) {
+export async function canUpdateOwnProfile(userId: string, userEmail?: string | null) {
+  if (isPlatformAdminEmail(userEmail)) return true;
+
   const rows = await db.$queryRaw<ProfileUpdateAccessRow[]>(Prisma.sql`
     select
       ps.user_role,
@@ -76,8 +78,8 @@ export async function canUpdateOwnProfile(userId: string) {
   return true;
 }
 
-export async function ensureCanUpdateOwnProfile(userId: string) {
-  if (await canUpdateOwnProfile(userId)) return null;
+export async function ensureCanUpdateOwnProfile(userId: string, userEmail?: string | null) {
+  if (await canUpdateOwnProfile(userId, userEmail)) return null;
 
   return NextResponse.json({ error: PROFILE_UPDATE_VISITOR_ERROR }, { status: 403 });
 }
