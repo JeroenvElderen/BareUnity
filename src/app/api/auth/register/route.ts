@@ -3,7 +3,6 @@ import { randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
-import { sendWelcomeEmail } from "@/lib/email";
 import {
   createSupabaseAdminClient,
   isSupabaseAdminConfigured,
@@ -533,19 +532,6 @@ export async function POST(req: Request) {
 
       if (verificationError) throw new Error(verificationError.message);
     }
-
-    try {
-  console.log("Sending welcome email...");
-
-  await sendWelcomeEmail(
-    validation.email,
-    validation.displayName,
-  );
-
-  console.log("Welcome email sent successfully");
-} catch (error) {
-  console.error("Failed to send welcome email", error);
-}
 
     return NextResponse.json(
       {
