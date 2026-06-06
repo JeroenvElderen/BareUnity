@@ -15,25 +15,33 @@ This project is channel-only. Use `supabase-channel-only.sql` to:
    - authenticated users can read channels
    - only `service_role` can create/update/delete channels
 
-## Invite-code registration setup
+## TeamNaturist invite-code registration setup
 
-For the simplified invite-code flow, run `supabase-simple-invite-codes.sql` in
-the Supabase SQL editor. The app now reads `public.invite_codes`, which has only
-these two columns:
+For the TeamNaturist Discord invite flow, run
+`supabase-teamnaturist-invite-codes.sql` in the Supabase SQL editor. The app
+checks both tables before creating an invite-based verified account:
 
-- `code_text` — the exact custom invite text you create and give to a person.
-- `status` — `pending` for unused invites or `used` after registration.
+- `public.invite_codes.code_text` — the reusable invite text. Codes are
+  unlimited; there is no `pending`/`used` state.
+- `public.teamnaturist.username` — the exact Discord username TeamNaturist gave
+  you for the allowlist.
 
-Create invite codes with direct inserts:
+Create a reusable invite code and allowlisted Discord usernames with direct
+inserts:
 
 ```sql
-insert into public.invite_codes (code_text, status)
-values ('My custom invite text', 'pending');
+insert into public.invite_codes (code_text, partner_name)
+values ('TEAMNATURIST-2026', 'TeamNaturist Discord')
+on conflict (code_text) do update set partner_name = excluded.partner_name;
+
+insert into public.teamnaturist (username)
+values ('teamnaturist_member')
+on conflict (username) do nothing;
 ```
 
-When someone registers through `/register?invite=My%20custom%20invite%20text`,
-the server validates the row is `pending` and marks it `used` after the verified
-account is created.
+When someone registers through `/register?invite=TEAMNATURIST-2026`, the server
+validates that the invite code exists and that the submitted Discord username is
+in `public.teamnaturist`. The code is not consumed, so it can be reused.
 
 ## SQL files
 
@@ -41,5 +49,5 @@ account is created.
 - `supabase-channel-reset.sql` — alias of the same canonical script.
 - `supabase-channels-migration.sql` — alias of the same canonical script.
 - `supabase-brand-mode.sql` — alias of the same canonical script.
-- `supabase-simple-invite-codes.sql` — creates the simplified two-column invite-code table (`code_text`, `status`).
+- `supabase-teamnaturist-invite-codes.sql` — creates reusable TeamNaturist invite codes plus the Discord username allowlist table.
 - `supabase-registration-invite-codes.sql` — legacy hashed invite-code registration tables and RPC helpers.
