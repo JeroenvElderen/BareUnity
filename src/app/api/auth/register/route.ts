@@ -21,6 +21,7 @@ type RegisterBody = {
   membershipType?: string;
   accountAccess?: string;
   inviteCode?: string;
+  discordUsername?: string;
   idType?: string;
   motivation?: string;
   isAdultConfirmed?: boolean;
@@ -48,7 +49,7 @@ const UPLOAD_EXTENSION_BY_TYPE: Record<string, string> = {
 
 type InviteCodeRow = {
   code_text: string;
-  status: "pending" | "used";
+  partner_name: string | null;
 };
 
 const SIGNATURE_VALIDATORS: Record<string, (buffer: Buffer) => boolean> = {
@@ -69,23 +70,8 @@ function normalizeInviteCode(code: string) {
   return code.trim();
 }
 
-function isInviteCodePending(row: InviteCodeRow | null) {
-  return row?.status === "pending";
-}
-
-async function resetInviteCodeToPending(
-  supabaseAdmin: ReturnType<typeof createSupabaseAdminClient>,
-  inviteCode: string,
-) {
-  const { error } = await supabaseAdmin
-    .from("invite_codes")
-    .update({ status: "pending" })
-    .eq("code_text", inviteCode)
-    .eq("status", "used");
-
-  if (error) {
-    console.error("Could not release invite code after setup failure", error);
-  }
+function normalizeDiscordUsername(username: string) {
+  return username.trim();
 }
 
 function getSupabaseErrorCode(error: unknown) {
@@ -102,9 +88,9 @@ function getInviteCodeSetupError(error: unknown) {
       .includes(code)
   ) {
     return (
-      "Invite-code table is not installed yet. " +
-      "Run supabase-simple-invite-codes.sql in the Supabase SQL editor, " +
-      "then insert your custom text into public.invite_codes."
+      "TeamNaturist invite-code tables are not installed yet. " +
+      "Run supabase-teamnaturist-invite-codes.sql in the Supabase SQL editor, " +
+      "then insert your invite code into public.invite_codes and Discord usernames into public.teamnaturist."
     );
   }
 
@@ -256,6 +242,9 @@ export async function POST(req: Request) {
   const inviteCode = normalizeInviteCode(
     getStringValue(formData, "inviteCode"),
   );
+  const discordUsername = normalizeDiscordUsername(
+    getStringValue(formData, "discordUsername"),
+  );
   const idType = getStringValue(formData, "idType").trim();
   const motivation = getStringValue(formData, "motivation").trim();
   const idDocument = getUploadedIdDocument(formData);
@@ -264,11 +253,18 @@ export async function POST(req: Request) {
   );
 
   if (isInviteRegistration) {
-    if (!fullName || !requestedUsername || !email || !password || !inviteCode) {
+    if (
+      !fullName ||
+      !requestedUsername ||
+      !email ||
+      !password ||
+      !inviteCode ||
+      !discordUsername
+    ) {
       return NextResponse.json(
         {
           error:
-            "Please fill in name, username, email, password, and invite code.",
+            "Please fill in name, username, email, password, invite code, and Discord username.",
         },
         { status: 400 },
       );
@@ -303,6 +299,16 @@ export async function POST(req: Request) {
       {
         error:
           "Enter the invite code supplied by your trusted verification partner.",
+      },
+      { status: 400 },
+    );
+  }
+
+  if (isInviteRegistration && !discordUsername) {
+    return NextResponse.json(
+      {
+        error:
+          "Enter the Discord username your trusted partner can verify.",
       },
       { status: 400 },
     );
@@ -433,34 +439,6 @@ export async function POST(req: Request) {
   const supabaseAdmin = createSupabaseAdminClient();
 
   if (isInviteRegistration) {
-    const { data: inviteRow, error: inviteLookupError } = await supabaseAdmin
-      .from("invite_codes")
-      .select("code_text,status")
-      .eq("code_text", inviteCode)
-      .maybeSingle<InviteCodeRow>();
-
-    if (inviteLookupError) {
-      const setupError = getInviteCodeSetupError(inviteLookupError);
-
-      return NextResponse.json(
-        {
-          error:
-            setupError ??
-            `Could not validate invite code: ${inviteLookupError.message}`,
-        },
-        { status: 500 },
-      );
-    }
-
-    if (!isInviteCodePending(inviteRow)) {
-      return NextResponse.json(
-        {
-          error: "This invite code is invalid or has already been used.",
-        },
-        { status: 400 },
-      );
-    }
-
     const { data: existingProfile, error: usernameLookupError } =
       await supabaseAdmin
         .from("profiles")
@@ -483,36 +461,39 @@ export async function POST(req: Request) {
     }
   }
 
-  let reservedInviteCode: InviteCodeRow | null = null;
+  let validatedInviteCode: InviteCodeRow | null = null;
 
   if (isInviteRegistration) {
-    const { data: updatedInviteCode, error: reservationError } =
-      await supabaseAdmin
-        .from("invite_codes")
-        .update({ status: "used" })
-        .eq("code_text", inviteCode)
-        .eq("status", "pending")
-        .select("code_text,status")
-        .maybeSingle<InviteCodeRow>();
+    const { data: inviteMatches, error: inviteValidationError } =
+      await supabaseAdmin.rpc("validate_teamnaturist_invite", {
+        p_code_text: inviteCode,
+        p_discord_username: discordUsername,
+      });
+    const inviteMatch = Array.isArray(inviteMatches)
+      ? (inviteMatches[0] as InviteCodeRow | undefined)
+      : (inviteMatches as InviteCodeRow | null);
 
-    if (reservationError || !updatedInviteCode) {
-      const setupError = reservationError
-        ? getInviteCodeSetupError(reservationError)
+    if (inviteValidationError || !inviteMatch) {
+      const setupError = inviteValidationError
+        ? getInviteCodeSetupError(inviteValidationError)
         : null;
 
       return NextResponse.json(
         {
           error:
             setupError ??
-            reservationError?.message ??
-            "This invite code is invalid or has already been used.",
+            inviteValidationError?.message ??
+            "This invite code is invalid, or this Discord username is not on the TeamNaturist list.",
         },
         { status: setupError ? 500 : 400 },
       );
     }
 
-    reservedInviteCode = updatedInviteCode;
+    validatedInviteCode = inviteMatch;
   }
+
+  const trustedPartnerName =
+    validatedInviteCode?.partner_name?.trim() || "Trusted partner";
 
   const visitorTrialMetadata = grantsVerifiedAccess
     ? {}
@@ -522,9 +503,9 @@ export async function POST(req: Request) {
     full_name: fullName,
     display_name: isInviteRegistration ? fullName : displayName,
     username: isInviteRegistration ? requestedUsername : undefined,
-    country: isInviteRegistration ? "Trusted partner verified" : country,
+    country: isInviteRegistration ? `${trustedPartnerName} verified` : country,
     membership_type: isInviteRegistration
-      ? "Trusted partner invite"
+      ? `${trustedPartnerName} invite`
       : membershipType,
     date_of_birth: isInviteRegistration ? undefined : dateOfBirth,
     onboarding_level: isInviteRegistration
@@ -541,6 +522,8 @@ export async function POST(req: Request) {
     verification_source: isInviteRegistration
       ? "trusted_partner_invite"
       : undefined,
+    trusted_partner_name: isInviteRegistration ? trustedPartnerName : undefined,
+    discord_username: isInviteRegistration ? discordUsername : undefined,
     invite_code: isInviteRegistration ? inviteCode : undefined,
     motivation: isVerifiedApplication ? motivation : "",
     ...visitorTrialMetadata,
@@ -555,10 +538,6 @@ export async function POST(req: Request) {
     });
 
   if (createUserError || !createdUser.user) {
-    if (reservedInviteCode) {
-      await resetInviteCodeToPending(supabaseAdmin, inviteCode);
-    }
-
     return NextResponse.json(
       { error: createUserError?.message ?? "Could not create user." },
       { status: 400 },
@@ -585,10 +564,6 @@ export async function POST(req: Request) {
 
     if (uploadError) {
       await supabaseAdmin.auth.admin.deleteUser(userId);
-      if (reservedInviteCode) {
-        await resetInviteCodeToPending(supabaseAdmin, inviteCode);
-      }
-
       return NextResponse.json(
         {
           error:
@@ -620,9 +595,9 @@ export async function POST(req: Request) {
         legal_name: fullName,
         display_name: profileDisplayName,
         date_of_birth: isInviteRegistration ? "1900-01-01" : dateOfBirth,
-        country: isInviteRegistration ? "Trusted partner verified" : country,
+        country: isInviteRegistration ? `${trustedPartnerName} verified` : country,
         membership_type: isInviteRegistration
-          ? "Trusted partner invite"
+          ? `${trustedPartnerName} invite`
           : membershipType,
         id_type: isInviteRegistration ? "trusted_partner_invite" : idType,
         is_adult_confirmed: true,
@@ -633,6 +608,8 @@ export async function POST(req: Request) {
           isInviteRegistration
             ? {
                 source: "trusted_partner_invite",
+                partnerName: trustedPartnerName,
+                discordUsername,
                 inviteCode,
                 username,
                 thirdPartyAgeVerification: true,
@@ -655,10 +632,6 @@ export async function POST(req: Request) {
         .remove([idDocumentPath]);
     }
     await supabaseAdmin.auth.admin.deleteUser(userId);
-    if (reservedInviteCode) {
-      await resetInviteCodeToPending(supabaseAdmin, inviteCode);
-    }
-
     return NextResponse.json(
       {
         error:

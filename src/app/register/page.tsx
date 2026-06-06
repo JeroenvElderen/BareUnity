@@ -24,6 +24,7 @@ type RegisterState = {
   membershipType: string;
   accountAccess: AccountAccess;
   inviteCode: string;
+  discordUsername: string;
   idType: string;
   motivation: string;
   isAdultConfirmed: boolean;
@@ -46,6 +47,7 @@ const initialState: RegisterState = {
   membershipType: "",
   accountAccess: "viewOnly",
   inviteCode: "",
+  discordUsername: "",
   idType: "",
   motivation: "",
   isAdultConfirmed: false,
@@ -119,6 +121,13 @@ export default function RegisterPage() {
       return;
     }
 
+    if (isInviteRegistration && !form.discordUsername.trim()) {
+      setStatus(
+        "Enter the Discord username your trusted partner can verify.",
+      );
+      return;
+    }
+
     if (isVerifiedApplication && !form.idDocument) {
       setStatus(
         "Please upload a government ID file so our team can manually review and approve your account.",
@@ -152,6 +161,7 @@ export default function RegisterPage() {
       payload.set("membershipType", form.membershipType);
       payload.set("accountAccess", form.accountAccess);
       payload.set("inviteCode", form.inviteCode);
+      payload.set("discordUsername", form.discordUsername);
       payload.set("idType", form.idType);
       payload.set("motivation", form.motivation);
       payload.set("isAdultConfirmed", String(form.isAdultConfirmed));
@@ -296,6 +306,27 @@ export default function RegisterPage() {
                   placeholder="Your custom invite text"
                   required
                 />
+              </label>
+
+              <label className={styles.field}>
+                <span className={styles.label}>Discord username</span>
+                <input
+                  className={styles.input}
+                  type="text"
+                  value={form.discordUsername}
+                  onChange={(event) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      discordUsername: event.target.value,
+                    }))
+                  }
+                  placeholder="Your TeamNaturist Discord username"
+                  required
+                />
+                <span className={styles.help}>
+                  Enter the exact Discord username TeamNaturist has on its
+                  member list.
+                </span>
               </label>
 
               <div className={styles.split}>
@@ -606,6 +637,7 @@ export default function RegisterPage() {
                       isSensitiveIdDetailsHidden: false,
                       motivation: "",
                       inviteCode: "",
+                      discordUsername: "",
                     }))
                   }
                 />
@@ -631,6 +663,7 @@ export default function RegisterPage() {
                       ...prev,
                       accountAccess: "verified",
                       inviteCode: "",
+                      discordUsername: "",
                     }))
                   }
                 />
