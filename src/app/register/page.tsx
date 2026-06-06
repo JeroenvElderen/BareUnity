@@ -148,11 +148,13 @@ export default function RegisterPage() {
       const emailForSignIn = form.email.trim().toLowerCase();
       const passwordForSignIn = form.password;
       const payload = new FormData();
+      const submittedDisplayName = isInviteRegistration
+        ? form.fullName
+        : form.displayName;
+
+      payload.set("name", submittedDisplayName);
       payload.set("fullName", form.fullName);
-      payload.set(
-        "displayName",
-        isInviteRegistration ? form.fullName : form.displayName,
-      );
+      payload.set("displayName", submittedDisplayName);
       payload.set("username", form.username);
       payload.set("email", emailForSignIn);
       payload.set("password", form.password);
