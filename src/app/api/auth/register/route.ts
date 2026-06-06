@@ -8,6 +8,7 @@ import { db } from "@/server/db";
 
 type RegisterRequestBody = {
   name?: unknown;
+  displayName?: unknown;
   email?: unknown;
   password?: unknown;
 };
@@ -34,6 +35,7 @@ async function parseRegisterBody(req: Request): Promise<RegisterRequestBody> {
     const formData = await req.formData();
     return {
       name: formData.get("name"),
+      displayName: formData.get("displayName"),
       email: formData.get("email"),
       password: formData.get("password"),
     };
@@ -47,7 +49,7 @@ function normalizeString(value: unknown) {
 }
 
 function validateRegistrationInput(body: RegisterRequestBody) {
-  const name = normalizeString(body.name);
+  const name = normalizeString(body.name) || normalizeString(body.displayName);
   const email = normalizeString(body.email).toLowerCase();
   const password = typeof body.password === "string" ? body.password : "";
 
