@@ -15,6 +15,26 @@ This project is channel-only. Use `supabase-channel-only.sql` to:
    - authenticated users can read channels
    - only `service_role` can create/update/delete channels
 
+## Supabase Auth email confirmation with PrivateEmail
+
+BareUnity uses Supabase Auth exclusively for account creation and email
+confirmation. Do not create `public.User`, Auth.js, or Prisma user rows. Public
+registration calls `supabase.auth.signUp()`, and Supabase sends the confirmation
+message when email confirmations are enabled.
+
+To send verification email through PrivateEmail, configure SMTP in Supabase:
+
+1. Open Supabase Dashboard > Authentication > SMTP.
+2. Enable custom SMTP.
+3. Use `mail.privateemail.com` with your PrivateEmail mailbox credentials.
+4. Use port `587` for STARTTLS, or port `465` for TLS, matching your mailbox
+   settings.
+5. Set the sender address to the verified PrivateEmail address you want members
+   to see.
+
+The app's `SMTP_*` environment variables are only for BareUnity-owned welcome
+emails. They are not used to generate custom verification links.
+
 ## TeamNaturist invite-code registration setup
 
 For the TeamNaturist Discord invite flow, run
