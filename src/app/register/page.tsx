@@ -101,10 +101,6 @@ export default function RegisterPage() {
       ? "Verified member"
       : "7-day Visitor Pass";
 
-  const markPostLoginHydration = () => {
-    window.sessionStorage.setItem("bareunity_post_login_loading", "true");
-  };
-
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setStatus("");
@@ -122,9 +118,7 @@ export default function RegisterPage() {
     }
 
     if (isInviteRegistration && !form.discordUsername.trim()) {
-      setStatus(
-        "Enter the Discord username your trusted partner can verify.",
-      );
+      setStatus("Enter the Discord username your trusted partner can verify.");
       return;
     }
 
@@ -145,8 +139,7 @@ export default function RegisterPage() {
     setIsLoading(true);
 
     try {
-      const emailForSignIn = form.email.trim().toLowerCase();
-      const passwordForSignIn = form.password;
+      const emailForRegistration = form.email.trim().toLowerCase();
       const payload = new FormData();
       const submittedDisplayName = isInviteRegistration
         ? form.fullName
@@ -156,7 +149,7 @@ export default function RegisterPage() {
       payload.set("fullName", form.fullName);
       payload.set("displayName", submittedDisplayName);
       payload.set("username", form.username);
-      payload.set("email", emailForSignIn);
+      payload.set("email", emailForRegistration);
       payload.set("password", form.password);
       payload.set("dateOfBirth", form.dateOfBirth);
       payload.set("country", form.country);
@@ -194,26 +187,11 @@ export default function RegisterPage() {
         return;
       }
 
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: emailForSignIn,
-        password: passwordForSignIn,
-      });
-
-      if (signInError) {
-        setStatus(
-          signInError.message ||
-            data.message ||
-            "Account created, but automatic sign-in failed. Please sign in manually.",
-        );
-        return;
-      }
-
-      setStatus(data.message ?? "Account created and signed in successfully.");
+      setStatus(
+        data.message ??
+          "Account created. Check your email to confirm your address before signing in.",
+      );
       setForm({ ...initialState, accountAccess: form.accountAccess });
-      markPostLoginHydration();
-      void router.prefetch("/");
-      router.push("/");
-      router.refresh();
     } catch {
       setStatus("Something went wrong while creating your account.");
     } finally {
@@ -647,8 +625,8 @@ export default function RegisterPage() {
                   <strong>7-day Visitor Pass</strong>
                   <small>
                     No ID upload is needed. Browse and preview the community for
-                    7 days; posting, check-ins, and submissions stay locked until
-                    ID verification.
+                    7 days; posting, check-ins, and submissions stay locked
+                    until ID verification.
                   </small>
                 </span>
               </label>
@@ -673,8 +651,8 @@ export default function RegisterPage() {
                   <strong>Verified with ID</strong>
                   <small>
                     Upload a government ID to unlock full member participation:
-                    post, comment, like, check in,
-                    and submit places once verification is complete.
+                    post, comment, like, check in, and submit places once
+                    verification is complete.
                   </small>
                 </span>
               </label>
@@ -791,8 +769,8 @@ export default function RegisterPage() {
               <div className={styles.stageBanner}>
                 <strong>View-only account selected.</strong> You will be able to
                 browse the community after signing in, but posting, comments,
-                likes, check-ins, and place
-                submissions stay locked until you complete ID verification.
+                likes, check-ins, and place submissions stay locked until you
+                complete ID verification.
               </div>
             )}
 
