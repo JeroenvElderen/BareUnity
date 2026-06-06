@@ -14,12 +14,29 @@ import {
 import { ensureUserMediaStorage } from "@/lib/storage-buckets";
 import { loadViewerFromRequest } from "@/lib/viewer";
 
-const MAX_AVATAR_UPLOAD_BYTES = 3.5 * 1024 * 1024;
+const MAX_AVATAR_UPLOAD_BYTES = 15 * 1024 * 1024;
 const MAX_DISPLAY_NAME_LENGTH = 80;
 const MAX_BIO_LENGTH = 280;
 const MAX_LOCATION_LENGTH = 80;
 const MAX_INTERESTS = 8;
 const MAX_INTEREST_LENGTH = 32;
+
+const PROFILE_SETTINGS_INSERT_DEFAULTS = {
+  profile_primary: "#1fd8b5",
+  profile_secondary: "#112b44",
+  show_email: false,
+  show_activity: true,
+  allow_friend_requests: true,
+  feed_style: "balanced",
+  friends: [],
+  friend_requests: [],
+  introduction: "",
+  user_role: "newcomer",
+  onboarding_completed: true,
+  recovery_keys: [],
+  add_post_images_to_gallery: true,
+  setting_control_states: {},
+};
 
 type ProfileUpdateLogContext = {
   requestId: string;
@@ -58,6 +75,16 @@ function cleanText(value: FormDataEntryValue | null, maxLength: number) {
   if (!cleaned) return null;
 
   return cleaned.slice(0, maxLength);
+}
+
+function cleanAvatarPath(value: FormDataEntryValue | null, viewerId: string) {
+  if (typeof value !== "string") return null;
+
+  const cleaned = value.trim();
+  if (!cleaned) return null;
+
+  const expectedPrefix = `avatars/${viewerId}/`;
+  return cleaned.startsWith(expectedPrefix) ? cleaned : null;
 }
 
 function cleanInterests(value: FormDataEntryValue | null) {
@@ -123,6 +150,7 @@ export async function PATCH(request: Request) {
     const location = cleanText(formData.get("location"), MAX_LOCATION_LENGTH);
     const interests = cleanInterests(formData.get("interests"));
     const avatar = formData.get("avatar");
+    const avatarPath = cleanAvatarPath(formData.get("avatarPath"), viewerId);
 
     logProfileUpdate("info", "form data parsed", {
       requestId,
@@ -132,6 +160,7 @@ export async function PATCH(request: Request) {
       locationLength: location?.length ?? 0,
       interestCount: interests.length,
       hasAvatar: avatar instanceof File && avatar.size > 0,
+      hasAvatarPath: Boolean(avatarPath),
       avatarSize: avatar instanceof File ? avatar.size : null,
       avatarType: avatar instanceof File ? avatar.type : null,
     });
@@ -139,7 +168,14 @@ export async function PATCH(request: Request) {
     const supabaseAdmin = createSupabaseAdminClient();
     let avatarUrl: string | null | undefined;
 
-    if (avatar instanceof File && avatar.size > 0) {
+    if (avatarPath) {
+      avatarUrl = avatarPath;
+      logProfileUpdate("info", "using direct-uploaded avatar path", {
+        requestId,
+        viewerId,
+        storagePath: avatarPath,
+      });
+    } else if (avatar instanceof File && avatar.size > 0) {
       logProfileUpdate("info", "avatar validation started", { requestId, viewerId });
 
       let validatedUpload;
@@ -151,7 +187,7 @@ export async function PATCH(request: Request) {
           maxBytes: MAX_AVATAR_UPLOAD_BYTES,
           emptyMessage: "Please choose a non-empty profile image.",
           typeMessage: "Unsupported profile image type. Please upload a JPG, PNG, WEBP, GIF, or AVIF image.",
-          sizeMessage: "Profile images must be 3.5MB or smaller. Large images are resized in the profile editor before upload.",
+          sizeMessage: "Profile images must be 15MB or smaller.",
           signatureMessage: "Profile image contents do not match the declared file type.",
         });
       } catch (error) {
@@ -251,34 +287,61 @@ export async function PATCH(request: Request) {
 
     logProfileUpdate("info", "profile row updated", { requestId, viewerId });
 
-    logProfileUpdate("info", "upserting profile settings row", {
+    logProfileUpdate("info", "saving profile settings row", {
       requestId,
       viewerId,
       interestCount: interests.length,
     });
 
-    const { error: settingsError } = await supabaseAdmin
-      .from("profile_settings")
-      .upsert(
-        {
-          user_id: viewerId,
-          interests,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "user_id" },
-      );
+    const profileSettingsUpdatedAt = new Date().toISOString();
+    const profileSettingsPatch = {
+      interests,
+      updated_at: profileSettingsUpdatedAt,
+    };
 
-    if (settingsError) {
-      logProfileUpdate("error", "profile settings upsert failed", {
+    const { data: updatedSettingsRows, error: settingsUpdateError } = await supabaseAdmin
+      .from("profile_settings")
+      .update(profileSettingsPatch)
+      .eq("user_id", viewerId)
+      .select("user_id");
+
+    if (settingsUpdateError) {
+      logProfileUpdate("error", "profile settings update failed", {
         requestId,
         viewerId,
-        error: settingsError,
+        error: settingsUpdateError,
       });
 
-      throw new Error(settingsError.message);
+      throw new Error(settingsUpdateError.message);
     }
 
-    logProfileUpdate("info", "profile settings row upserted", { requestId, viewerId });
+    if (!updatedSettingsRows?.length) {
+      logProfileUpdate("info", "profile settings row missing; inserting defaults", {
+        requestId,
+        viewerId,
+      });
+
+      const { error: settingsInsertError } = await supabaseAdmin
+        .from("profile_settings")
+        .insert({
+          ...PROFILE_SETTINGS_INSERT_DEFAULTS,
+          ...profileSettingsPatch,
+          user_id: viewerId,
+          created_at: profileSettingsUpdatedAt,
+        });
+
+      if (settingsInsertError) {
+        logProfileUpdate("error", "profile settings insert failed", {
+          requestId,
+          viewerId,
+          error: settingsInsertError,
+        });
+
+        throw new Error(settingsInsertError.message);
+      }
+    }
+
+    logProfileUpdate("info", "profile settings row saved", { requestId, viewerId });
     logProfileUpdate("info", "request completed", { requestId, viewerId });
 
     return NextResponse.json({
