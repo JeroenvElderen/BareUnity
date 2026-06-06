@@ -1,8 +1,8 @@
-import net from "node:net";
-import tls from "node:tls";
+import nodemailer from "nodemailer";
 
+const SMTP_CONNECTION_TIMEOUT_MS = 10000;
 const SMTP_GREETING_TIMEOUT_MS = 10000;
-const SMTP_COMMAND_TIMEOUT_MS = 10000;
+const SMTP_SOCKET_TIMEOUT_MS = 10000;
 
 type RequiredSmtpEnvVar =
   | "SMTP_HOST"
@@ -10,8 +10,6 @@ type RequiredSmtpEnvVar =
   | "SMTP_USER"
   | "SMTP_PASS"
   | "EMAIL_FROM";
-
-type SmtpSocket = net.Socket | tls.TLSSocket;
 
 function requireEnv(name: RequiredSmtpEnvVar) {
   const value = process.env[name];
@@ -33,10 +31,6 @@ function getSmtpPort() {
   return port;
 }
 
-function encodeBase64(value: string) {
-  return Buffer.from(value, "utf8").toString("base64");
-}
-
 function escapeHtml(value: string) {
   return value
     .replace(/&/g, "&amp;")
@@ -46,178 +40,31 @@ function escapeHtml(value: string) {
     .replace(/'/g, "&#039;");
 }
 
-function formatAddress(address: string) {
-  return `<${address.trim()}>`;
-}
-
-function normalizeMessageLines(message: string) {
-  return message
-    .replace(/\r?\n/g, "\r\n")
-    .split("\r\n")
-    .map((line) => (line.startsWith(".") ? `.${line}` : line))
-    .join("\r\n");
-}
-
-function createSocket(host: string, port: number) {
-  if (port === 465) {
-    return tls.connect({ host, port, servername: host });
-  }
-
-  return net.connect({ host, port });
-}
-
-function waitForConnect(socket: SmtpSocket) {
-  if (socket.connecting) {
-    return new Promise<void>((resolve, reject) => {
-      socket.once("connect", resolve);
-      socket.once("error", reject);
-    });
-  }
-
-  return Promise.resolve();
-}
-
-class SmtpConnection {
-  private buffer = "";
-  private lineQueue: string[] = [];
-  private lineResolvers: Array<(line: string) => void> = [];
-
-  constructor(private socket: SmtpSocket) {
-    this.socket.setEncoding("utf8");
-    this.socket.on("data", (chunk) => {
-      this.buffer += chunk;
-      let lineEnd = this.buffer.indexOf("\n");
-
-      while (lineEnd !== -1) {
-        const rawLine = this.buffer.slice(0, lineEnd + 1);
-        this.buffer = this.buffer.slice(lineEnd + 1);
-        this.pushLine(rawLine.replace(/\r?\n$/, ""));
-        lineEnd = this.buffer.indexOf("\n");
-      }
-    });
-  }
-
-  private pushLine(line: string) {
-    const resolver = this.lineResolvers.shift();
-
-    if (resolver) {
-      resolver(line);
-      return;
-    }
-
-    this.lineQueue.push(line);
-  }
-
-  private readLine(timeoutMs = SMTP_COMMAND_TIMEOUT_MS) {
-    const queuedLine = this.lineQueue.shift();
-    if (queuedLine) return Promise.resolve(queuedLine);
-
-    return new Promise<string>((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        const resolverIndex = this.lineResolvers.indexOf(resolve);
-        if (resolverIndex >= 0) this.lineResolvers.splice(resolverIndex, 1);
-        reject(new Error("Timed out waiting for SMTP response."));
-      }, timeoutMs);
-
-      this.lineResolvers.push((line) => {
-        clearTimeout(timeout);
-        resolve(line);
-      });
-    });
-  }
-
-  async readResponse(timeoutMs = SMTP_COMMAND_TIMEOUT_MS) {
-    const lines: string[] = [];
-    let code = "";
-
-    do {
-      const line = await this.readLine(timeoutMs);
-      lines.push(line);
-      code = line.slice(0, 3);
-    } while (lines.at(-1)?.startsWith(`${code}-`));
-
-    return { code: Number(code), message: lines.join("\n") };
-  }
-
-  async expect(codes: number[], command?: string) {
-    if (command) this.socket.write(`${command}\r\n`);
-
-    const response = await this.readResponse();
-    if (!codes.includes(response.code)) {
-      throw new Error(`SMTP command failed: ${response.message}`);
-    }
-
-    return response;
-  }
-
-  async upgradeToTls(host: string) {
-    await this.expect([220], "STARTTLS");
-    this.socket = tls.connect({ socket: this.socket, servername: host });
-    await waitForConnect(this.socket);
-    this.socket.setEncoding("utf8");
-    this.socket.on("data", (chunk) => {
-      this.buffer += chunk;
-      let lineEnd = this.buffer.indexOf("\n");
-
-      while (lineEnd !== -1) {
-        const rawLine = this.buffer.slice(0, lineEnd + 1);
-        this.buffer = this.buffer.slice(lineEnd + 1);
-        this.pushLine(rawLine.replace(/\r?\n$/, ""));
-        lineEnd = this.buffer.indexOf("\n");
-      }
-    });
-  }
-
-  end() {
-    this.socket.end();
-  }
-}
-
 async function sendSmtpMail(args: {
   from: string;
   to: string;
   subject: string;
   html: string;
 }) {
-  const host = requireEnv("SMTP_HOST");
   const port = getSmtpPort();
-  const socket = createSocket(host, port);
-  const connection = new SmtpConnection(socket);
+  const transport = nodemailer.createTransport({
+    host: requireEnv("SMTP_HOST"),
+    port,
+    secure: port === 465,
+    requireTLS: port !== 465,
+    connectionTimeout: SMTP_CONNECTION_TIMEOUT_MS,
+    greetingTimeout: SMTP_GREETING_TIMEOUT_MS,
+    socketTimeout: SMTP_SOCKET_TIMEOUT_MS,
+    auth: {
+      user: requireEnv("SMTP_USER"),
+      pass: requireEnv("SMTP_PASS"),
+    },
+  });
 
-  try {
-    await waitForConnect(socket);
-    await connection.readResponse(SMTP_GREETING_TIMEOUT_MS);
-    await connection.expect([250], `EHLO ${host}`);
+  const result = await transport.sendMail(args);
 
-    if (port !== 465) {
-      await connection.upgradeToTls(host);
-      await connection.expect([250], `EHLO ${host}`);
-    }
-
-    await connection.expect([334], "AUTH LOGIN");
-    await connection.expect([334], encodeBase64(requireEnv("SMTP_USER")));
-    await connection.expect([235], encodeBase64(requireEnv("SMTP_PASS")));
-    await connection.expect([250], `MAIL FROM:${formatAddress(args.from)}`);
-    await connection.expect([250, 251], `RCPT TO:${formatAddress(args.to)}`);
-    await connection.expect([354], "DATA");
-
-    const message = normalizeMessageLines(
-      [
-        `From: ${args.from}`,
-        `To: ${args.to}`,
-        `Subject: ${args.subject}`,
-        "MIME-Version: 1.0",
-        'Content-Type: text/html; charset="UTF-8"',
-        "",
-        args.html,
-      ].join("\r\n"),
-    );
-
-    await connection.expect([250], `${message}\r\n.`);
-    await connection.expect([221], "QUIT").catch(() => undefined);
-  } finally {
-    connection.end();
-  }
+  console.log("Nodemailer sendMail result:", result);
+  console.log("Nodemailer messageId:", result.messageId);
 }
 
 export async function sendWelcomeEmail(email: string, displayName: string) {
