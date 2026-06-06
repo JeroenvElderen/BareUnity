@@ -17,23 +17,31 @@ This project is channel-only. Use `supabase-channel-only.sql` to:
 
 ## Supabase Auth email confirmation with PrivateEmail
 
-BareUnity uses Supabase Auth exclusively for account creation and email
-confirmation. Do not create `public.User`, Auth.js, or Prisma user rows. Public
-registration calls `supabase.auth.signUp()`, and Supabase sends the confirmation
-message when email confirmations are enabled.
+BareUnity uses Supabase Auth for account creation and email confirmation. Do not
+create `public.User`, Auth.js, or Prisma user rows. Public registration creates
+the Supabase Auth user by calling `supabase.auth.admin.generateLink()` with
+`type: "signup"`, then sends that generated confirmation link through the app's
+Nodemailer SMTP flow.
 
-To send verification email through PrivateEmail, configure SMTP in Supabase:
+This keeps the welcome copy and email-confirmation call to action in one email:
 
-1. Open Supabase Dashboard > Authentication > SMTP.
-2. Enable custom SMTP.
-3. Use `mail.privateemail.com` with your PrivateEmail mailbox credentials.
-4. Use port `587` for STARTTLS, or port `465` for TLS, matching your mailbox
-   settings.
-5. Set the sender address to the verified PrivateEmail address you want members
-   to see.
+1. Supabase generates the signup confirmation link and stores the Auth user.
+2. BareUnity sends `Welcome to BareUnity — confirm your email` with Nodemailer.
+3. The member clicks the confirmation link and is redirected to `/verified`.
 
-The app's `SMTP_*` environment variables are only for BareUnity-owned welcome
-emails. They are not used to generate custom verification links.
+To send confirmation email through PrivateEmail, configure these app environment
+variables with your PrivateEmail mailbox credentials:
+
+- `SMTP_HOST=mail.privateemail.com`
+- `SMTP_PORT=587` for STARTTLS, or `465` for TLS
+- `SMTP_USER`
+- `SMTP_PASS`
+- `EMAIL_FROM`
+
+Supabase Dashboard > Authentication > Email Templates > Confirm sign up is not
+used by this public registration flow while the app sends confirmation mail with
+Nodemailer. If you enable Supabase's built-in signup emails separately, members
+may receive duplicate signup messages.
 
 ## TeamNaturist invite-code registration setup
 

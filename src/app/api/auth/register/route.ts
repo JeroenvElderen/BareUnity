@@ -1,9 +1,8 @@
 import { randomUUID } from "node:crypto";
 
-import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
-import { sendWelcomeEmail } from "@/lib/email";
+import { sendSignupConfirmationEmail } from "@/lib/email";
 import {
   createSupabaseAdminClient,
   isSupabaseAdminConfigured,
@@ -18,8 +17,6 @@ import { isUsernameValid, normalizeUsername } from "@/lib/username";
 
 const MAX_ID_UPLOAD_BYTES = 10 * 1024 * 1024;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 type AccountAccess = "invite" | "verified" | "viewOnly";
 
@@ -379,13 +376,6 @@ async function deletePartialSignup(
 }
 
 export async function POST(req: Request) {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    return NextResponse.json(
-      { error: "Supabase public auth config is missing." },
-      { status: 500 },
-    );
-  }
-
   if (!isSupabaseAdminConfigured) {
     return NextResponse.json(
       { error: "Supabase admin credentials are not configured." },
@@ -436,22 +426,17 @@ export async function POST(req: Request) {
       username,
       verificationStatus,
     });
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    });
-    const { data: signUpData, error: signUpError } = await supabase.auth.signUp(
-      {
+    const confirmationRedirectTo = `${getAppUrl(req)}/verified`;
+    const { data: signUpData, error: signUpError } =
+      await supabaseAdmin.auth.admin.generateLink({
+        type: "signup",
         email: validation.email,
         password: validation.password,
         options: {
           data: metadata,
-          emailRedirectTo: `${getAppUrl(req)}/verified`,
+          redirectTo: confirmationRedirectTo,
         },
-      },
-    );
+      });
 
     if (signUpError || !signUpData.user) {
       const message = signUpError?.message ?? "Could not create auth user.";
@@ -462,16 +447,6 @@ export async function POST(req: Request) {
             : message,
         },
         { status: isDuplicateAccountError(message) ? 409 : 400 },
-      );
-    }
-
-    if (
-      Array.isArray(signUpData.user.identities) &&
-      !signUpData.user.identities.length
-    ) {
-      return NextResponse.json(
-        { error: "An account with this email already exists." },
-        { status: 409 },
       );
     }
 
@@ -534,18 +509,11 @@ export async function POST(req: Request) {
       if (verificationError) throw new Error(verificationError.message);
     }
 
-    try {
-  console.log("Sending welcome email...");
-
-  await sendWelcomeEmail(
-    validation.email,
-    validation.displayName,
-  );
-
-  console.log("Welcome email sent successfully");
-} catch (error) {
-  console.error("Failed to send welcome email", error);
-}
+    await sendSignupConfirmationEmail({
+      confirmationUrl: signUpData.properties.action_link,
+      displayName: validation.displayName,
+      email: validation.email,
+    });
 
     return NextResponse.json(
       {
