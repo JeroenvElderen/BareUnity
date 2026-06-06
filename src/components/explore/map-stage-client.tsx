@@ -20,6 +20,9 @@ type Spot = {
   latitude: number | string;
   longitude: number | string;
   privacy: "Public" | "Discreet" | string;
+  location_hint?: string | null;
+  country?: string | null;
+  region?: string | null;
   access_type?: string | null;
   terrain?: string | null;
   safety_level?: string | null;
@@ -731,8 +734,19 @@ export function MapStageClient() {
     if (!normalizedQuery) return true;
 
     const queryTerms = normalizedQuery.split(/\s+/).filter(Boolean);
-    const haystack = `${spot.name} ${spot.description} ${spot.terrain ?? ""} ${spot.privacy}`.toLowerCase();
-    
+    const haystack = [
+      spot.name,
+      spot.description,
+      spot.country,
+      spot.region,
+      spot.location_hint,
+      spot.terrain,
+      spot.privacy,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+          
     return queryTerms.every((term) => haystack.includes(term));
   }
 

@@ -14,7 +14,7 @@ export function ExploreSearchOverlay() {
         <label htmlFor="explore-search" className={styles.searchWrap}>
           <span className={styles.searchLabel}>Search the map</span>
           <div className={styles.searchControls}>
-            <input id="explore-search" type="text" placeholder="Search spots, events, routes..." />
+            <input id="explore-search" type="text" placeholder="Search by spot, country, event, or route..." />
             <button
               id="explore-search-submit"
               type="button"

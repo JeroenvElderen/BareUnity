@@ -644,7 +644,28 @@ export async function POST(req: Request) {
     );
   }
 
+  if (isInviteRegistration) {
+    const { data: deletedTeamNaturistMember, error: deleteTeamNaturistError } =
+      await supabaseAdmin
+        .from("teamnaturist")
+        .delete()
+        .eq("username", discordUsername)
+        .select("username")
+        .maybeSingle<{ username: string }>();
 
+    if (deleteTeamNaturistError || !deletedTeamNaturistMember) {
+      await supabaseAdmin.auth.admin.deleteUser(userId);
+      return NextResponse.json(
+        {
+          error:
+            deleteTeamNaturistError?.message ??
+            "This Discord username has already been used. Please request a new TeamNaturist username entry.",
+        },
+        { status: deleteTeamNaturistError ? 500 : 400 },
+      );
+    }
+  }
+  
   return NextResponse.json({
     ok: true,
     message: isInviteRegistration

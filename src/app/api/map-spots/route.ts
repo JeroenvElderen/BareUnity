@@ -141,6 +141,9 @@ function normalizeSpotPayload<
     access_type?: string | null;
     terrain: string | null;
     safety_level?: string | null;
+    location_hint?: string | null;
+    country?: string | null;
+    region?: string | null;
     amenities?: string[];
     tags?: string[];
     details?: unknown;
@@ -230,6 +233,9 @@ async function fetchSpotsWithPrisma(): Promise<MapSpotPayload[]> {
       access_type: true,
       terrain: true,
       safety_level: true,
+      location_hint: true,
+      country: true,
+      region: true,
       amenities: true,
       tags: true,
       details: true,
@@ -244,7 +250,7 @@ async function fetchSpotsWithSupabaseAdmin(): Promise<MapSpotPayload[]> {
   const { data, error } = await supabaseAdmin
     .from("naturist_map_spots")
     .select(
-      "id, name, description, latitude, longitude, privacy, access_type, terrain, safety_level, amenities, tags, details",
+      "id, name, description, latitude, longitude, privacy, location_hint, country, region, access_type, terrain, safety_level, amenities, tags, details",
     )
     .order("created_at", { ascending: false })
     .limit(500);
