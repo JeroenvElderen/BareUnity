@@ -534,11 +534,18 @@ export async function POST(req: Request) {
       if (verificationError) throw new Error(verificationError.message);
     }
 
-    sendWelcomeEmail(validation.email, validation.displayName).catch(
-      (error) => {
-        console.error("Failed to send welcome email", error);
-      },
-    );
+    try {
+  console.log("Sending welcome email...");
+
+  await sendWelcomeEmail(
+    validation.email,
+    validation.displayName,
+  );
+
+  console.log("Welcome email sent successfully");
+} catch (error) {
+  console.error("Failed to send welcome email", error);
+}
 
     return NextResponse.json(
       {
