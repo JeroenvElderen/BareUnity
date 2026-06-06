@@ -1,677 +1,183 @@
-import { createHash, createHmac, randomUUID } from "node:crypto";
+import bcrypt from "bcryptjs";
+import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
-import {
-  createSupabaseAdminClient,
-  isSupabaseAdminConfigured,
-} from "@/lib/supabase-admin";
-import {
-  getUsernameValidationMessage,
-  normalizeUsername,
-} from "@/lib/username";
-import { buildVisitorTrialMetadata } from "@/lib/visitor-trial";
 
-type RegisterBody = {
-  fullName?: string;
-  displayName?: string;
-  username?: string;
-  email?: string;
-  password?: string;
-  dateOfBirth?: string;
-  country?: string;
-  membershipType?: string;
-  accountAccess?: string;
-  inviteCode?: string;
-  discordUsername?: string;
-  idType?: string;
-  motivation?: string;
-  isAdultConfirmed?: boolean;
-  isConsentConfirmed?: boolean;
-  isPolicyConfirmed?: boolean;
-  isPhotoRuleConfirmed?: boolean;
-  isSensitiveIdDetailsHidden?: boolean;
+import { sendVerificationEmail } from "@/lib/email";
+import { createVerificationToken } from "@/lib/tokens";
+import { db } from "@/server/db";
+
+type RegisterRequestBody = {
+  name?: unknown;
+  email?: unknown;
+  password?: unknown;
 };
 
-const MINIMUM_AGE = 18;
-const MAX_ID_UPLOAD_BYTES = 10 * 1024 * 1024;
-const ACCOUNT_ACCESS_VALUES = new Set(["verified", "viewOnly", "invite"]);
-const ALLOWED_UPLOAD_TYPES = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "application/pdf",
-]);
-const UPLOAD_EXTENSION_BY_TYPE: Record<string, string> = {
-  "image/jpeg": "jpg",
-  "image/png": "png",
-  "image/webp": "webp",
-  "application/pdf": "pdf",
-};
+const BCRYPT_SALT_ROUNDS = 12;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-type InviteCodeRow = {
-  code_text: string;
-  partner_name: string | null;
-};
-
-const SIGNATURE_VALIDATORS: Record<string, (buffer: Buffer) => boolean> = {
-  "image/jpeg": (buffer) =>
-    buffer.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff])),
-  "image/png": (buffer) =>
-    buffer
-      .subarray(0, 8)
-      .equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])),
-  "image/webp": (buffer) =>
-    buffer.subarray(0, 4).toString("ascii") === "RIFF" &&
-    buffer.subarray(8, 12).toString("ascii") === "WEBP",
-  "application/pdf": (buffer) =>
-    buffer.subarray(0, 5).toString("ascii") === "%PDF-",
-};
-
-function normalizeInviteCode(code: string) {
-  return code.trim();
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-function normalizeDiscordUsername(username: string) {
-  return username.trim();
-}
+async function parseRegisterBody(req: Request): Promise<RegisterRequestBody> {
+  const contentType = req.headers.get("content-type") ?? "";
 
-function getSupabaseErrorCode(error: unknown) {
-  if (!error || typeof error !== "object") return "";
-  const code = (error as { code?: unknown }).code;
-  return typeof code === "string" ? code : "";
-}
-
-function getInviteCodeSetupError(error: unknown) {
-  const code = getSupabaseErrorCode(error);
+  if (contentType.includes("application/json")) {
+    const body = (await req.json()) as unknown;
+    return isRecord(body) ? body : {};
+  }
 
   if (
-    ["42P01", "42883", "PGRST106", "PGRST200", "PGRST202", "PGRST205"]
-      .includes(code)
+    contentType.includes("application/x-www-form-urlencoded") ||
+    contentType.includes("multipart/form-data")
   ) {
-    return (
-      "TeamNaturist invite-code tables are not installed yet. " +
-      "Run supabase-teamnaturist-invite-codes.sql in the Supabase SQL editor, " +
-      "then insert your invite code into public.invite_codes and Discord usernames into public.teamnaturist."
-    );
+    const formData = await req.formData();
+    return {
+      name: formData.get("name"),
+      email: formData.get("email"),
+      password: formData.get("password"),
+    };
   }
 
-  return null;
+  return {};
 }
 
-function createDocumentFingerprint(buffer: Buffer) {
-  const pepper = process.env.VERIFICATION_DOCUMENT_HASH_PEPPER;
+function normalizeString(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
 
-  if (!pepper && process.env.NODE_ENV === "production") {
-    throw new Error(
-      "VERIFICATION_DOCUMENT_HASH_PEPPER must be set in production.",
-    );
+function validateRegistrationInput(body: RegisterRequestBody) {
+  const name = normalizeString(body.name);
+  const email = normalizeString(body.email).toLowerCase();
+  const password = typeof body.password === "string" ? body.password : "";
+
+  if (!name || !email || !password) {
+    return {
+      error: "Name, email, and password are required.",
+      status: 400,
+    } as const;
   }
 
-  if (pepper) {
-    const digest = createHmac("sha256", pepper).update(buffer).digest("hex");
-    return `hmac-sha256:${digest}`;
+  if (name.length > 100) {
+    return {
+      error: "Name must be 100 characters or fewer.",
+      status: 400,
+    } as const;
   }
 
-  const digest = createHash("sha256").update(buffer).digest("hex");
-  return `sha256:${digest}`;
-}
-
-function hasValidFileSignature(contentType: string, buffer: Buffer) {
-  const validator = SIGNATURE_VALIDATORS[contentType];
-  return Boolean(validator?.(buffer));
-}
-
-function buildUsername(fullName: string, displayName: string) {
-  const base =
-    normalizeUsername(displayName || fullName || "naturist") || "naturist";
-  const suffix = Math.floor(1000 + Math.random() * 9000);
-  return `${base}-${suffix}`;
-}
-
-function isAtLeastMinimumAge(dateOfBirth: string, minimumAge: number) {
-  const birthDate = new Date(dateOfBirth);
-
-  if (Number.isNaN(birthDate.getTime())) {
-    return false;
+  if (!EMAIL_REGEX.test(email)) {
+    return {
+      error: "Enter a valid email address.",
+      status: 400,
+    } as const;
   }
 
-  const today = new Date();
-  let age = today.getUTCFullYear() - birthDate.getUTCFullYear();
-  const monthDifference = today.getUTCMonth() - birthDate.getUTCMonth();
-
-  if (
-    monthDifference < 0 ||
-    (monthDifference === 0 && today.getUTCDate() < birthDate.getUTCDate())
-  ) {
-    age -= 1;
-  }
-
-  return age >= minimumAge;
-}
-
-function hasStrongPassword(password: string) {
   if (password.length < 12) {
-    return false;
+    return {
+      error: "Password must be at least 12 characters long.",
+      status: 400,
+    } as const;
   }
 
-  const hasUppercase = /[A-Z]/.test(password);
-  const hasLowercase = /[a-z]/.test(password);
-  const hasNumber = /\d/.test(password);
-  const hasSymbol = /[^\w\s]/.test(password);
-
-  return hasUppercase && hasLowercase && hasNumber && hasSymbol;
+  return { name, email, password } as const;
 }
 
-function parseBooleanValue(value: string | undefined) {
-  return value === "true";
-}
-
-function getStringValue(formData: FormData, key: keyof RegisterBody) {
-  const value = formData.get(key);
-  return typeof value === "string" ? value : "";
-}
-
-function getUploadedIdDocument(formData: FormData) {
-  const value = formData.get("idDocument");
-
-  if (!(value instanceof File)) {
-    return null;
-  }
-
-  if (!value.size) {
-    return null;
-  }
-
-  return value;
+function isUniqueConstraintError(error: unknown) {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2002"
+  );
 }
 
 export async function POST(req: Request) {
-  if (!isSupabaseAdminConfigured) {
-    return NextResponse.json(
-      {
-        error:
-          "Server auth config is incomplete. Missing Supabase admin credentials.",
-      },
-      { status: 500 },
-    );
-  }
-
-  const contentType = req.headers.get("content-type") ?? "";
-
-  if (!contentType.includes("multipart/form-data")) {
-    return NextResponse.json(
-      { error: "Registration requires multipart form data." },
-      { status: 400 },
-    );
-  }
-
-  let formData: FormData;
+  let body: RegisterRequestBody;
 
   try {
-    formData = await req.formData();
+    body = await parseRegisterBody(req);
   } catch (error) {
-    console.error("Failed to parse register form data", error);
+    console.error("Failed to parse registration request", error);
     return NextResponse.json(
-      {
-        error:
-          "Unable to process the uploaded form data. Ensure the full request is under 10MB and try again.",
-      },
+      { error: "Could not parse registration request body." },
       { status: 400 },
     );
   }
 
-  const fullName = getStringValue(formData, "fullName").trim();
-  const displayName = getStringValue(formData, "displayName").trim();
-  const requestedUsername = normalizeUsername(
-    getStringValue(formData, "username"),
-  );
-  const email = getStringValue(formData, "email").trim().toLowerCase();
-  const password = getStringValue(formData, "password");
-  const dateOfBirth = getStringValue(formData, "dateOfBirth");
-  const country = getStringValue(formData, "country").trim();
-  const membershipType = getStringValue(formData, "membershipType").trim();
-  const requestedAccountAccess = getStringValue(
-    formData,
-    "accountAccess",
-  ).trim();
-  const accountAccess = ACCOUNT_ACCESS_VALUES.has(requestedAccountAccess)
-    ? requestedAccountAccess
-    : "viewOnly";
-  const isVerifiedApplication = accountAccess === "verified";
-  const isInviteRegistration = accountAccess === "invite";
-  const grantsVerifiedAccess = isVerifiedApplication || isInviteRegistration;
-  const inviteCode = normalizeInviteCode(
-    getStringValue(formData, "inviteCode"),
-  );
-  const discordUsername = normalizeDiscordUsername(
-    getStringValue(formData, "discordUsername"),
-  );
-  const idType = getStringValue(formData, "idType").trim();
-  const motivation = getStringValue(formData, "motivation").trim();
-  const idDocument = getUploadedIdDocument(formData);
-  const isSensitiveIdDetailsHidden = parseBooleanValue(
-    getStringValue(formData, "isSensitiveIdDetailsHidden"),
-  );
+  const validation = validateRegistrationInput(body);
 
-  if (isInviteRegistration) {
-    if (
-      !fullName ||
-      !requestedUsername ||
-      !email ||
-      !password ||
-      !inviteCode ||
-      !discordUsername
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            "Please fill in name, username, email, password, invite code, and Discord username.",
-        },
-        { status: 400 },
-      );
-    }
-
-    const usernameValidationError =
-      getUsernameValidationMessage(requestedUsername);
-
-    if (usernameValidationError) {
-      return NextResponse.json(
-        { error: usernameValidationError },
-        { status: 400 },
-      );
-    }
-  } else if (
-    !fullName ||
-    !displayName ||
-    !email ||
-    !password ||
-    !dateOfBirth ||
-    !country ||
-    !membershipType
-  ) {
+  if ("error" in validation) {
     return NextResponse.json(
-      { error: "Please fill in all required fields." },
-      { status: 400 },
+      { error: validation.error },
+      { status: validation.status },
     );
   }
 
-  if (isInviteRegistration && !inviteCode) {
-    return NextResponse.json(
-      {
-        error:
-          "Enter the invite code supplied by your trusted verification partner.",
-      },
-      { status: 400 },
-    );
-  }
-
-  if (isInviteRegistration && !discordUsername) {
-    return NextResponse.json(
-      {
-        error:
-          "Enter the Discord username your trusted partner can verify.",
-      },
-      { status: 400 },
-    );
-  }
-
-  if (isVerifiedApplication && (!idType || !motivation)) {
-    return NextResponse.json(
-      { error: "Verified registration requires ID type and joining reason." },
-      { status: 400 },
-    );
-  }
-
-  if (isVerifiedApplication && !idDocument) {
-    return NextResponse.json(
-      {
-        error: "Upload an ID file (JPG, PNG, WEBP, or PDF) for manual review.",
-      },
-      { status: 400 },
-    );
-  }
-
-  if (isVerifiedApplication && !isSensitiveIdDetailsHidden) {
-    return NextResponse.json(
-      {
-        error:
-          "Confirm only your legal name, date of birth, and the official ID seal/logo/header remain visible.",
-      },
-      { status: 400 },
-    );
-  }
-
-  if (idDocument && idDocument.size > MAX_ID_UPLOAD_BYTES) {
-    return NextResponse.json(
-      { error: "ID upload exceeds 10MB. Please upload a smaller file." },
-      { status: 400 },
-    );
-  }
-
-  if (idDocument && !ALLOWED_UPLOAD_TYPES.has(idDocument.type)) {
-    return NextResponse.json(
-      { error: "Invalid ID file type. Allowed formats: JPG, PNG, WEBP, PDF." },
-      { status: 400 },
-    );
-  }
-
-  if (!isInviteRegistration && !isAtLeastMinimumAge(dateOfBirth, MINIMUM_AGE)) {
-    return NextResponse.json(
-      { error: "You must be at least 18 years old to create an account." },
-      { status: 400 },
-    );
-  }
-
-  if (isVerifiedApplication && motivation.length < 30) {
-    return NextResponse.json(
-      {
-        error:
-          "Please describe your naturist intent in at least 30 characters.",
-      },
-      { status: 400 },
-    );
-  }
-
-  const isAdultConfirmed = parseBooleanValue(
-    getStringValue(formData, "isAdultConfirmed"),
-  );
-  const isConsentConfirmed = parseBooleanValue(
-    getStringValue(formData, "isConsentConfirmed"),
-  );
-  const isPolicyConfirmed = parseBooleanValue(
-    getStringValue(formData, "isPolicyConfirmed"),
-  );
-  const isPhotoRuleConfirmed = parseBooleanValue(
-    getStringValue(formData, "isPhotoRuleConfirmed"),
-  );
-
-  if (
-    !isInviteRegistration &&
-    (!isAdultConfirmed ||
-      !isConsentConfirmed ||
-      !isPolicyConfirmed ||
-      !isPhotoRuleConfirmed)
-  ) {
-    return NextResponse.json(
-      {
-        error:
-          "You must confirm age, consent-first behavior, photo rules, and policy agreement.",
-      },
-      { status: 400 },
-    );
-  }
-
-  if (!hasStrongPassword(password)) {
-    return NextResponse.json(
-      {
-        error:
-          "Password must be at least 12 characters and include uppercase, lowercase, number, and symbol.",
-      },
-      { status: 400 },
-    );
-  }
-
-  let idDocumentBuffer: Buffer | null = null;
-  let idDocumentFingerprint: string | null = null;
-
-  if (isVerifiedApplication && idDocument) {
-    idDocumentBuffer = Buffer.from(await idDocument.arrayBuffer());
-
-    if (!hasValidFileSignature(idDocument.type, idDocumentBuffer)) {
-      return NextResponse.json(
-        { error: "ID file contents do not match the declared file type." },
-        { status: 400 },
-      );
-    }
-
-    try {
-      idDocumentFingerprint = createDocumentFingerprint(idDocumentBuffer);
-    } catch (error) {
-      console.error("Verification document fingerprint config error", error);
-      return NextResponse.json(
-        {
-          error: "Server verification document security config is incomplete.",
-        },
-        { status: 500 },
-      );
-    }
-  }
-
-  const supabaseAdmin = createSupabaseAdminClient();
-
-  if (isInviteRegistration) {
-    const { data: existingProfile, error: usernameLookupError } =
-      await supabaseAdmin
-        .from("profiles")
-        .select("id")
-        .eq("username", requestedUsername)
-        .maybeSingle<{ id: string }>();
-
-    if (usernameLookupError) {
-      return NextResponse.json(
-        { error: `Could not check username: ${usernameLookupError.message}` },
-        { status: 500 },
-      );
-    }
-
-    if (existingProfile) {
-      return NextResponse.json(
-        { error: "That username is already taken." },
-        { status: 400 },
-      );
-    }
-  }
-
-  let validatedInviteCode: InviteCodeRow | null = null;
-
-  if (isInviteRegistration) {
-    const { data: inviteMatches, error: inviteValidationError } =
-      await supabaseAdmin.rpc("validate_teamnaturist_invite", {
-        p_code_text: inviteCode,
-        p_discord_username: discordUsername,
-      });
-    const inviteMatch = Array.isArray(inviteMatches)
-      ? (inviteMatches[0] as InviteCodeRow | undefined)
-      : (inviteMatches as InviteCodeRow | null);
-
-    if (inviteValidationError || !inviteMatch) {
-      const setupError = inviteValidationError
-        ? getInviteCodeSetupError(inviteValidationError)
-        : null;
-
-      return NextResponse.json(
-        {
-          error:
-            setupError ??
-            inviteValidationError?.message ??
-            "This invite code is invalid, or this Discord username is not on the TeamNaturist list.",
-        },
-        { status: setupError ? 500 : 400 },
-      );
-    }
-
-    validatedInviteCode = inviteMatch;
-  }
-
-  const trustedPartnerName =
-    validatedInviteCode?.partner_name?.trim() || "Trusted partner";
-
-  const visitorTrialMetadata = grantsVerifiedAccess
-    ? {}
-    : buildVisitorTrialMetadata();
-
-  const userMetadata = {
-    full_name: fullName,
-    display_name: isInviteRegistration ? fullName : displayName,
-    username: isInviteRegistration ? requestedUsername : undefined,
-    country: isInviteRegistration ? `${trustedPartnerName} verified` : country,
-    membership_type: isInviteRegistration
-      ? `${trustedPartnerName} invite`
-      : membershipType,
-    date_of_birth: isInviteRegistration ? undefined : dateOfBirth,
-    onboarding_level: isInviteRegistration
-      ? "L2_safety_training_complete"
-      : isVerifiedApplication
-        ? "verification_pending"
-        : "view_only_unverified",
-    account_access: grantsVerifiedAccess ? "verified" : "viewOnly",
-    verification_status: isInviteRegistration
-      ? "approved"
-      : isVerifiedApplication
-        ? "pending"
-        : "unverified",
-    verification_source: isInviteRegistration
-      ? "trusted_partner_invite"
-      : undefined,
-    trusted_partner_name: isInviteRegistration ? trustedPartnerName : undefined,
-    discord_username: isInviteRegistration ? discordUsername : undefined,
-    invite_code: isInviteRegistration ? inviteCode : undefined,
-    motivation: isVerifiedApplication ? motivation : "",
-    ...visitorTrialMetadata,
-  };
-
-  const { data: createdUser, error: createUserError } =
-    await supabaseAdmin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: userMetadata,
-    });
-
-  if (createUserError || !createdUser.user) {
-    return NextResponse.json(
-      { error: createUserError?.message ?? "Could not create user." },
-      { status: 400 },
-    );
-  }
-
-  const userId = createdUser.user.id;
-  const username = isInviteRegistration
-    ? requestedUsername
-    : buildUsername(fullName, displayName);
-  const profileDisplayName = isInviteRegistration ? fullName : displayName;
-  let idDocumentPath: string | null = null;
-
-  if (isVerifiedApplication && idDocument && idDocumentBuffer) {
-    const extension = UPLOAD_EXTENSION_BY_TYPE[idDocument.type] ?? "bin";
-    idDocumentPath = `${userId}/id-${Date.now()}-${randomUUID()}.${extension}`;
-
-    const { error: uploadError } = await supabaseAdmin.storage
-      .from("verification-documents")
-      .upload(idDocumentPath, idDocumentBuffer, {
-        contentType: idDocument.type,
-        upsert: false,
-      });
-
-    if (uploadError) {
-      await supabaseAdmin.auth.admin.deleteUser(userId);
-      return NextResponse.json(
-        {
-          error:
-            `Could not store ID document: ${uploadError.message}. ` +
-            "Ensure the Supabase storage bucket 'verification-documents' exists and allows service-role uploads.",
-        },
-        { status: 500 },
-      );
-    }
-  }
-
-  const { error: profileError } = await supabaseAdmin.from("profiles").upsert({
-    id: userId,
-    username,
-    display_name: profileDisplayName,
+  const existingUser = await db.user.findUnique({
+    where: { email: validation.email },
+    select: { id: true },
   });
 
-  const { error: settingsError } = await supabaseAdmin
-    .from("profile_settings")
-    .upsert({
-      user_id: userId,
-      user_role: grantsVerifiedAccess ? "newcomer" : "view_only",
-      onboarding_completed: grantsVerifiedAccess,
+  if (existingUser) {
+    return NextResponse.json(
+      { error: "An account with this email already exists." },
+      { status: 409 },
+    );
+  }
+
+  const hashedPassword = await bcrypt.hash(
+    validation.password,
+    BCRYPT_SALT_ROUNDS,
+  );
+
+  let userId: string | null = null;
+
+  try {
+    const user = await db.user.create({
+      data: {
+        name: validation.name,
+        email: validation.email,
+        password: hashedPassword,
+        emailVerified: false,
+      },
+      select: { id: true, email: true },
     });
 
-  const { error: verificationError } = grantsVerifiedAccess
-    ? await supabaseAdmin.from("verification_submissions").upsert({
-        user_id: userId,
-        legal_name: fullName,
-        display_name: profileDisplayName,
-        date_of_birth: isInviteRegistration ? "1900-01-01" : dateOfBirth,
-        country: isInviteRegistration ? `${trustedPartnerName} verified` : country,
-        membership_type: isInviteRegistration
-          ? `${trustedPartnerName} invite`
-          : membershipType,
-        id_type: isInviteRegistration ? "trusted_partner_invite" : idType,
-        is_adult_confirmed: true,
-        consent_code_accepted: true,
-        terms_accepted: true,
-        status: isInviteRegistration ? "approved" : "pending",
-        reviewer_notes: JSON.stringify(
-          isInviteRegistration
-            ? {
-                source: "trusted_partner_invite",
-                partnerName: trustedPartnerName,
-                discordUsername,
-                inviteCode,
-                username,
-                thirdPartyAgeVerification: true,
-                dateOfBirthNotCollectedByBareUnity: true,
-              }
-            : {
-                intent: motivation,
-                idDocumentPath,
-                idDocumentFingerprint,
-                redactedDetailsConfirmed: isSensitiveIdDetailsHidden,
-              },
-        ),
-      })
-    : { error: null };
+    userId = user.id;
 
-  if (profileError || settingsError || verificationError) {
-    if (idDocumentPath) {
-      await supabaseAdmin.storage
-        .from("verification-documents")
-        .remove([idDocumentPath]);
+    const verificationToken = await createVerificationToken(user.id);
+    await sendVerificationEmail(user.email, verificationToken.token);
+
+    return NextResponse.json(
+      {
+        message:
+          "Registration successful. Please check your email to verify your account.",
+      },
+      { status: 201 },
+    );
+  } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      return NextResponse.json(
+        { error: "An account with this email already exists." },
+        { status: 409 },
+      );
     }
-    await supabaseAdmin.auth.admin.deleteUser(userId);
+
+    if (userId) {
+      await db.user.delete({ where: { id: userId } }).catch((cleanupError) => {
+        console.error("Failed to roll back user after registration error", {
+          userId,
+          cleanupError,
+        });
+      });
+    }
+
+    console.error("Registration failed", error);
+
     return NextResponse.json(
       {
         error:
-          profileError?.message ??
-          settingsError?.message ??
-          verificationError?.message ??
-          "Account setup failed.",
+          "Could not complete registration. Please check SMTP configuration and try again.",
       },
       { status: 500 },
     );
   }
-
-  if (isInviteRegistration) {
-    const { data: deletedTeamNaturistMember, error: deleteTeamNaturistError } =
-      await supabaseAdmin
-        .from("teamnaturist")
-        .delete()
-        .eq("username", discordUsername)
-        .select("username")
-        .maybeSingle<{ username: string }>();
-
-    if (deleteTeamNaturistError || !deletedTeamNaturistMember) {
-      await supabaseAdmin.auth.admin.deleteUser(userId);
-      return NextResponse.json(
-        {
-          error:
-            deleteTeamNaturistError?.message ??
-            "This Discord username has already been used. Please request a new TeamNaturist username entry.",
-        },
-        { status: deleteTeamNaturistError ? 500 : 400 },
-      );
-    }
-  }
-  
-  return NextResponse.json({
-    ok: true,
-    message: isInviteRegistration
-      ? "Invite accepted. Your verified account is ready. You can sign in now with your email and password."
-      : isVerifiedApplication
-        ? "Account created with strict safety onboarding. Your profile remains in verification review before full access."
-        : "Your 7-day Visitor Pass is ready. You can browse and preview BareUnity now; posting, check-ins, and submissions unlock after ID verification.",
-  });
 }
