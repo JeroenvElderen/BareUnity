@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { AppSidebar } from "@/components/sidebar/sidebar";
 import layoutStyles from "@/app/page.module.css";
 import styles from "../hotels-airbnbs.module.css";
+import { StayGalleryLightbox } from "../stay-gallery-lightbox";
 import { getListingBySlug } from "../stays-data";
 
 type StayDetailsPageProps = {
@@ -24,8 +25,6 @@ export default async function StayDetailsPage({
   const { slug } = await params;
   const listing = await getListingBySlug(slug);
   if (!listing) notFound();
-
-  const galleryItems = listing.gallery.slice(0, 5);
 
   return (
     <main className={layoutStyles.main}>
@@ -56,29 +55,10 @@ export default async function StayDetailsPage({
             </a>
           </header>
 
-          <section className={styles.galleryModern}>
-            {galleryItems.map((imageUrl, idx) => (
-              <figure
-                key={`${imageUrl}-${idx}`}
-                className={idx === 0 ? styles.heroPhoto : styles.subPhoto}
-              >
-                <a
-                  href={imageUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className={styles.photoLink}
-                  aria-label={`Open full size photo ${idx + 1} for ${listing.name}`}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={imageUrl}
-                    alt={`${listing.name} photo ${idx + 1}`}
-                    loading={idx === 0 ? "eager" : "lazy"}
-                  />
-                </a>
-              </figure>
-            ))}
-          </section>
+          <StayGalleryLightbox
+            gallery={listing.gallery}
+            listingName={listing.name}
+          />
 
           <section className={styles.descriptionBlock}>
             <article>

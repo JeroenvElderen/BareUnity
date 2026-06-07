@@ -81,6 +81,10 @@ const MAX_IMPORT_EXTERNAL_LINKS = Math.max(
 const MAX_CRAWLED_CONTENT_CHARACTERS = 300000;
 const MAX_POLICY_ITEMS_PER_CATEGORY = 5;
 const MAX_POLICY_ITEM_CHARACTERS = 96;
+const IMAGE_URL_EXTENSION_PATTERN =
+  /\.(?:avif|gif|jpe?g|png|webp)(?:\?|#|$)/i;
+const NON_STAY_PHOTO_PATTERN =
+  /(?:^|[-_/])(?:apple-touch-icon|favicon|icon|logo|mark|sprite)(?:[-_.?/&=#]|$)/i;
 const MIN_REWRITTEN_POLICY_CHARACTERS = 8;
 const POLICY_CATEGORY_ORDER = [
   "Check-in and check-out",
@@ -219,7 +223,7 @@ function sanitizeAiDraft(
     policies,
     gallery: coerceStringArray(value.gallery)
       .map((image) => absolutizeUrl(image, websiteUrl))
-      .filter(Boolean)
+      .filter(isImportableImageCandidate)
       .slice(0, 8),
   };
 }
@@ -1122,7 +1126,7 @@ async function enrichDraftWithAi(
     return baseDraft;
   }
 
-  const prompt = `Extract a BareUnity stay listing from this public accommodation website crawl. Use only facts present in the crawled HTML/text/PDF content. Do a thorough check of services, facilities, amenities, activities, entertainment, house rules, booking terms, cancellation, payment, pets, naturist rules, check-in/out, privacy/terms, FAQ, and downloadable PDF/document content. Return strict JSON with these keys: slug, name, country, placeName, type, rating, price, badge, vibe, amenities, description, websiteUrl, address, mapLatitude, mapLongitude, checkInWindow, policies, gallery. type must be one of Hotel, Entire place, Boutique stay, Naturist camping. amenities should include Services and/or Entertainment when the website mentions entertainment and/or services, recreation, events, shows, music, games, animation, or activity programmes. Write the listing in the concise BareUnity style shown by this example: badge "Naturist wellness retreat", vibe "Naturist retreat · Forest camping & glamping · Social clubhouse energy", description as 1-2 factual sentences, and policies grouped as Check-in and check-out, Cancellation, Accepted payment methods, Property policy, Security, and Pets when those facts exist. policies must be an array of {"category":"...","items":["..."]} based on visible website/document rule, condition, fee, restriction, check-in, cancellation, payment, security, or pet policy text, not generic assumptions. Only use the six policy categories listed above; fold house rules and naturist rules into Property policy, and do not create separate Children, Accessibility, House rules, Naturist rules, Activities, Amenities, Facilities, Entertainment, Wellness, or Services sections. Policies are facts only: never write questions, FAQ prompts, question-mark text, or uncertain user-facing questions inside policy categories or policy items. Rewrite policies into compact BareUnity-friendly declarative sentences using only facts found in the website content. Each policy item must be a complete short sentence ending with a period, max ${MAX_POLICY_ITEMS_PER_CATEGORY} items per category and max ${MAX_POLICY_ITEM_CHARACTERS} characters per item. Combine related facts, keep prices/dates/times/limits when present, and exclude marketing text, destination descriptions, amenity lists, facility availability, service descriptions, entertainment notes, recreation options, and activity programme details from policies. Put activities, entertainment, services, recreation, dining, pools, wellness, sports, tours, and amenity details in amenities/description only, never in policies unless the text states a rule, restriction, fee, booking condition, or safety requirement about them. gallery must contain public image URLs only. If a fact is missing, use an empty string, null, or empty array.
+  const prompt = `Extract a BareUnity stay listing from this public accommodation website crawl. Use only facts present in the crawled HTML/text/PDF content. Do a thorough check of services, facilities, amenities, activities, entertainment, house rules, booking terms, cancellation, payment, pets, naturist rules, check-in/out, privacy/terms, FAQ, and downloadable PDF/document content. Return strict JSON with these keys: slug, name, country, placeName, type, rating, price, badge, vibe, amenities, description, websiteUrl, address, mapLatitude, mapLongitude, checkInWindow, policies, gallery. type must be one of Hotel, Entire place, Boutique stay, Naturist camping. amenities should include Services and/or Entertainment when the website mentions entertainment and/or services, recreation, events, shows, music, games, animation, or activity programmes. Write the listing in the concise BareUnity style shown by this example: badge "Naturist wellness retreat", vibe "Naturist retreat · Forest camping & glamping · Social clubhouse energy", description as 1-2 factual sentences, and policies grouped as Check-in and check-out, Cancellation, Accepted payment methods, Property policy, Security, and Pets when those facts exist. policies must be an array of {"category":"...","items":["..."]} based on visible website/document rule, condition, fee, restriction, check-in, cancellation, payment, security, or pet policy text, not generic assumptions. Only use the six policy categories listed above; fold house rules and naturist rules into Property policy, and do not create separate Children, Accessibility, House rules, Naturist rules, Activities, Amenities, Facilities, Entertainment, Wellness, or Services sections. Policies are facts only: never write questions, FAQ prompts, question-mark text, or uncertain user-facing questions inside policy categories or policy items. Rewrite policies into compact BareUnity-friendly declarative sentences using only facts found in the website content. Each policy item must be a complete short sentence ending with a period, max ${MAX_POLICY_ITEMS_PER_CATEGORY} items per category and max ${MAX_POLICY_ITEM_CHARACTERS} characters per item. Combine related facts, keep prices/dates/times/limits when present, and exclude marketing text, destination descriptions, amenity lists, facility availability, service descriptions, entertainment notes, recreation options, and activity programme details from policies. Put activities, entertainment, services, recreation, dining, pools, wellness, sports, tours, and amenity details in amenities/description only, never in policies unless the text states a rule, restriction, fee, booking condition, or safety requirement about them. gallery must contain public image URLs for real property/campsite photos only, such as people, nature, buildings, pools, rooms, or facilities; never include logos, icons, favicons, badges, marks, or sprites. If a fact is missing, use an empty string, null, or empty array.
 
 URL: ${websiteUrl.toString()}
 
@@ -1809,13 +1813,38 @@ function extractCheckInWindow(
   return "Check-in afternoon · Check-out morning";
 }
 
+function imageUrlsFromJsonValue(value: JsonValue | undefined): string[] {
+  if (typeof value === "string") return [decodeHtml(value)];
+  if (Array.isArray(value)) return value.flatMap(imageUrlsFromJsonValue);
+
+  const record = asRecord(value);
+  if (!record) return [];
+
+  return [
+    ...imageUrlsFromJsonValue(record.url),
+    ...imageUrlsFromJsonValue(record.contentUrl),
+    ...imageUrlsFromJsonValue(record.thumbnailUrl),
+  ];
+}
+
+function isImportableImageCandidate(value: string) {
+  if (!IMAGE_URL_EXTENSION_PATTERN.test(value)) return false;
+
+  try {
+    const url = new URL(value);
+    return !NON_STAY_PHOTO_PATTERN.test(`${url.pathname} ${url.search}`);
+  } catch {
+    return false;
+  }
+}
+
 function collectGallery(
   html: string,
   records: Record<string, JsonValue>[],
   baseUrl: URL,
 ) {
   const imageCandidates = records.flatMap((record) =>
-    [record.image, record.photo, record.logo].map((value) => asText(value)),
+    [record.image, record.photo].flatMap(imageUrlsFromJsonValue),
   );
   imageCandidates.push(getMeta(html, "property", "og:image"));
   imageCandidates.push(
@@ -1835,7 +1864,7 @@ function collectGallery(
     imageCandidates
       .flatMap((value) => value.split(","))
       .map((value) => absolutizeUrl(value, baseUrl))
-      .filter((value) => /\.(?:avif|gif|jpe?g|png|webp)(?:\?|$)/i.test(value)),
+      .filter(isImportableImageCandidate),
   ).slice(0, 8);
 }
 
