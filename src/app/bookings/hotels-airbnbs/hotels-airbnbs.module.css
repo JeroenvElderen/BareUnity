@@ -17,9 +17,26 @@
 .heroPhoto, .subPhoto { margin: 0; border-radius: 0.8rem; overflow: hidden; min-height: 200px; border: 1px solid rgb(var(--border)); background: rgb(var(--card)); }
 .heroPhoto { grid-row: span 2; min-height: 320px; }
 .subPhoto { min-height: 155px; }
-.photoLink { display: block; width: 100%; height: 100%; }
+.photoButton { position: relative; display: block; width: 100%; height: 100%; padding: 0; border: 0; background: transparent; cursor: zoom-in; }
 .heroPhoto img, .subPhoto img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .25s ease; }
-.photoLink:hover img, .photoLink:focus-visible img { transform: scale(1.04); }
+.photoButton:hover img, .photoButton:focus-visible img { transform: scale(1.04); }
+.photoButton:focus-visible { outline: 3px solid rgb(var(--brand)); outline-offset: -3px; }
+.morePhotosBadge { position: absolute; inset: 0; display: grid; place-items: center; background: rgb(0 0 0 / 0.52); color: #fff; font-size: clamp(2rem, 5vw, 3.6rem); font-weight: 800; letter-spacing: 0.03em; text-shadow: 0 2px 12px rgb(0 0 0 / 0.45); }
+.lightboxOverlay { position: fixed; inset: 0; z-index: 80; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 0.9rem; padding: 1rem; background: rgb(4 8 12 / 0.92); color: #fff; backdrop-filter: blur(8px); }
+.lightboxHeader { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 0 auto; width: min(100%, 1180px); }
+.lightboxHeader p { margin: 0; color: rgb(255 255 255 / 0.8); font-weight: 700; }
+.lightboxCloseButton, .lightboxNavButton { border: 1px solid rgb(255 255 255 / 0.28); background: rgb(255 255 255 / 0.14); color: #fff; box-shadow: 0 14px 34px rgb(0 0 0 / 0.25); }
+.lightboxCloseButton { width: 2.75rem; height: 2.75rem; border-radius: 999px; font-size: 2rem; line-height: 1; cursor: pointer; }
+.lightboxStage { position: relative; display: grid; place-items: center; min-height: 0; margin: 0 auto; width: min(100%, 1180px); }
+.lightboxImage { max-width: 100%; max-height: 100%; border-radius: 1rem; object-fit: contain; box-shadow: 0 24px 80px rgb(0 0 0 / 0.45); }
+.lightboxNavButton { position: absolute; top: 50%; transform: translateY(-50%); z-index: 1; display: grid; place-items: center; width: 3.1rem; height: 3.1rem; border-radius: 999px; font-size: 2.8rem; line-height: 1; cursor: pointer; }
+.lightboxPreviousButton { left: 0.75rem; }
+.lightboxNextButton { right: 0.75rem; }
+.lightboxCloseButton:hover, .lightboxCloseButton:focus-visible, .lightboxNavButton:hover, .lightboxNavButton:focus-visible { background: rgb(var(--brand)); }
+.lightboxThumbs { display: flex; gap: 0.55rem; margin: 0 auto; padding: 0.15rem 0 0.35rem; width: min(100%, 1180px); overflow-x: auto; }
+.lightboxThumb { flex: 0 0 5.25rem; height: 3.75rem; padding: 0; border: 2px solid transparent; border-radius: 0.65rem; overflow: hidden; background: rgb(255 255 255 / 0.12); cursor: pointer; opacity: 0.68; }
+.lightboxThumbActive { border-color: rgb(var(--brand)); opacity: 1; }
+.lightboxThumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
 .descriptionBlock { display: grid; grid-template-columns: 1fr 280px; gap: 1rem; }
 .descriptionBlock article, .ratingCard, .servicesBlock, .policySection { border: 1px solid rgb(var(--border)); border-radius: 1rem; background: rgb(var(--card)); padding: 1rem; }
@@ -158,6 +175,29 @@
     flex: 0 0 min(82vw, 22rem);
     min-height: 14rem;
     scroll-snap-align: start;
+  }
+
+  .lightboxOverlay {
+    padding: 0.75rem;
+  }
+
+  .lightboxNavButton {
+    width: 2.55rem;
+    height: 2.55rem;
+    font-size: 2.2rem;
+  }
+
+  .lightboxPreviousButton {
+    left: 0.25rem;
+  }
+
+  .lightboxNextButton {
+    right: 0.25rem;
+  }
+
+  .lightboxThumb {
+    flex-basis: 4.4rem;
+    height: 3.2rem;
   }
 
   .policyList {
