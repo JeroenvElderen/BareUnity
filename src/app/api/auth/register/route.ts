@@ -508,7 +508,11 @@ export async function POST(req: Request) {
       if (verificationError) throw new Error(verificationError.message);
     }
 
-    console.log("Sending welcome confirmation email...");
+    const emailSendStartedAt = Date.now();
+    console.info("Sending welcome confirmation email", {
+      userId,
+      toDomain: validation.email.split("@")[1] ?? "unknown",
+    });
 
     await sendWelcomeConfirmationEmail({
       email: validation.email,
@@ -516,7 +520,10 @@ export async function POST(req: Request) {
       confirmationUrl: signUpData.properties.action_link,
     });
 
-    console.log("Welcome confirmation email sent successfully");
+    console.info("Welcome confirmation email sent", {
+      userId,
+      durationMs: Date.now() - emailSendStartedAt,
+    });
 
     return NextResponse.json(
       {

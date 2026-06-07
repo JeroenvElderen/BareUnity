@@ -264,6 +264,7 @@ export default function AdminStaysPage() {
       });
       const payload = (await response.json()) as {
         listing?: Listing;
+        warnings?: string[];
         error?: string;
       };
 
@@ -275,7 +276,7 @@ export default function AdminStaysPage() {
       setForm(emptyForm);
       setPolicies([{ category: "House rules", items: "" }]);
       setImportUrl("");
-      setWarnings([]);
+      setWarnings(payload.warnings ?? []);
     } catch (saveError) {
       setError(
         saveError instanceof Error

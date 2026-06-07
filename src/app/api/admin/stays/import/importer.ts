@@ -1,4 +1,5 @@
 import type { Listing } from "@/app/bookings/hotels-airbnbs/stays-data";
+import { mirrorStayGalleryToSupabase } from "@/lib/stay-images";
 
 type JsonValue =
   | string
@@ -2243,10 +2244,23 @@ export async function importStayWebsite(
     enrichedDraft.warnings.push(
       "No amenities were detected. Add amenities copied from the website manually.",
     );
-  if (!enrichedDraft.gallery.length)
+  if (!enrichedDraft.gallery.length) {
     enrichedDraft.warnings.push(
       "No gallery images were detected. Add public image URLs from the website manually if available.",
     );
 
-  return enrichedDraft;
+    return enrichedDraft;
+  }
+
+  const mirroredGallery = await mirrorStayGalleryToSupabase({
+    gallery: enrichedDraft.gallery,
+    websiteUrl: enrichedDraft.websiteUrl || websiteUrl.toString(),
+    staySlug: enrichedDraft.slug,
+  });
+
+  return {
+    ...enrichedDraft,
+    gallery: mirroredGallery.gallery,
+    warnings: [...enrichedDraft.warnings, ...mirroredGallery.warnings],
+  };
 }

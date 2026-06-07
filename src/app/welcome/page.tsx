@@ -42,13 +42,13 @@ export default function WelcomePage() {
             share moments without sexualization.
           </p>
           <div className={styles.actions}>
-            <Link href="/register" className={styles.primaryAction}>
+            <Link href="/register" prefetch={false} className={styles.primaryAction}>
               Join now
             </Link>
-            <Link href="/register?invite" className={styles.inviteAction}>
+            <Link href="/register?invite" prefetch={false} className={styles.inviteAction}>
               Register with invite code
             </Link>
-            <Link href="/login" className={styles.secondaryAction}>
+            <Link href="/login" prefetch={false} className={styles.secondaryAction}>
               Login
             </Link>
           </div>
@@ -57,7 +57,7 @@ export default function WelcomePage() {
             verified immediately after the code is accepted.
           </p>
           <p className={styles.policyLinks}>
-            <Link href="/policies">Privacy, Terms, Safety & Legal Policies</Link>
+            <Link href="/policies" prefetch={false}>Privacy, Terms, Safety & Legal Policies</Link>
           </p>
         </article>
       </section>

@@ -180,13 +180,13 @@ export default function LoginPage() {
 
             <p className={styles.alt}>
               New to BareUnity?{" "}
-              <Link className={styles.link} href="/register">
+              <Link className={styles.link} href="/register" prefetch={false}>
                 Create an account
               </Link>
             </p>
             <p className={styles.legal}>
               By signing in, you continue under BareUnity&apos;s {" "}
-              <Link className={styles.link} href="/policies">
+              <Link className={styles.link} href="/policies" prefetch={false}>
                 Privacy, Terms, Safety & Legal Policies
               </Link>
               .
