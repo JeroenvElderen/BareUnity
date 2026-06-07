@@ -385,13 +385,13 @@ export default function RegisterPage() {
 
               <p className={styles.alt}>
                 No invite code?{" "}
-                <Link className={styles.link} href="/register">
+                <Link className={styles.link} href="/register" prefetch={false}>
                   Use standard registration
                 </Link>
               </p>
               <p className={styles.alt}>
                 Already have an account?{" "}
-                <Link className={styles.link} href="/login">
+                <Link className={styles.link} href="/login" prefetch={false}>
                   Sign in
                 </Link>
               </p>
@@ -852,19 +852,19 @@ export default function RegisterPage() {
 
             <p className={styles.alt}>
               Have a trusted partner invite code?{" "}
-              <Link className={styles.link} href="/register?invite">
+              <Link className={styles.link} href="/register?invite" prefetch={false}>
                 Register with invite code
               </Link>
             </p>
             <p className={styles.alt}>
               Already have an account?{" "}
-              <Link className={styles.link} href="/login">
+              <Link className={styles.link} href="/login" prefetch={false}>
                 Sign in
               </Link>
             </p>
             <p className={styles.legal}>
               Review the{" "}
-              <Link className={styles.link} href="/policies">
+              <Link className={styles.link} href="/policies" prefetch={false}>
                 Privacy, Terms, Safety & Legal Policies
               </Link>{" "}
               before joining.

@@ -10,6 +10,7 @@ import {
   createSupabaseAdminClient,
   isSupabaseAdminConfigured,
 } from "@/lib/supabase-admin";
+import { mirrorStayGalleryToSupabase } from "@/lib/stay-images";
 import { db } from "@/server/db";
 
 const DATA_FILE_PATH = path.join(
@@ -49,6 +50,7 @@ type Coordinates = {
 type NormalizedStay = {
   listing: Listing;
   coordinates: Coordinates;
+  warnings: string[];
 };
 
 type GeocodeResult = {
@@ -570,7 +572,13 @@ async function normalizeListing(
   listing.mapLatitude = coordinates.latitude;
   listing.mapLongitude = coordinates.longitude;
 
-  return { normalized: { listing, coordinates } };
+  return {
+    normalized: {
+      listing,
+      coordinates,
+      warnings: [],
+    },
+  };
 }
 
 export async function POST(request: NextRequest) {
@@ -598,6 +606,17 @@ export async function POST(request: NextRequest) {
       { status: 409 },
     );
   }
+
+  const mirroredGallery = await mirrorStayGalleryToSupabase({
+    gallery: listing.gallery,
+    websiteUrl: listing.websiteUrl,
+    staySlug: listing.slug,
+  });
+  listing.gallery = mirroredGallery.gallery;
+  const warnings = [
+    ...normalized.normalized.warnings,
+    ...mirroredGallery.warnings,
+  ];
 
   let savedStayRecord = false;
   if (!CAN_WRITE_SOURCE_DATA) {
@@ -658,5 +677,5 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true, listing, markerId });
+  return NextResponse.json({ ok: true, listing, markerId, warnings });
 }

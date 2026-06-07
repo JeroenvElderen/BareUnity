@@ -40,7 +40,7 @@ import styles from "./sidebar.module.css";
 
 const SYSTEM_NOTIFICATION_PERMISSION_REQUESTED_KEY =
   "bareunity_system_notification_permission_requested";
-const NOTIFICATION_POLL_INTERVAL_MS = 30_000;
+const NOTIFICATION_POLL_INTERVAL_MS = 120_000;
 const NOTIFICATION_READ_STORAGE_PREFIX = "bareunity_read_notification_ids";
 
 type NavItem = {
@@ -253,6 +253,8 @@ export function AppSidebar() {
     let isInitialFetch = true;
 
     const loadNotifications = async () => {
+      if (document.visibilityState === "hidden") return;
+
       try {
         const { data } = await supabase.auth.getSession();
         const accessToken = data.session?.access_token;
@@ -285,7 +287,14 @@ export function AppSidebar() {
       }
     };
 
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void loadNotifications();
+      }
+    };
+
     void loadNotifications();
+    document.addEventListener("visibilitychange", onVisibilityChange);
     const interval = window.setInterval(
       () => void loadNotifications(),
       NOTIFICATION_POLL_INTERVAL_MS,
@@ -293,6 +302,7 @@ export function AppSidebar() {
 
     return () => {
       isMounted = false;
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       window.clearInterval(interval);
     };
   }, [setNotifications, viewerId]);

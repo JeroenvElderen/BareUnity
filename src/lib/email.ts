@@ -3,8 +3,15 @@ import nodemailer from "nodemailer";
 const SMTP_CONNECTION_TIMEOUT_MS = 10000;
 const SMTP_GREETING_TIMEOUT_MS = 10000;
 const SMTP_SOCKET_TIMEOUT_MS = 10000;
+const SMTP_POOL_MAX_CONNECTIONS = 1;
+const SMTP_POOL_MAX_MESSAGES = 100;
 const DEFAULT_EMAIL_LOGO_URL =
   "https://iexsylcxecshgnqhkdhq.supabase.co/storage/v1/object/sign/email-assets/logo.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9iOTA3MjAxZC0yMDM1LTQ1MTktODliOC04N2ZiOTBiNjVlYzciLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJlbWFpbC1hc3NldHMvbG9nby5wbmciLCJpYXQiOjE3ODA3NzgxMDgsImV4cCI6NDkzNDM3ODEwOH0.bjinQ-Ow_27Y9EsI88piQRK-3R1r2rw1HpE76xxskz4";
+
+type SmtpTransport = ReturnType<typeof nodemailer.createTransport>;
+
+let cachedSmtpTransport: SmtpTransport | null = null;
+let cachedSmtpTransportKey: string | null = null;
 
 type RequiredSmtpEnvVar =
   | "SMTP_HOST"
@@ -195,6 +202,51 @@ function renderTextEmail(args: {
   ].join("\n");
 }
 
+function getSmtpTransport() {
+  const host = requireEnv("SMTP_HOST");
+  const port = getSmtpPort();
+  const user = requireEnv("SMTP_USER");
+  const pass = requireEnv("SMTP_PASS");
+  const transportKey = `${host}:${port}:${user}`;
+
+  if (cachedSmtpTransport && cachedSmtpTransportKey === transportKey) {
+    return cachedSmtpTransport;
+  }
+
+  const transportOptions = {
+    host,
+    port,
+    secure: port === 465,
+    requireTLS: port !== 465,
+    pool: true,
+    maxConnections: SMTP_POOL_MAX_CONNECTIONS,
+    maxMessages: SMTP_POOL_MAX_MESSAGES,
+    connectionTimeout: SMTP_CONNECTION_TIMEOUT_MS,
+    greetingTimeout: SMTP_GREETING_TIMEOUT_MS,
+    socketTimeout: SMTP_SOCKET_TIMEOUT_MS,
+    auth: {
+      user,
+      pass,
+    },
+  };
+
+  cachedSmtpTransport = nodemailer.createTransport(
+    transportOptions as Parameters<typeof nodemailer.createTransport>[0],
+  );
+  cachedSmtpTransportKey = transportKey;
+
+  return cachedSmtpTransport;
+}
+
+function getEmailDomain(email: string) {
+  const [, domain] = email.split("@");
+  return domain || "unknown";
+}
+
+function countMailResultList(value: unknown) {
+  return Array.isArray(value) ? value.length : 0;
+}
+
 async function sendSmtpMail(args: {
   from: string;
   to: string;
@@ -202,25 +254,22 @@ async function sendSmtpMail(args: {
   html: string;
   text: string;
 }) {
-  const port = getSmtpPort();
-  const transport = nodemailer.createTransport({
-    host: requireEnv("SMTP_HOST"),
-    port,
-    secure: port === 465,
-    requireTLS: port !== 465,
-    connectionTimeout: SMTP_CONNECTION_TIMEOUT_MS,
-    greetingTimeout: SMTP_GREETING_TIMEOUT_MS,
-    socketTimeout: SMTP_SOCKET_TIMEOUT_MS,
-    auth: {
-      user: requireEnv("SMTP_USER"),
-      pass: requireEnv("SMTP_PASS"),
-    },
+  const transport = getSmtpTransport();
+  const mailOptions = {
+    ...args,
+    priority: "high",
+  };
+  const result = await transport.sendMail(
+    mailOptions as Parameters<typeof transport.sendMail>[0],
+  );
+
+  console.info("Email accepted by SMTP server", {
+    messageId: result.messageId,
+    toDomain: getEmailDomain(args.to),
+    acceptedCount: countMailResultList(result.accepted),
+    rejectedCount: countMailResultList(result.rejected),
+    pendingCount: countMailResultList(result.pending),
   });
-
-  const result = await transport.sendMail(args);
-
-  console.log("Nodemailer sendMail result:", result);
-  console.log("Nodemailer messageId:", result.messageId);
 }
 
 async function sendBareUnityEmail(args: EmailTemplateArgs & { to: string; subject: string }) {
