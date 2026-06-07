@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { sendVerificationDecisionEmail } from "@/lib/email";
 import { ensureAdminRequest } from "@/lib/request-auth";
 import {
   createSupabaseAdminClient,
   isSupabaseAdminConfigured,
 } from "@/lib/supabase-admin";
-
-const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL;
 
 function parseReviewerNotesJson(reviewerNotes: string | null) {
   if (!reviewerNotes?.trim().startsWith("{")) {
@@ -83,54 +81,6 @@ function buildReviewerNotes(
   }
 
   return notes.join(";");
-}
-
-type VerificationDecision = "approved" | "rejected";
-
-async function sendVerificationDecisionEmail(
-  to: string,
-  decision: VerificationDecision,
-) {
-  if (!RESEND_API_KEY || !RESEND_FROM_EMAIL) {
-    return {
-      sent: false,
-      reason:
-        "Missing RESEND_API_KEY or RESEND_FROM_EMAIL environment variables.",
-    } as const;
-  }
-
-  const subject =
-    decision === "approved"
-      ? "BareUnity application approved"
-      : "BareUnity application update";
-  const text =
-    decision === "approved"
-      ? "Your BareUnity application has been approved. You can now sign in to your account."
-      : "Your BareUnity application has been rejected. Your account has been removed.";
-
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${RESEND_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from: RESEND_FROM_EMAIL,
-      to: [to],
-      subject,
-      text,
-    }),
-  });
-
-  if (!response.ok) {
-    const errorBody = await response.text();
-    return {
-      sent: false,
-      reason: `Resend API error (${response.status}): ${errorBody}`,
-    } as const;
-  }
-
-  return { sent: true } as const;
 }
 
 export async function PATCH(
@@ -264,13 +214,12 @@ export async function PATCH(
       );
     }
 
-    const emailResult = await sendVerificationDecisionEmail(
-      userEmail,
-      "approved",
-    );
-    if (!emailResult.sent) {
-      console.error("Failed to send approval email", emailResult.reason);
-    }
+    await sendVerificationDecisionEmail({
+      email: userEmail,
+      decision: "approved",
+    }).catch((error) => {
+      console.error("Failed to send approval email", error);
+    });
   } else {
     const idDocumentPath = extractIdDocumentPath(existing.reviewer_notes);
 
@@ -321,13 +270,12 @@ export async function PATCH(
       );
     }
 
-    const emailResult = await sendVerificationDecisionEmail(
-      userEmail,
-      "rejected",
-    );
-    if (!emailResult.sent) {
-      console.error("Failed to send rejection email", emailResult.reason);
-    }
+    await sendVerificationDecisionEmail({
+      email: userEmail,
+      decision: "rejected",
+    }).catch((error) => {
+      console.error("Failed to send rejection email", error);
+    });
   }
 
   return NextResponse.json({ ok: true });

@@ -15,25 +15,33 @@ This project is channel-only. Use `supabase-channel-only.sql` to:
    - authenticated users can read channels
    - only `service_role` can create/update/delete channels
 
-## Supabase Auth email confirmation with PrivateEmail
+## App-owned auth and lifecycle emails
 
-BareUnity uses Supabase Auth exclusively for account creation and email
-confirmation. Do not create `public.User`, Auth.js, or Prisma user rows. Public
-registration calls `supabase.auth.signUp()`, and Supabase sends the confirmation
-message when email confirmations are enabled.
+BareUnity uses Supabase Auth for account state, verification tokens, password
+recovery tokens, and auth user deletion. The emails themselves are sent by the
+app through `src/lib/email.ts` with BareUnity SMTP branding. Do not create
+`public.User`, Auth.js, or Prisma user rows.
 
-To send verification email through PrivateEmail, configure SMTP in Supabase:
+The registration endpoint calls `supabase.auth.admin.generateLink({ type:
+"signup" })` to create the Supabase Auth user and receive a confirmation link
+without asking Supabase to send the email. The app then sends one combined
+BareUnity welcome + confirmation email with that link. Password recovery uses
+`generateLink({ type: "recovery" })` the same way, so reset emails also come
+from `email.ts`.
 
-1. Open Supabase Dashboard > Authentication > SMTP.
-2. Enable custom SMTP.
-3. Use `mail.privateemail.com` with your PrivateEmail mailbox credentials.
-4. Use port `587` for STARTTLS, or port `465` for TLS, matching your mailbox
-   settings.
-5. Set the sender address to the verified PrivateEmail address you want members
-   to see.
+The shared email renderer currently covers welcome + confirmation, password
+reset, account-deletion goodbye, and verification approved/rejected decisions.
 
-The app's `SMTP_*` environment variables are only for BareUnity-owned welcome
-emails. They are not used to generate custom verification links.
+Configure the app SMTP environment variables for all BareUnity-owned emails:
+
+1. Set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, and `EMAIL_FROM`.
+2. Optionally set `EMAIL_LOGO_URL` to replace the default BareUnity email logo.
+3. Keep `SUPABASE_SERVICE_ROLE_KEY` configured so trusted server routes can
+   generate Supabase Auth links and update/delete users.
+
+Supabase Dashboard email templates are not the source of truth for BareUnity
+emails. They should only be considered a fallback if an auth flow is later moved
+back to Supabase-managed sending.
 
 ## TeamNaturist invite-code registration setup
 
