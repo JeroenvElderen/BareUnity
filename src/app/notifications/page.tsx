@@ -115,20 +115,38 @@ useEffect(() => {
     channel = supabase
       .channel(`notifications-${user.id}`)
       .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "notifications",
-          filter: `user_id=eq.${user.id}`,
-        },
-        (payload) => {
-          setNotificationItems((current) => [
-            payload.new as NotificationRecord,
-            ...current,
-          ]);
-        }
-      )
+  "postgres_changes",
+  {
+    event: "*",
+    schema: "public",
+    table: "notifications",
+    filter: `user_id=eq.${user.id}`,
+  },
+  (payload) => {
+    if (payload.eventType === "INSERT") {
+      setNotificationItems((current) => [
+        payload.new as NotificationRecord,
+        ...current,
+      ]);
+    }
+
+    if (payload.eventType === "UPDATE") {
+      setNotificationItems((current) =>
+        current.map((item) =>
+          item.id === payload.new.id
+            ? (payload.new as NotificationRecord)
+            : item
+        )
+      );
+    }
+
+    if (payload.eventType === "DELETE") {
+      setNotificationItems((current) =>
+        current.filter((item) => item.id !== payload.old.id)
+      );
+    }
+  }
+)
       .subscribe();
   }
 
