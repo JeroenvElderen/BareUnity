@@ -6,12 +6,13 @@ export async function GET() {
   const { data: profile } = await supabaseServer
     .from("profiles")
     .select("id")
-    .limit(1)
+    .eq("username", "JeroentheNaturist")
     .single();
 
   if (!profile) {
     return NextResponse.json({
       success: false,
+      error: "Profile not found",
     });
   }
 
