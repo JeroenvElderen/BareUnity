@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "188134832306",
+    "project_id": "bareunity-784bb",
+    "storage_bucket": "bareunity-784bb.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:188134832306:android:aef4c9382a5f1a8ec1f1ab",
+        "android_client_info": {
+          "package_name": "com.bareunity.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDpWBaU5BbDJ21BEJ9-O9l5nkr8321mbdQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

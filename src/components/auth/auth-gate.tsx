@@ -17,6 +17,7 @@ import { supabase } from "@/lib/supabase";
 import { normalizeUsername } from "@/lib/username";
 
 import styles from "./auth-gate.module.css";
+import { registerPushNotifications } from "@/lib/mobile/push-notifications";
 
 type AuthGateProps = {
   children: ReactNode;
@@ -478,6 +479,12 @@ export function AuthGate({ children }: AuthGateProps) {
       void supabase.removeChannel(profileSettingsChannel);
     };
   }, [isAuthenticated, syncViewerImageAccess, viewerId]);
+
+  useEffect(() => {
+  if (!isAuthenticated) return;
+
+  void registerPushNotifications();
+}, [isAuthenticated]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
