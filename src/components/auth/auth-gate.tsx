@@ -17,7 +17,7 @@ import { supabase } from "@/lib/supabase";
 import { normalizeUsername } from "@/lib/username";
 
 import styles from "./auth-gate.module.css";
-import { registerPushNotifications } from "@/lib/mobile/push-notifications";
+import { registerPushNotifications, setupPushNotificationListeners } from "@/lib/mobile/push-notifications";
 
 type AuthGateProps = {
   children: ReactNode;
@@ -483,6 +483,7 @@ export function AuthGate({ children }: AuthGateProps) {
   useEffect(() => {
   if (!isAuthenticated) return;
 
+  setupPushNotificationListeners();
   void registerPushNotifications();
 }, [isAuthenticated]);
 

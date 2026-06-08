@@ -3,26 +3,56 @@
 import { PushNotifications } from "@capacitor/push-notifications";
 
 export async function registerPushNotifications() {
-  console.log("Push registration called");
+  alert("PUSH START");
+    
+  try {
+    console.log("=== PUSH START ===");
 
-  const permission = await PushNotifications.requestPermissions();
+    const permission = await PushNotifications.requestPermissions();
 
-  console.log("Permission result:", permission);
+    console.log("=== PERMISSION ===", JSON.stringify(permission));
 
-  if (permission.receive !== "granted") {
-    console.log("Permission denied");
-    return;
+    if (permission.receive !== "granted") {
+      console.log("=== NOT GRANTED ===");
+      return;
+    }
+
+    console.log("=== REGISTERING ===");
+
+    await PushNotifications.register();
+
+    console.log("=== REGISTER CALLED ===");
+  } catch (error) {
+    console.error("=== PUSH ERROR ===", error);
   }
+}
 
-  console.log("Registering...");
-
-  await PushNotifications.register();
-
+export function setupPushNotificationListeners() {
   PushNotifications.addListener("registration", (token) => {
-    console.log("FCM TOKEN:", token.value);
+    console.log("=== FCM TOKEN ===", token.value);
   });
 
   PushNotifications.addListener("registrationError", (error) => {
-    console.error("FCM ERROR:", error);
+    console.error("=== FCM ERROR ===", JSON.stringify(error));
   });
+
+  PushNotifications.addListener(
+    "pushNotificationReceived",
+    (notification) => {
+      console.log(
+        "=== PUSH RECEIVED ===",
+        JSON.stringify(notification)
+      );
+    }
+  );
+
+  PushNotifications.addListener(
+    "pushNotificationActionPerformed",
+    (notification) => {
+      console.log(
+        "=== PUSH ACTION ===",
+        JSON.stringify(notification)
+      );
+    }
+  );
 }
