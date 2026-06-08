@@ -1,32 +1,36 @@
 import { NextResponse } from "next/server";
 import { messaging } from "@/lib/firebase-admin";
-import { supabase } from "@/lib/supabase";
+import { supabaseServer } from "@/lib/supabase-server";
 
-export async function POST() {
-  const { data: profile } = await supabase
+export async function GET() {
+  const { data: profile, error } = await supabaseServer
     .from("profiles")
-    .select("push_token")
+    .select("push_token, username")
     .not("push_token", "is", null)
     .limit(1)
     .single();
 
-  if (!profile?.push_token) {
+  if (error || !profile?.push_token) {
     return NextResponse.json(
-      { error: "No push token found" },
+      {
+        success: false,
+        error: "No push token found",
+      },
       { status: 400 }
     );
   }
 
-  const result = await messaging.send({
+  const messageId = await messaging.send({
     token: profile.push_token,
     notification: {
       title: "BareUnity",
-      body: "🎉 Push notifications are working!",
+      body: "🎉 Your first push notification is working!",
     },
   });
 
   return NextResponse.json({
     success: true,
-    messageId: result,
+    messageId,
+    user: profile.username,
   });
 }
