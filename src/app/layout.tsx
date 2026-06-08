@@ -1,6 +1,7 @@
 import "./globals.css";
 import type { ReactNode } from "react";
 import { headers } from "next/headers";
+import { AndroidBackHandler } from "@/components/mobile/android-back-handler";
 
 import { AuthGate } from "@/components/auth/auth-gate";
 import { ContentProtection } from "@/components/security/content-protection";
@@ -12,6 +13,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   return (
     <html lang="en">
       <body>
+        <AndroidBackHandler />
         <ContentProtection />
         <AuthGate>
           {children}
