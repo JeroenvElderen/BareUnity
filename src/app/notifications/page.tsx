@@ -90,6 +90,8 @@ export default function NotificationsPage() {
 >([]);
 
 useEffect(() => {
+  let channel: ReturnType<typeof supabase.channel> | null = null;
+
   async function loadNotifications() {
     const {
       data: { user },
@@ -109,9 +111,34 @@ useEffect(() => {
     }
 
     setNotificationItems(data ?? []);
+
+    channel = supabase
+      .channel(`notifications-${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          setNotificationItems((current) => [
+            payload.new as NotificationRecord,
+            ...current,
+          ]);
+        }
+      )
+      .subscribe();
   }
 
   loadNotifications();
+
+  return () => {
+    if (channel) {
+      supabase.removeChannel(channel);
+    }
+  };
 }, []);
 
 async function markNotificationAsRead(id: string) {
