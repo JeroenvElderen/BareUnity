@@ -4,7 +4,16 @@ import { PushNotifications } from "@capacitor/push-notifications";
 
 export async function registerPushNotifications() {
   alert("PUSH START");
-    
+
+const permission = await PushNotifications.requestPermissions();
+alert("PERMISSION DONE");
+
+if (permission.receive !== "granted") {
+  return;
+}
+
+await PushNotifications.register();
+alert("REGISTER CALLED");
   try {
     console.log("=== PUSH START ===");
 
