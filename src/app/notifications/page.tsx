@@ -1,6 +1,4 @@
-"use client";
-
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Bell,
   CheckCheck,
@@ -13,10 +11,35 @@ import {
   Users,
 } from "lucide-react";
 
+import Link from "next/link";
+import { supabase } from "@/lib/supabase";
 import { AppSidebar } from "@/components/sidebar/sidebar";
 import { Badge } from "@/components/ui/badge";
-import Link from "next/link";
-import { AppNotificationType, useUIStore } from "@/stores/ui-store";
+
+type AppNotificationType =
+  | "post-like"
+  | "gallery-like"
+  | "post-comment"
+  | "general-message"
+  | "video-visitor"
+  | "map-entry"
+  | "admin-location"
+  | "admin-report"
+  | "admin-registration"
+  | "admin-feedback"
+  | "friend-request"
+  | "admin-verification";
+
+interface NotificationRecord {
+  id: string;
+  type: AppNotificationType;
+  title: string;
+  detail: string;
+  target_href: string | null;
+  unread: boolean;
+  created_at: string;
+  read_at: string | null;
+}
 import layoutStyles from "../page.module.css";
 import styles from "./notifications.module.css";
 
@@ -60,17 +83,86 @@ function getTypeIcon(type: AppNotificationType) {
 
 export default function NotificationsPage() {
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
-  const notifications = useUIStore((state) => state.notifications);
-  const notificationItems = useMemo(
-    () => (Array.isArray(notifications) ? notifications : []),
-    [notifications],
+  const [notificationItems, setNotificationItems] = useState<
+  NotificationRecord[]
+>([]);
+
+useEffect(() => {
+  async function loadNotifications() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from("notifications")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    setNotificationItems(data ?? []);
+  }
+
+  loadNotifications();
+}, []);
+
+async function markNotificationAsRead(id: string) {
+  const { error } = await supabase
+    .from("notifications")
+    .update({
+      unread: false,
+      read_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+
+  if (error) {
+    console.error(error);
+    return;
+  }
+
+  setNotificationItems((current) =>
+    current.map((notification) =>
+      notification.id === id
+        ? { ...notification, unread: false }
+        : notification
+    )
   );
-  const markNotificationAsRead = useUIStore(
-    (state) => state.markNotificationAsRead,
+}
+
+async function markAllNotificationsAsRead() {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return;
+
+  const { error } = await supabase
+    .from("notifications")
+    .update({
+      unread: false,
+      read_at: new Date().toISOString(),
+    })
+    .eq("user_id", user.id)
+    .eq("unread", true);
+
+  if (error) {
+    console.error(error);
+    return;
+  }
+
+  setNotificationItems((current) =>
+    current.map((notification) => ({
+      ...notification,
+      unread: false,
+    }))
   );
-  const markAllNotificationsAsRead = useUIStore(
-    (state) => state.markAllNotificationsAsRead,
-  );
+}
 
   const unreadCount = useMemo(
     () =>
@@ -163,7 +255,7 @@ export default function NotificationsPage() {
                 <div className={styles.body}>
                   <div className={styles.topRow}>
                     <h2>{notification.title}</h2>
-                    <span>{formatRelativeTime(notification.timestamp)}</span>
+                    <span>{formatRelativeTime(notification.created_at)}</span>
                   </div>
                   <p>{notification.detail}</p>
                 </div>
@@ -175,9 +267,9 @@ export default function NotificationsPage() {
                     <Badge>Read</Badge>
                   )}
                   <div className={styles.ctaWrap}>
-                    {notification.targetHref ? (
+                    {notification.target_href ? (
                       <Link
-                        href={notification.targetHref}
+                        href={notification.target_href}
                         className={styles.toggleButton}
                       >
                         Open
