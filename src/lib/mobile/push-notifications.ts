@@ -1,28 +1,20 @@
 "use client";
 
 import { PushNotifications } from "@capacitor/push-notifications";
+import { supabase } from "@/lib/supabase";
 
 export async function registerPushNotifications() {
-  alert("PUSH START");
-
-const permission = await PushNotifications.requestPermissions();
-alert("PERMISSION DONE");
-
-if (permission.receive !== "granted") {
-  return;
-}
-
-await PushNotifications.register();
-alert("REGISTER CALLED");
   try {
     console.log("=== PUSH START ===");
+
+    setupPushNotificationListeners();
 
     const permission = await PushNotifications.requestPermissions();
 
     console.log("=== PERMISSION ===", JSON.stringify(permission));
 
     if (permission.receive !== "granted") {
-      console.log("=== NOT GRANTED ===");
+      console.log("=== PERMISSION DENIED ===");
       return;
     }
 
@@ -37,8 +29,34 @@ alert("REGISTER CALLED");
 }
 
 export function setupPushNotificationListeners() {
-  PushNotifications.addListener("registration", (token) => {
+  PushNotifications.addListener("registration", async (token) => {
     console.log("=== FCM TOKEN ===", token.value);
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        console.log("=== NO AUTHENTICATED USER ===");
+        return;
+      }
+
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          push_token: token.value,
+        })
+        .eq("id", user.id);
+
+      if (error) {
+        console.error("=== TOKEN SAVE ERROR ===", error);
+      } else {
+        console.log("=== TOKEN SAVED SUCCESSFULLY ===");
+      }
+    } catch (error) {
+      console.error("=== TOKEN SAVE EXCEPTION ===", error);
+    }
   });
 
   PushNotifications.addListener("registrationError", (error) => {
