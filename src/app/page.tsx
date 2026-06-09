@@ -327,6 +327,7 @@ export default function HomePage() {
   const [postContent, setPostContent] = useState("");
   const [postImagePreview, setPostImagePreview] = useState<string>("");
   const [postImagePath, setPostImagePath] = useState<string>("");
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const galleryImageInputRef = useRef<HTMLInputElement | null>(null);
   const cameraImageInputRef = useRef<HTMLInputElement | null>(null);
   const [feed, setFeed] = useState<HomeFeedPayload>(() =>
@@ -458,8 +459,7 @@ export default function HomePage() {
         privacy: location.privacy,
       }))
       .filter(
-        (location) =>
-          location.latitude !== null && location.longitude !== null,
+        (location) => location.latitude !== null && location.longitude !== null,
       );
     setFeaturedLocations(mappedLocations);
     setFeaturedLocationIndex((current) => {
@@ -717,56 +717,52 @@ export default function HomePage() {
     const selectedFile = event.target.files?.[0];
     if (!selectedFile) return;
 
-    const sanitized = await sanitizeImageUpload(
-      selectedFile,
-      composerKind === "story" ? 1440 : 1920,
-    );
-    if (postImagePreview) URL.revokeObjectURL(postImagePreview);
-    const preview = URL.createObjectURL(sanitized);
-    const uploadResponse = await fetch(
-  "/api/homefeed/upload-url",
-  {
-    method: "POST",
-    headers: (
-      await getAuthHeaders({
-        includeJsonContentType: true,
-      })
-    ).headers,
-    body: JSON.stringify({
-      fileName: sanitized.name,
-      contentType: sanitized.type,
-      size: sanitized.size,
-    }),
-  },
-);
+    setIsUploadingImage(true);
 
-if (!uploadResponse.ok) {
-  throw new Error("Failed to get upload URL");
-}
+    try {
+      const sanitized = await sanitizeImageUpload(
+        selectedFile,
+        composerKind === "story" ? 1440 : 1920,
+      );
+      if (postImagePreview) URL.revokeObjectURL(postImagePreview);
+      const preview = URL.createObjectURL(sanitized);
+      const uploadResponse = await fetch("/api/homefeed/upload-url", {
+        method: "POST",
+        headers: (
+          await getAuthHeaders({
+            includeJsonContentType: true,
+          })
+        ).headers,
+        body: JSON.stringify({
+          fileName: sanitized.name,
+          contentType: sanitized.type,
+          size: sanitized.size,
+        }),
+      });
 
-const {
-  bucketId,
-  path,
-  token,
-} = await uploadResponse.json();
+      if (!uploadResponse.ok) {
+        throw new Error("Failed to get upload URL");
+      }
 
-const { error } = await supabase.storage
-  .from(bucketId)
-  .uploadToSignedUrl(
-    path,
-    token,
-    sanitized,
-    {
-      contentType: sanitized.type,
-    },
-  );
+      const { bucketId, path, token } = await uploadResponse.json();
 
-if (error) {
-  throw error;
-}
+      const { error } = await supabase.storage
+        .from(bucketId)
+        .uploadToSignedUrl(path, token, sanitized, {
+          contentType: sanitized.type,
+        });
 
-setPostImagePreview(preview);
-setPostImagePath(path);
+      if (error) {
+        throw error;
+      }
+
+      setPostImagePreview(preview);
+      setPostImagePath(path);
+      setIsUploadingImage(false);
+    } catch (error) {
+      console.error("Image upload failed", error);
+      setIsUploadingImage(false);
+    }
   };
 
   const toggleLike = async (postId: string) => {
@@ -869,50 +865,38 @@ setPostImagePath(path);
     if (editImagePreview.startsWith("blob:"))
       URL.revokeObjectURL(editImagePreview);
     const preview = URL.createObjectURL(sanitized);
-    const uploadResponse = await fetch(
-  "/api/homefeed/upload-url",
-  {
-    method: "POST",
-    headers: (
-      await getAuthHeaders({
-        includeJsonContentType: true,
-      })
-    ).headers,
-    body: JSON.stringify({
-      fileName: sanitized.name,
-      contentType: sanitized.type,
-      size: sanitized.size,
-    }),
-  },
-);
+    const uploadResponse = await fetch("/api/homefeed/upload-url", {
+      method: "POST",
+      headers: (
+        await getAuthHeaders({
+          includeJsonContentType: true,
+        })
+      ).headers,
+      body: JSON.stringify({
+        fileName: sanitized.name,
+        contentType: sanitized.type,
+        size: sanitized.size,
+      }),
+    });
 
-if (!uploadResponse.ok) {
-  throw new Error("Failed to get upload URL");
-}
+    if (!uploadResponse.ok) {
+      throw new Error("Failed to get upload URL");
+    }
 
-const {
-  bucketId,
-  path,
-  token,
-} = await uploadResponse.json();
+    const { bucketId, path, token } = await uploadResponse.json();
 
-const { error } = await supabase.storage
-  .from(bucketId)
-  .uploadToSignedUrl(
-    path,
-    token,
-    sanitized,
-    {
-      contentType: sanitized.type,
-    },
-  );
+    const { error } = await supabase.storage
+      .from(bucketId)
+      .uploadToSignedUrl(path, token, sanitized, {
+        contentType: sanitized.type,
+      });
 
-if (error) {
-  throw error;
-}
+    if (error) {
+      throw error;
+    }
 
-setEditImagePreview(preview);
-setEditImagePath(path);
+    setEditImagePreview(preview);
+    setEditImagePath(path);
   };
 
   const editPost = async () => {
@@ -1256,6 +1240,7 @@ setEditImagePath(path);
   };
 
   const closeComposer = () => {
+    if (isUploadingImage) return;
     setComposerOpen(false);
     setComposerKind(null);
     setPostTitle("");
@@ -1871,13 +1856,21 @@ setEditImagePath(path);
                   )}
                 </div>
 
+                {isUploadingImage ? (
+                  <p className="text-sm text-[rgb(var(--muted))]">
+                    Uploading image...
+                  </p>
+                ) : null}
                 <div
                   className={`${styles.composerActions} flex justify-end gap-2`}
                 >
                   <Button variant="outline" onClick={closeComposer}>
                     Cancel
                   </Button>
-                  <Button onClick={publishPost} disabled={!canPublish}>
+                  <Button
+                    onClick={publishPost}
+                    disabled={!canPublish || isUploadingImage}
+                  >
                     {composerKind === "story"
                       ? "Publish story"
                       : "Publish post"}
