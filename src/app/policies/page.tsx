@@ -15,20 +15,29 @@ export default function PoliciesPage() {
           <Link href="/welcome" className={styles.backLink}>
             ← Back to BareUnity
           </Link>
-          <span className={styles.lastUpdatedBadge}>Last updated {lastUpdated}</span>
+          <span className={styles.lastUpdatedBadge}>
+            Last updated {lastUpdated}
+          </span>
         </div>
         <p className={styles.kicker}>BareUnity legal center</p>
         <h1>Complete Privacy, Terms, Community Rules & Safety Policies</h1>
         <p className={styles.lede}>
-          The current, expanded rules for using BareUnity as an adult-only, consent-first naturist community.
+          The current, expanded rules for using BareUnity as an adult-only,
+          consent-first naturist community.
         </p>
         <div className={styles.heroGrid}>
           <div className={styles.notice}>
-            <strong>Important:</strong> These expanded policies explain the rules that apply when members use BareUnity, including privacy,
-            verification, consent, content, discussion, offline safety, venue discovery, payments, enforcement, and legal
-            requests. They may be updated as features, safety practices, vendors, or legal requirements change.
+            <strong>Important:</strong> These expanded policies explain the
+            rules that apply when members use BareUnity, including privacy,
+            verification, consent, content, discussion, offline safety, venue
+            discovery, payments, enforcement, and legal requests. They may be
+            updated as features, safety practices, vendors, or legal
+            requirements change.
           </div>
-          <div className={styles.quickFacts} aria-label="Policy center highlights">
+          <div
+            className={styles.quickFacts}
+            aria-label="Policy center highlights"
+          >
             <div className={styles.quickFact}>
               <strong>{policyGroups.length}</strong>
               <span>Policy areas covering community operations</span>
@@ -41,13 +50,23 @@ export default function PoliciesPage() {
         </div>
         <div className={styles.contactPanel}>
           <p>
+            <strong>Jurisdiction:</strong> Ireland
+          </p>
+
+          <p>
+            <strong>Data Controller:</strong> BareUnity Community Project
+          </p>
+          <p>
             <strong>Official legal name:</strong> {policyContact.legalName}
           </p>
           <p>
             <strong>Domain/trading name:</strong> {policyContact.domain}
           </p>
           <p>
-            <strong>All policy, privacy, safety, copyright, accessibility, and legal contact:</strong>{" "}
+            <strong>
+              All policy, privacy, safety, copyright, accessibility, and legal
+              contact:
+            </strong>{" "}
             <a href={`mailto:${policyContact.email}`}>{policyContact.email}</a>
           </p>
         </div>
@@ -61,12 +80,16 @@ export default function PoliciesPage() {
         ))}
       </nav>
 
-      <section className={styles.sectionIntro} aria-labelledby="policy-library-heading">
+      <section
+        className={styles.sectionIntro}
+        aria-labelledby="policy-library-heading"
+      >
         <p className={styles.kicker}>Policy library</p>
         <h2 id="policy-library-heading">Review each policy area</h2>
         <p>
-          Each section summarizes the standards members, visitors, venues, and service providers should understand before
-          using BareUnity. Open a dedicated page for more focused reading.
+          Each section summarizes the standards members, visitors, venues, and
+          service providers should understand before using BareUnity. Open a
+          dedicated page for more focused reading.
         </p>
       </section>
 
@@ -85,7 +108,10 @@ export default function PoliciesPage() {
                 <li key={card}>{card}</li>
               ))}
             </ul>
-            <Link className={styles.policyPageLink} href={`/policies/${group.id}`}>
+            <Link
+              className={styles.policyPageLink}
+              href={`/policies/${group.id}`}
+            >
               Open the full {group.title} page →
             </Link>
           </article>
