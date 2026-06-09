@@ -17,7 +17,7 @@ import { ensureMemberCanAct } from "@/lib/action-access";
 import { UploadValidationError, validateImageBuffer } from "@/lib/upload-security";
 
 const IMAGE_DATA_URL_PATTERN = /^data:(image\/[a-zA-Z0-9.+-]+);base64,([A-Za-z0-9+/=\r\n]+)$/;
-const MAX_HOMEFEED_IMAGE_BYTES = 8 * 1024 * 1024;
+const MAX_HOMEFEED_IMAGE_BYTES = 15 * 1024 * 1024;
 
 async function uploadMediaDataUrl(args: {
   viewerId: string;
