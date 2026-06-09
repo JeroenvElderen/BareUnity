@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/server/db";
-import {
-  createSupabaseAdminClient,
-  isSupabaseAdminConfigured,
-} from "@/lib/supabase-admin";
+
 import { loadViewerIdFromRequest } from "@/lib/viewer";
 import { type HomeFeedPayload } from "@/lib/homefeed";
 import {
@@ -12,60 +9,8 @@ import {
   getHomeFeedSourceVersion,
 } from "@/lib/homefeed-server";
 import { readServerCache, writeServerCache } from "@/lib/server-user-cache";
-import { ensureUserMediaStorage } from "@/lib/storage-buckets";
+import { UploadValidationError } from "@/lib/upload-security";
 import { ensureMemberCanAct } from "@/lib/action-access";
-import { UploadValidationError, validateImageBuffer } from "@/lib/upload-security";
-
-const IMAGE_DATA_URL_PATTERN = /^data:(image\/[a-zA-Z0-9.+-]+);base64,([A-Za-z0-9+/=\r\n]+)$/;
-const MAX_HOMEFEED_IMAGE_BYTES = 15 * 1024 * 1024;
-
-async function uploadMediaDataUrl(args: {
-  viewerId: string;
-  dataUrl: string;
-  kind: "post" | "story";
-}): Promise<string> {
-  if (!isSupabaseAdminConfigured) {
-    throw new Error(
-      "Image upload unavailable. Configure NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.",
-    );
-  }
-
-  const match = IMAGE_DATA_URL_PATTERN.exec(args.dataUrl);
-  if (!match) {
-    throw new UploadValidationError("Invalid image payload. Expected base64 image data URL.");
-  }
-
-  const [, mimeType, base64Payload] = match;
-  const buffer = Buffer.from(base64Payload.replace(/\s/g, ""), "base64");
-  const { contentType, extension } = validateImageBuffer({
-    buffer,
-    contentType: mimeType,
-    maxBytes: MAX_HOMEFEED_IMAGE_BYTES,
-  });
-  const supabaseAdmin = createSupabaseAdminClient();
-  const userMediaStorage = await ensureUserMediaStorage({
-    supabaseAdmin,
-    userId: args.viewerId,
-  });
-  const storagePath = `${userMediaStorage.postsFolder}/${args.kind}-${Date.now()}-${crypto.randomUUID()}.${extension}`;
-  const { error } = await supabaseAdmin.storage
-    .from(userMediaStorage.bucketId)
-    .upload(storagePath, buffer, {
-      contentType,
-      upsert: false,
-    });
-
-  if (error) {
-    throw new Error(
-      `Could not upload image to Supabase Storage: ${error.message}`,
-    );
-  }
-
-  const { data } = supabaseAdmin.storage
-    .from(userMediaStorage.bucketId)
-    .getPublicUrl(storagePath);
-  return data.publicUrl;
-}
 
 export async function GET(request: Request) {
   try {
@@ -153,11 +98,7 @@ export async function POST(request: Request) {
     const content = body.content?.trim() ?? "";
     const mediaUrl = body.mediaUrl?.trim() ?? "";
     const kind = body.kind === "story" ? "story" : "post";
-    const hasInlineImage = mediaUrl.startsWith("data:image/");
-    const shouldUploadInlineImage = hasInlineImage;
-    const persistedMediaUrl = shouldUploadInlineImage
-      ? await uploadMediaDataUrl({ viewerId, dataUrl: mediaUrl, kind })
-      : mediaUrl;
+    const persistedMediaUrl = mediaUrl;
 
     if (kind === "story") {
       if (!persistedMediaUrl) {

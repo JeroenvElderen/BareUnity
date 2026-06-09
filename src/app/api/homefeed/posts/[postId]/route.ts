@@ -1,31 +1,12 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { db } from "@/server/db";
+import { loadViewerIdFromRequest } from "@/lib/viewer";
+import { ensureMemberCanAct } from "@/lib/action-access";
 import {
   createSupabaseAdminClient,
   isSupabaseAdminConfigured,
 } from "@/lib/supabase-admin";
-import { loadViewerIdFromRequest } from "@/lib/viewer";
-import { ensureMemberCanAct } from "@/lib/action-access";
-
-const IMAGE_DATA_URL_PATTERN = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/;
-
-function getImageExtension(mimeType: string) {
-  switch (mimeType) {
-    case "image/jpeg":
-      return "jpg";
-    case "image/png":
-      return "png";
-    case "image/webp":
-      return "webp";
-    case "image/gif":
-      return "gif";
-    case "image/avif":
-      return "avif";
-    default:
-      return "bin";
-  }
-}
 
 function toStoragePath(pathOrUrl: string | null | undefined): string {
   const value = pathOrUrl?.trim() ?? "";
@@ -71,51 +52,6 @@ async function deleteMediaAsset(pathOrUrl: string | null | undefined) {
   ]);
 }
 
-async function uploadMediaDataUrl(args: {
-  viewerId: string;
-  dataUrl: string;
-}): Promise<string> {
-  if (!isSupabaseAdminConfigured) {
-    throw new Error(
-      "Image upload unavailable. Configure NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.",
-    );
-  }
-
-  const match = IMAGE_DATA_URL_PATTERN.exec(args.dataUrl);
-  if (!match) {
-    throw new Error("Invalid image payload. Expected base64 data URL.");
-  }
-
-  const [, mimeType, base64Payload] = match;
-  const buffer = Buffer.from(base64Payload, "base64");
-
-  if (!buffer.byteLength) {
-    throw new Error("Image payload is empty.");
-  }
-
-  const extension = getImageExtension(mimeType.toLowerCase());
-  const fileName = `${args.viewerId}/post-${Date.now()}-${crypto.randomUUID()}.${extension}`;
-  const storagePath = `posts/${fileName}`;
-  const supabaseAdmin = createSupabaseAdminClient();
-  const { error } = await supabaseAdmin.storage
-    .from("media")
-    .upload(storagePath, buffer, {
-      contentType: mimeType,
-      upsert: false,
-    });
-
-  if (error) {
-    throw new Error(
-      `Could not upload image to Supabase Storage: ${error.message}`,
-    );
-  }
-
-  const { data } = supabaseAdmin.storage
-    .from("media")
-    .getPublicUrl(storagePath);
-  return data.publicUrl;
-}
-
 export async function PATCH(
   request: Request,
   context: { params: Promise<{ postId: string }> },
@@ -141,10 +77,7 @@ export async function PATCH(
     const title = body.title?.trim() ?? "";
     const content = body.content?.trim() ?? "";
     const mediaUrl = body.mediaUrl?.trim() ?? "";
-    const hasInlineImage = mediaUrl.startsWith("data:image/");
-    const persistedMediaUrl = hasInlineImage
-      ? await uploadMediaDataUrl({ viewerId, dataUrl: mediaUrl })
-      : "";
+    const persistedMediaUrl = mediaUrl;
 
     if (!title && !content && !persistedMediaUrl) {
       return NextResponse.json(

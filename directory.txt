@@ -1,0 +1,296 @@
+.
+├── ADJUSTMENT_IDEAS.md
+├── AGENTS.md
+├── FEATURE_IDEAS.md
+├── README.md
+├── SECURITY_HARDENING.md
+├── ai.md
+├── android
+│   ├── app
+│   │   ├── build.gradle
+│   │   ├── capacitor.build.gradle
+│   │   ├── google-services.json
+│   │   ├── proguard-rules.pro
+│   │   ├── release
+│   │   │   └── app-release.aab
+│   │   └── src
+│   │       ├── androidTest
+│   │       ├── main
+│   │       └── test
+│   ├── build.gradle
+│   ├── capacitor-cordova-android-plugins
+│   │   ├── build.gradle
+│   │   ├── cordova.variables.gradle
+│   │   └── src
+│   │       └── main
+│   ├── capacitor.settings.gradle
+│   ├── gradle
+│   │   └── wrapper
+│   │       ├── gradle-wrapper.jar
+│   │       └── gradle-wrapper.properties
+│   ├── gradle.properties
+│   ├── gradlew
+│   ├── gradlew.bat
+│   ├── local.properties
+│   ├── settings.gradle
+│   └── variables.gradle
+├── artifacts
+│   └── screenshots
+│       └── home.png
+├── capacitor.config.ts
+├── components.json
+├── directory-tree.txt
+├── directory.txt
+├── docs
+│   ├── admin-location-import-env.md
+│   ├── direct-loading-recommendation.md
+│   ├── instant-load-playbook.md
+│   ├── profile-page-update-notes.md
+│   └── stack-migration.md
+├── eslint.config.mjs
+├── info.md
+├── next-env.d.ts
+├── next.config.ts
+├── package-lock.json
+├── package.json
+├── postcss.config.mjs
+├── prisma
+│   └── schema.prisma
+├── prisma.config.ts
+├── public
+│   ├── file.svg
+│   ├── globe.svg
+│   ├── logo.png
+│   ├── next.svg
+│   ├── robots.txt
+│   ├── sitemap.xml
+│   ├── vercel.svg
+│   └── window.svg
+├── scripts
+│   ├── codex-screenshot-doctor.mjs
+│   └── codex-screenshot.mjs
+├── src
+│   ├── app
+│   │   ├── admin
+│   │   │   ├── activities
+│   │   │   ├── applications
+│   │   │   ├── feedback
+│   │   │   ├── layout.module.css
+│   │   │   ├── layout.tsx
+│   │   │   ├── locations
+│   │   │   ├── page.module.css
+│   │   │   ├── page.tsx
+│   │   │   ├── reports
+│   │   │   ├── stays
+│   │   │   ├── users
+│   │   │   └── verification-applications
+│   │   ├── api
+│   │   │   ├── admin
+│   │   │   ├── auth
+│   │   │   ├── bookings
+│   │   │   ├── cache
+│   │   │   ├── feedback
+│   │   │   ├── gallery
+│   │   │   ├── homefeed
+│   │   │   ├── map-spot-requests
+│   │   │   ├── map-spots
+│   │   │   ├── members
+│   │   │   ├── moderation
+│   │   │   ├── notifications
+│   │   │   ├── profile
+│   │   │   ├── reports
+│   │   │   ├── settings
+│   │   │   ├── trpc
+│   │   │   └── verification
+│   │   ├── bookings
+│   │   │   ├── activities
+│   │   │   ├── bookings.module.css
+│   │   │   ├── hotels-airbnbs
+│   │   │   ├── page.tsx
+│   │   │   └── resorts
+│   │   ├── discussion
+│   │   │   ├── discussion.module.css
+│   │   │   └── page.tsx
+│   │   ├── error.module.css
+│   │   ├── error.tsx
+│   │   ├── explore
+│   │   │   ├── explore-search-overlay.tsx
+│   │   │   ├── explore.module.css
+│   │   │   └── page.tsx
+│   │   ├── favicon.ico
+│   │   ├── gallery
+│   │   │   ├── gallery.module.css
+│   │   │   └── page.tsx
+│   │   ├── globals.css
+│   │   ├── layout.tsx
+│   │   ├── login
+│   │   │   └── page.tsx
+│   │   ├── members
+│   │   │   ├── [username]
+│   │   │   └── page.tsx
+│   │   ├── notifications
+│   │   │   ├── notifications.module.css
+│   │   │   └── page.tsx
+│   │   ├── page.module.css
+│   │   ├── page.tsx
+│   │   ├── policies
+│   │   │   ├── [policyId]
+│   │   │   ├── page.tsx
+│   │   │   ├── policies.module.css
+│   │   │   └── policy-data.ts
+│   │   ├── profile
+│   │   │   └── page.tsx
+│   │   ├── register
+│   │   │   └── page.tsx
+│   │   ├── settings
+│   │   │   ├── page.tsx
+│   │   │   └── settings.module.css
+│   │   ├── test-notifications
+│   │   │   └── page.tsx
+│   │   ├── verified
+│   │   │   └── page.tsx
+│   │   ├── video-room
+│   │   │   └── page.tsx
+│   │   └── welcome
+│   │       ├── page.tsx
+│   │       └── welcome.module.css
+│   ├── components
+│   │   ├── admin
+│   │   │   └── admin-booking-listing-manager.tsx
+│   │   ├── auth
+│   │   │   ├── auth-gate.module.css
+│   │   │   ├── auth-gate.tsx
+│   │   │   └── auth-page.module.css
+│   │   ├── bookings
+│   │   │   ├── booking-category-template.module.css
+│   │   │   ├── booking-category-template.tsx
+│   │   │   ├── booking-listing-types.ts
+│   │   │   ├── booking-listings-client.tsx
+│   │   │   ├── request-listing-button.module.css
+│   │   │   └── request-listing-button.tsx
+│   │   ├── discussion
+│   │   │   ├── general-room.module.css
+│   │   │   ├── general-room.tsx
+│   │   │   ├── video-room.module.css
+│   │   │   └── video-room.tsx
+│   │   ├── explore
+│   │   │   ├── map-spot-popup.module.css
+│   │   │   ├── map-spot-popup.tsx
+│   │   │   ├── map-stage-client.module.css
+│   │   │   └── map-stage-client.tsx
+│   │   ├── feedback
+│   │   │   ├── feedback-bubble.module.css
+│   │   │   └── feedback-bubble.tsx
+│   │   ├── mobile
+│   │   │   └── android-back-handler.tsx
+│   │   ├── profile
+│   │   │   ├── media-gallery.tsx
+│   │   │   └── profile-section.tsx
+│   │   ├── security
+│   │   │   └── content-protection.tsx
+│   │   ├── settings
+│   │   │   ├── password-reset-modal.module.css
+│   │   │   ├── password-reset-modal.tsx
+│   │   │   ├── primary-email-modal.module.css
+│   │   │   ├── primary-email-modal.tsx
+│   │   │   ├── recovery-keys-modal.module.css
+│   │   │   ├── recovery-keys-modal.tsx
+│   │   │   ├── settings-option-card.module.css
+│   │   │   ├── settings-option-card.tsx
+│   │   │   ├── username-change-modal.module.css
+│   │   │   └── username-change-modal.tsx
+│   │   ├── sidebar
+│   │   │   ├── profile-link.module.css
+│   │   │   ├── profile-link.tsx
+│   │   │   ├── sidebar.module.css
+│   │   │   └── sidebar.tsx
+│   │   ├── social
+│   │   │   └── username-action-popup.tsx
+│   │   ├── ui
+│   │   │   ├── avatar.tsx
+│   │   │   ├── badge.tsx
+│   │   │   ├── button.tsx
+│   │   │   └── card.tsx
+│   │   └── verification
+│   │       ├── id-redaction-uploader.module.css
+│   │       └── id-redaction-uploader.tsx
+│   ├── lib
+│   │   ├── account-deletion.ts
+│   │   ├── action-access.ts
+│   │   ├── booking-data.ts
+│   │   ├── channel-data.ts
+│   │   ├── client-action-access.ts
+│   │   ├── client-cache.ts
+│   │   ├── color-mode.ts
+│   │   ├── countries.ts
+│   │   ├── email.ts
+│   │   ├── firebase-admin.ts
+│   │   ├── gallery-snapshot.ts
+│   │   ├── homefeed-server.ts
+│   │   ├── homefeed.ts
+│   │   ├── image.ts
+│   │   ├── location-requests.ts
+│   │   ├── logout.ts
+│   │   ├── media-url.ts
+│   │   ├── mobile
+│   │   │   └── push-notifications.ts
+│   │   ├── notifications.ts
+│   │   ├── nsfw.ts
+│   │   ├── onboarding.ts
+│   │   ├── platform-admin.ts
+│   │   ├── prefetched-route-data.ts
+│   │   ├── profile-settings-compat.ts
+│   │   ├── profile-snapshot.ts
+│   │   ├── profile.ts
+│   │   ├── realtime.ts
+│   │   ├── reporting.ts
+│   │   ├── request-auth.ts
+│   │   ├── security-headers.ts
+│   │   ├── server-user-cache.ts
+│   │   ├── settings-controls.ts
+│   │   ├── settings-snapshot.ts
+│   │   ├── stay-images.ts
+│   │   ├── storage-buckets.ts
+│   │   ├── supabase-admin.ts
+│   │   ├── supabase-server.ts
+│   │   ├── supabase.ts
+│   │   ├── theme.ts
+│   │   ├── upload-post-image.ts
+│   │   ├── upload-security.ts
+│   │   ├── username.ts
+│   │   ├── utils.ts
+│   │   ├── viewer.ts
+│   │   └── visitor-trial.ts
+│   ├── proxy.ts
+│   ├── server
+│   │   ├── api
+│   │   │   ├── root.ts
+│   │   │   ├── routers
+│   │   │   └── trpc.ts
+│   │   └── db.ts
+│   ├── stores
+│   │   └── ui-store.ts
+│   ├── trpc
+│   │   └── react.tsx
+│   └── types
+│       ├── database.ts
+│       ├── nodemailer.d.ts
+│       └── notification.ts
+├── supabase-backend-channel-admin.sql
+├── supabase-brand-mode.sql
+├── supabase-channel-only.sql
+├── supabase-channel-reset.sql
+├── supabase-channels-migration.sql
+├── supabase-gallery-post-preference.sql
+├── supabase-profile-features.sql
+├── supabase-profile-snapshot.sql
+├── supabase-registration-invite-codes.sql
+├── supabase-settings-pruned-controls.sql
+├── supabase-stays.sql
+├── supabase-teamnaturist-invite-codes.sql
+├── supabase.md
+├── tailwind.config.ts
+├── test.js
+└── tsconfig.json
+
+91 directories, 203 files

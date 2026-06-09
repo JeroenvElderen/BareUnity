@@ -326,7 +326,7 @@ export default function HomePage() {
   const [postTitle, setPostTitle] = useState("");
   const [postContent, setPostContent] = useState("");
   const [postImagePreview, setPostImagePreview] = useState<string>("");
-  const [postImageDataUrl, setPostImageDataUrl] = useState<string>("");
+  const [postImagePath, setPostImagePath] = useState<string>("");
   const galleryImageInputRef = useRef<HTMLInputElement | null>(null);
   const cameraImageInputRef = useRef<HTMLInputElement | null>(null);
   const [feed, setFeed] = useState<HomeFeedPayload>(() =>
@@ -349,7 +349,7 @@ export default function HomePage() {
   const [editTitle, setEditTitle] = useState("");
   const [editContent, setEditContent] = useState("");
   const [editImagePreview, setEditImagePreview] = useState<string>("");
-  const [editImageDataUrl, setEditImageDataUrl] = useState<string>("");
+  const [editImagePath, setEditImagePath] = useState<string>("");
   const [deleteTarget, setDeleteTarget] = useState<{
     postId: string;
     commentId?: string;
@@ -520,9 +520,9 @@ export default function HomePage() {
 
   const canPublish =
     composerKind === "story"
-      ? Boolean(postImageDataUrl)
+      ? Boolean(postImagePath)
       : postTitle.trim().length > 0 &&
-        (postContent.trim().length > 0 || Boolean(postImageDataUrl));
+        (postContent.trim().length > 0 || Boolean(postImagePath));
 
   const postPreview = postContent;
 
@@ -697,7 +697,7 @@ export default function HomePage() {
       body: JSON.stringify({
         title: postTitle,
         content: postContent,
-        mediaUrl: postImageDataUrl,
+        mediaUrl: postImagePath,
         kind: composerKind,
       }),
     });
@@ -707,7 +707,7 @@ export default function HomePage() {
     setPostTitle("");
     setPostContent("");
     setPostImagePreview("");
-    setPostImageDataUrl("");
+    setPostImagePath("");
     setComposerKind(null);
     setComposerOpen(false);
     await loadFeed();
@@ -723,15 +723,50 @@ export default function HomePage() {
     );
     if (postImagePreview) URL.revokeObjectURL(postImagePreview);
     const preview = URL.createObjectURL(sanitized);
-    const dataUrl = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result ?? ""));
-      reader.onerror = () => reject(new Error("Could not read image file"));
-      reader.readAsDataURL(sanitized);
-    });
+    const uploadResponse = await fetch(
+  "/api/homefeed/upload-url",
+  {
+    method: "POST",
+    headers: (
+      await getAuthHeaders({
+        includeJsonContentType: true,
+      })
+    ).headers,
+    body: JSON.stringify({
+      fileName: sanitized.name,
+      contentType: sanitized.type,
+      size: sanitized.size,
+    }),
+  },
+);
 
-    setPostImagePreview(preview);
-    setPostImageDataUrl(dataUrl);
+if (!uploadResponse.ok) {
+  throw new Error("Failed to get upload URL");
+}
+
+const {
+  bucketId,
+  path,
+  token,
+} = await uploadResponse.json();
+
+const { error } = await supabase.storage
+  .from(bucketId)
+  .uploadToSignedUrl(
+    path,
+    token,
+    sanitized,
+    {
+      contentType: sanitized.type,
+    },
+  );
+
+if (error) {
+  throw error;
+}
+
+setPostImagePreview(preview);
+setPostImagePath(path);
   };
 
   const toggleLike = async (postId: string) => {
@@ -822,7 +857,7 @@ export default function HomePage() {
     setEditTitle(existingTitle ?? "");
     setEditContent(existingContentLines.join("\n"));
     setEditImagePreview(post.mediaUrl ?? "");
-    setEditImageDataUrl("");
+    setEditImagePath("");
     setOpenPostMenuId(null);
   };
 
@@ -834,15 +869,50 @@ export default function HomePage() {
     if (editImagePreview.startsWith("blob:"))
       URL.revokeObjectURL(editImagePreview);
     const preview = URL.createObjectURL(sanitized);
-    const dataUrl = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result ?? ""));
-      reader.onerror = () => reject(new Error("Could not read image file"));
-      reader.readAsDataURL(sanitized);
-    });
+    const uploadResponse = await fetch(
+  "/api/homefeed/upload-url",
+  {
+    method: "POST",
+    headers: (
+      await getAuthHeaders({
+        includeJsonContentType: true,
+      })
+    ).headers,
+    body: JSON.stringify({
+      fileName: sanitized.name,
+      contentType: sanitized.type,
+      size: sanitized.size,
+    }),
+  },
+);
 
-    setEditImagePreview(preview);
-    setEditImageDataUrl(dataUrl);
+if (!uploadResponse.ok) {
+  throw new Error("Failed to get upload URL");
+}
+
+const {
+  bucketId,
+  path,
+  token,
+} = await uploadResponse.json();
+
+const { error } = await supabase.storage
+  .from(bucketId)
+  .uploadToSignedUrl(
+    path,
+    token,
+    sanitized,
+    {
+      contentType: sanitized.type,
+    },
+  );
+
+if (error) {
+  throw error;
+}
+
+setEditImagePreview(preview);
+setEditImagePath(path);
   };
 
   const editPost = async () => {
@@ -854,7 +924,7 @@ export default function HomePage() {
       body: JSON.stringify({
         title: editTitle,
         content: editContent,
-        mediaUrl: editImageDataUrl,
+        mediaUrl: editImagePath,
       }),
     });
 
@@ -865,7 +935,7 @@ export default function HomePage() {
     setEditTitle("");
     setEditContent("");
     setEditImagePreview("");
-    setEditImageDataUrl("");
+    setEditImagePath("");
     setOpenPostMenuId(null);
     await loadFeed();
   };
@@ -1191,7 +1261,7 @@ export default function HomePage() {
     setPostTitle("");
     setPostContent("");
     setPostImagePreview("");
-    setPostImageDataUrl("");
+    setPostImagePath("");
   };
 
   return (
@@ -2160,7 +2230,7 @@ export default function HomePage() {
                   setEditingPost(null);
                   setEditTitle("");
                   setEditImagePreview("");
-                  setEditImageDataUrl("");
+                  setEditImagePath("");
                   setEditContent("");
                 }}
                 aria-label="Close edit post dialog"
@@ -2216,7 +2286,7 @@ export default function HomePage() {
                     setEditTitle("");
                     setEditContent("");
                     setEditImagePreview("");
-                    setEditImageDataUrl("");
+                    setEditImagePath("");
                   }}
                 >
                   Cancel
