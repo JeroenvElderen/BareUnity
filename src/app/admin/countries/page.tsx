@@ -2,34 +2,86 @@
 
 import Link from "next/link";
 import { ChangeEvent, FormEvent, useState } from "react";
-import { Globe2, Save } from "lucide-react";
+import { Globe2, Plus, Save, Trash2 } from "lucide-react";
 
-import { COUNTRY_DISCOVERY_DATA, type CountryDiscovery } from "@/lib/country-discovery";
+import {
+  COUNTRY_DISCOVERY_DATA,
+  type CountryDiscovery,
+  type CountryLawRow,
+} from "@/lib/country-discovery";
 import { isPlatformAdminEmail } from "@/lib/platform-admin";
 import { supabase } from "@/lib/supabase";
 import styles from "./page.module.css";
 
-type CountryFormState = Omit<CountryDiscovery, "glance" | "cultureScores" | "laws" | "firstTimeTips" | "etiquette" | "regions" | "beaches" | "season" | "faqs" | "tags"> & {
-  glance: string;
-  cultureScores: string;
-  laws: string;
-  firstTimeTips: string;
-  etiquette: string;
-  regions: string;
-  beaches: string;
-  season: string;
-  faqs: string;
-  tags: string;
+type KeyValueRow = {
+  key: string;
+  value: string;
+};
+
+type ScoreRow = {
+  label: string;
+  score: number;
+};
+
+type SeasonRow = {
+  month: string;
+  air: number;
+  sea: number;
+  vibe: string;
+};
+
+type CountryFormState = Omit<
+  CountryDiscovery,
+  | "glance"
+  | "cultureScores"
+  | "firstTimeTips"
+  | "etiquette"
+  | "season"
+  | "faqs"
+  | "tags"
+> & {
+  glance: KeyValueRow[];
+  cultureScores: ScoreRow[];
+  firstTimeTips: string[];
+  etiquette: string[];
+  season: SeasonRow[];
+  faqs: string[];
+  tags: string[];
 };
 
 const sampleCountry = COUNTRY_DISCOVERY_DATA.spain;
 
-function toPrettyJson(value: unknown) {
-  return JSON.stringify(value, null, 2);
+function recordToRows(record: Record<string, string>): KeyValueRow[] {
+  return Object.entries(record).map(([key, value]) => ({ key, value }));
 }
 
-function toLineList(value: string[]) {
-  return value.join("\n");
+function scoresToRows(record: Record<string, number>): ScoreRow[] {
+  return Object.entries(record).map(([label, score]) => ({ label, score }));
+}
+
+function seasonToRows(season: CountryDiscovery["season"]): SeasonRow[] {
+  return season.months.map((month, index) => ({
+    month,
+    air: season.air[index] ?? 0,
+    sea: season.sea[index] ?? 0,
+    vibe: season.vibe[index] ?? "☀️",
+  }));
+}
+
+function rowsToStringRecord(rows: KeyValueRow[]) {
+  return Object.fromEntries(
+    rows
+      .map((row) => [row.key.trim(), row.value.trim()] as const)
+      .filter(([key, value]) => key && value),
+  );
+}
+
+function rowsToNumberRecord(rows: ScoreRow[]) {
+  return Object.fromEntries(
+    rows
+      .map((row) => [row.label.trim(), Number(row.score)] as const)
+      .filter(([label]) => label),
+  );
 }
 
 function fromCountry(country: CountryDiscovery): CountryFormState {
@@ -45,49 +97,53 @@ function fromCountry(country: CountryDiscovery): CountryFormState {
     resortsCount: country.resortsCount,
     communityRating: country.communityRating,
     communityMembers: country.communityMembers,
-    glance: toPrettyJson(country.glance),
-    cultureScores: toPrettyJson(country.cultureScores),
-    laws: toPrettyJson(country.laws),
-    firstTimeTips: toLineList(country.firstTimeTips),
-    etiquette: toLineList(country.etiquette),
+    glance: recordToRows(country.glance),
+    cultureScores: scoresToRows(country.cultureScores),
+    laws: country.laws,
+    firstTimeTips: country.firstTimeTips,
+    etiquette: country.etiquette,
     bestTime: country.bestTime,
-    regions: toPrettyJson(country.regions),
-    beaches: toPrettyJson(country.beaches),
-    season: toPrettyJson(country.season),
-    faqs: toLineList(country.faqs),
-    tags: toLineList(country.tags),
+    regions: country.regions,
+    beaches: country.beaches,
+    season: seasonToRows(country.season),
+    faqs: country.faqs,
+    tags: country.tags,
   };
-}
-
-function lineList(value: string) {
-  return value
-    .split(/\r?\n/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
-function parseJsonField<T>(label: string, value: string): T {
-  try {
-    return JSON.parse(value) as T;
-  } catch {
-    throw new Error(`${label} must be valid JSON.`);
-  }
 }
 
 function payloadFromForm(form: CountryFormState): CountryDiscovery {
   return {
     ...form,
     slug: form.slug.trim().toLowerCase(),
-    glance: parseJsonField<Record<string, string>>("Quick glance", form.glance),
-    cultureScores: parseJsonField<Record<string, number>>("Culture scores", form.cultureScores),
-    laws: parseJsonField<CountryDiscovery["laws"]>("Naturist laws", form.laws),
-    firstTimeTips: lineList(form.firstTimeTips),
-    etiquette: lineList(form.etiquette),
-    regions: parseJsonField<CountryDiscovery["regions"]>("Regions", form.regions),
-    beaches: parseJsonField<CountryDiscovery["beaches"]>("Beaches", form.beaches),
-    season: parseJsonField<CountryDiscovery["season"]>("Season guide", form.season),
-    faqs: lineList(form.faqs),
-    tags: lineList(form.tags),
+    glance: rowsToStringRecord(form.glance),
+    cultureScores: rowsToNumberRecord(form.cultureScores),
+    laws: form.laws.map((law) => ({
+      topic: law.topic.trim(),
+      status: law.status,
+      summary: law.summary.trim(),
+    })),
+    firstTimeTips: form.firstTimeTips.map((item) => item.trim()).filter(Boolean),
+    etiquette: form.etiquette.map((item) => item.trim()).filter(Boolean),
+    regions: form.regions.map((region) => ({
+      name: region.name.trim(),
+      score: Number(region.score),
+      details: region.details.trim(),
+    })),
+    beaches: form.beaches.map((beach) => ({
+      name: beach.name.trim(),
+      region: beach.region.trim(),
+      rating: beach.rating.trim(),
+      image: beach.image.trim(),
+      summary: beach.summary.trim(),
+    })),
+    season: {
+      months: form.season.map((row) => row.month.trim()),
+      air: form.season.map((row) => Number(row.air)),
+      sea: form.season.map((row) => Number(row.sea)),
+      vibe: form.season.map((row) => row.vibe.trim()),
+    },
+    faqs: form.faqs.map((item) => item.trim()).filter(Boolean),
+    tags: form.tags.map((item) => item.trim()).filter(Boolean),
   };
 }
 
@@ -100,6 +156,60 @@ export default function AdminCountriesPage() {
   function updateField(event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
     const { name, value } = event.target;
     setForm((current) => ({ ...current, [name]: value }));
+  }
+
+  function updateRow<T extends keyof CountryFormState>(
+    field: T,
+    index: number,
+    value: CountryFormState[T] extends Array<infer Item> ? Partial<Item> : never,
+  ) {
+    setForm((current) => {
+      const rows = current[field];
+      if (!Array.isArray(rows)) return current;
+
+      return {
+        ...current,
+        [field]: rows.map((row, rowIndex) =>
+          rowIndex === index && typeof row === "object" && row !== null
+            ? { ...row, ...value }
+            : row,
+        ),
+      };
+    });
+  }
+
+  function addRow<T extends keyof CountryFormState>(field: T, row: CountryFormState[T] extends Array<infer Item> ? Item : never) {
+    setForm((current) => {
+      const rows = current[field];
+      if (!Array.isArray(rows)) return current;
+      return { ...current, [field]: [...rows, row] };
+    });
+  }
+
+  function removeRow<T extends keyof CountryFormState>(field: T, index: number) {
+    setForm((current) => {
+      const rows = current[field];
+      if (!Array.isArray(rows)) return current;
+      return { ...current, [field]: rows.filter((_, rowIndex) => rowIndex !== index) };
+    });
+  }
+
+  function updateListItem(field: "firstTimeTips" | "etiquette" | "faqs" | "tags", index: number, value: string) {
+    setForm((current) => ({
+      ...current,
+      [field]: current[field].map((item, itemIndex) => (itemIndex === index ? value : item)),
+    }));
+  }
+
+  function addListItem(field: "firstTimeTips" | "etiquette" | "faqs" | "tags") {
+    setForm((current) => ({ ...current, [field]: [...current[field], ""] }));
+  }
+
+  function removeListItem(field: "firstTimeTips" | "etiquette" | "faqs" | "tags", index: number) {
+    setForm((current) => ({
+      ...current,
+      [field]: current[field].filter((_, itemIndex) => itemIndex !== index),
+    }));
   }
 
   function startBlankCountry() {
@@ -115,9 +225,9 @@ export default function AdminCountriesPage() {
       resortsCount: "Coming soon",
       communityRating: "New",
       communityMembers: "0",
-      regions: "[]",
-      beaches: "[]",
-      tags: "Template country\nCommunity data needed\nLocal tips welcome",
+      regions: [],
+      beaches: [],
+      tags: ["Template country", "Community data needed", "Local tips welcome"],
       heroImage: current.heroImage,
     }));
     setError("");
@@ -185,7 +295,7 @@ export default function AdminCountriesPage() {
           <h1 className={styles.title}>Country discovery manager</h1>
           <p className={styles.subtitle}>
             Fill every country detail shown on the public Countries page, then save it to
-            <code> country_discovery_profiles</code>. Use the Spain template as a safe starting point.
+            <code> country_discovery_profiles</code>. Use guided fields instead of writing JSON by hand.
           </p>
           <button className={styles.secondaryButton} type="button" onClick={startBlankCountry}>
             Start a blank country
@@ -219,25 +329,163 @@ export default function AdminCountriesPage() {
           </section>
 
           <section className={styles.panel}>
-            <h2>Page sections</h2>
+            <div className={styles.sectionHeader}>
+              <div>
+                <h2>Quick glance</h2>
+                <p>Add small facts such as capital, language, currency, or plug type.</p>
+              </div>
+              <button className={styles.smallButton} type="button" onClick={() => addRow("glance", { key: "", value: "" })}>
+                <Plus size={14} /> Add fact
+              </button>
+            </div>
+            <div className={styles.stack}>
+              {form.glance.map((row, index) => (
+                <div className={styles.inlineRow} key={`glance-${index}`}>
+                  <label>Label<input value={row.key} onChange={(event) => updateRow("glance", index, { key: event.target.value })} placeholder="Capital" required /></label>
+                  <label>Value<input value={row.value} onChange={(event) => updateRow("glance", index, { value: event.target.value })} placeholder="Madrid" required /></label>
+                  <button className={styles.iconButton} type="button" onClick={() => removeRow("glance", index)} aria-label="Remove quick glance fact">
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className={styles.panel}>
+            <div className={styles.sectionHeader}>
+              <div>
+                <h2>Culture scores</h2>
+                <p>Score each category from 0 to 100.</p>
+              </div>
+              <button className={styles.smallButton} type="button" onClick={() => addRow("cultureScores", { label: "", score: 80 })}>
+                <Plus size={14} /> Add score
+              </button>
+            </div>
             <div className={styles.twoColumns}>
-              <label>Quick glance JSON<textarea name="glance" value={form.glance} onChange={updateField} rows={10} required /></label>
-              <label>Culture scores JSON<textarea name="cultureScores" value={form.cultureScores} onChange={updateField} rows={10} required /></label>
-              <label>Naturist laws JSON<textarea name="laws" value={form.laws} onChange={updateField} rows={14} required /></label>
-              <label>Regions JSON<textarea name="regions" value={form.regions} onChange={updateField} rows={14} required /></label>
-              <label>Beaches JSON<textarea name="beaches" value={form.beaches} onChange={updateField} rows={14} required /></label>
-              <label>Season guide JSON<textarea name="season" value={form.season} onChange={updateField} rows={14} required /></label>
+              {form.cultureScores.map((row, index) => (
+                <div className={styles.inlineRow} key={`score-${index}`}>
+                  <label>Category<input value={row.label} onChange={(event) => updateRow("cultureScores", index, { label: event.target.value })} placeholder="Beginner Friendly" required /></label>
+                  <label>Score<input type="number" min="0" max="100" value={row.score} onChange={(event) => updateRow("cultureScores", index, { score: Number(event.target.value) })} required /></label>
+                  <button className={styles.iconButton} type="button" onClick={() => removeRow("cultureScores", index)} aria-label="Remove culture score">
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className={styles.panel}>
+            <div className={styles.sectionHeader}>
+              <div>
+                <h2>Naturist laws</h2>
+                <p>Use cards for each law or practical rule.</p>
+              </div>
+              <button className={styles.smallButton} type="button" onClick={() => addRow("laws", { topic: "", status: "caution", summary: "" })}>
+                <Plus size={14} /> Add law
+              </button>
+            </div>
+            <div className={styles.cardGrid}>
+              {form.laws.map((law, index) => (
+                <article className={styles.editCard} key={`law-${index}`}>
+                  <div className={styles.cardHeader}>
+                    <strong>Law #{index + 1}</strong>
+                    <button className={styles.iconButton} type="button" onClick={() => removeRow("laws", index)} aria-label="Remove law">
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                  <label>Topic<input value={law.topic} onChange={(event) => updateRow("laws", index, { topic: event.target.value })} required /></label>
+                  <label>Status<select value={law.status} onChange={(event: ChangeEvent<HTMLSelectElement>) => updateRow("laws", index, { status: event.target.value as CountryLawRow["status"] })} required><option value="allowed">Allowed</option><option value="caution">Caution</option></select></label>
+                  <label>Summary<textarea value={law.summary} onChange={(event) => updateRow("laws", index, { summary: event.target.value })} rows={3} required /></label>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <section className={styles.panel}>
+            <div className={styles.sectionHeader}>
+              <div>
+                <h2>Regions</h2>
+                <p>Add notable regions and give each one a friendliness score.</p>
+              </div>
+              <button className={styles.smallButton} type="button" onClick={() => addRow("regions", { name: "", score: 80, details: "" })}>
+                <Plus size={14} /> Add region
+              </button>
+            </div>
+            <div className={styles.cardGrid}>
+              {form.regions.map((region, index) => (
+                <article className={styles.editCard} key={`region-${index}`}>
+                  <div className={styles.cardHeader}>
+                    <strong>Region #{index + 1}</strong>
+                    <button className={styles.iconButton} type="button" onClick={() => removeRow("regions", index)} aria-label="Remove region">
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                  <label>Name<input value={region.name} onChange={(event) => updateRow("regions", index, { name: event.target.value })} required /></label>
+                  <label>Score<input type="number" min="1" value={region.score} onChange={(event) => updateRow("regions", index, { score: Number(event.target.value) })} required /></label>
+                  <label>Details<textarea value={region.details} onChange={(event) => updateRow("regions", index, { details: event.target.value })} rows={3} required /></label>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <section className={styles.panel}>
+            <div className={styles.sectionHeader}>
+              <div>
+                <h2>Beaches</h2>
+                <p>Add beach cards with ratings, images, and short summaries.</p>
+              </div>
+              <button className={styles.smallButton} type="button" onClick={() => addRow("beaches", { name: "", region: "", rating: "4.5", image: "", summary: "" })}>
+                <Plus size={14} /> Add beach
+              </button>
+            </div>
+            <div className={styles.cardGrid}>
+              {form.beaches.map((beach, index) => (
+                <article className={styles.editCard} key={`beach-${index}`}>
+                  <div className={styles.cardHeader}>
+                    <strong>Beach #{index + 1}</strong>
+                    <button className={styles.iconButton} type="button" onClick={() => removeRow("beaches", index)} aria-label="Remove beach">
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                  <div className={styles.twoColumns}>
+                    <label>Name<input value={beach.name} onChange={(event) => updateRow("beaches", index, { name: event.target.value })} required /></label>
+                    <label>Region<input value={beach.region} onChange={(event) => updateRow("beaches", index, { region: event.target.value })} required /></label>
+                    <label>Rating<input value={beach.rating} onChange={(event) => updateRow("beaches", index, { rating: event.target.value })} required /></label>
+                    <label>Image URL<input type="url" value={beach.image} onChange={(event) => updateRow("beaches", index, { image: event.target.value })} required /></label>
+                  </div>
+                  <label>Summary<textarea value={beach.summary} onChange={(event) => updateRow("beaches", index, { summary: event.target.value })} rows={3} required /></label>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <section className={styles.panel}>
+            <div className={styles.sectionHeader}>
+              <div>
+                <h2>Season guide</h2>
+                <p>Fill the 12 monthly temperature and vibe rows.</p>
+              </div>
+            </div>
+            <div className={styles.seasonGrid}>
+              {form.season.map((row, index) => (
+                <div className={styles.seasonRow} key={`season-${index}`}>
+                  <label>Month<input value={row.month} onChange={(event) => updateRow("season", index, { month: event.target.value })} required /></label>
+                  <label>Air °C<input type="number" value={row.air} onChange={(event) => updateRow("season", index, { air: Number(event.target.value) })} required /></label>
+                  <label>Sea °C<input type="number" value={row.sea} onChange={(event) => updateRow("season", index, { sea: Number(event.target.value) })} required /></label>
+                  <label>Vibe<input value={row.vibe} onChange={(event) => updateRow("season", index, { vibe: event.target.value })} required /></label>
+                </div>
+              ))}
             </div>
           </section>
 
           <section className={styles.panel}>
             <h2>Lists</h2>
-            <p>Enter one item per line.</p>
-            <div className={styles.twoColumns}>
-              <label>First-time tips<textarea name="firstTimeTips" value={form.firstTimeTips} onChange={updateField} rows={7} required /></label>
-              <label>Etiquette<textarea name="etiquette" value={form.etiquette} onChange={updateField} rows={7} required /></label>
-              <label>FAQs<textarea name="faqs" value={form.faqs} onChange={updateField} rows={7} required /></label>
-              <label>Tags<textarea name="tags" value={form.tags} onChange={updateField} rows={7} required /></label>
+            <p>Add one item per field. Use the plus buttons for more entries.</p>
+            <div className={styles.listGrid}>
+              <EditableList title="First-time tips" items={form.firstTimeTips} onAdd={() => addListItem("firstTimeTips")} onChange={(index, value) => updateListItem("firstTimeTips", index, value)} onRemove={(index) => removeListItem("firstTimeTips", index)} />
+              <EditableList title="Etiquette" items={form.etiquette} onAdd={() => addListItem("etiquette")} onChange={(index, value) => updateListItem("etiquette", index, value)} onRemove={(index) => removeListItem("etiquette", index)} />
+              <EditableList title="FAQs" items={form.faqs} onAdd={() => addListItem("faqs")} onChange={(index, value) => updateListItem("faqs", index, value)} onRemove={(index) => removeListItem("faqs", index)} />
+              <EditableList title="Tags" items={form.tags} onAdd={() => addListItem("tags")} onChange={(index, value) => updateListItem("tags", index, value)} onRemove={(index) => removeListItem("tags", index)} />
             </div>
           </section>
 
@@ -247,5 +495,39 @@ export default function AdminCountriesPage() {
         </form>
       </section>
     </main>
+  );
+}
+
+type EditableListProps = {
+  title: string;
+  items: string[];
+  onAdd: () => void;
+  onChange: (index: number, value: string) => void;
+  onRemove: (index: number) => void;
+};
+
+function EditableList({ title, items, onAdd, onChange, onRemove }: EditableListProps) {
+  return (
+    <section className={styles.listPanel}>
+      <div className={styles.sectionHeader}>
+        <h3>{title}</h3>
+        <button className={styles.smallButton} type="button" onClick={onAdd}>
+          <Plus size={14} /> Add
+        </button>
+      </div>
+      <div className={styles.stack}>
+        {items.map((item, index) => (
+          <div className={styles.inlineRow} key={`${title}-${index}`}>
+            <label>
+              Item #{index + 1}
+              <input value={item} onChange={(event) => onChange(index, event.target.value)} required />
+            </label>
+            <button className={styles.iconButton} type="button" onClick={() => onRemove(index)} aria-label={`Remove ${title} item`}>
+              <Trash2 size={16} />
+            </button>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
