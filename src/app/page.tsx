@@ -45,13 +45,18 @@ import {
   readCachedValue,
   writeCachedValue,
 } from "@/lib/client-cache";
-import type {
-  HomeFeedComment,
-  HomeFeedPayload,
-  HomeFeedPost,
-  HomeFeedStory,
+import {
+  getInitials,
+  pickPostTone,
+  pickStoryTone,
+  relativeTime,
+  type HomeFeedComment,
+  type HomeFeedPayload,
+  type HomeFeedPost,
+  type HomeFeedStory,
 } from "@/lib/homefeed";
 import { sanitizeImageUpload } from "@/lib/image";
+import { resolveMediaUrl } from "@/lib/media-url";
 import { HOME_FEED_REALTIME_TABLES, subscribeToTables } from "@/lib/realtime";
 import { promptAndSubmitReport, type ReportTargetType } from "@/lib/reporting";
 import { takePrefetchedRouteData } from "@/lib/prefetched-route-data";
@@ -145,6 +150,166 @@ type HomeFeedTopic = {
   title: string;
   postCount: number;
 };
+
+type LiveFeedStatus = "connecting" | "live" | "reconnecting";
+
+function getLiveFeedStatusLabel(status: LiveFeedStatus) {
+  if (status === "live") return "Live updates on";
+  if (status === "reconnecting") return "Reconnecting live feed";
+  return "Connecting live feed";
+}
+
+type HomeFeedProfileRelation = {
+  username: string | null;
+  display_name: string | null;
+  avatar_url?: string | null;
+};
+
+type HomeFeedCommentRow = {
+  id: string;
+  content: string;
+  author_id: string | null;
+  parent_id: string | null;
+  created_at?: string | null;
+  profiles: HomeFeedProfileRelation | HomeFeedProfileRelation[] | null;
+};
+
+type HomeFeedVoteRow = {
+  user_id: string | null;
+  vote: number | null;
+};
+
+type HomeFeedPostRow = {
+  id: string;
+  author_id: string | null;
+  title: string | null;
+  content: string | null;
+  media_url: string | null;
+  post_type: string | null;
+  created_at: string | null;
+  expires_at?: string | null;
+  profiles: HomeFeedProfileRelation | HomeFeedProfileRelation[] | null;
+  comments?: HomeFeedCommentRow[] | null;
+  post_votes?: HomeFeedVoteRow[] | null;
+};
+
+function firstRelation<T>(value: T | T[] | null | undefined) {
+  return Array.isArray(value) ? (value[0] ?? null) : (value ?? null);
+}
+
+function homeFeedName(profile: HomeFeedProfileRelation | null) {
+  return (
+    profile?.display_name?.trim() ||
+    profile?.username ||
+    "Community member"
+  );
+}
+
+function mapClientFeedPost(
+  post: HomeFeedPostRow,
+  index: number,
+  viewerId: string | null,
+): HomeFeedPost {
+  const authorProfile = firstRelation(post.profiles);
+  const author = homeFeedName(authorProfile);
+  const votes = Array.isArray(post.post_votes) ? post.post_votes : [];
+  const comments = Array.isArray(post.comments) ? post.comments : [];
+
+  return {
+    id: post.id,
+    author,
+    fallback: getInitials(author),
+    posted: relativeTime(post.created_at),
+    text:
+      [post.title?.trim(), post.content?.trim()].filter(Boolean).join("\n") ||
+      "Shared an update",
+    mediaUrl: resolveMediaUrl(post.media_url),
+    postType: post.post_type === "image" ? "image" : "text",
+    likes: votes.filter((vote) => (vote.vote ?? 0) > 0).length,
+    comments: comments
+      .slice()
+      .sort(
+        (firstComment, secondComment) =>
+          new Date(firstComment.created_at ?? 0).getTime() -
+          new Date(secondComment.created_at ?? 0).getTime(),
+      )
+      .map((comment) => {
+        const commentProfile = firstRelation(comment.profiles);
+        const commentAuthorName = homeFeedName(commentProfile);
+        return {
+          id: comment.id,
+          content: comment.content,
+          authorId: comment.author_id ?? null,
+          authorName: commentAuthorName,
+          authorFallback: getInitials(commentAuthorName),
+          authorAvatarUrl: commentProfile?.avatar_url ?? null,
+          parentId: comment.parent_id ?? null,
+        };
+      }),
+    likedByViewer: viewerId
+      ? votes.some((vote) => vote.user_id === viewerId && (vote.vote ?? 0) > 0)
+      : false,
+    tone: pickPostTone(index),
+    authorId: post.author_id ?? null,
+  };
+}
+
+async function loadHomeFeedViaSupabase(
+  viewerId: string | null,
+): Promise<HomeFeedPayload> {
+  const now = new Date();
+
+  const postsResult = await supabase
+    .from("posts")
+    .select(
+      "id,author_id,title,content,media_url,post_type,created_at,profiles(username,display_name),comments(id,content,author_id,parent_id,created_at,profiles(username,display_name,avatar_url)),post_votes(user_id,vote)",
+    )
+    .neq("post_type", "story")
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  if (postsResult.error) throw postsResult.error;
+
+  const storiesResult = await supabase
+    .from("posts")
+    .select(
+      "id,author_id,title,media_url,created_at,profiles(username,display_name)",
+    )
+    .eq("post_type", "story")
+    .not("author_id", "is", null)
+    .not("media_url", "is", null)
+    .gt("expires_at", now.toISOString())
+    .order("created_at", { ascending: true })
+    .limit(20);
+
+  if (storiesResult.error) throw storiesResult.error;
+
+  const stories = ((storiesResult.data ?? []) as HomeFeedPostRow[]).map(
+    (post, index) => {
+      const profile = firstRelation(post.profiles);
+      const name = homeFeedName(profile);
+      const createdAt = post.created_at ?? now.toISOString();
+
+      return {
+        id: `${post.author_id!}-${post.id}`,
+        postId: post.id,
+        authorId: post.author_id!,
+        name,
+        fallback: getInitials(name),
+        tone: pickStoryTone(index),
+        imageUrl: resolveMediaUrl(post.media_url),
+        posted: relativeTime(createdAt),
+        createdAt: new Date(createdAt).toISOString(),
+      };
+    },
+  );
+
+  const posts = ((postsResult.data ?? []) as HomeFeedPostRow[]).map(
+    (post, index) => mapClientFeedPost(post, index, viewerId),
+  );
+
+  return { stories, posts, viewerId };
+}
 
 const defaultOverview: HomeFeedOverview = {
   members: null,
@@ -345,6 +510,11 @@ export default function HomePage() {
   const [isLoadingFeed, setLoadingFeed] = useState(
     () => !prefetchedFeed && !cachedFeed,
   );
+  const [liveFeedStatus, setLiveFeedStatus] =
+    useState<LiveFeedStatus>("connecting");
+  const [lastFeedSyncAt, setLastFeedSyncAt] = useState<number | null>(() =>
+    prefetchedFeed || cachedFeed ? Date.now() : null,
+  );
   const [openPostMenuId, setOpenPostMenuId] = useState<string | null>(null);
   const [editingPost, setEditingPost] = useState<HomeFeedPost | null>(null);
   const [editTitle, setEditTitle] = useState("");
@@ -387,6 +557,7 @@ export default function HomePage() {
   const storyHoldStartedAtRef = useRef<number | null>(null);
   const suppressStoryTapRef = useRef(false);
   const hasOpenedLinkedPostRef = useRef(false);
+  const feedRefreshInFlightRef = useRef(false);
 
   const loadHomeFeedSidebar = useCallback(async () => {
     const [
@@ -525,6 +696,7 @@ export default function HomePage() {
         (postContent.trim().length > 0 || Boolean(postImagePath));
 
   const postPreview = postContent;
+  const liveFeedStatusLabel = getLiveFeedStatusLabel(liveFeedStatus);
 
   const getAuthHeaders = async (options?: {
     includeJsonContentType?: boolean;
@@ -536,33 +708,36 @@ export default function HomePage() {
 
     const { data } = await supabase.auth.getSession();
     const accessToken = data.session?.access_token;
+    const viewerId = data.session?.user?.id ?? null;
     if (accessToken) {
       headers.Authorization = `Bearer ${accessToken}`;
     }
 
-    return { headers, hasAuthToken: Boolean(accessToken) };
+    return { headers, hasAuthToken: Boolean(accessToken), viewerId };
   };
 
   const loadFeed = useCallback(
     async (options?: { showSpinner?: boolean; attempt?: number }) => {
+      if (feedRefreshInFlightRef.current && !options?.showSpinner) return;
+
+      feedRefreshInFlightRef.current = true;
       if (options?.showSpinner) setLoadingFeed(true);
+      let fallbackViewerId: string | null = null;
       try {
         const attempt = options?.attempt ?? 0;
-        const { headers, hasAuthToken } = await getAuthHeaders();
-        if (!hasAuthToken) {
-          if (attempt < 6) {
-            window.setTimeout(() => {
-              void loadFeed({ ...options, attempt: attempt + 1 });
-            }, 150);
-          } else {
-            setLoadingFeed(false);
-          }
+        const { headers, hasAuthToken, viewerId } = await getAuthHeaders();
+        fallbackViewerId = viewerId;
+
+        if (!hasAuthToken && attempt < 6) {
+          window.setTimeout(() => {
+            void loadFeed({ ...options, attempt: attempt + 1 });
+          }, 150);
           return;
         }
 
         const response = await fetch("/api/homefeed", {
           cache: "no-store",
-          headers,
+          headers: hasAuthToken ? headers : {},
         });
 
         if (!response.ok) {
@@ -574,9 +749,20 @@ export default function HomePage() {
         );
         writeCachedValue(homeFeedCacheKey, data);
         setFeed(data);
+        setLastFeedSyncAt(Date.now());
       } catch {
-        // Keep showing cached data when available. If neither cache nor network works, page keeps current state.
+        try {
+          const fallbackData = normalizeFeedPayload(
+            await loadHomeFeedViaSupabase(fallbackViewerId),
+          );
+          writeCachedValue(homeFeedCacheKey, fallbackData);
+          setFeed(fallbackData);
+          setLastFeedSyncAt(Date.now());
+        } catch {
+          // Keep showing cached data when available. If neither cache nor network works, page keeps current state.
+        }
       } finally {
+        feedRefreshInFlightRef.current = false;
         setLoadingFeed(false);
       }
     },
@@ -677,15 +863,42 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
+    setLiveFeedStatus("connecting");
+
     return subscribeToTables({
       channelName: "homefeed-live-updates",
       client: supabase,
       tables: HOME_FEED_REALTIME_TABLES,
       onChange: () => {
+        setLiveFeedStatus("live");
         void loadFeed();
       },
-      debounceMs: 500,
+      onStatus: (status) => {
+        if (status === "SUBSCRIBED") {
+          setLiveFeedStatus("live");
+          return;
+        }
+
+        setLiveFeedStatus("reconnecting");
+        void loadFeed();
+      },
+      debounceMs: 250,
     });
+  }, [loadFeed]);
+
+  useEffect(() => {
+    const refreshIfVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      void loadFeed();
+    };
+
+    const pollTimer = window.setInterval(refreshIfVisible, 15_000);
+    document.addEventListener("visibilitychange", refreshIfVisible);
+
+    return () => {
+      window.clearInterval(pollTimer);
+      document.removeEventListener("visibilitychange", refreshIfVisible);
+    };
   }, [loadFeed]);
 
   const publishPost = async () => {
@@ -1263,6 +1476,27 @@ export default function HomePage() {
               </div>
               <div className={styles.feedHeaderActions}>
                 <div
+                  className="inline-flex items-center gap-2 rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--card))] px-3 py-2 text-xs font-semibold text-[rgb(var(--muted))]"
+                  title={
+                    lastFeedSyncAt
+                      ? `Last synced ${new Date(lastFeedSyncAt).toLocaleTimeString()}`
+                      : "Waiting for the first feed sync"
+                  }
+                  aria-live="polite"
+                >
+                  <span
+                    className={`h-2 w-2 rounded-full ${
+                      liveFeedStatus === "live"
+                        ? "bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.85)]"
+                        : liveFeedStatus === "reconnecting"
+                          ? "bg-amber-400"
+                          : "bg-sky-400"
+                    }`}
+                    aria-hidden="true"
+                  />
+                  {liveFeedStatusLabel}
+                </div>
+                <div
                   className={styles.feedTabSwitch}
                   aria-label="Home feed filter"
                 >
@@ -1336,6 +1570,15 @@ export default function HomePage() {
                   </Card>
                 ) : null}
 
+                {!isLoadingFeed && posts.length === 0 ? (
+                  <Card className="border-0 bg-[rgb(var(--card))]">
+                    <CardContent className="p-5 text-sm text-[rgb(var(--muted))]">
+                      No home feed posts are available yet. Try refreshing in a
+                      moment, or create the first community post.
+                    </CardContent>
+                  </Card>
+                ) : null}
+                
                 {posts.map((post: HomeFeedPost) => {
                   const caption = post.text.trim();
                   const isCaptionExpanded = Boolean(

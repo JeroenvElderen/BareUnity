@@ -1,10 +1,17 @@
 import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 
+type RealtimeSubscriptionStatus =
+  | "SUBSCRIBED"
+  | "TIMED_OUT"
+  | "CHANNEL_ERROR"
+  | "CLOSED";
+
 type SubscribeToTablesArgs = {
   channelName: string;
   client: SupabaseClient;
   tables: readonly string[];
   onChange: () => void;
+  onStatus?: (status: RealtimeSubscriptionStatus) => void;
   debounceMs?: number;
 };
 
@@ -36,7 +43,9 @@ export function subscribeToTables(args: SubscribeToTablesArgs): TeardownRealtime
     );
   });
 
-  void channel.subscribe();
+  void channel.subscribe((status) => {
+    args.onStatus?.(status as RealtimeSubscriptionStatus);
+  });
 
   return () => {
     if (refreshTimer) {

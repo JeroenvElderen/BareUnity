@@ -69,7 +69,7 @@ export async function GET(request: Request) {
     return NextResponse.json(payload);
   } catch (error) {
     console.error("Unable to load home feed", error);
-    return NextResponse.json(fallbackFeed);
+    return NextResponse.json(fallbackFeed, { status: 500 });
   }
 }
 

@@ -168,25 +168,6 @@ export default async function CountryDiscoveryPage({
                 </div>
               </div>
             </Card>
-
-            <section className={styles.beachSection}>
-              <div className={styles.sectionHeading}>
-                <h2>Top Naturist Beaches</h2>
-                <Link href="/explore">View all beaches →</Link>
-              </div>
-              <div className={styles.beachGrid}>
-                {beaches.map((beach) => (
-                  <article className={styles.beachCard} key={beach.name}>
-                    <Image src={beach.image} alt={beach.name} width={420} height={240} />
-                    <div>
-                      <h3>{beach.name}</h3>
-                      <p>{beach.region}</p>
-                      <small><Star size={13} /> {beach.rating} · {beach.summary}</small>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </section>
           </div>
 
           <div className={styles.middleColumn}>
@@ -278,6 +259,24 @@ export default async function CountryDiscoveryPage({
             </div>
           </aside>
         </section>
+        <section className={styles.beachSection}>
+            <div className={styles.sectionHeading}>
+              <h2>Top Naturist Beaches</h2>
+              <Link href="/explore">View all beaches →</Link>
+            </div>
+            <div className={styles.beachGrid}>
+              {beaches.map((beach) => (
+                <article className={styles.beachCard} key={beach.name}>
+                  <Image src={beach.image} alt={beach.name} width={420} height={240} />
+                  <div>
+                    <h3>{beach.name}</h3>
+                    <p>{beach.region}</p>
+                    <small><Star size={13} /> {beach.rating} · {beach.summary}</small>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
       </section>
     </main>
   );
