@@ -212,7 +212,7 @@ function validateRegistrationInput(body: RegisterRequestBody) {
     normalizeBoolean(body.isPolicyConfirmed) &&
     normalizeBoolean(body.isPhotoRuleConfirmed);
 
-  if (accountAccess !== "viewOnly" && !confirmationsAccepted) {
+  if (accountAccess === "verified" && !confirmationsAccepted) {
     return {
       error:
         "Confirm age, consent-first behavior, photo rules, and policy agreement.",

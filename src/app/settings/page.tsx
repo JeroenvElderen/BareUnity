@@ -484,6 +484,15 @@ export default function SettingsPage() {
     };
   }, [profileSecurityCacheKey]);
 
+  useEffect(() => {
+    if (!verificationSnapshot) return;
+    if (window.location.hash !== "#verification") return;
+
+    document
+      .getElementById("verification")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [verificationSnapshot]);
+  
   const activeSection = useMemo(
     () =>
       settingSections.find((section) => section.key === activeSectionKey) ??

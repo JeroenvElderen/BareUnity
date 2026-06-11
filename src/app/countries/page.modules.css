@@ -1,0 +1,105 @@
+.countriesMain {
+  min-height: 100dvh;
+}
+
+.pageShell {
+  flex: 1;
+  width: 100%;
+  padding: clamp(1rem, 3vw, 2rem);
+  color: rgb(var(--text));
+}
+
+.heroPanel {
+  overflow: hidden;
+  border: 1px solid rgb(var(--border));
+  border-radius: 1.35rem;
+  background:
+    radial-gradient(circle at 85% 20%, rgb(var(--accent) / 0.24), transparent 18rem),
+    linear-gradient(135deg, rgb(var(--brand) / 0.18), rgb(var(--card) / 0.82));
+  padding: clamp(1.25rem, 4vw, 3rem);
+  box-shadow: var(--shadow-card);
+}
+
+.heroPanel p {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0 0 1rem;
+  color: rgb(var(--brand));
+  font-weight: 900;
+}
+
+.heroPanel h1 {
+  max-width: 62rem;
+  margin: 0;
+  color: rgb(var(--text-strong));
+  font-size: clamp(2.2rem, 6vw, 5rem);
+  line-height: 0.98;
+  letter-spacing: -0.07em;
+}
+
+.heroPanel span {
+  display: block;
+  max-width: 44rem;
+  margin-top: 1rem;
+  color: rgb(var(--muted));
+  font-size: 1.05rem;
+  line-height: 1.6;
+}
+
+.countryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.countryCard {
+  overflow: hidden;
+  border: 1px solid rgb(var(--border));
+  border-radius: 1.1rem;
+  background: rgb(var(--card) / 0.88);
+  color: inherit;
+  text-decoration: none;
+  box-shadow: var(--shadow-card);
+}
+
+.countryCard img {
+  width: 100%;
+  height: 15rem;
+  object-fit: cover;
+}
+
+.countryCard div {
+  padding: 1rem;
+}
+
+.countryCard p,
+.countryCard span {
+  margin: 0;
+  color: rgb(var(--muted));
+}
+
+.countryCard p {
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.countryCard h2 {
+  margin: 0.3rem 0 0.45rem;
+  color: rgb(var(--text-strong));
+  font-size: 1.7rem;
+}
+
+.countryCard span {
+  display: block;
+  line-height: 1.5;
+}
+
+.countryCard strong {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 1rem;
+  color: rgb(var(--brand));
+}

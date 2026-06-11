@@ -19,6 +19,7 @@ import {
   Settings,
   ScrollText,
   ShieldCheck,
+  ShieldPlus,
   SunMoon,
   Users,
   X,
@@ -118,6 +119,11 @@ const discussionRooms = [
   { name: "Video Room", href: "/video-room" },
 ] as const;
 
+type VerificationApplySnapshot = {
+  eligible?: boolean;
+  status?: string;
+};
+
 const adminItems: readonly NavLinkItem[] = [
   { icon: ShieldCheck, label: "Overview", href: "/admin" },
   { icon: ClipboardCheck, label: "Applications", href: "/admin/applications" },
@@ -142,6 +148,8 @@ export function AppSidebar() {
   const hasSeenInitialNotificationsRef = useRef(false);
   const hasRequestedSystemNotificationPermissionRef = useRef(false);
   const [viewerId, setViewerId] = useState<string | null>(null);
+  const [canApplyForVerification, setCanApplyForVerification] =
+    useState(false);
   const [generalChannelId, setGeneralChannelId] = useState<string | null>(null);
   const [colorMode, setColorMode] = useState<ColorModePreference>(() => {
     if (typeof window === "undefined") return "system";
@@ -203,6 +211,7 @@ export function AppSidebar() {
       const email = data.user?.email?.toLowerCase() ?? "";
       setActiveToasts([]);
       setViewerId(data.user?.id ?? null);
+      setCanApplyForVerification(false);
       setIsAdmin(isPlatformAdminEmail(email));
     });
 
@@ -212,6 +221,7 @@ export function AppSidebar() {
       const email = session?.user.email?.toLowerCase() ?? "";
       setActiveToasts([]);
       setViewerId(session?.user.id ?? null);
+      setCanApplyForVerification(false);
       setIsAdmin(isPlatformAdminEmail(email));
     });
 
@@ -229,6 +239,45 @@ export function AppSidebar() {
     );
     clearNotifications();
   }, [clearNotifications, setNotificationReadStorageKey, viewerId]);
+
+  useEffect(() => {
+    if (!viewerId) return;
+
+    let isMounted = true;
+
+    const loadVerificationEligibility = async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        const accessToken = data.session?.access_token;
+        if (!accessToken) {
+          if (isMounted) setCanApplyForVerification(false);
+          return;
+        }
+
+        const response = await fetch("/api/verification/apply", {
+          cache: "no-store",
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+
+        if (!response.ok) {
+          if (isMounted) setCanApplyForVerification(false);
+          return;
+        }
+
+        const payload = (await response.json()) as VerificationApplySnapshot;
+        if (isMounted) setCanApplyForVerification(payload.eligible === true);
+      } catch (error) {
+        console.debug("Could not load verification eligibility", error);
+        if (isMounted) setCanApplyForVerification(false);
+      }
+    };
+
+    void loadVerificationEligibility();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [viewerId]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -847,6 +896,20 @@ export function AppSidebar() {
                   </Link>
                 );
               })}
+
+              {canApplyForVerification ? (
+                <Link
+                  href="/settings#verification"
+                  className={`${styles.navItem} ${styles.verificationCta}`}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <span className={styles.itemLeft}>
+                    <ShieldPlus size={18} aria-hidden />
+                    <span>Get verified</span>
+                  </span>
+                  <span className={styles.verificationCtaBadge}>ID</span>
+                </Link>
+              ) : null}
 
               {isAdmin ? (
                 <div className={styles.dropdown}>

@@ -154,6 +154,38 @@
   padding: 0.28rem 0.42rem;
 }
 
+.verificationCta {
+  margin: 0.4rem 0 0.45rem;
+  border-color: rgb(var(--brand) / 0.48);
+  background: linear-gradient(
+    135deg,
+    rgb(var(--brand) / 0.18),
+    rgb(var(--accent-soft) / 0.34)
+  );
+  box-shadow: 0 10px 24px rgb(var(--brand) / 0.12);
+}
+
+.verificationCta:hover {
+  border-color: rgb(var(--brand) / 0.68);
+  background: linear-gradient(
+    135deg,
+    rgb(var(--brand) / 0.24),
+    rgb(var(--accent-soft) / 0.42)
+  );
+}
+
+.verificationCtaBadge {
+  border: 1px solid rgb(var(--brand) / 0.38);
+  border-radius: 999px;
+  padding: 0.22rem 0.42rem;
+  background: rgb(var(--card) / 0.72);
+  color: rgb(var(--brand-2));
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .dropdownTrigger {
   width: 100%;
   background: transparent;
