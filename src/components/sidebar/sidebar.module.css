@@ -193,6 +193,8 @@
 }
 
 .dropdownList {
+  max-height: min(20rem, 52vh);
+  overflow-y: auto;
   padding: 0.1rem 0 0.45rem 2rem;
 }
 
@@ -200,6 +202,12 @@
   font-size: 0.85rem;
   margin-bottom: 0.2rem;
   padding-block: 0.5rem;
+}
+
+.countryNavLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
 }
 
 .chevronOpen {

@@ -56,10 +56,19 @@ type NavLinkItem = NavItem & {
   href: string;
 };
 
+type CountryNavItem = {
+  slug: string;
+  name: string;
+  flag?: string | null;
+};
+
+const fallbackCountryNavItems: readonly CountryNavItem[] = [
+  { slug: "spain", name: "Spain", flag: "🇪🇸" },
+];
+
 const primaryItems: readonly NavLinkItem[] = [
   { icon: Home, label: "Home", href: "/" },
   { icon: Compass, label: "Explore", href: "/explore" },
-  { icon: Globe2, label: "Countries", href: "/countries/spain" },
   { icon: Image, label: "Gallery", href: "/gallery" },
 ];
 
@@ -135,8 +144,28 @@ const adminItems: readonly NavLinkItem[] = [
 ];
 
 function isActiveNavItem(pathname: string | null, href: string) {
-  if (href === "/countries/spain") return pathname?.startsWith("/countries") ?? false;
   return pathname === href;
+}
+
+function sanitizeCountryNavItems(items: CountryNavItem[]) {
+  const seenSlugs = new Set<string>();
+
+  return items
+    .map((item) => ({
+      slug: item.slug.trim().toLowerCase(),
+      name: item.name.trim(),
+      flag: item.flag?.trim() || null,
+    }))
+    .filter((item) => {
+      if (!item.slug || !item.name || seenSlugs.has(item.slug)) return false;
+      seenSlugs.add(item.slug);
+      return true;
+    })
+    .sort((firstCountry, secondCountry) =>
+      firstCountry.name.localeCompare(secondCountry.name, "en", {
+        sensitivity: "base",
+      }),
+    );
 }
 
 export function AppSidebar() {
@@ -145,6 +174,11 @@ export function AppSidebar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isRoomsOpen, setIsRoomsOpen] = useState(
     pathname === "/discussion" || pathname === "/video-room",
+  );
+  const isCountriesSection = pathname?.startsWith("/countries") ?? false;
+  const [isCountriesOpen, setIsCountriesOpen] = useState(isCountriesSection);
+  const [countryNavItems, setCountryNavItems] = useState<CountryNavItem[]>(
+    () => [...fallbackCountryNavItems],
   );
   const [isBookingsOpen, setIsBookingsOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -155,8 +189,7 @@ export function AppSidebar() {
   const hasSeenInitialNotificationsRef = useRef(false);
   const hasRequestedSystemNotificationPermissionRef = useRef(false);
   const [viewerId, setViewerId] = useState<string | null>(null);
-  const [canApplyForVerification, setCanApplyForVerification] =
-    useState(false);
+  const [canApplyForVerification, setCanApplyForVerification] = useState(false);
   const [generalChannelId, setGeneralChannelId] = useState<string | null>(null);
   const [colorMode, setColorMode] = useState<ColorModePreference>(() => {
     if (typeof window === "undefined") return "system";
@@ -209,6 +242,45 @@ export function AppSidebar() {
     router.replace("/welcome");
     router.refresh();
   };
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadCountryNavItems = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("country_discovery_profiles")
+          .select("slug, name, flag")
+          .order("name", { ascending: true });
+
+        if (error) throw error;
+
+        const countries = sanitizeCountryNavItems(
+          ((data ?? []) as CountryNavItem[]).map((country) => ({
+            slug: country.slug,
+            name: country.name,
+            flag: country.flag,
+          })),
+        );
+
+        if (isMounted && countries.length > 0) {
+          setCountryNavItems(countries);
+        }
+      } catch (error) {
+        console.debug("Could not load country navigation items", error);
+      }
+    };
+
+    void loadCountryNavItems();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isCountriesSection) setIsCountriesOpen(true);
+  }, [isCountriesSection]);
 
   useEffect(() => {
     let isMounted = true;
@@ -801,6 +873,57 @@ export function AppSidebar() {
                   {badge ? <span className={styles.badge}>{badge}</span> : null}
                 </Link>
               ))}
+              <div className={styles.dropdown}>
+                <button
+                  type="button"
+                  className={`${styles.navItem} ${styles.dropdownTrigger} ${isCountriesSection ? styles.active : ""}`}
+                  onClick={() => setIsCountriesOpen((current) => !current)}
+                  aria-expanded={isCountriesOpen || isCountriesSection}
+                >
+                  <span className={styles.itemLeft}>
+                    <Globe2 size={18} aria-hidden />
+                    <span>Countries</span>
+                  </span>
+                  <ChevronDown
+                    className={
+                      isCountriesOpen || isCountriesSection
+                        ? styles.chevronOpen
+                        : ""
+                    }
+                    size={16}
+                    aria-hidden
+                  />
+                </button>
+
+                {(isCountriesOpen || isCountriesSection) && (
+                  <div className={styles.dropdownList}>
+                    <Link
+                      href="/countries"
+                      className={`${styles.navItem} ${styles.dropdownItem} ${pathname === "/countries" ? styles.active : ""}`}
+                    >
+                      All countries
+                    </Link>
+                    {countryNavItems.map((country) => {
+                      const href = `/countries/${country.slug}`;
+
+                      return (
+                        <Link
+                          key={country.slug}
+                          href={href}
+                          className={`${styles.navItem} ${styles.dropdownItem} ${pathname === href ? styles.active : ""}`}
+                        >
+                          <span className={styles.countryNavLabel}>
+                            {country.flag ? (
+                              <span aria-hidden>{country.flag}</span>
+                            ) : null}
+                            <span>{country.name}</span>
+                          </span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
               <div className={styles.dropdown}>
                 <button
                   type="button"
