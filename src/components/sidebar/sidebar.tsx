@@ -11,6 +11,7 @@ import {
   ClipboardCheck,
   Compass,
   Flag,
+  Globe2,
   CircleUser,
   Home,
   Image,
@@ -58,6 +59,7 @@ type NavLinkItem = NavItem & {
 const primaryItems: readonly NavLinkItem[] = [
   { icon: Home, label: "Home", href: "/" },
   { icon: Compass, label: "Explore", href: "/explore" },
+  { icon: Globe2, label: "Countries", href: "/countries/spain" },
   { icon: Image, label: "Gallery", href: "/gallery" },
 ];
 
@@ -131,6 +133,11 @@ const adminItems: readonly NavLinkItem[] = [
   { icon: CircleUser, label: "Users", href: "/admin/users" },
   { icon: Building2, label: "Stays", href: "/admin/stays" },
 ];
+
+function isActiveNavItem(pathname: string | null, href: string) {
+  if (href === "/countries/spain") return pathname?.startsWith("/countries") ?? false;
+  return pathname === href;
+}
 
 export function AppSidebar() {
   const pathname = usePathname();
@@ -785,7 +792,7 @@ export function AppSidebar() {
                 <Link
                   key={label}
                   href={href}
-                  className={`${styles.navItem} ${pathname === href ? styles.active : ""}`}
+                  className={`${styles.navItem} ${isActiveNavItem(pathname, href) ? styles.active : ""}`}
                 >
                   <span className={styles.itemLeft}>
                     <Icon size={18} aria-hidden />
