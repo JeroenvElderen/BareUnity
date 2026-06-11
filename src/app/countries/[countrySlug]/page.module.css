@@ -733,3 +733,123 @@
     grid-template-columns: 1fr;
   }
 }
+.updateRequestWrap {
+  position: relative;
+}
+
+.updateRequestButton,
+.updateRequestForm button {
+  cursor: pointer;
+}
+
+.updateRequestPanel {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 0.65rem);
+  z-index: 8;
+  width: min(26rem, calc(100vw - 2rem));
+  border: 1px solid rgb(var(--border) / 0.75);
+  border-radius: 1rem;
+  background: rgb(var(--card));
+  color: rgb(var(--text));
+  box-shadow: 0 24px 70px rgb(9 44 46 / 0.28);
+  padding: 1rem;
+}
+
+.updateRequestHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+
+.updateRequestHeader strong {
+  color: rgb(var(--text-strong));
+}
+
+.updateRequestHeader p {
+  margin: 0.25rem 0 0;
+  color: rgb(var(--muted));
+  font-size: 0.83rem;
+  line-height: 1.45;
+}
+
+.updateRequestHeader button {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid rgb(var(--border) / 0.65);
+  border-radius: 999px;
+  background: rgb(var(--bg-soft));
+  color: rgb(var(--text));
+  cursor: pointer;
+}
+
+.updateRequestForm {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.updateRequestForm label {
+  display: grid;
+  gap: 0.35rem;
+  color: rgb(var(--text));
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.updateRequestForm input,
+.updateRequestForm select,
+.updateRequestForm textarea {
+  width: 100%;
+  border: 1px solid rgb(var(--border) / 0.72);
+  border-radius: 0.75rem;
+  background: rgb(var(--bg));
+  color: rgb(var(--text));
+  padding: 0.65rem 0.72rem;
+  font: inherit;
+}
+
+.updateRequestForm textarea {
+  resize: vertical;
+}
+
+.updateRequestForm button {
+  width: 100%;
+  border-color: transparent;
+  background: linear-gradient(135deg, rgb(var(--brand)), rgb(var(--brand-2)));
+  color: white;
+}
+
+.updateSuccess,
+.updateError {
+  margin: 0;
+  border-radius: 0.75rem;
+  padding: 0.65rem 0.75rem;
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.updateSuccess {
+  background: rgb(var(--success) / 0.13);
+  color: rgb(var(--success));
+}
+
+.updateError {
+  background: rgb(var(--error) / 0.13);
+  color: rgb(var(--error));
+}
+
+@media (max-width: 720px) {
+  .updateRequestWrap,
+  .updateRequestButton {
+    width: 100%;
+  }
+
+  .updateRequestPanel {
+    left: 50%;
+    transform: translateX(-50%);
+  }
+}

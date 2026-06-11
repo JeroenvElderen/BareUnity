@@ -30,6 +30,14 @@ const sections = [
     href: "/admin/users",
     cta: "Create users",
   },
+
+  {
+    title: "Country discovery manager",
+    description:
+      "Create and update country pages with legal guidance, quick stats, beaches, seasons, and community tips.",
+    href: "/admin/countries",
+    cta: "Edit countries",
+  },
   {
     title: "Stay listing manager",
     description:

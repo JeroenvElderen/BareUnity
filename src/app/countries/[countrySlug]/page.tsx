@@ -30,6 +30,7 @@ import { AppSidebar } from "@/components/sidebar/sidebar";
 import { getCountryDiscovery } from "@/lib/country-discovery";
 import layoutStyles from "../../page.module.css";
 import styles from "./page.module.css";
+import { CountryUpdateRequestButton } from "./country-update-request-button";
 
 type CountryDiscoveryPageProps = {
   params: Promise<{ countrySlug: string }>;
@@ -107,6 +108,10 @@ export default async function CountryDiscoveryPage({
             <div className={styles.heroActions}>
               <button type="button"><Heart size={16} /> Add to favorites</button>
               <button type="button"><Share2 size={16} /> Share</button>
+              <CountryUpdateRequestButton
+                countrySlug={country.slug}
+                countryName={country.name}
+              />
             </div>
           </div>
         </section>
