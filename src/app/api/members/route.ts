@@ -10,6 +10,7 @@ type MemberListItem = {
   bio: string | null;
   avatar_url: string | null;
   location: string | null;
+  is_verified: boolean;
 };
 
 export async function GET(request: Request) {
@@ -34,7 +35,30 @@ export async function GET(request: Request) {
       take: 120,
     });
 
-    const payload: MemberListItem[] = members.filter((member) => Boolean(member.username?.trim()));
+    const visibleMembers = members.filter((member) => Boolean(member.username?.trim()));
+    const accountSettings = await db.profile_settings.findMany({
+      where: {
+        user_id: {
+          in: visibleMembers.map((member) => member.id),
+        },
+      },
+      select: {
+        user_id: true,
+        onboarding_completed: true,
+        user_role: true,
+      },
+    });
+    const settingsByUserId = new Map(accountSettings.map((settings) => [settings.user_id, settings]));
+
+    const payload: MemberListItem[] = visibleMembers.map((member) => {
+      const settings = settingsByUserId.get(member.id);
+      const role = settings?.user_role?.trim().toLowerCase() ?? "";
+
+      return {
+        ...member,
+        is_verified: settings?.onboarding_completed === true && role !== "view_only",
+      };
+    });
 
     return NextResponse.json({ members: payload }, {
       headers: {

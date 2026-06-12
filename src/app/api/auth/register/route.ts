@@ -283,6 +283,64 @@ async function generateUniqueUsername(
   return `${base.slice(0, 19)}-${Math.floor(1000 + Math.random() * 9000)}`;
 }
 
+type TeamNaturistInviteRedemption = {
+  code_text?: string | null;
+  partner_name?: string | null;
+  username?: string | null;
+};
+
+class InviteRedemptionError extends Error {
+  status = 403;
+}
+
+async function redeemTeamNaturistInvite(
+  supabaseAdmin: SupabaseAdminClient,
+  inviteCode: string,
+  discordUsername: string,
+) {
+  const { data, error } = await supabaseAdmin.rpc(
+    "redeem_teamnaturist_invite",
+    {
+      p_code_text: inviteCode,
+      p_discord_username: discordUsername,
+    },
+  );
+
+  if (error) throw new Error(error.message);
+
+  const redemption = Array.isArray(data)
+    ? (data[0] as TeamNaturistInviteRedemption | undefined)
+    : (data as TeamNaturistInviteRedemption | null);
+
+  if (!redemption?.code_text || !redemption.username) {
+    throw new InviteRedemptionError(
+      "Invite code or Discord username is invalid or already used.",
+    );
+  }
+
+  return { username: redemption.username };
+}
+
+async function releaseTeamNaturistInviteRedemption(
+  supabaseAdmin: SupabaseAdminClient,
+  inviteCode: string,
+  discordUsername: string,
+) {
+  const { error } = await supabaseAdmin.rpc(
+    "release_teamnaturist_invite_redemption",
+    {
+      p_code_text: inviteCode,
+      p_discord_username: discordUsername,
+    },
+  );
+
+  if (error) {
+    console.error("Failed to release TeamNaturist invite redemption", {
+      error,
+    });
+  }
+}
+
 function isDuplicateAccountError(message: string) {
   return /already registered|already exists|duplicate|user already/i.test(
     message,
@@ -407,8 +465,19 @@ export async function POST(req: Request) {
   const supabaseAdmin = createSupabaseAdminClient();
   let userId: string | null = null;
   let idDocumentPath: string | null = null;
+  let redeemedTeamNaturistUsername: string | null = null;
 
   try {
+    if (validation.accountAccess === "invite") {
+      const redemption = await redeemTeamNaturistInvite(
+        supabaseAdmin,
+        validation.inviteCode,
+        validation.discordUsername,
+      );
+
+      redeemedTeamNaturistUsername = redemption.username;
+    }
+
     const username = await generateUniqueUsername(
       supabaseAdmin,
       validation.username,
@@ -438,6 +507,15 @@ export async function POST(req: Request) {
       });
 
     if (signUpError || !signUpData?.user || !signUpData.properties?.action_link) {
+      if (redeemedTeamNaturistUsername) {
+        await releaseTeamNaturistInviteRedemption(
+          supabaseAdmin,
+          validation.inviteCode,
+          redeemedTeamNaturistUsername,
+        );
+        redeemedTeamNaturistUsername = null;
+      }
+
       const message = signUpError?.message ?? "Could not create auth user.";
       return NextResponse.json(
         {
@@ -550,6 +628,14 @@ export async function POST(req: Request) {
         });
     }
 
+    if (redeemedTeamNaturistUsername) {
+      await releaseTeamNaturistInviteRedemption(
+        supabaseAdmin,
+        validation.inviteCode,
+        redeemedTeamNaturistUsername,
+      );
+    }
+
     await deletePartialSignup(supabaseAdmin, userId);
 
     if (error instanceof UploadValidationError) {
@@ -559,6 +645,13 @@ export async function POST(req: Request) {
       );
     }
 
+    if (error instanceof InviteRedemptionError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status },
+      );
+    }
+    
     console.error("Registration failed", error);
 
     return NextResponse.json(

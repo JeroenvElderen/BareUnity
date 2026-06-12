@@ -21,6 +21,7 @@ type MemberListItem = {
   bio: string | null;
   avatar_url: string | null;
   location: string | null;
+  is_verified?: boolean;
 };
 
 type MembersResponse = {
@@ -30,11 +31,79 @@ type MembersResponse = {
 const EMPTY_MEMBERS: MemberListItem[] = [];
 const MEMBERS_CACHE_MAX_AGE_MS = 1000 * 60 * 2;
 
+type MemberCardGroup = {
+  title: string;
+  description: string;
+  emptyMessage: string;
+  members: MemberListItem[];
+};
+
 function getInitials(value: string) {
   const words = value.trim().split(/\s+/).filter(Boolean);
   return words.slice(0, 2).map((word) => word[0]?.toUpperCase() ?? "").join("") || "BU";
 }
 
+function MemberCard({ member }: { member: MemberListItem }) {
+  const displayName = member.display_name?.trim() || member.username;
+  const fallback = getInitials(displayName);
+  const bio = member.bio?.trim() || "No bio yet.";
+
+  return (
+    <Link
+      href={`/members/${encodeURIComponent(member.username)}`}
+      className="rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))] p-3 transition-colors hover:bg-[rgb(var(--card))]"
+    >
+      <div className="flex items-center gap-3">
+        <Avatar
+          src={member.avatar_url ?? undefined}
+          alt={displayName}
+          fallback={fallback}
+          className="h-12 w-12 border border-[rgb(var(--border))]"
+        />
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold text-[rgb(var(--text-strong))]">{displayName}</p>
+          <p className="truncate text-xs text-[rgb(var(--muted))]">@{member.username}</p>
+        </div>
+      </div>
+
+      <p className="mt-2 line-clamp-2 text-xs text-[rgb(var(--muted))]">{bio}</p>
+
+      {member.location ? (
+        <p className="mt-2 text-[11px] font-medium uppercase tracking-[0.08em] text-[rgb(var(--muted))]">
+          {member.location}
+        </p>
+      ) : null}
+    </Link>
+  );
+}
+
+function MemberCardSection({ description, emptyMessage, members, title }: MemberCardGroup) {
+  return (
+    <section className="space-y-3">
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <h2 className="text-lg font-bold text-[rgb(var(--text-strong))]">{title}</h2>
+          <p className="text-sm text-[rgb(var(--muted))]">{description}</p>
+        </div>
+        <Badge className="bg-[rgb(var(--accent-soft))] text-[rgb(var(--text-strong))]">
+          {members.length.toLocaleString()}
+        </Badge>
+      </div>
+
+      {members.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-[rgb(var(--border))] p-3 text-sm text-[rgb(var(--muted))]">
+          {emptyMessage}
+        </p>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {members.map((member) => (
+            <MemberCard key={member.id} member={member} />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
 
 async function getMembers(accessToken: string): Promise<MemberListItem[]> {
   const response = await fetch("/api/members", {
@@ -63,7 +132,6 @@ export default function MembersDirectoryPage() {
     accessToken: null,
   });
 
-
   useEffect(() => {
     membersCountRef.current = members.length;
   }, [members.length]);
@@ -83,7 +151,7 @@ export default function MembersDirectoryPage() {
 
     try {
       const data = await loadCachedThenRefresh<MemberListItem[]>({
-        key: `members-directory:${sessionUser.id}:v2`,
+        key: `members-directory:${sessionUser.id}:v3`,
         maxAgeMs: MEMBERS_CACHE_MAX_AGE_MS,
         onCachedData: (cached) => {
           setMembers(cached);
@@ -135,6 +203,25 @@ export default function MembersDirectoryPage() {
     });
   }, [loadMembers, sessionContext.accessToken, sessionContext.user]);
 
+  const memberGroups = useMemo<MemberCardGroup[]>(() => {
+    const verifiedMembers = members.filter((member) => member.is_verified === true);
+    const guestMembers = members.filter((member) => member.is_verified !== true);
+
+    return [
+      {
+        title: "Verified cards",
+        description: "Members who have completed BareUnity verification.",
+        emptyMessage: "No verified members found yet.",
+        members: verifiedMembers,
+      },
+      {
+        title: "Guest cards",
+        description: "Members still browsing with guest or pending access.",
+        emptyMessage: "No guest cards found yet.",
+        members: guestMembers,
+      },
+    ];
+  }, [members]);
   const memberCount = useMemo(() => members.length.toLocaleString(), [members.length]);
 
   return (
@@ -149,7 +236,7 @@ export default function MembersDirectoryPage() {
                 Members
               </h1>
               <p className="mt-1 break-words text-base text-[rgb(var(--muted))] md:text-lg">
-                Discover verified BareUnity members and tap a card to open their profile.
+                Browse verified BareUnity cards first, with guest cards grouped below.
               </p>
               <div className="mt-2.5 flex flex-wrap gap-2">
                 <Badge className="bg-[rgb(var(--accent-soft))] text-[rgb(var(--text-strong))]">
@@ -164,48 +251,15 @@ export default function MembersDirectoryPage() {
               </section>
             ) : null}
 
-            <section className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-3.5 md:p-4 min-w-0">
+            <section className="space-y-5 rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-3.5 md:p-4 min-w-0">
               {isLoading ? (
                 <p className="text-sm text-[rgb(var(--muted))]">Loading members…</p>
               ) : members.length === 0 ? (
                 <p className="text-sm text-[rgb(var(--muted))]">No members found yet.</p>
               ) : (
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                  {members.map((member) => {
-                    const displayName = member.display_name?.trim() || member.username;
-                    const fallback = getInitials(displayName);
-                    const bio = member.bio?.trim() || "No bio yet.";
-
-                    return (
-                      <Link
-                        key={member.id}
-                        href={`/members/${encodeURIComponent(member.username)}`}
-                        className="rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))] p-3 transition-colors hover:bg-[rgb(var(--card))]"
-                      >
-                        <div className="flex items-center gap-3">
-                          <Avatar
-                            src={member.avatar_url ?? undefined}
-                            alt={displayName}
-                            fallback={fallback}
-                            className="h-12 w-12 border border-[rgb(var(--border))]"
-                          />
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-[rgb(var(--text-strong))]">{displayName}</p>
-                            <p className="truncate text-xs text-[rgb(var(--muted))]">@{member.username}</p>
-                          </div>
-                        </div>
-
-                        <p className="mt-2 line-clamp-2 text-xs text-[rgb(var(--muted))]">{bio}</p>
-
-                        {member.location ? (
-                          <p className="mt-2 text-[11px] font-medium uppercase tracking-[0.08em] text-[rgb(var(--muted))]">
-                            {member.location}
-                          </p>
-                        ) : null}
-                      </Link>
-                    );
-                  })}
-                </div>
+                memberGroups.map((group) => (
+                  <MemberCardSection key={group.title} {...group} />
+                ))
               )}
             </section>
           </CardContent>

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ChangeEvent, FormEvent, useState } from "react";
-import { Globe2, Plus, Save, Trash2 } from "lucide-react";
+import { ExternalLink, Globe2, Plus, Save, Search, Trash2 } from "lucide-react";
 
 import {
   COUNTRY_DISCOVERY_DATA,
@@ -50,6 +50,96 @@ type CountryFormState = Omit<
 };
 
 const sampleCountry = COUNTRY_DISCOVERY_DATA.spain;
+
+const lawResearchTopics = [
+  {
+    topic: "Public nudity and indecency",
+    summary:
+      "Research national and local rules for non-sexual public nudity, public order offences, disorderly conduct, and indecent exposure. Note whether enforcement differs by municipality or context.",
+  },
+  {
+    topic: "Official and tolerated naturist places",
+    summary:
+      "Find official naturist beaches, traditional nude bathing areas, resorts, clubs, spas, saunas, and places where nudity is tolerated by custom rather than written law.",
+  },
+  {
+    topic: "Photography, privacy, and consent",
+    summary:
+      "Check privacy, harassment, image-sharing, and consent rules that affect taking photos or videos around naturist spaces.",
+  },
+  {
+    topic: "Minors, family spaces, and safeguarding",
+    summary:
+      "Confirm any child-safeguarding, age-restricted venue, school/group, or family naturism rules that admins should summarize carefully.",
+  },
+  {
+    topic: "Camping, hiking, and outdoor recreation",
+    summary:
+      "Research whether nudity rules change for camping, hiking, boats, lakes, forests, national parks, and other outdoor recreation areas.",
+  },
+  {
+    topic: "Local enforcement and practical etiquette",
+    summary:
+      "Collect recent local guidance, tourist-board advice, beach signage, police/municipal notes, and community etiquette so the profile can separate legal facts from practical caution.",
+  },
+] satisfies Array<Omit<CountryLawRow, "status">>;
+
+type ResearchLink = {
+  label: string;
+  href: string;
+  description: string;
+};
+
+function slugifyCountryName(countryName: string) {
+  return countryName
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function createSearchUrl(query: string) {
+  return `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+}
+
+function getCountryResearchLinks(countryName: string): ResearchLink[] {
+  const country = countryName.trim() || "Sweden";
+
+  return [
+    {
+      label: "Public nudity law",
+      href: createSearchUrl(`${country} public nudity law naturism nudist legal`),
+      description: "Start with statutory public-order, indecency, and non-sexual nudity rules.",
+    },
+    {
+      label: "Official legal sources",
+      href: createSearchUrl(`${country} government public order indecent exposure nudity law`),
+      description: "Prioritize government, court, municipal, police, and tourist-board sources.",
+    },
+    {
+      label: "Naturist organizations",
+      href: createSearchUrl(`${country} naturist federation nude beach official advice`),
+      description: "Look for local naturist federation guidance and established club information.",
+    },
+    {
+      label: "Nude beaches and saunas",
+      href: createSearchUrl(`${country} nude beach naturist sauna rules`),
+      description: "Find named places, accepted customs, signage, and visitor expectations.",
+    },
+    {
+      label: "Photography privacy",
+      href: createSearchUrl(`${country} privacy photography consent beach law`),
+      description: "Check image capture, sharing, harassment, and consent rules for public places.",
+    },
+    {
+      label: "Recent enforcement/news",
+      href: createSearchUrl(`${country} nudity beach police fine naturist news`),
+      description: "Cross-check whether recent enforcement changes the practical risk level.",
+    },
+  ];
+}
 
 function recordToRows(record: Record<string, string>): KeyValueRow[] {
   return Object.entries(record).map(([key, value]) => ({ key, value }));
@@ -152,6 +242,9 @@ export default function AdminCountriesPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
   const [successSlug, setSuccessSlug] = useState("");
+  const [researchCountry, setResearchCountry] = useState(sampleCountry.name);
+
+  const researchLinks = getCountryResearchLinks(researchCountry || form.name);
 
   function updateField(event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
     const { name, value } = event.target;
@@ -213,6 +306,7 @@ export default function AdminCountriesPage() {
   }
 
   function startBlankCountry() {
+    setResearchCountry("");
     setForm((current) => ({
       ...fromCountry(sampleCountry),
       slug: "",
@@ -232,6 +326,51 @@ export default function AdminCountriesPage() {
     }));
     setError("");
     setSuccessSlug("");
+  }
+
+  function useResearchCountry() {
+    const countryName = researchCountry.trim();
+    if (!countryName) {
+      setError("Enter a country name first, for example Sweden.");
+      return;
+    }
+
+    setForm((current) => ({
+      ...current,
+      name: countryName,
+      slug: slugifyCountryName(countryName),
+      legalStatus: "Research required",
+      tags: Array.from(
+        new Set([
+          ...current.tags.filter(Boolean),
+          `${countryName} naturism`,
+          "Law research needed",
+          "Local source verification",
+        ]),
+      ),
+    }));
+    setError("");
+  }
+
+  function addLawResearchChecklist() {
+    const countryName = (researchCountry || form.name).trim();
+    if (!countryName) {
+      setError("Enter a country name before adding the law research checklist.");
+      return;
+    }
+
+    setForm((current) => ({
+      ...current,
+      name: countryName,
+      slug: slugifyCountryName(countryName),
+      legalStatus: "Research required",
+      laws: lawResearchTopics.map((law) => ({
+        ...law,
+        status: "caution",
+        summary: `${countryName}: ${law.summary}`,
+      })),
+    }));
+    setError("");
   }
 
   async function saveCountry(event: FormEvent<HTMLFormElement>) {
@@ -309,6 +448,48 @@ export default function AdminCountriesPage() {
           </p>
         ) : null}
 
+        <section className={styles.panel}>
+          <div className={styles.sectionHeader}>
+            <div>
+              <h2>Country law research assistant</h2>
+              <p>
+                Type a country such as Sweden to generate focused research links and a complete naturist-law checklist for the profile.
+              </p>
+            </div>
+            <Search className={styles.headerIcon} size={20} aria-hidden="true" />
+          </div>
+          <div className={styles.researchControls}>
+            <label>
+              Country to research
+              <input
+                value={researchCountry}
+                onChange={(event) => setResearchCountry(event.target.value)}
+                placeholder="Sweden"
+              />
+            </label>
+            <button className={styles.secondaryButton} type="button" onClick={useResearchCountry}>
+              Use in country fields
+            </button>
+            <button className={styles.smallButton} type="button" onClick={addLawResearchChecklist}>
+              <Plus size={14} /> Add law checklist
+            </button>
+          </div>
+          <div className={styles.researchGrid}>
+            {researchLinks.map((link) => (
+              <a className={styles.researchCard} href={link.href} target="_blank" rel="noreferrer" key={link.label}>
+                <span>
+                  <strong>{link.label}</strong>
+                  <small>{link.description}</small>
+                </span>
+                <ExternalLink size={16} aria-hidden="true" />
+              </a>
+            ))}
+          </div>
+          <p className={styles.researchNote}>
+            Tip: open the links, verify the information against official or reputable local sources, then paste the confirmed summaries into Naturist laws. This helper does not replace legal review.
+          </p>
+        </section>
+        
         <form className={styles.form} onSubmit={saveCountry}>
           <section className={styles.panel}>
             <h2>Core details</h2>

@@ -185,10 +185,190 @@
   position: relative;
   margin-top: 1rem;
   min-height: min(28rem, calc(100dvh - var(--feedback-safe-top) - var(--feedback-safe-bottom) - 13rem));
+  display: grid;
+  grid-template-columns: minmax(12rem, 0.9fr) minmax(0, 1.5fr);
+  gap: 0.8rem;
   overflow: hidden;
   border: 1px solid rgb(var(--border) / 0.66);
   border-radius: 24px;
   background: rgb(var(--card) / 0.42);
+}
+
+.ticketList {
+  display: flex;
+  min-width: 0;
+  max-height: inherit;
+  flex-direction: column;
+  gap: 0.55rem;
+  overflow-y: auto;
+  border-right: 1px solid rgb(var(--border) / 0.58);
+  padding: 0.7rem;
+}
+
+.ticketEmpty {
+  margin: 0;
+  color: rgb(var(--muted));
+  font-size: 0.9rem;
+  font-weight: 750;
+  line-height: 1.45;
+}
+
+.ticketButton {
+  display: grid;
+  gap: 0.38rem;
+  width: 100%;
+  border: 1px solid rgb(var(--border) / 0.66);
+  border-radius: 18px;
+  background: rgb(var(--bg-soft) / 0.62);
+  color: rgb(var(--text-strong));
+  padding: 0.75rem;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    transform 160ms ease;
+}
+
+.ticketButton:hover,
+.ticketButton[data-selected="true"] {
+  border-color: rgb(var(--brand-2) / 0.64);
+  background: rgb(var(--brand-2) / 0.12);
+  transform: translateY(-1px);
+}
+
+.ticketButton > span:not(.ticketTopline) {
+  display: -webkit-box;
+  overflow: hidden;
+  color: rgb(var(--text-strong));
+  font-size: 0.84rem;
+  font-weight: 760;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.ticketButton small {
+  color: rgb(var(--muted));
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.ticketTopline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem;
+}
+
+.ticketTopline strong {
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ticketTopline small {
+  border-radius: 999px;
+  background: rgb(var(--brand) / 0.12);
+  color: rgb(var(--brand-2));
+  padding: 0.16rem 0.42rem;
+  white-space: nowrap;
+}
+
+.threadPane {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.75rem;
+}
+
+.threadHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.8rem;
+  border-bottom: 1px solid rgb(var(--border) / 0.54);
+  color: rgb(var(--text-strong));
+  padding-bottom: 0.72rem;
+}
+
+.threadHeader div {
+  display: grid;
+  gap: 0.18rem;
+}
+
+.threadHeader span {
+  color: rgb(var(--muted));
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.threadScroll {
+  display: flex;
+  min-height: 10rem;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.65rem;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.chatBubble {
+  align-self: flex-start;
+  max-width: min(88%, 28rem);
+  margin: 0;
+  border: 1px solid rgb(var(--border) / 0.62);
+  border-radius: 18px 18px 18px 6px;
+  background: rgb(var(--bg-soft) / 0.74);
+  color: rgb(var(--text-strong));
+  padding: 0.72rem 0.82rem;
+}
+
+.chatBubble[data-author="member"] {
+  align-self: flex-end;
+  border-radius: 18px 18px 6px;
+  background: linear-gradient(135deg, rgb(var(--brand-2) / 0.18), rgb(var(--brand) / 0.12));
+}
+
+.chatBubble span,
+.chatBubble small {
+  display: block;
+  color: rgb(var(--muted));
+  font-size: 0.72rem;
+  font-weight: 850;
+}
+
+.chatBubble p {
+  margin: 0.3rem 0;
+  white-space: pre-wrap;
+  line-height: 1.45;
+}
+
+.replyForm {
+  display: grid;
+  gap: 0.65rem;
+  border-top: 1px solid rgb(var(--border) / 0.54);
+  padding-top: 0.75rem;
+}
+
+.replyTextarea {
+  width: 100%;
+  min-height: 5.25rem;
+  border: 1px solid rgb(var(--border) / 0.78);
+  border-radius: 18px;
+  background: rgb(var(--bg-soft) / 0.84);
+  color: rgb(var(--text-strong));
+  padding: 0.86rem;
+  resize: vertical;
+  line-height: 1.48;
+}
+
+.replyTextarea:focus {
+  border-color: rgb(var(--brand-2) / 0.82);
+  box-shadow: 0 0 0 4px rgb(var(--brand-2) / 0.12);
+  outline: none;
 }
 
 .form {
@@ -416,6 +596,17 @@
 
   .messagesPanel {
     min-height: min(30rem, calc(100dvh - var(--feedback-safe-top) - var(--feedback-safe-bottom) - 12rem));
+    grid-template-columns: 1fr;
+  }
+
+  .ticketList {
+    max-height: 13rem;
+    border-right: 0;
+    border-bottom: 1px solid rgb(var(--border) / 0.58);
+  }
+
+  .chatBubble {
+    max-width: 94%;
   }
 
   .topicGrid {
