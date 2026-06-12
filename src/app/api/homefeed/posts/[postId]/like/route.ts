@@ -92,7 +92,11 @@ export async function POST(
       },
     });
 
-    return NextResponse.json({ liked: false });
+    const likes = await db.post_votes.count({
+      where: { post_id: postId, vote: { gt: 0 } },
+    });
+
+    return NextResponse.json({ liked: false, likes });
   }
 
   await db.post_votes.upsert({
@@ -104,6 +108,7 @@ export async function POST(
     },
     update: {
       vote: 1,
+      updated_at: new Date(),
     },
     create: {
       post_id: postId,
@@ -112,5 +117,9 @@ export async function POST(
     },
   });
 
-  return NextResponse.json({ liked: true });
+  const likes = await db.post_votes.count({
+    where: { post_id: postId, vote: { gt: 0 } },
+  });
+
+  return NextResponse.json({ liked: true, likes });
 }
