@@ -237,30 +237,30 @@ const notAllowed = [
 
 const quickActions = [
   {
-    icon: Leaf,
-    title: "New Member?",
-    description: "Introduce yourself and get to know the community.",
-    href: "/members",
-    cta: "Meet members",
+    icon: Camera,
+    title: "Gallery",
+    description: "Review what good naturist sharing looks like in context.",
+    href: "/gallery",
+    cta: "Open gallery",
   },
   {
     icon: HeartHandshake,
-    title: "Choose Your Role",
-    description: "Set your experience level to connect better.",
-    href: "/settings",
-    cta: "Set your role",
+    title: "Discussion",
+    description: "Keep conversations respectful, practical, and non-sexual.",
+    href: "/discussion",
+    cta: "Join discussion",
   },
   {
     icon: ShieldCheck,
-    title: "Verified Naturist",
-    description: "Get verified to unlock more features and trust.",
+    title: "Verification",
+    description: "Build trust before accessing more community features.",
     href: "/verified",
-    cta: "Learn more",
+    cta: "Get verified",
   },
   {
-    icon: Sparkles,
-    title: "Partner Communities",
-    description: "Discover partner communities around the world.",
+    icon: Leaf,
+    title: "Explore",
+    description: "Check local etiquette and privacy before sharing places.",
     href: "/explore",
     cta: "Explore places",
   },
@@ -272,173 +272,220 @@ export default function RulesPage() {
       <AppSidebar />
 
       <section className={styles.page} aria-labelledby="rules-heading">
-        <section className={styles.hero}>
-          <div className={styles.heroContent}>
-            <p className={styles.kicker}>Our community</p>
+        <header className={styles.header}>
+          <div className={styles.headerCopy}>
+            <p className={styles.kicker}>Community standard</p>
             <h1 id="rules-heading">Rules &amp; Guidelines</h1>
-            <p>
-              These rules help us maintain a safe, respectful, and positive
-              space for naturists worldwide. By being here, you agree to
-              respect these guidelines and each other.
+            <p className={styles.lede}>
+              The member standard for keeping BareUnity adult-only,
+              consent-first, respectful, and clearly naturist.
             </p>
           </div>
 
-          <div className={styles.principleBar} aria-label="Community values">
-            {heroPrinciples.map((principle) => {
-              const Icon = principle.icon;
-
-              return (
-                <div key={principle.title} className={styles.principleItem}>
-                  <Icon size={30} aria-hidden />
-                  <div>
-                    <strong>{principle.title}</strong>
-                    <span>{principle.description}</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-
-        <div className={styles.contentGrid}>
-          <section className={styles.rulesColumn} aria-labelledby="community-rules-heading">
-            <div className={styles.sectionHeader}>
-              <p className={styles.kicker}>Read first</p>
-              <h2 id="community-rules-heading">Our Community Rules</h2>
+          <div className={styles.statusPanel} aria-label="Rules summary">
+            <div>
+              <strong>{communityRules.length}</strong>
+              <span>rules</span>
             </div>
+            <div>
+              <strong>18+</strong>
+              <span>adult only</span>
+            </div>
+            <div>
+              <strong>48h</strong>
+              <span>moderator replies</span>
+            </div>
+          </div>
+        </header>
 
-            <div className={styles.rulesList}>
-              {communityRules.map((rule) => {
-                const Icon = rule.icon;
+        <div className={styles.bodyGrid}>
+          <aside className={styles.navColumn} aria-label="Rules navigation">
+            <section className={styles.panel}>
+              <div className={styles.panelHeader}>
+                <ShieldCheck size={20} aria-hidden />
+                <h2>Read First</h2>
+              </div>
+              <p>
+                Naturism is welcome here when it is non-sexual, consent-based,
+                and respectful of privacy.
+              </p>
+            </section>
+
+            <nav className={styles.ruleNav} aria-label="Community rules">
+              {communityRules.map((rule) => (
+                <a key={rule.number} href={`#rule-${rule.number}`}>
+                  <span>{rule.number}</span>
+                  {rule.title}
+                </a>
+              ))}
+            </nav>
+
+            <section className={styles.panel}>
+              <div className={styles.panelHeader}>
+                <Mail size={20} aria-hidden />
+                <h2>Need Help?</h2>
+              </div>
+              <p>
+                Questions, safety concerns, and moderation requests can go to
+                the BareUnity support address.
+              </p>
+              <Link
+                className={styles.panelAction}
+                href="mailto:jeroen@bareunity.com"
+              >
+                Contact support
+              </Link>
+            </section>
+          </aside>
+
+          <div className={styles.mainColumn}>
+            <section
+              className={styles.principles}
+              aria-label="Community values"
+            >
+              {heroPrinciples.map((principle) => {
+                const Icon = principle.icon;
 
                 return (
                   <article
-                    key={rule.number}
-                    id={`rule-${rule.number}`}
-                    className={styles.ruleCard}
+                    key={principle.title}
+                    className={styles.principleItem}
                   >
-                    <span className={styles.ruleIcon}>
-                      <Icon size={30} aria-hidden />
-                    </span>
-                    <div className={styles.ruleCopy}>
-                      <h3>{rule.title}</h3>
-                      <p>{rule.summary}</p>
-                      <details className={styles.ruleDetails}>
-                        <summary>View guidance</summary>
-                        <ul>
-                          {rule.details.map((detail) => (
-                            <li key={detail}>{detail}</li>
-                          ))}
-                        </ul>
-                        <div className={styles.examples}>
-                          {rule.examples.map((example) => (
-                            <p key={example}>{example}</p>
-                          ))}
-                        </div>
-                      </details>
+                    <Icon size={22} aria-hidden />
+                    <div>
+                      <strong>{principle.title}</strong>
+                      <span>{principle.description}</span>
                     </div>
-                    <span className={styles.ruleNumber}>{rule.number}</span>
                   </article>
                 );
               })}
-            </div>
+            </section>
 
-            <section className={styles.agreementCard} aria-labelledby="agree-heading">
-              <FileIcon />
-              <div>
-                <h2 id="agree-heading">Agree to Our Rules</h2>
+            <section
+              className={styles.rulesColumn}
+              aria-labelledby="community-rules-heading"
+            >
+              <div className={styles.sectionHeader}>
+                <p className={styles.kicker}>Rulebook</p>
+                <h2 id="community-rules-heading">Our Community Rules</h2>
                 <p>
-                  By continuing and participating in BareUnity, you acknowledge
-                  that you have read, understood, and agree to follow these
-                  rules.
+                  Open any rule for the full guidance and examples. The top
+                  line is the standard moderators apply first.
                 </p>
               </div>
-              <div className={styles.agreementActions}>
-                <Link className={styles.primaryButton} href="/">
-                  I Agree
-                </Link>
-                <Link className={styles.textLink} href="/members">
-                  Go to Community
-                </Link>
+
+              <div className={styles.rulesList}>
+                {communityRules.map((rule) => {
+                  const Icon = rule.icon;
+
+                  return (
+                    <article
+                      key={rule.number}
+                      id={`rule-${rule.number}`}
+                      className={styles.ruleCard}
+                    >
+                      <span className={styles.ruleNumber}>{rule.number}</span>
+                      <div className={styles.ruleCopy}>
+                        <div className={styles.ruleTitleRow}>
+                          <span className={styles.ruleIcon}>
+                            <Icon size={20} aria-hidden />
+                          </span>
+                          <h3>{rule.title}</h3>
+                        </div>
+                        <p>{rule.summary}</p>
+                        <details className={styles.ruleDetails}>
+                          <summary>View guidance</summary>
+                          <ul>
+                            {rule.details.map((detail) => (
+                              <li key={detail}>{detail}</li>
+                            ))}
+                          </ul>
+                          <div className={styles.examples}>
+                            {rule.examples.map((example) => (
+                              <p key={example}>{example}</p>
+                            ))}
+                          </div>
+                        </details>
+                      </div>
+                    </article>
+                  );
+                })}
               </div>
             </section>
-          </section>
 
-          <aside className={styles.sidebarCards} aria-label="Rules support information">
-            <InfoCard
-              icon={HeartHandshake}
-              title="Why We Have Rules"
-              description="Our rules exist to protect our members and create an inclusive environment where everyone can enjoy naturism with peace of mind."
-              items={whyRules}
-              tone="positive"
-            />
+            <section
+              className={styles.supportGrid}
+              aria-label="Rules support information"
+            >
+              <InfoCard
+                icon={HeartHandshake}
+                title="Why We Have Rules"
+                description="Our rules exist to protect our members and create an inclusive environment where everyone can enjoy naturism with peace of mind."
+                items={whyRules}
+                tone="positive"
+              />
 
-            <InfoCard
-              icon={Ban}
-              title="What We Don’t Allow"
-              items={notAllowed}
-              tone="danger"
-            />
+              <InfoCard
+                icon={Ban}
+                title="What We Don’t Allow"
+                items={notAllowed}
+                tone="danger"
+              />
 
-            <section className={styles.helpCard}>
-              <span className={styles.helpIcon}>
-                <Mail size={28} aria-hidden />
-              </span>
-              <h2>Need Help?</h2>
-              <p>
-                If you have a question or see something that does not follow our
-                rules, please contact our moderation team.
-              </p>
-              <Link className={styles.supportButton} href="mailto:jeroen@bareunity.com">
-                Contact Support
-              </Link>
-              <Link className={styles.textLink} href="/policies">
-                Learn more about moderation →
-              </Link>
+              <section className={styles.reminderCard}>
+                <span className={styles.reminderIcon}>
+                  <Leaf size={22} aria-hidden />
+                </span>
+                <h2>Community Reminder</h2>
+                <p>
+                  We are a community built on freedom, respect, and nature.
+                  Let’s keep BareUnity a place we’re proud of.
+                </p>
+                <Link className={styles.textLink} href="/policies">
+                  Read platform policies
+                </Link>
+              </section>
             </section>
 
-            <section className={styles.reminderCard}>
-              <span className={styles.reminderIcon}>
-                <Leaf size={28} aria-hidden />
-              </span>
-              <h2>Community Reminder</h2>
-              <p>
-                We are a community built on freedom, respect, and nature. Let’s
-                keep BareUnity a place we’re proud of.
-              </p>
-              <strong>Thank you! 🌿💚</strong>
+            <section
+              className={styles.enforcementPanel}
+              aria-labelledby="moderation-heading"
+            >
+              <div>
+                <p className={styles.kicker}>Moderation approach</p>
+                <h2 id="moderation-heading">How these rules are enforced</h2>
+              </div>
+              <ol>
+                {enforcementSteps.map((step) => (
+                  <li key={step}>{step}</li>
+                ))}
+              </ol>
             </section>
-          </aside>
-        </div>
 
-        <section className={styles.enforcementPanel} aria-labelledby="moderation-heading">
-          <div>
-            <p className={styles.kicker}>Moderation approach</p>
-            <h2 id="moderation-heading">How these rules are enforced</h2>
+            <section
+              className={styles.quickActions}
+              aria-label="Helpful next steps"
+            >
+              {quickActions.map((action) => {
+                const Icon = action.icon;
+
+                return (
+                  <article
+                    key={action.title}
+                    className={styles.quickActionCard}
+                  >
+                    <Icon size={22} aria-hidden />
+                    <div>
+                      <h2>{action.title}</h2>
+                      <p>{action.description}</p>
+                      <Link href={action.href}>{action.cta}</Link>
+                    </div>
+                  </article>
+                );
+              })}
+            </section>
           </div>
-          <ol>
-            {enforcementSteps.map((step) => (
-              <li key={step}>{step}</li>
-            ))}
-          </ol>
-        </section>
-
-        <section className={styles.quickActions} aria-label="Helpful next steps">
-          {quickActions.map((action) => {
-            const Icon = action.icon;
-
-            return (
-              <article key={action.title} className={styles.quickActionCard}>
-                <Icon size={30} aria-hidden />
-                <div>
-                  <h2>{action.title}</h2>
-                  <p>{action.description}</p>
-                  <Link href={action.href}>{action.cta} →</Link>
-                </div>
-              </article>
-            );
-          })}
-        </section>
+        </div>
       </section>
     </main>
   );
@@ -456,7 +503,7 @@ function InfoCard({ icon: Icon, title, description, items, tone }: InfoCardProps
   return (
     <section className={styles.infoCard} data-tone={tone}>
       <span className={styles.infoIcon}>
-        <Icon size={28} aria-hidden />
+        <Icon size={22} aria-hidden />
       </span>
       <h2>{title}</h2>
       {description ? <p>{description}</p> : null}
@@ -469,14 +516,5 @@ function InfoCard({ icon: Icon, title, description, items, tone }: InfoCardProps
         ))}
       </ul>
     </section>
-  );
-}
-
-function FileIcon() {
-  return (
-    <span className={styles.fileIcon} aria-hidden>
-      <ShieldCheck size={34} />
-      <CheckCircle2 size={22} />
-    </span>
   );
 }

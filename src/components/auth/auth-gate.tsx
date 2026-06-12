@@ -96,6 +96,7 @@ const POST_LOGIN_GALLERY_ENDPOINT = "/api/gallery/snapshot";
 const POST_LOGIN_MEMBERS_ENDPOINT = "/api/members";
 const POST_LOGIN_PROFILE_ENDPOINT = "/api/profile/snapshot";
 const WARMUP_MIN_INTERVAL_MS = 5 * 60_000;
+const MEMBER_PROFILE_WARMUP_LIMIT = 12;
 
 export function AuthGate({ children }: AuthGateProps) {
   const pathname = usePathname();
@@ -302,18 +303,22 @@ export function AuthGate({ children }: AuthGateProps) {
       .map((member) => (typeof member?.username === "string" ? normalizeUsername(member.username) : ""))
       .filter(Boolean);
 
-    const uniqueUsernames = Array.from(new Set(usernames));
+    const uniqueUsernames = Array.from(new Set(usernames)).slice(0, MEMBER_PROFILE_WARMUP_LIMIT);
 
-    await Promise.allSettled(uniqueUsernames.map(async (username) => {
-      const response = await fetch(`/api/members/${encodeURIComponent(username)}/snapshot`, {
-        cache: "no-store",
-        headers,
-      });
+    for (const username of uniqueUsernames) {
+      try {
+        const response = await fetch(`/api/members/${encodeURIComponent(username)}/snapshot`, {
+          cache: "no-store",
+          headers,
+        });
 
-      if (!response.ok) return;
-      const payload = (await response.json()) as ProfileSnapshotPayload;
-      writeCachedValue(`member-profile:${viewerUserId}:${username}:v1`, payload);
-    }));
+        if (!response.ok) continue;
+        const payload = (await response.json()) as ProfileSnapshotPayload;
+        writeCachedValue(`member-profile:${viewerUserId}:${username}:v1`, payload);
+      } catch {
+        // member profile warmup is best effort only
+      }
+    }
   }, []);
 
   const prefetchEndpoints = useCallback(async (
@@ -341,8 +346,8 @@ export function AuthGate({ children }: AuthGateProps) {
         headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
       }
 
-      await Promise.allSettled(
-        urls.map(async (url) => {
+      for (const url of urls) {
+        try {
           const response = await fetch(url, { cache: "no-store", headers });
 
           if (shouldIncludeAuthToken && url === POST_LOGIN_MEMBERS_ENDPOINT && viewerUserId && response.ok) {
@@ -364,8 +369,10 @@ export function AuthGate({ children }: AuthGateProps) {
           }
 
           await cacheWarmupResponse(url, response);
-        }),
-      );
+        } catch {
+          // background warmup should not block navigation
+        }
+      }
 
       if (shouldIncludeAuthToken) {
         lastWarmupAtRef.current = Date.now();

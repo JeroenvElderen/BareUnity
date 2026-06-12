@@ -86,41 +86,33 @@ export async function buildProfileSnapshotPayload(
 
   if (!profile) return EMPTY_PROFILE_SNAPSHOT;
 
-  const [
-    viewerContext,
-    posts,
-    settings,
-    postsCount,
-    commentsCount,
-  ] = await Promise.all([
-    getViewerContext(profile.id, viewerId),
-    db.posts.findMany({
-      where: {
-        author_id: profile.id,
-        OR: [{ post_type: null }, { post_type: { not: "story" } }],
-      },
-      select: {
-        id: true,
-        title: true,
-        content: true,
-        media_url: true,
-        created_at: true,
-        post_type: true,
-      },
-      orderBy: { created_at: "desc" },
-      take: 30,
-    }),
-    findProfileSettingsControls(profile.id),
-    db.posts.count({
-      where: {
-        author_id: profile.id,
-        OR: [{ post_type: null }, { post_type: { not: "story" } }],
-      },
-    }),
-    db.comments.count({
-      where: { author_id: profile.id },
-    }),
-  ]);
+  // Keep Prisma reads sequential. Hosted runtimes use the Supabase pooler with
+  // connection_limit=1, and parallel queries can surface as intermittent 503s.
+  const viewerContext = await getViewerContext(profile.id, viewerId);
+  const postsWhere = {
+    author_id: profile.id,
+    OR: [{ post_type: null }, { post_type: { not: "story" } }],
+  };
+  const posts = await db.posts.findMany({
+    where: postsWhere,
+    select: {
+      id: true,
+      title: true,
+      content: true,
+      media_url: true,
+      created_at: true,
+      post_type: true,
+    },
+    orderBy: { created_at: "desc" },
+    take: 30,
+  });
+  const settings = await findProfileSettingsControls(profile.id);
+  const postsCount = await db.posts.count({
+    where: postsWhere,
+  });
+  const commentsCount = await db.comments.count({
+    where: { author_id: profile.id },
+  });
 
   const settingStates = normalizeStoredOptionStates(
     settings?.setting_control_states,
@@ -161,34 +153,31 @@ export async function buildProfileSnapshotPayload(
 export async function getProfileSnapshotSourceVersion(
   userId: string,
 ): Promise<string> {
-  const [profile, latestPost, latestComment, settings] =
-    await Promise.all([
-      db.profiles.findUnique({
-        where: { id: userId },
-        select: {
-          id: true,
-          username: true,
-          display_name: true,
-          bio: true,
-          avatar_url: true,
-          location: true,
-        },
-      }),
-      db.posts.findFirst({
-        where: {
-          author_id: userId,
-          OR: [{ post_type: null }, { post_type: { not: "story" } }],
-        },
-        orderBy: { created_at: "desc" },
-        select: { id: true, created_at: true },
-      }),
-      db.comments.findFirst({
-        where: { author_id: userId },
-        orderBy: { created_at: "desc" },
-        select: { id: true, created_at: true },
-      }),
-      findProfileSettingsSnapshot(userId),
-    ]);
+  const profile = await db.profiles.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      username: true,
+      display_name: true,
+      bio: true,
+      avatar_url: true,
+      location: true,
+    },
+  });
+  const latestPost = await db.posts.findFirst({
+    where: {
+      author_id: userId,
+      OR: [{ post_type: null }, { post_type: { not: "story" } }],
+    },
+    orderBy: { created_at: "desc" },
+    select: { id: true, created_at: true },
+  });
+  const latestComment = await db.comments.findFirst({
+    where: { author_id: userId },
+    orderBy: { created_at: "desc" },
+    select: { id: true, created_at: true },
+  });
+  const settings = await findProfileSettingsSnapshot(userId);
 
   return JSON.stringify({
     profile,
