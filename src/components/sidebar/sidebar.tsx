@@ -66,7 +66,6 @@ const fallbackCountryNavItems: readonly CountryNavItem[] = [
 
 const primaryItems: readonly SidebarNavLinkItem[] = [
   { id: "home", icon: Home, label: "Home", href: "/" },
-  { id: "explore", icon: Compass, label: "Explore", href: "/explore" },
   { id: "gallery", icon: Image, label: "Gallery", href: "/gallery" },
 ];
 
@@ -82,6 +81,12 @@ const bookingItems: readonly SidebarNavLinkItem[] = [
     icon: Compass,
     label: "Activities",
     href: "/bookings/activities",
+  },
+  { 
+    id: "explore", 
+    icon: Compass, 
+    label: "Explore", 
+    href: "/explore" 
   },
 ];
 
