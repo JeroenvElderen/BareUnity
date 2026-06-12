@@ -221,6 +221,17 @@ const heroPrinciples = [
   },
 ];
 
+const heroStats = [
+  { value: "18+", label: "Adult-only space" },
+  { value: "10", label: "Clear community rules" },
+  { value: "24/7", label: "Safety-first guidance" },
+];
+
+const ruleAnchors = communityRules.slice(0, 6).map((rule) => ({
+  href: `#rule-${rule.number}`,
+  label: rule.title,
+}));
+
 const whyRules = [
   "Safe adult naturist environment",
   "Respectful, consent-first community",
@@ -281,6 +292,42 @@ export default function RulesPage() {
               space for naturists worldwide. By being here, you agree to
               respect these guidelines and each other.
             </p>
+
+            <div className={styles.heroActions} aria-label="Rules page actions">
+              <Link className={styles.heroPrimary} href="#community-rules-heading">
+                Read the rules
+              </Link>
+              <Link className={styles.heroSecondary} href="/policies">
+                View full policies
+              </Link>
+            </div>
+          </div>
+
+          <div className={styles.heroArtwork} aria-hidden>
+            <div className={styles.sunOrb} />
+            <div className={styles.cardStack}>
+              <div className={styles.trustCard}>
+                <ShieldCheck size={22} />
+                <span>Consent first</span>
+              </div>
+              <div className={styles.trustCard}>
+                <Leaf size={22} />
+                <span>Naturist values</span>
+              </div>
+              <div className={styles.trustCard}>
+                <HeartHandshake size={22} />
+                <span>Respect everyone</span>
+              </div>
+            </div>
+          </div>
+
+          <div className={styles.heroStats} aria-label="Rules highlights">
+            {heroStats.map((stat) => (
+              <div key={stat.label} className={styles.heroStat}>
+                <strong>{stat.value}</strong>
+                <span>{stat.label}</span>
+              </div>
+            ))}
           </div>
 
           <div className={styles.principleBar} aria-label="Community values">
@@ -303,8 +350,17 @@ export default function RulesPage() {
         <div className={styles.contentGrid}>
           <section className={styles.rulesColumn} aria-labelledby="community-rules-heading">
             <div className={styles.sectionHeader}>
-              <p className={styles.kicker}>Read first</p>
-              <h2 id="community-rules-heading">Our Community Rules</h2>
+              <div>
+                <p className={styles.kicker}>Read first</p>
+                <h2 id="community-rules-heading">Our Community Rules</h2>
+              </div>
+              <nav className={styles.rulePills} aria-label="Jump to key rules">
+                {ruleAnchors.map((anchor) => (
+                  <Link key={anchor.href} href={anchor.href}>
+                    {anchor.label}
+                  </Link>
+                ))}
+              </nav>
             </div>
 
             <div className={styles.rulesList}>
