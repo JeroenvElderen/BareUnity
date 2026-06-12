@@ -1,20 +1,59 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { Bug, HelpCircle, Inbox, Lightbulb, MessageCircle, MoreHorizontal, Send, Sparkles, X } from "lucide-react";
+import {
+  Bug,
+  HelpCircle,
+  Inbox,
+  Lightbulb,
+  MessageCircle,
+  MoreHorizontal,
+  Send,
+  Sparkles,
+  X,
+} from "lucide-react";
 
 import { supabase } from "@/lib/supabase";
 import styles from "./feedback-bubble.module.css";
 
 const categories = [
-  { value: "idea", label: "Idea", description: "Share a feature or polish request.", Icon: Lightbulb },
-  { value: "bug", label: "Bug", description: "Report something broken or confusing.", Icon: Bug },
-  { value: "question", label: "Question", description: "Ask about BareUnity or your account.", Icon: HelpCircle },
-  { value: "other", label: "Other", description: "Anything else we should know.", Icon: MoreHorizontal },
+  {
+    value: "idea",
+    label: "Idea",
+    description: "Share a feature or polish request.",
+    Icon: Lightbulb,
+  },
+  {
+    value: "bug",
+    label: "Bug",
+    description: "Report something broken or confusing.",
+    Icon: Bug,
+  },
+  {
+    value: "question",
+    label: "Question",
+    description: "Ask about BareUnity or your account.",
+    Icon: HelpCircle,
+  },
+  {
+    value: "other",
+    label: "Other",
+    description: "Anything else we should know.",
+    Icon: MoreHorizontal,
+  },
 ] as const;
 
 type FeedbackState = "idle" | "sending" | "sent" | "error";
-type TicketStatus = "open" | "awaiting_admin" | "answered" | "closed" | string;
+type TicketStatus =
+  | "new"
+  | "reviewing"
+  | "done"
+  | "dismissed"
+  | "open"
+  | "awaiting_admin"
+  | "answered"
+  | "closed"
+  | string;
 type FeedbackTab = "new" | "tickets";
 
 type FeedbackReply = {
@@ -40,23 +79,37 @@ type FeedbackTicket = {
 function prettyDate(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "Unknown date";
-  return date.toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  return date.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function statusLabel(status: TicketStatus | null) {
-  return {
-    open: "Open",
-    awaiting_admin: "Needs admin reply",
-    answered: "Answered",
-    closed: "Closed",
-  }[status ?? "open"] ?? status ?? "Open";
+  return (
+    {
+      new: "Open",
+      reviewing: "Needs admin reply",
+      done: "Answered",
+      dismissed: "Closed",
+      open: "Open",
+      awaiting_admin: "Needs admin reply",
+      answered: "Answered",
+      closed: "Closed",
+    }[status ?? "open"] ??
+    status ??
+    "Open"
+  );
 }
 
 export function FeedbackBubble() {
   const [isOpen, setIsOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeTab, setActiveTab] = useState<FeedbackTab>("new");
-  const [category, setCategory] = useState<(typeof categories)[number]["value"]>("idea");
+  const [category, setCategory] =
+    useState<(typeof categories)[number]["value"]>("idea");
   const [message, setMessage] = useState("");
   const [replyMessage, setReplyMessage] = useState("");
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
@@ -67,7 +120,10 @@ export function FeedbackBubble() {
   const [error, setError] = useState("");
 
   const selectedTicket = useMemo(
-    () => tickets.find((ticket) => ticket.id === selectedTicketId) ?? tickets[0] ?? null,
+    () =>
+      tickets.find((ticket) => ticket.id === selectedTicketId) ??
+      tickets[0] ??
+      null,
     [selectedTicketId, tickets],
   );
 
@@ -92,7 +148,10 @@ export function FeedbackBubble() {
     const response = await fetch("/api/feedback", {
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
-    const payload = (await response.json().catch(() => ({}))) as { feedback?: FeedbackTicket[]; error?: string };
+    const payload = (await response.json().catch(() => ({}))) as {
+      feedback?: FeedbackTicket[];
+      error?: string;
+    };
 
     if (!response.ok) {
       setError(payload.error ?? "We could not load your feedback tickets.");
@@ -101,7 +160,9 @@ export function FeedbackBubble() {
     }
 
     setTickets(payload.feedback ?? []);
-    setSelectedTicketId((current) => current ?? payload.feedback?.[0]?.id ?? null);
+    setSelectedTicketId(
+      (current) => current ?? payload.feedback?.[0]?.id ?? null,
+    );
     setIsLoadingTickets(false);
   }, [withSession]);
 
@@ -135,7 +196,7 @@ export function FeedbackBubble() {
 
     return () => window.clearTimeout(id);
   }, [isAuthenticated, isOpen, loadTickets]);
-  
+
   if (!isAuthenticated) return null;
 
   const submitFeedback = async (event: FormEvent<HTMLFormElement>) => {
@@ -163,10 +224,15 @@ export function FeedbackBubble() {
       }),
     });
 
-    const payload = (await response.json().catch(() => ({}))) as { feedback?: FeedbackTicket; error?: string };
+    const payload = (await response.json().catch(() => ({}))) as {
+      feedback?: FeedbackTicket;
+      error?: string;
+    };
     if (!response.ok || !payload.feedback) {
       setStatus("error");
-      setError(payload.error ?? "We could not send your feedback. Please try again.");
+      setError(
+        payload.error ?? "We could not send your feedback. Please try again.",
+      );
       return;
     }
 
@@ -198,7 +264,10 @@ export function FeedbackBubble() {
       body: JSON.stringify({ message: replyMessage }),
     });
 
-    const payload = (await response.json().catch(() => ({}))) as { reply?: FeedbackReply; error?: string };
+    const payload = (await response.json().catch(() => ({}))) as {
+      reply?: FeedbackReply;
+      error?: string;
+    };
     if (!response.ok || !payload.reply) {
       setReplyStatus("error");
       setError(payload.error ?? "We could not add your reply.");
@@ -208,7 +277,11 @@ export function FeedbackBubble() {
     setTickets((current) =>
       current.map((ticket) =>
         ticket.id === selectedTicket.id
-          ? { ...ticket, status: "awaiting_admin", replies: [...ticket.replies, payload.reply!] }
+          ? {
+              ...ticket,
+              status: "reviewing",
+              replies: [...ticket.replies, payload.reply!],
+            }
           : ticket,
       ),
     );
@@ -219,7 +292,11 @@ export function FeedbackBubble() {
   return (
     <div className={styles.wrapper}>
       {isOpen ? (
-        <section className={styles.panel} aria-labelledby="contact-popup-title" data-active-tab={activeTab === "tickets" ? "messages" : "new"}>
+        <section
+          className={styles.panel}
+          aria-labelledby="contact-popup-title"
+          data-active-tab={activeTab === "tickets" ? "messages" : "new"}
+        >
           <div className={styles.glow} aria-hidden="true" />
           <div className={styles.header}>
             <div className={styles.titleBlock}>
@@ -228,29 +305,61 @@ export function FeedbackBubble() {
                 Community desk
               </span>
               <h2 id="contact-popup-title">Feedback tickets</h2>
-              <p>Create a ticket, keep the thread open, and chat with the BareUnity team about follow-up questions.</p>
+              <p>
+                Create a ticket, keep the thread open, and chat with the
+                BareUnity team about follow-up questions.
+              </p>
             </div>
-            <button className={styles.iconButton} type="button" aria-label="Close contact popup" onClick={() => setIsOpen(false)}>
+            <button
+              className={styles.iconButton}
+              type="button"
+              aria-label="Close contact popup"
+              onClick={() => setIsOpen(false)}
+            >
               <X size={18} />
             </button>
           </div>
 
-          <div className={styles.tabs} role="tablist" aria-label="Feedback desk tabs">
-            <button className={styles.tabButton} type="button" role="tab" aria-selected={activeTab === "new"} onClick={() => setActiveTab("new")}>
+          <div
+            className={styles.tabs}
+            role="tablist"
+            aria-label="Feedback desk tabs"
+          >
+            <button
+              className={styles.tabButton}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === "new"}
+              onClick={() => setActiveTab("new")}
+            >
               New ticket
             </button>
-            <button className={styles.tabButton} type="button" role="tab" aria-selected={activeTab === "tickets"} onClick={() => setActiveTab("tickets")}>
+            <button
+              className={styles.tabButton}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === "tickets"}
+              onClick={() => setActiveTab("tickets")}
+            >
               My tickets ({tickets.length})
             </button>
           </div>
 
           {activeTab === "new" ? (
-            <form id="feedback-panel" className={styles.form} onSubmit={submitFeedback}>
+            <form
+              id="feedback-panel"
+              className={styles.form}
+              onSubmit={submitFeedback}
+            >
               <fieldset className={styles.topicGroup}>
                 <legend>Choose a topic</legend>
                 <div className={styles.topicGrid}>
                   {categories.map(({ value, label, description, Icon }) => (
-                    <label key={value} className={styles.topicCard} data-selected={category === value}>
+                    <label
+                      key={value}
+                      className={styles.topicCard}
+                      data-selected={category === value}
+                    >
                       <input
                         type="radio"
                         name="feedback-category"
@@ -287,22 +396,42 @@ export function FeedbackBubble() {
               </label>
 
               <div className={styles.footerRow}>
-                <span className={styles.count}>{message.length}/1200 characters</span>
-                <button className={styles.submitButton} type="submit" disabled={status === "sending" || message.trim().length < 10}>
+                <span className={styles.count}>
+                  {message.length}/1200 characters
+                </span>
+                <button
+                  className={styles.submitButton}
+                  type="submit"
+                  disabled={status === "sending" || message.trim().length < 10}
+                >
                   {status === "sending" ? "Creating ticket…" : "Create ticket"}
                   <Send size={16} />
                 </button>
               </div>
 
-              {status === "sent" ? <p className={styles.success}>Thanks — your feedback ticket is open for replies.</p> : null}
-              {status === "error" ? <p className={styles.error}>{error}</p> : null}
+              {status === "sent" ? (
+                <p className={styles.success}>
+                  Thanks — your feedback ticket is open for replies.
+                </p>
+              ) : null}
+              {status === "error" ? (
+                <p className={styles.error}>{error}</p>
+              ) : null}
             </form>
           ) : (
             <div className={styles.messagesPanel}>
-              <aside className={styles.ticketList} aria-label="Feedback tickets">
-                {isLoadingTickets ? <p className={styles.ticketEmpty}>Loading tickets…</p> : null}
+              <aside
+                className={styles.ticketList}
+                aria-label="Feedback tickets"
+              >
+                {isLoadingTickets ? (
+                  <p className={styles.ticketEmpty}>Loading tickets…</p>
+                ) : null}
                 {!isLoadingTickets && tickets.length === 0 ? (
-                  <p className={styles.ticketEmpty}>No tickets yet. Create one and we can continue the conversation here.</p>
+                  <p className={styles.ticketEmpty}>
+                    No tickets yet. Create one and we can continue the
+                    conversation here.
+                  </p>
                 ) : null}
                 {tickets.map((ticket) => (
                   <button
@@ -313,7 +442,11 @@ export function FeedbackBubble() {
                     onClick={() => setSelectedTicketId(ticket.id)}
                   >
                     <span className={styles.ticketTopline}>
-                      <strong>{categories.find((item) => item.value === ticket.category)?.label ?? "Feedback"}</strong>
+                      <strong>
+                        {categories.find(
+                          (item) => item.value === ticket.category,
+                        )?.label ?? "Feedback"}
+                      </strong>
                       <small>{statusLabel(ticket.status)}</small>
                     </span>
                     <span>{ticket.message}</span>
@@ -327,30 +460,56 @@ export function FeedbackBubble() {
                   <>
                     <div className={styles.threadHeader}>
                       <div>
-                        <strong>{categories.find((item) => item.value === selectedTicket.category)?.label ?? "Feedback"} ticket</strong>
-                        <span>{statusLabel(selectedTicket.status)} • opened {prettyDate(selectedTicket.created_at)}</span>
+                        <strong>
+                          {categories.find(
+                            (item) => item.value === selectedTicket.category,
+                          )?.label ?? "Feedback"}{" "}
+                          ticket
+                        </strong>
+                        <span>
+                          {statusLabel(selectedTicket.status)} • opened{" "}
+                          {prettyDate(selectedTicket.created_at)}
+                        </span>
                       </div>
                       <Inbox size={18} />
                     </div>
                     <div className={styles.threadScroll}>
-                      <article className={styles.chatBubble} data-author="member">
+                      <article
+                        className={styles.chatBubble}
+                        data-author="member"
+                      >
                         <span>You</span>
                         <p>{selectedTicket.message}</p>
                         <small>{prettyDate(selectedTicket.created_at)}</small>
                       </article>
                       {selectedTicket.replies.map((reply) => (
-                        <article key={reply.id} className={styles.chatBubble} data-author={reply.author_role}>
-                          <span>{reply.author_role === "admin" ? "BareUnity team" : "You"}</span>
+                        <article
+                          key={reply.id}
+                          className={styles.chatBubble}
+                          data-author={reply.author_role}
+                        >
+                          <span>
+                            {reply.author_role === "admin"
+                              ? "BareUnity team"
+                              : "You"}
+                          </span>
                           <p>{reply.message}</p>
                           <small>{prettyDate(reply.created_at)}</small>
                         </article>
                       ))}
                     </div>
-                    {selectedTicket.status === "closed" ? (
-                      <p className={styles.success}>This ticket is closed. Create a new ticket if you need more help.</p>
+                    {selectedTicket.status === "dismissed" ||
+                    selectedTicket.status === "closed" ? (
+                      <p className={styles.success}>
+                        This ticket is closed. Create a new ticket if you need
+                        more help.
+                      </p>
                     ) : (
                       <form className={styles.replyForm} onSubmit={submitReply}>
-                        <label className={styles.label} htmlFor="feedback-reply-message">
+                        <label
+                          className={styles.label}
+                          htmlFor="feedback-reply-message"
+                        >
                           <span>Reply to this ticket</span>
                           <textarea
                             id="feedback-reply-message"
@@ -358,7 +517,8 @@ export function FeedbackBubble() {
                             value={replyMessage}
                             onChange={(event) => {
                               setReplyMessage(event.target.value);
-                              if (replyStatus !== "sending") setReplyStatus("idle");
+                              if (replyStatus !== "sending")
+                                setReplyStatus("idle");
                             }}
                             placeholder="Add more context or answer the team's question…"
                             maxLength={1200}
@@ -366,14 +526,29 @@ export function FeedbackBubble() {
                           />
                         </label>
                         <div className={styles.footerRow}>
-                          <span className={styles.count}>{replyMessage.length}/1200 characters</span>
-                          <button className={styles.submitButton} type="submit" disabled={replyStatus === "sending" || replyMessage.trim().length < 2}>
+                          <span className={styles.count}>
+                            {replyMessage.length}/1200 characters
+                          </span>
+                          <button
+                            className={styles.submitButton}
+                            type="submit"
+                            disabled={
+                              replyStatus === "sending" ||
+                              replyMessage.trim().length < 2
+                            }
+                          >
                             {replyStatus === "sending" ? "Sending…" : "Reply"}
                             <Send size={16} />
                           </button>
                         </div>
-                        {replyStatus === "sent" ? <p className={styles.success}>Reply added — the team can continue from here.</p> : null}
-                        {replyStatus === "error" ? <p className={styles.error}>{error}</p> : null}
+                        {replyStatus === "sent" ? (
+                          <p className={styles.success}>
+                            Reply added — the team can continue from here.
+                          </p>
+                        ) : null}
+                        {replyStatus === "error" ? (
+                          <p className={styles.error}>{error}</p>
+                        ) : null}
                       </form>
                     )}
                   </>
