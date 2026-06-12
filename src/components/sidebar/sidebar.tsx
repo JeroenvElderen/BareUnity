@@ -35,6 +35,15 @@ import {
   isColorModePreference,
 } from "@/lib/color-mode";
 import { isPlatformAdminEmail } from "@/lib/platform-admin";
+import {
+  isSidebarItemHidden,
+  normalizeSidebarHiddenItems,
+  SIDEBAR_VISIBILITY_STORAGE_EVENT,
+  SIDEBAR_VISIBILITY_STORAGE_KEY,
+  type SidebarHiddenItemSet,
+  type SidebarNavItem,
+  type SidebarNavLinkItem,
+} from "@/lib/sidebar-visibility";
 import { supabase } from "@/lib/supabase";
 import { AppNotification, useUIStore } from "@/stores/ui-store";
 import { SidebarProfileLink } from "./profile-link";
@@ -44,17 +53,6 @@ const SYSTEM_NOTIFICATION_PERMISSION_REQUESTED_KEY =
   "bareunity_system_notification_permission_requested";
 const NOTIFICATION_POLL_INTERVAL_MS = 120_000;
 const NOTIFICATION_READ_STORAGE_PREFIX = "bareunity_read_notification_ids";
-
-type NavItem = {
-  icon: typeof Home;
-  label: string;
-  href?: string;
-  badge?: string;
-};
-
-type NavLinkItem = NavItem & {
-  href: string;
-};
 
 type CountryNavItem = {
   slug: string;
@@ -66,23 +64,23 @@ const fallbackCountryNavItems: readonly CountryNavItem[] = [
   { slug: "spain", name: "Spain", flag: "🇪🇸" },
 ];
 
-const primaryItems: readonly NavLinkItem[] = [
-  { icon: Home, label: "Home", href: "/" },
-  { icon: Compass, label: "Explore", href: "/explore" },
-  { icon: Image, label: "Gallery", href: "/gallery" },
+const primaryItems: readonly SidebarNavLinkItem[] = [
+  { id: "home", icon: Home, label: "Home", href: "/" },
+  { id: "explore", icon: Compass, label: "Explore", href: "/explore" },
+  { id: "gallery", icon: Image, label: "Gallery", href: "/gallery" },
 ];
 
-const bookingItems: readonly NavLinkItem[] = [
-  { icon: Building2, label: "Stays", href: "/bookings/hotels-airbnbs" },
-  { icon: Compass, label: "Activities", href: "/bookings/activities" },
+const bookingItems: readonly SidebarNavLinkItem[] = [
+  { id: "booking-stays", icon: Building2, label: "Stays", href: "/bookings/hotels-airbnbs" },
+  { id: "booking-activities", icon: Compass, label: "Activities", href: "/bookings/activities" },
 ];
 
 const workspaceItems = [
-  { icon: Bell, label: "Notifications", href: "/notifications", badge: "0" },
-  { icon: Users, label: "Members", href: "/members" },
-  { icon: Settings, label: "Settings", href: "/settings" },
-  { icon: ScrollText, label: "Policies", href: "/policies" },
-] satisfies readonly NavItem[];
+  { id: "notifications", icon: Bell, label: "Notifications", href: "/notifications", badge: "0" },
+  { id: "members", icon: Users, label: "Members", href: "/members" },
+  { id: "settings", icon: Settings, label: "Settings", href: "/settings" },
+  { id: "policies", icon: ScrollText, label: "Policies", href: "/policies" },
+] satisfies readonly SidebarNavItem[];
 
 const relativeTimeFormatter = new Intl.RelativeTimeFormat("en", {
   numeric: "auto",
@@ -135,12 +133,12 @@ type VerificationApplySnapshot = {
   status?: string;
 };
 
-const adminItems: readonly NavLinkItem[] = [
-  { icon: ShieldCheck, label: "Overview", href: "/admin" },
-  { icon: ClipboardCheck, label: "Applications", href: "/admin/applications" },
-  { icon: Flag, label: "Reports", href: "/admin/reports" },
-  { icon: CircleUser, label: "Users", href: "/admin/users" },
-  { icon: Building2, label: "Stays", href: "/admin/stays" },
+const adminItems: readonly SidebarNavLinkItem[] = [
+  { id: "admin-overview", icon: ShieldCheck, label: "Overview", href: "/admin" },
+  { id: "admin-applications", icon: ClipboardCheck, label: "Applications", href: "/admin/applications" },
+  { id: "admin-reports", icon: Flag, label: "Reports", href: "/admin/reports" },
+  { id: "admin-users", icon: CircleUser, label: "Users", href: "/admin/users" },
+  { id: "admin-stays", icon: Building2, label: "Stays", href: "/admin/stays" },
 ];
 
 function isActiveNavItem(pathname: string | null, href: string) {
@@ -184,6 +182,8 @@ export function AppSidebar() {
   const [isAdmin, setIsAdmin] = useState(false);
   const isAdminSection = pathname?.startsWith("/admin") ?? false;
   const [isAdminOpen, setIsAdminOpen] = useState(isAdminSection);
+  const [hiddenSidebarItems, setHiddenSidebarItems] =
+    useState<SidebarHiddenItemSet>({});
   const [activeToasts, setActiveToasts] = useState<AppNotification[]>([]);
   const seenNotificationIdsRef = useRef(new Set<string>());
   const hasSeenInitialNotificationsRef = useRef(false);
@@ -236,6 +236,70 @@ export function AppSidebar() {
     },
     [pushNotification],
   );
+
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const applyHiddenItems = (hiddenItems: unknown) => {
+      if (isMounted) {
+        setHiddenSidebarItems(normalizeSidebarHiddenItems(hiddenItems));
+      }
+    };
+
+    try {
+      const cached = window.localStorage.getItem(SIDEBAR_VISIBILITY_STORAGE_KEY);
+      if (cached) applyHiddenItems(JSON.parse(cached));
+    } catch (error) {
+      console.debug("Could not read cached sidebar visibility settings", error);
+    }
+
+    const loadHiddenItems = async () => {
+      try {
+        const response = await fetch("/api/sidebar-visibility", {
+          cache: "no-store",
+        });
+        if (!response.ok) return;
+
+        const payload = (await response.json()) as { hiddenItems?: unknown };
+        applyHiddenItems(payload.hiddenItems);
+        window.localStorage.setItem(
+          SIDEBAR_VISIBILITY_STORAGE_KEY,
+          JSON.stringify(payload.hiddenItems ?? []),
+        );
+      } catch (error) {
+        console.debug("Could not load sidebar visibility settings", error);
+      }
+    };
+
+    const onStorageChange = (event: StorageEvent) => {
+      if (event.key !== SIDEBAR_VISIBILITY_STORAGE_KEY) return;
+      try {
+        applyHiddenItems(event.newValue ? JSON.parse(event.newValue) : []);
+      } catch (error) {
+        console.debug("Could not parse sidebar visibility settings", error);
+      }
+    };
+
+    const onVisibilityChange = () => {
+      try {
+        const cached = window.localStorage.getItem(SIDEBAR_VISIBILITY_STORAGE_KEY);
+        applyHiddenItems(cached ? JSON.parse(cached) : []);
+      } catch (error) {
+        console.debug("Could not sync sidebar visibility settings", error);
+      }
+    };
+
+    void loadHiddenItems();
+    window.addEventListener("storage", onStorageChange);
+    window.addEventListener(SIDEBAR_VISIBILITY_STORAGE_EVENT, onVisibilityChange);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener("storage", onStorageChange);
+      window.removeEventListener(SIDEBAR_VISIBILITY_STORAGE_EVENT, onVisibilityChange);
+    };
+  }, []);
 
   const onLogout = async () => {
     await logoutUser();
@@ -820,6 +884,43 @@ export function AppSidebar() {
     system: "dark",
   };
 
+
+  const visiblePrimaryItems = primaryItems.filter(
+    (item) => !isSidebarItemHidden(hiddenSidebarItems, item.id),
+  );
+  const visibleBookingItems = bookingItems.filter(
+    (item) => !isSidebarItemHidden(hiddenSidebarItems, item.id),
+  );
+  const visibleWorkspaceItems = workspaceItems.filter(
+    (item) => !isSidebarItemHidden(hiddenSidebarItems, item.id),
+  );
+  const visibleDiscussionRooms = discussionRooms.filter((room) => {
+    if (room.href === "/discussion") {
+      return !isSidebarItemHidden(hiddenSidebarItems, "general-room");
+    }
+    if (room.href === "/video-room") {
+      return !isSidebarItemHidden(hiddenSidebarItems, "video-room");
+    }
+    return true;
+  });
+  const visibleAdminItems = adminItems.filter(
+    (item) => !isSidebarItemHidden(hiddenSidebarItems, item.id),
+  );
+  const showCountries = !isSidebarItemHidden(hiddenSidebarItems, "countries");
+  const showBookings =
+    !isSidebarItemHidden(hiddenSidebarItems, "bookings") &&
+    visibleBookingItems.length > 0;
+  const showDiscussionRooms =
+    !isSidebarItemHidden(hiddenSidebarItems, "discussion-rooms") &&
+    visibleDiscussionRooms.length > 0;
+  const showVerificationCta =
+    canApplyForVerification &&
+    !isSidebarItemHidden(hiddenSidebarItems, "verification");
+  const showAdminMenu =
+    isAdmin &&
+    !isSidebarItemHidden(hiddenSidebarItems, "admin") &&
+    visibleAdminItems.length > 0;
+
   return (
     <>
       <div className={styles.sidebarRail} aria-hidden />
@@ -860,7 +961,7 @@ export function AppSidebar() {
           <section className={styles.section}>
             <p className={styles.sectionLabel}>Discover</p>
             <nav>
-              {primaryItems.map(({ icon: Icon, label, href, badge }) => (
+              {visiblePrimaryItems.map(({ icon: Icon, label, href, badge }) => (
                 <Link
                   key={label}
                   href={href}
@@ -873,7 +974,8 @@ export function AppSidebar() {
                   {badge ? <span className={styles.badge}>{badge}</span> : null}
                 </Link>
               ))}
-              <div className={styles.dropdown}>
+              {showCountries ? (
+                <div className={styles.dropdown}>
                 <button
                   type="button"
                   className={`${styles.navItem} ${styles.dropdownTrigger} ${isCountriesSection ? styles.active : ""}`}
@@ -923,8 +1025,10 @@ export function AppSidebar() {
                     })}
                   </div>
                 )}
-              </div>
-              <div className={styles.dropdown}>
+                </div>
+              ) : null}
+              {showBookings ? (
+                <div className={styles.dropdown}>
                 <button
                   type="button"
                   className={`${styles.navItem} ${styles.dropdownTrigger}`}
@@ -944,7 +1048,7 @@ export function AppSidebar() {
 
                 {isBookingsOpen && (
                   <div className={styles.dropdownList}>
-                    {bookingItems.map(({ icon: Icon, label, href }) => (
+                    {visibleBookingItems.map(({ icon: Icon, label, href }) => (
                       <Link
                         key={label}
                         href={href}
@@ -958,14 +1062,16 @@ export function AppSidebar() {
                     ))}
                   </div>
                 )}
-              </div>
+                </div>
+              ) : null}
             </nav>
           </section>
 
           <section className={styles.section}>
             <p className={styles.sectionLabel}>Naturist Circle</p>
             <nav>
-              <div className={styles.dropdown}>
+              {showDiscussionRooms ? (
+                <div className={styles.dropdown}>
                 <button
                   type="button"
                   className={`${styles.navItem} ${styles.dropdownTrigger}`}
@@ -985,7 +1091,7 @@ export function AppSidebar() {
 
                 {isRoomsOpen && (
                   <div className={styles.dropdownList}>
-                    {discussionRooms.map((room) => (
+                    {visibleDiscussionRooms.map((room) => (
                       <Link
                         key={room.name}
                         href={room.href}
@@ -996,9 +1102,10 @@ export function AppSidebar() {
                     ))}
                   </div>
                 )}
-              </div>
+                </div>
+              ) : null}
 
-              {workspaceItems.map(({ icon: Icon, label, href, badge }) => {
+              {visibleWorkspaceItems.map(({ icon: Icon, label, href, badge }) => {
                 const isNotificationsItem = label === "Notifications";
                 const itemBadge =
                   isNotificationsItem && unreadNotifications > 0
@@ -1027,7 +1134,7 @@ export function AppSidebar() {
                 );
               })}
 
-              {canApplyForVerification ? (
+              {showVerificationCta ? (
                 <Link
                   href="/settings#verification"
                   className={`${styles.navItem} ${styles.verificationCta}`}
@@ -1041,7 +1148,7 @@ export function AppSidebar() {
                 </Link>
               ) : null}
 
-              {isAdmin ? (
+              {showAdminMenu ? (
                 <div className={styles.dropdown}>
                   <button
                     type="button"
@@ -1064,7 +1171,7 @@ export function AppSidebar() {
 
                   {(isAdminOpen || isAdminSection) && (
                     <div className={styles.dropdownList}>
-                      {adminItems.map(({ icon: Icon, label, href }) => (
+                      {visibleAdminItems.map(({ icon: Icon, label, href }) => (
                         <Link
                           key={label}
                           href={href}
