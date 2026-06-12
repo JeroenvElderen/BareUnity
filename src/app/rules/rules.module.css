@@ -12,8 +12,8 @@
 .ruleNav,
 .rulesGrid,
 .enforcementPanel {
-  width: min(1180px, 100%);
-  margin-inline: auto;
+  width: min(1380px, 100%);
+  margin-inline: 0 auto;
 }
 
 .hero {
