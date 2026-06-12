@@ -71,16 +71,35 @@ const primaryItems: readonly SidebarNavLinkItem[] = [
 ];
 
 const bookingItems: readonly SidebarNavLinkItem[] = [
-  { id: "booking-stays", icon: Building2, label: "Stays", href: "/bookings/hotels-airbnbs" },
-  { id: "booking-activities", icon: Compass, label: "Activities", href: "/bookings/activities" },
+  {
+    id: "booking-stays",
+    icon: Building2,
+    label: "Stays",
+    href: "/bookings/hotels-airbnbs",
+  },
+  {
+    id: "booking-activities",
+    icon: Compass,
+    label: "Activities",
+    href: "/bookings/activities",
+  },
 ];
 
-const workspaceItems = [
-  { id: "notifications", icon: Bell, label: "Notifications", href: "/notifications", badge: "0" },
+const communityItems: readonly SidebarNavItem[] = [
+  {
+    id: "notifications",
+    icon: Bell,
+    label: "Notifications",
+    href: "/notifications",
+    badge: "0",
+  },
   { id: "members", icon: Users, label: "Members", href: "/members" },
+];
+
+const accountItems: readonly SidebarNavItem[] = [  
   { id: "settings", icon: Settings, label: "Settings", href: "/settings" },
   { id: "policies", icon: ScrollText, label: "Policies", href: "/policies" },
-] satisfies readonly SidebarNavItem[];
+];
 
 const relativeTimeFormatter = new Intl.RelativeTimeFormat("en", {
   numeric: "auto",
@@ -123,7 +142,6 @@ function createNotification(
   };
 }
 
-
 type PersistedNotificationRecord = {
   id: string;
   type: AppNotification["type"];
@@ -159,8 +177,18 @@ type VerificationApplySnapshot = {
 };
 
 const adminItems: readonly SidebarNavLinkItem[] = [
-  { id: "admin-overview", icon: ShieldCheck, label: "Overview", href: "/admin" },
-  { id: "admin-applications", icon: ClipboardCheck, label: "Applications", href: "/admin/applications" },
+  {
+    id: "admin-overview",
+    icon: ShieldCheck,
+    label: "Overview",
+    href: "/admin",
+  },
+  {
+    id: "admin-applications",
+    icon: ClipboardCheck,
+    label: "Applications",
+    href: "/admin/applications",
+  },
   { id: "admin-reports", icon: Flag, label: "Reports", href: "/admin/reports" },
   { id: "admin-users", icon: CircleUser, label: "Users", href: "/admin/users" },
   { id: "admin-stays", icon: Building2, label: "Stays", href: "/admin/stays" },
@@ -203,7 +231,8 @@ export function AppSidebar() {
   const [countryNavItems, setCountryNavItems] = useState<CountryNavItem[]>(
     () => [...fallbackCountryNavItems],
   );
-  const [isBookingsOpen, setIsBookingsOpen] = useState(false);
+  const isBookingsSection = pathname?.startsWith("/bookings") ?? false;
+  const [isBookingsOpen, setIsBookingsOpen] = useState(isBookingsSection);
   const [isAdmin, setIsAdmin] = useState(false);
   const isAdminSection = pathname?.startsWith("/admin") ?? false;
   const [isAdminOpen, setIsAdminOpen] = useState(isAdminSection);
@@ -262,7 +291,6 @@ export function AppSidebar() {
     [pushNotification],
   );
 
-
   useEffect(() => {
     let isMounted = true;
 
@@ -273,7 +301,9 @@ export function AppSidebar() {
     };
 
     try {
-      const cached = window.localStorage.getItem(SIDEBAR_VISIBILITY_STORAGE_KEY);
+      const cached = window.localStorage.getItem(
+        SIDEBAR_VISIBILITY_STORAGE_KEY,
+      );
       if (cached) applyHiddenItems(JSON.parse(cached));
     } catch (error) {
       console.debug("Could not read cached sidebar visibility settings", error);
@@ -308,7 +338,9 @@ export function AppSidebar() {
 
     const onVisibilityChange = () => {
       try {
-        const cached = window.localStorage.getItem(SIDEBAR_VISIBILITY_STORAGE_KEY);
+        const cached = window.localStorage.getItem(
+          SIDEBAR_VISIBILITY_STORAGE_KEY,
+        );
         applyHiddenItems(cached ? JSON.parse(cached) : []);
       } catch (error) {
         console.debug("Could not sync sidebar visibility settings", error);
@@ -317,12 +349,18 @@ export function AppSidebar() {
 
     void loadHiddenItems();
     window.addEventListener("storage", onStorageChange);
-    window.addEventListener(SIDEBAR_VISIBILITY_STORAGE_EVENT, onVisibilityChange);
+    window.addEventListener(
+      SIDEBAR_VISIBILITY_STORAGE_EVENT,
+      onVisibilityChange,
+    );
 
     return () => {
       isMounted = false;
       window.removeEventListener("storage", onStorageChange);
-      window.removeEventListener(SIDEBAR_VISIBILITY_STORAGE_EVENT, onVisibilityChange);
+      window.removeEventListener(
+        SIDEBAR_VISIBILITY_STORAGE_EVENT,
+        onVisibilityChange,
+      );
     };
   }, []);
 
@@ -907,7 +945,13 @@ export function AppSidebar() {
         void supabase.removeChannel(channel);
       });
     };
-  }, [generalChannelId, isAdmin, pushLiveNotification, pushNotification, viewerId]);
+  }, [
+    generalChannelId,
+    isAdmin,
+    pushLiveNotification,
+    pushNotification,
+    viewerId,
+  ]);
 
   useEffect(() => {
     if (typeof document === "undefined" || typeof window === "undefined")
@@ -930,14 +974,16 @@ export function AppSidebar() {
     system: "dark",
   };
 
-
   const visiblePrimaryItems = primaryItems.filter(
     (item) => !isSidebarItemHidden(hiddenSidebarItems, item.id),
   );
   const visibleBookingItems = bookingItems.filter(
     (item) => !isSidebarItemHidden(hiddenSidebarItems, item.id),
   );
-  const visibleWorkspaceItems = workspaceItems.filter(
+  const visibleCommunityItems = communityItems.filter(
+    (item) => !isSidebarItemHidden(hiddenSidebarItems, item.id),
+  );
+  const visibleAccountItems = accountItems.filter(
     (item) => !isSidebarItemHidden(hiddenSidebarItems, item.id),
   );
   const visibleDiscussionRooms = discussionRooms.filter((room) => {
@@ -1005,7 +1051,7 @@ export function AppSidebar() {
           className={`${styles.menuContent} ${isMobileMenuOpen ? styles.menuContentOpen : ""}`}
         >
           <section className={styles.section}>
-            <p className={styles.sectionLabel}>Discover</p>
+            <p className={styles.sectionLabel}>Start here</p>
             <nav>
               {visiblePrimaryItems.map(({ icon: Icon, label, href, badge }) => (
                 <Link
@@ -1020,181 +1066,230 @@ export function AppSidebar() {
                   {badge ? <span className={styles.badge}>{badge}</span> : null}
                 </Link>
               ))}
-              {showCountries ? (
-                <div className={styles.dropdown}>
-                <button
-                  type="button"
-                  className={`${styles.navItem} ${styles.dropdownTrigger} ${isCountriesSection ? styles.active : ""}`}
-                  onClick={() => setIsCountriesOpen((current) => !current)}
-                  aria-expanded={isCountriesOpen || isCountriesSection}
-                >
-                  <span className={styles.itemLeft}>
-                    <Globe2 size={18} aria-hidden />
-                    <span>Countries</span>
-                  </span>
-                  <ChevronDown
-                    className={
-                      isCountriesOpen || isCountriesSection
-                        ? styles.chevronOpen
-                        : ""
-                    }
-                    size={16}
-                    aria-hidden
-                  />
-                </button>
-
-                {(isCountriesOpen || isCountriesSection) && (
-                  <div className={styles.dropdownList}>
-                    <Link
-                      href="/countries"
-                      className={`${styles.navItem} ${styles.dropdownItem} ${pathname === "/countries" ? styles.active : ""}`}
-                    >
-                      All countries
-                    </Link>
-                    {countryNavItems.map((country) => {
-                      const href = `/countries/${country.slug}`;
-
-                      return (
-                        <Link
-                          key={country.slug}
-                          href={href}
-                          className={`${styles.navItem} ${styles.dropdownItem} ${pathname === href ? styles.active : ""}`}
-                        >
-                          <span className={styles.countryNavLabel}>
-                            {country.flag ? (
-                              <span aria-hidden>{country.flag}</span>
-                            ) : null}
-                            <span>{country.name}</span>
-                          </span>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                )}
-                </div>
-              ) : null}
-              {showBookings ? (
-                <div className={styles.dropdown}>
-                <button
-                  type="button"
-                  className={`${styles.navItem} ${styles.dropdownTrigger}`}
-                  onClick={() => setIsBookingsOpen((current) => !current)}
-                  aria-expanded={isBookingsOpen}
-                >
-                  <span className={styles.itemLeft}>
-                    <Building2 size={18} aria-hidden />
-                    <span>Bookings</span>
-                  </span>
-                  <ChevronDown
-                    className={isBookingsOpen ? styles.chevronOpen : ""}
-                    size={16}
-                    aria-hidden
-                  />
-                </button>
-
-                {isBookingsOpen && (
-                  <div className={styles.dropdownList}>
-                    {visibleBookingItems.map(({ icon: Icon, label, href }) => (
-                      <Link
-                        key={label}
-                        href={href}
-                        className={`${styles.navItem} ${styles.dropdownItem} ${pathname === href ? styles.active : ""}`}
-                      >
-                        <span className={styles.itemLeft}>
-                          <Icon size={16} aria-hidden />
-                          <span>{label}</span>
-                        </span>
-                      </Link>
-                    ))}
-                  </div>
-                )}
-                </div>
-              ) : null}
-            </nav>
+              </nav>
           </section>
 
-          <section className={styles.section}>
-            <p className={styles.sectionLabel}>Naturist Circle</p>
-            <nav>
-              {showDiscussionRooms ? (
-                <div className={styles.dropdown}>
-                <button
-                  type="button"
-                  className={`${styles.navItem} ${styles.dropdownTrigger}`}
-                  onClick={() => setIsRoomsOpen((current) => !current)}
-                  aria-expanded={isRoomsOpen}
-                >
-                  <span className={styles.itemLeft}>
-                    <Users size={18} aria-hidden />
-                    <span>Discussion Rooms</span>
-                  </span>
-                  <ChevronDown
-                    className={isRoomsOpen ? styles.chevronOpen : ""}
-                    size={16}
-                    aria-hidden
-                  />
-                </button>
+          {showCountries || showBookings ? (
+            <section className={styles.section}>
+              <p className={styles.sectionLabel}>Explore & Travel</p>
+              <nav>
+                {showCountries ? (
+                  <div className={styles.dropdown}>
+                    <button
+                      type="button"
+                      className={`${styles.navItem} ${styles.dropdownTrigger} ${isCountriesSection ? styles.active : ""}`}
+                      onClick={() => setIsCountriesOpen((current) => !current)}
+                      aria-expanded={isCountriesOpen || isCountriesSection}
+                    >
+                      <span className={styles.itemLeft}>
+                        <Globe2 size={18} aria-hidden />
+                        <span>Countries</span>
+                      </span>
+                      <ChevronDown
+                        className={
+                          isCountriesOpen || isCountriesSection
+                            ? styles.chevronOpen
+                            : ""
+                        }
+                        size={16}
+                        aria-hidden
+                      />
+                    </button>
 
-                {isRoomsOpen && (
-                  <div className={styles.dropdownList}>
-                    {visibleDiscussionRooms.map((room) => (
-                      <Link
-                        key={room.name}
-                        href={room.href}
-                        className={`${styles.navItem} ${styles.dropdownItem} ${pathname === room.href ? styles.active : ""}`}
-                      >
-                        {room.name}
-                      </Link>
-                    ))}
+                    {(isCountriesOpen || isCountriesSection) && (
+                      <div className={styles.dropdownList}>
+                        <Link
+                          href="/countries"
+                          className={`${styles.navItem} ${styles.dropdownItem} ${pathname === "/countries" ? styles.active : ""}`}
+                        >
+                          All countries
+                        </Link>
+                        {countryNavItems.map((country) => {
+                          const href = `/countries/${country.slug}`;
+
+                          return (
+                            <Link
+                              key={country.slug}
+                              href={href}
+                              className={`${styles.navItem} ${styles.dropdownItem} ${pathname === href ? styles.active : ""}`}
+                            >
+                              <span className={styles.countryNavLabel}>
+                                {country.flag ? (
+                                  <span aria-hidden>{country.flag}</span>
+                                ) : null}
+                                <span>{country.name}</span>
+                              </span>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
-                )}
-                </div>
-              ) : null}
+                ) : null}
 
-              {visibleWorkspaceItems.map(({ icon: Icon, label, href, badge }) => {
-                const isNotificationsItem = label === "Notifications";
-                const itemBadge =
-                  isNotificationsItem && unreadNotifications > 0
-                    ? String(unreadNotifications)
-                    : badge;
+                {showBookings ? (
+                  <div className={styles.dropdown}>
+                    <button
+                      type="button"
+                      className={`${styles.navItem} ${styles.dropdownTrigger} ${isBookingsSection ? styles.active : ""}`}
+                      onClick={() => setIsBookingsOpen((current) => !current)}
+                      aria-expanded={isBookingsOpen || isBookingsSection}
+                    >
+                      <span className={styles.itemLeft}>
+                        <Building2 size={18} aria-hidden />
+                        <span>Bookings</span>
+                      </span>
+                      <ChevronDown
+                        className={
+                          isBookingsOpen || isBookingsSection
+                            ? styles.chevronOpen
+                            : ""
+                        }
+                        size={16}
+                        aria-hidden
+                      />
+                    </button>
+
+                    {(isBookingsOpen || isBookingsSection) && (
+                      <div className={styles.dropdownList}>
+                        {visibleBookingItems.map(
+                          ({ icon: Icon, label, href }) => (
+                            <Link
+                              key={label}
+                              href={href}
+                              className={`${styles.navItem} ${styles.dropdownItem} ${pathname === href ? styles.active : ""}`}
+                            >
+                              <span className={styles.itemLeft}>
+                                <Icon size={16} aria-hidden />
+                                <span>{label}</span>
+                              </span>
+                            </Link>
+                          ),
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ) : null}
+              </nav>
+            </section>
+          ) : null}
+
+          {showDiscussionRooms || visibleCommunityItems.length > 0 ? (
+            <section className={styles.section}>
+              <p className={styles.sectionLabel}>Community</p>
+              <nav>
+                {showDiscussionRooms ? (
+                  <div className={styles.dropdown}>
+                    <button
+                      type="button"
+                      className={`${styles.navItem} ${styles.dropdownTrigger}`}
+                      onClick={() => setIsRoomsOpen((current) => !current)}
+                      aria-expanded={isRoomsOpen}
+                    >
+                      <span className={styles.itemLeft}>
+                        <Users size={18} aria-hidden />
+                        <span>Discussion Rooms</span>
+                      </span>
+                      <ChevronDown
+                        className={isRoomsOpen ? styles.chevronOpen : ""}
+                        size={16}
+                        aria-hidden
+                      />
+                    </button>
+
+                    {isRoomsOpen && (
+                      <div className={styles.dropdownList}>
+                        {visibleDiscussionRooms.map((room) => (
+                          <Link
+                            key={room.name}
+                            href={room.href}
+                            className={`${styles.navItem} ${styles.dropdownItem} ${pathname === room.href ? styles.active : ""}`}
+                          >
+                            {room.name}
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : null}
+
+                {visibleCommunityItems.map(
+                  ({ icon: Icon, label, href, badge }) => {
+                    const isNotificationsItem = label === "Notifications";
+                    const itemBadge =
+                      isNotificationsItem && unreadNotifications > 0
+                        ? String(unreadNotifications)
+                        : badge;
 
                 return (
+                      <Link
+                        key={label}
+                        href={href ?? "#"}
+                        className={`${styles.navItem} ${href && pathname === href ? styles.active : ""}`}
+                        onClick={
+                          isNotificationsItem
+                            ? () => void requestSystemNotificationPermission()
+                            : undefined
+                        }
+                      >
+                        <span className={styles.itemLeft}>
+                          <Icon size={18} aria-hidden />
+                          <span>{label}</span>
+                        </span>
+                        {itemBadge ? (
+                          <span className={styles.badge}>{itemBadge}</span>
+                        ) : null}
+                      </Link>
+                    );
+                  },
+                )}
+                </nav>
+            </section>
+          ) : null}
+
+          {visibleAccountItems.length > 0 || showVerificationCta ? (
+            <section className={styles.section}>
+              <p className={styles.sectionLabel}>Account & Trust</p>
+              <nav>
+                {showVerificationCta ? (
                   <Link
-                    key={label}
-                    href={href ?? "#"}
-                    className={`${styles.navItem} ${href && pathname === href ? styles.active : ""}`}
-                    onClick={
-                      isNotificationsItem
-                        ? () => void requestSystemNotificationPermission()
-                        : undefined
-                    }
+                    href="/settings#verification"
+                    className={`${styles.navItem} ${styles.verificationCta}`}
+                    onClick={() => setIsMobileMenuOpen(false)}
                   >
                     <span className={styles.itemLeft}>
-                      <Icon size={18} aria-hidden />
-                      <span>{label}</span>
+                      <ShieldPlus size={18} aria-hidden />
+                      <span>Get verified</span>
                     </span>
-                    {itemBadge ? (
-                      <span className={styles.badge}>{itemBadge}</span>
-                    ) : null}
+                    <span className={styles.verificationCtaBadge}>ID</span>
                   </Link>
-                );
-              })}
+                ) : null}
 
-              {showVerificationCta ? (
-                <Link
-                  href="/settings#verification"
-                  className={`${styles.navItem} ${styles.verificationCta}`}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  <span className={styles.itemLeft}>
-                    <ShieldPlus size={18} aria-hidden />
-                    <span>Get verified</span>
-                  </span>
-                  <span className={styles.verificationCtaBadge}>ID</span>
-                </Link>
-              ) : null}
+              {visibleAccountItems.map(
+                  ({ icon: Icon, label, href, badge }) => (
+                    <Link
+                      key={label}
+                      href={href ?? "#"}
+                      className={`${styles.navItem} ${href && pathname === href ? styles.active : ""}`}
+                    >
+                      <span className={styles.itemLeft}>
+                        <Icon size={18} aria-hidden />
+                        <span>{label}</span>
+                      </span>
+                      {badge ? (
+                        <span className={styles.badge}>{badge}</span>
+                      ) : null}
+                    </Link>
+                  ),
+                )}
+              </nav>
+            </section>
+          ) : null}
 
-              {showAdminMenu ? (
+          {showAdminMenu ? (
+            <section className={styles.section}>
+              <p className={styles.sectionLabel}>Admin Tools</p>
+              <nav>
                 <div className={styles.dropdown}>
                   <button
                     type="button"
@@ -1232,8 +1327,13 @@ export function AppSidebar() {
                     </div>
                   )}
                 </div>
-              ) : null}
+              </nav>
+            </section>
+          ) : null}
 
+          <section className={styles.section}>
+            <p className={styles.sectionLabel}>Session</p>
+            <nav>
               <button
                 type="button"
                 className={styles.navItem}
