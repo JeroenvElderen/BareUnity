@@ -493,6 +493,7 @@ export default function HomePage() {
   const [postImagePreview, setPostImagePreview] = useState<string>("");
   const [postImagePath, setPostImagePath] = useState<string>("");
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [isPublishingPost, setIsPublishingPost] = useState(false);
   const galleryImageInputRef = useRef<HTMLInputElement | null>(null);
   const cameraImageInputRef = useRef<HTMLInputElement | null>(null);
   const [feed, setFeed] = useState<HomeFeedPayload>(() =>
@@ -558,6 +559,7 @@ export default function HomePage() {
   const suppressStoryTapRef = useRef(false);
   const hasOpenedLinkedPostRef = useRef(false);
   const feedRefreshInFlightRef = useRef(false);
+  const publishPostInFlightRef = useRef(false);
   const pendingFeedRefreshRef = useRef(false);
   const [pendingLikePostIds, setPendingLikePostIds] = useState<Set<string>>(
     () => new Set(),
@@ -918,28 +920,36 @@ export default function HomePage() {
   }, [loadFeed]);
 
   const publishPost = async () => {
-    if (!canPublish || !composerKind) return;
+    if (!canPublish || !composerKind || publishPostInFlightRef.current) return;
 
-    const response = await fetch("/api/homefeed", {
-      method: "POST",
-      headers: (await getAuthHeaders({ includeJsonContentType: true })).headers,
-      body: JSON.stringify({
-        title: postTitle,
-        content: postContent,
-        mediaUrl: postImagePath,
-        kind: composerKind,
-      }),
-    });
+    publishPostInFlightRef.current = true;
+    setIsPublishingPost(true);
 
-    if (!response.ok) return;
+    try {
+      const response = await fetch("/api/homefeed", {
+        method: "POST",
+        headers: (await getAuthHeaders({ includeJsonContentType: true })).headers,
+        body: JSON.stringify({
+          title: postTitle,
+          content: postContent,
+          mediaUrl: postImagePath,
+          kind: composerKind,
+        }),
+      });
 
-    setPostTitle("");
-    setPostContent("");
-    setPostImagePreview("");
-    setPostImagePath("");
-    setComposerKind(null);
-    setComposerOpen(false);
-    await loadFeed();
+      if (!response.ok) return;
+
+      setPostTitle("");
+      setPostContent("");
+      setPostImagePreview("");
+      setPostImagePath("");
+      setComposerKind(null);
+      setComposerOpen(false);
+      await loadFeed();
+    } finally {
+      publishPostInFlightRef.current = false;
+      setIsPublishingPost(false);
+    }
   };
 
   const onPickImage = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -1530,7 +1540,7 @@ export default function HomePage() {
   };
 
   const closeComposer = () => {
-    if (isUploadingImage) return;
+    if (isUploadingImage || isPublishingPost) return;
     setComposerOpen(false);
     setComposerKind(null);
     setPostTitle("");
@@ -2192,11 +2202,13 @@ export default function HomePage() {
                   </Button>
                   <Button
                     onClick={publishPost}
-                    disabled={!canPublish || isUploadingImage}
+                    disabled={!canPublish || isUploadingImage || isPublishingPost}
                   >
-                    {composerKind === "story"
-                      ? "Publish story"
-                      : "Publish post"}
+                    {isPublishingPost
+                      ? "Publishing..."
+                      : composerKind === "story"
+                        ? "Publish story"
+                        : "Publish post"}
                   </Button>
                 </div>
               </div>
