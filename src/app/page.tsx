@@ -558,6 +558,10 @@ export default function HomePage() {
   const suppressStoryTapRef = useRef(false);
   const hasOpenedLinkedPostRef = useRef(false);
   const feedRefreshInFlightRef = useRef(false);
+  const pendingFeedRefreshRef = useRef(false);
+  const [pendingLikePostIds, setPendingLikePostIds] = useState<Set<string>>(
+    () => new Set(),
+  );
 
   const loadHomeFeedSidebar = useCallback(async () => {
     const [
@@ -717,10 +721,18 @@ export default function HomePage() {
   };
 
   const loadFeed = useCallback(
-    async (options?: { showSpinner?: boolean; attempt?: number }) => {
-      if (feedRefreshInFlightRef.current && !options?.showSpinner) return;
+    async (options?: {
+      showSpinner?: boolean;
+      attempt?: number;
+      force?: boolean;
+    }) => {
+      if (feedRefreshInFlightRef.current) {
+        pendingFeedRefreshRef.current = true;
+        return;
+      }
 
       feedRefreshInFlightRef.current = true;
+      pendingFeedRefreshRef.current = false;
       if (options?.showSpinner) setLoadingFeed(true);
       let fallbackViewerId: string | null = null;
       try {
@@ -764,6 +776,10 @@ export default function HomePage() {
       } finally {
         feedRefreshInFlightRef.current = false;
         setLoadingFeed(false);
+        if (pendingFeedRefreshRef.current) {
+          pendingFeedRefreshRef.current = false;
+          window.setTimeout(() => void loadFeed({ force: true }), 0);
+        }
       }
     },
     [homeFeedCacheKey],
@@ -871,7 +887,7 @@ export default function HomePage() {
       tables: HOME_FEED_REALTIME_TABLES,
       onChange: () => {
         setLiveFeedStatus("live");
-        void loadFeed();
+        void loadFeed({ force: true });
       },
       onStatus: (status) => {
         if (status === "SUBSCRIBED") {
@@ -880,9 +896,9 @@ export default function HomePage() {
         }
 
         setLiveFeedStatus("reconnecting");
-        void loadFeed();
+        void loadFeed({ force: true });
       },
-      debounceMs: 250,
+      debounceMs: 150,
     });
   }, [loadFeed]);
 
@@ -979,39 +995,100 @@ export default function HomePage() {
   };
 
   const toggleLike = async (postId: string) => {
+    if (isViewerActionLocked) {
+      showActionLockedMessage();
+      return;
+    }
+
     const targetPost = feed.posts.find((post) => post.id === postId);
-    if (!targetPost) return;
+    if (!targetPost || pendingLikePostIds.has(postId)) return;
 
-    const response = await fetch(`/api/homefeed/posts/${postId}/like`, {
-      method: "POST",
-      headers: (await getAuthHeaders()).headers,
-    });
-    if (!response.ok) return;
+    const nextLiked = !targetPost.likedByViewer;
+    const optimisticDelta = nextLiked ? 1 : -1;
 
-    const payload = (await response.json()) as { liked?: boolean };
-    const liked = Boolean(payload.liked);
-    const likeDelta = liked
-      ? targetPost.likedByViewer
-        ? 0
-        : 1
-      : targetPost.likedByViewer
-        ? -1
-        : 0;
-
-    if (!likeDelta && targetPost.likedByViewer === liked) return;
-
+    setPendingLikePostIds((current) => new Set(current).add(postId));
     setFeed((current) => ({
       ...current,
       posts: current.posts.map((post) =>
         post.id === postId
           ? {
               ...post,
-              likedByViewer: liked,
-              likes: Math.max(0, post.likes + likeDelta),
+              likedByViewer: nextLiked,
+              likes: Math.max(0, post.likes + optimisticDelta),
             }
           : post,
       ),
     }));
+
+    try {
+      const response = await fetch(`/api/homefeed/posts/${postId}/like`, {
+        method: "POST",
+        headers: (await getAuthHeaders()).headers,
+      });
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        throw new Error(payload?.error ?? "We could not update that like.");
+      }
+
+      const payload = (await response.json()) as {
+        liked?: boolean;
+        likes?: number;
+      };
+      const liked = Boolean(payload.liked);
+
+      setFeed((current) => ({
+        ...current,
+        posts: current.posts.map((post) =>
+          post.id === postId
+            ? {
+                ...post,
+                likedByViewer: liked,
+                likes:
+                  typeof payload.likes === "number"
+                    ? Math.max(0, payload.likes)
+                    : Math.max(
+                        0,
+                        post.likes +
+                          (liked === post.likedByViewer
+                            ? 0
+                            : liked
+                              ? 1
+                              : -1),
+                      ),
+              }
+            : post,
+        ),
+      }));
+      void loadFeed({ force: true });
+    } catch (error) {
+      setFeed((current) => ({
+        ...current,
+        posts: current.posts.map((post) =>
+          post.id === postId
+            ? {
+                ...post,
+                likedByViewer: targetPost.likedByViewer,
+                likes: targetPost.likes,
+              }
+            : post,
+        ),
+      }));
+      setReportStatus(
+        error instanceof Error
+          ? error.message
+          : "We could not update that like.",
+      );
+      window.setTimeout(() => setReportStatus(""), 4500);
+    } finally {
+      setPendingLikePostIds((current) => {
+        const next = new Set(current);
+        next.delete(postId);
+        return next;
+      });
+    }
   };
 
   const addComment = async (
@@ -1438,7 +1515,7 @@ export default function HomePage() {
       ? `Your Visitor Pass has ${visitorTrialStatus.daysRemaining} day${visitorTrialStatus.daysRemaining === 1 ? "" : "s"} left for browsing and previewing.`
       : "Visitor and pending accounts can browse BareUnity.";
     setReportStatus(
-      `${visitorPrefix} Verify with ID to post, comment, comment, check in, or submit places.`,
+      `${visitorPrefix} Verify with ID to post, like, comment, check in, or submit places.`,
     );
     window.setTimeout(() => setReportStatus(""), 6500);
   };
@@ -1708,6 +1785,7 @@ export default function HomePage() {
                         ) : null}
                         <div className="mb-3 flex flex-wrap items-center gap-2 border-t border-[rgb(var(--border))] pt-3">
                           <Button
+                            type="button"
                             size="sm"
                             variant="outline"
                             className={`w-36 gap-1 px-4 ${
@@ -1716,6 +1794,8 @@ export default function HomePage() {
                                 : "text-[rgb(var(--text-strong))]"
                             }`}
                             onClick={() => toggleLike(post.id)}
+                            disabled={pendingLikePostIds.has(post.id)}
+                            aria-pressed={post.likedByViewer}
                           >
                             <Heart
                               className={`h-4 w-4 ${post.likedByViewer ? "fill-current text-red-500" : ""}`}
