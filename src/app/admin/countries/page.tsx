@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ChangeEvent, FormEvent, useState } from "react";
-import { ExternalLink, Globe2, Plus, Save, Search, Trash2 } from "lucide-react";
+import { Bot, ExternalLink, Globe2, Plus, Save, Sparkles, Trash2 } from "lucide-react";
 
 import {
   COUNTRY_DISCOVERY_DATA,
@@ -88,6 +88,11 @@ type ResearchLink = {
   label: string;
   href: string;
   description: string;
+};
+
+type ResearchSource = {
+  title: string;
+  url: string;
 };
 
 function slugifyCountryName(countryName: string) {
@@ -240,9 +245,11 @@ function payloadFromForm(form: CountryFormState): CountryDiscovery {
 export default function AdminCountriesPage() {
   const [form, setForm] = useState<CountryFormState>(fromCountry(sampleCountry));
   const [isSaving, setIsSaving] = useState(false);
+  const [isAutoResearching, setIsAutoResearching] = useState(false);
   const [error, setError] = useState("");
   const [successSlug, setSuccessSlug] = useState("");
   const [researchCountry, setResearchCountry] = useState(sampleCountry.name);
+  const [researchSources, setResearchSources] = useState<ResearchSource[]>([]);
 
   const researchLinks = getCountryResearchLinks(researchCountry || form.name);
 
@@ -324,8 +331,67 @@ export default function AdminCountriesPage() {
       tags: ["Template country", "Community data needed", "Local tips welcome"],
       heroImage: current.heroImage,
     }));
+    setResearchSources([]);
     setError("");
     setSuccessSlug("");
+  }
+
+  async function autoResearchCountry() {
+    const countryName = (researchCountry || form.name).trim();
+    if (!countryName) {
+      setError("Enter a country name before starting automatic research.");
+      return;
+    }
+
+    setIsAutoResearching(true);
+    setError("");
+    setSuccessSlug("");
+    setResearchSources([]);
+
+    try {
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
+
+      if (sessionError || !session?.access_token) {
+        throw new Error("Please sign in first. We could not verify your admin session.");
+      }
+
+      if (!isPlatformAdminEmail(session.user.email)) {
+        throw new Error("Automatic country research is restricted to your owner account.");
+      }
+
+      const response = await fetch("/api/admin/countries/research", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ countryName }),
+      });
+      const payload = (await response.json()) as {
+        country?: CountryDiscovery;
+        sources?: ResearchSource[];
+        error?: string;
+      };
+
+      if (!response.ok || !payload.country) {
+        throw new Error(payload.error ?? "Could not automatically research this country.");
+      }
+
+      setForm(fromCountry(payload.country));
+      setResearchCountry(payload.country.name);
+      setResearchSources(payload.sources ?? []);
+    } catch (researchError) {
+      setError(
+        researchError instanceof Error
+          ? researchError.message
+          : "Could not automatically research this country.",
+      );
+    } finally {
+      setIsAutoResearching(false);
+    }
   }
 
   function useResearchCountry() {
@@ -453,10 +519,10 @@ export default function AdminCountriesPage() {
             <div>
               <h2>Country law research assistant</h2>
               <p>
-                Type a country such as Sweden to generate focused research links and a complete naturist-law checklist for the profile.
+                Type a country such as Sweden, then let ChatGPT research the profile automatically with web search. Manual Google links remain available for verification.
               </p>
             </div>
-            <Search className={styles.headerIcon} size={20} aria-hidden="true" />
+            <Bot className={styles.headerIcon} size={20} aria-hidden="true" />
           </div>
           <div className={styles.researchControls}>
             <label>
@@ -467,6 +533,9 @@ export default function AdminCountriesPage() {
                 placeholder="Sweden"
               />
             </label>
+            <button className={styles.autoButton} type="button" onClick={autoResearchCountry} disabled={isAutoResearching}>
+              <Sparkles size={16} /> {isAutoResearching ? "Researching..." : "Auto-fill with ChatGPT"}
+            </button>
             <button className={styles.secondaryButton} type="button" onClick={useResearchCountry}>
               Use in country fields
             </button>
@@ -485,8 +554,20 @@ export default function AdminCountriesPage() {
               </a>
             ))}
           </div>
+          {researchSources.length > 0 ? (
+            <div className={styles.sourcePanel}>
+              <strong>Sources used by ChatGPT web research</strong>
+              <div className={styles.sourceList}>
+                {researchSources.map((source) => (
+                  <a href={source.url} target="_blank" rel="noreferrer" key={source.url}>
+                    {source.title || source.url}
+                  </a>
+                ))}
+              </div>
+            </div>
+          ) : null}
           <p className={styles.researchNote}>
-            Tip: open the links, verify the information against official or reputable local sources, then paste the confirmed summaries into Naturist laws. This helper does not replace legal review.
+            Automatic research drafts the profile for you, but keep it as an admin review step: check the source links, confirm official or reputable local guidance, then save. This helper does not replace legal review.
           </p>
         </section>
         
