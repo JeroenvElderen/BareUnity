@@ -678,6 +678,7 @@ model platform_settings {
   primary_community_id          String?   @db.Uuid
   updated_at                    DateTime  @default(now()) @db.Timestamptz(6)
   primary_channel_id            String?   @db.Uuid
+  sidebar_hidden_items          Json      @default("[]")
   channels                      channels? @relation(fields: [primary_channel_id], references: [id], onUpdate: NoAction)
 
   @@schema("public")

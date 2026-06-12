@@ -1,4 +1,6 @@
 import Link from "next/link";
+
+import { SidebarVisibilityManager } from "@/components/admin/sidebar-visibility-manager";
 import styles from "./page.module.css";
 
 const sections = [
@@ -71,6 +73,8 @@ export default function AdminOverviewPage() {
           Use this workspace to keep the community safe, process onboarding, and
           stay on top of flagged content.
         </p>
+
+        <SidebarVisibilityManager />
 
         <div className={styles.grid}>
           {sections.map((section) => (
