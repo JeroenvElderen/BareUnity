@@ -12,6 +12,7 @@ export type AppNotificationType =
   | "admin-feedback"
   | "admin-location"
   | "admin-verification"
+  | "verification-decision"
   | "friend-request";
 
 export type AppNotification = {

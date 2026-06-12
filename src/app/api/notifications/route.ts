@@ -14,12 +14,15 @@ type NotificationType =
   | "post-comment"
   | "gallery-like"
   | "general-message"
+  | "video-visitor"
+  | "friend-request"
   | "map-entry"
   | "admin-report"
   | "admin-registration"
   | "admin-feedback"
   | "admin-location"
-  | "admin-verification";
+  | "admin-verification"
+  | "verification-decision";
 
 type NotificationResponseItem = {
   id: string;
@@ -78,6 +81,15 @@ type AdminVerificationRow = {
   display_name: string | null;
   legal_name: string | null;
 };
+type PersistedNotificationRow = {
+  id: string;
+  type: NotificationType;
+  title: string;
+  detail: string;
+  target_href: string | null;
+  unread: boolean | null;
+  created_at: Date;
+};
 
 function resolveActorName(
   actorName: string | null | undefined,
@@ -119,6 +131,19 @@ export async function GET(request: Request) {
   // Run notification lookups sequentially because production Prisma uses the
   // Supabase pooler with connection_limit=1. Parallel queries can exhaust the
   // single connection and hide useful notifications behind pool timeouts.
+  const persistedNotifications = await db
+    .$queryRaw<Array<PersistedNotificationRow>>(
+      Prisma.sql`
+      select id, type, title, detail, target_href, unread, created_at
+      from public.notifications
+      where user_id = ${viewerId}::uuid
+        and created_at >= ${notificationSince}
+      order by created_at desc
+      limit ${MAX_NOTIFICATIONS}
+    `,
+    )
+    .catch(() => []);
+
   const feedLikes = await db
     .$queryRaw<Array<FeedLikeRow>>(
       Prisma.sql`
@@ -321,6 +346,15 @@ export async function GET(request: Request) {
   }
 
   const notifications: NotificationResponseItem[] = [
+    ...persistedNotifications.map((row) => ({
+      id: row.id,
+      title: row.title,
+      detail: row.detail,
+      timestamp: toIso(row.created_at),
+      type: row.type,
+      unread: row.unread ?? true,
+      targetHref: row.target_href ?? undefined,
+    })),
     ...feedLikes.map((row) => ({
       id: `post-like-${row.id}`,
       title: "New like on your post",

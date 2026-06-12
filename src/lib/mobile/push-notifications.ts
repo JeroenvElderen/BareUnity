@@ -1,44 +1,50 @@
 "use client";
 
+import { Capacitor } from "@capacitor/core";
 import { PushNotifications } from "@capacitor/push-notifications";
 import { supabase } from "@/lib/supabase";
 
-export async function registerPushNotifications() {
-  try {
-    console.log("=== PUSH START ===");
+let listenersRegistered = false;
+let registrationInFlight = false;
 
+function isNativePushAvailable() {
+  return Capacitor.isNativePlatform();
+}
+
+export async function registerPushNotifications() {
+  if (!isNativePushAvailable() || registrationInFlight) return;
+
+  try {
+    registrationInFlight = true;
     setupPushNotificationListeners();
 
     const permission = await PushNotifications.requestPermissions();
 
-    console.log("=== PERMISSION ===", JSON.stringify(permission));
-
     if (permission.receive !== "granted") {
-      console.log("=== PERMISSION DENIED ===");
+      console.log("Push notification permission denied");
       return;
     }
 
-    console.log("=== REGISTERING ===");
-
     await PushNotifications.register();
-
-    console.log("=== REGISTER CALLED ===");
   } catch (error) {
-    console.error("=== PUSH ERROR ===", error);
+    console.error("Push notification registration failed", error);
+  } finally {
+    registrationInFlight = false;
   }
 }
 
 export function setupPushNotificationListeners() {
-  PushNotifications.addListener("registration", async (token) => {
-    console.log("=== FCM TOKEN ===", token.value);
+  if (!isNativePushAvailable() || listenersRegistered) return;
+  listenersRegistered = true;
 
+  PushNotifications.addListener("registration", async (token) => {
     try {
       const {
         data: { user },
       } = await supabase.auth.getUser();
 
       if (!user) {
-        console.log("=== NO AUTHENTICATED USER ===");
+        console.log("Push token received before authentication");
         return;
       }
 
@@ -50,36 +56,28 @@ export function setupPushNotificationListeners() {
         .eq("id", user.id);
 
       if (error) {
-        console.error("=== TOKEN SAVE ERROR ===", error);
-      } else {
-        console.log("=== TOKEN SAVED SUCCESSFULLY ===");
+        console.error("Push token save failed", error);
       }
     } catch (error) {
-      console.error("=== TOKEN SAVE EXCEPTION ===", error);
+      console.error("Push token save failed", error);
     }
   });
 
   PushNotifications.addListener("registrationError", (error) => {
-    console.error("=== FCM ERROR ===", JSON.stringify(error));
+    console.error("Push notification registration error", error);
   });
 
-  PushNotifications.addListener(
-    "pushNotificationReceived",
-    (notification) => {
-      console.log(
-        "=== PUSH RECEIVED ===",
-        JSON.stringify(notification)
-      );
-    }
-  );
+  PushNotifications.addListener("pushNotificationReceived", (notification) => {
+    console.log("Push notification received", notification);
+  });
 
   PushNotifications.addListener(
     "pushNotificationActionPerformed",
     (notification) => {
-      console.log(
-        "=== PUSH ACTION ===",
-        JSON.stringify(notification)
-      );
-    }
+      const targetHref = notification.notification.data?.targetHref;
+      if (typeof targetHref === "string" && targetHref.length > 0) {
+        window.location.assign(targetHref);
+      }
+    },
   );
 }
