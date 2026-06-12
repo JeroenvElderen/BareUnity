@@ -14,34 +14,10 @@ import {
 } from "lucide-react";
 
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
 import { AppSidebar } from "@/components/sidebar/sidebar";
 import { Badge } from "@/components/ui/badge";
-
-type AppNotificationType =
-  | "post-like"
-  | "gallery-like"
-  | "post-comment"
-  | "general-message"
-  | "video-visitor"
-  | "map-entry"
-  | "admin-location"
-  | "admin-report"
-  | "admin-registration"
-  | "admin-feedback"
-  | "friend-request"
-  | "admin-verification";
-
-interface NotificationRecord {
-  id: string;
-  type: AppNotificationType;
-  title: string;
-  detail: string;
-  target_href: string | null;
-  unread: boolean;
-  created_at: string;
-  read_at: string | null;
-}
+import { supabase } from "@/lib/supabase";
+import { useUIStore, type AppNotification } from "@/stores/ui-store";
 import layoutStyles from "../page.module.css";
 import styles from "./notifications.module.css";
 
@@ -64,7 +40,7 @@ function formatRelativeTime(timestamp: string) {
   return relativeTimeFormatter.format(diffDays, "day");
 }
 
-function getTypeIcon(type: AppNotificationType) {
+function getTypeIcon(type: AppNotification["type"]) {
   if (type === "post-like" || type === "gallery-like")
     return <Heart size={16} aria-hidden />;
   if (type === "post-comment" || type === "general-message")
@@ -77,7 +53,8 @@ function getTypeIcon(type: AppNotificationType) {
     type === "admin-report" ||
     type === "admin-registration" ||
     type === "admin-feedback" ||
-    type === "admin-verification"
+    type === "admin-verification" ||
+    type === "verification-decision"
   )
     return <ShieldAlert size={16} aria-hidden />;
   return <MessagesSquare size={16} aria-hidden />;
@@ -85,135 +62,52 @@ function getTypeIcon(type: AppNotificationType) {
 
 export default function NotificationsPage() {
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
-  const [notificationItems, setNotificationItems] = useState<
-  NotificationRecord[]
->([]);
-
-useEffect(() => {
-  let channel: ReturnType<typeof supabase.channel> | null = null;
-
-  async function loadNotifications() {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) return;
-
-    const { data, error } = await supabase
-      .from("notifications")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      console.error(error);
-      return;
-    }
-
-    setNotificationItems(data ?? []);
-
-    channel = supabase
-      .channel(`notifications-${user.id}`)
-      .on(
-  "postgres_changes",
-  {
-    event: "*",
-    schema: "public",
-    table: "notifications",
-    filter: `user_id=eq.${user.id}`,
-  },
-  (payload) => {
-    if (payload.eventType === "INSERT") {
-      setNotificationItems((current) => [
-        payload.new as NotificationRecord,
-        ...current,
-      ]);
-    }
-
-    if (payload.eventType === "UPDATE") {
-      setNotificationItems((current) =>
-        current.map((item) =>
-          item.id === payload.new.id
-            ? (payload.new as NotificationRecord)
-            : item
-        )
-      );
-    }
-
-    if (payload.eventType === "DELETE") {
-      setNotificationItems((current) =>
-        current.filter((item) => item.id !== payload.old.id)
-      );
-    }
-  }
-)
-      .subscribe();
-  }
-
-  loadNotifications();
-
-  return () => {
-    if (channel) {
-      supabase.removeChannel(channel);
-    }
-  };
-}, []);
-
-async function markNotificationAsRead(id: string) {
-  const { error } = await supabase
-    .from("notifications")
-    .update({
-      unread: false,
-      read_at: new Date().toISOString(),
-    })
-    .eq("id", id);
-
-  if (error) {
-    console.error(error);
-    return;
-  }
-
-  setNotificationItems((current) =>
-    current.map((notification) =>
-      notification.id === id
-        ? { ...notification, unread: false }
-        : notification
-    )
+  const notificationItems = useUIStore((state) => state.notifications);
+  const setNotifications = useUIStore((state) => state.setNotifications);
+  const markNotificationAsRead = useUIStore(
+    (state) => state.markNotificationAsRead,
   );
-}
-
-async function markAllNotificationsAsRead() {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return;
-
-  const { error } = await supabase
-    .from("notifications")
-    .update({
-      unread: false,
-      read_at: new Date().toISOString(),
-    })
-    .eq("user_id", user.id)
-    .eq("unread", true);
-
-  if (error) {
-    console.error(error);
-    return;
-  }
-
-  setNotificationItems((current) =>
-    current.map((notification) => ({
-      ...notification,
-      unread: false,
-    }))
+  const markAllNotificationsAsRead = useUIStore(
+    (state) => state.markAllNotificationsAsRead,
   );
-}
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadNotifications() {
+      const { data } = await supabase.auth.getSession();
+      const accessToken = data.session?.access_token;
+      if (!accessToken) return;
+
+      try {
+        const response = await fetch("/api/notifications", {
+          cache: "no-store",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        });
+        if (!response.ok) return;
+
+        const payload = (await response.json()) as {
+          notifications?: AppNotification[];
+        };
+        if (isMounted && Array.isArray(payload.notifications)) {
+          setNotifications(payload.notifications);
+        }
+      } catch (error) {
+        console.debug("Could not load notifications", error);
+      }
+    }
+
+    void loadNotifications();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [setNotifications]);
 
   const unreadCount = useMemo(
-    () =>
-      notificationItems.filter((notification) => notification.unread).length,
+    () => notificationItems.filter((notification) => notification.unread).length,
     [notificationItems],
   );
 
@@ -302,7 +196,7 @@ async function markAllNotificationsAsRead() {
                 <div className={styles.body}>
                   <div className={styles.topRow}>
                     <h2>{notification.title}</h2>
-                    <span>{formatRelativeTime(notification.created_at)}</span>
+                    <span>{formatRelativeTime(notification.timestamp)}</span>
                   </div>
                   <p>{notification.detail}</p>
                 </div>
@@ -314,9 +208,9 @@ async function markAllNotificationsAsRead() {
                     <Badge>Read</Badge>
                   )}
                   <div className={styles.ctaWrap}>
-                    {notification.target_href ? (
+                    {notification.targetHref ? (
                       <Link
-                        href={notification.target_href}
+                        href={notification.targetHref}
                         className={styles.toggleButton}
                       >
                         Open
@@ -326,6 +220,7 @@ async function markAllNotificationsAsRead() {
                       type="button"
                       onClick={() => markNotificationAsRead(notification.id)}
                       className={styles.toggleButton}
+                      disabled={!notification.unread}
                     >
                       Mark as read
                     </button>

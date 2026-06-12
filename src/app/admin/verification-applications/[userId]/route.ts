@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sendVerificationDecisionEmail } from "@/lib/email";
+import { createNotification } from "@/lib/notifications";
 import { ensureAdminRequest } from "@/lib/request-auth";
 import {
   createSupabaseAdminClient,
@@ -83,6 +83,26 @@ function buildReviewerNotes(
   return notes.join(";");
 }
 
+
+async function notifyVerificationDecision(
+  userId: string,
+  decision: "approved" | "rejected",
+) {
+  const approved = decision === "approved";
+
+  await createNotification({
+    userId,
+    type: "verification-decision",
+    title: approved ? "Application approved" : "Application reviewed",
+    detail: approved
+      ? "Your BareUnity application has been approved. Your account is ready to use."
+      : "Your BareUnity application was reviewed and could not be approved right now. You can review your details and apply again.",
+    targetHref: approved ? "/" : "/settings",
+  }).catch((error) => {
+    console.error("Failed to create verification decision notification", error);
+  });
+}
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ userId: string }> },
@@ -124,12 +144,8 @@ export async function PATCH(
     );
   }
 
-  const userEmail = userData.user?.email?.trim().toLowerCase();
-  if (!userEmail) {
-    return NextResponse.json(
-      { error: "User email was not found for this account." },
-      { status: 404 },
-    );
+  if (!userData.user) {
+    return NextResponse.json({ error: "User not found." }, { status: 404 });
   }
 
   const { data: existing, error: existingError } = await supabaseAdmin
@@ -192,7 +208,11 @@ export async function PATCH(
 
     const { error: settingsError } = await supabaseAdmin
       .from("profile_settings")
-      .update({ user_role: "newcomer", onboarding_completed: true })
+      .update({
+        user_role: "newcomer",
+        onboarding_completed: true,
+        updated_at: new Date().toISOString(),
+      })
       .eq("user_id", userId);
 
     if (settingsError) {
@@ -205,6 +225,12 @@ export async function PATCH(
     const { error: confirmEmailError } =
       await supabaseAdmin.auth.admin.updateUserById(userId, {
         email_confirm: true,
+        user_metadata: {
+          ...(userData.user.user_metadata ?? {}),
+          account_access: "verified",
+          onboarding_level: "L2_safety_training_complete",
+          verification_status: "approved",
+        },
       });
 
     if (confirmEmailError) {
@@ -214,12 +240,7 @@ export async function PATCH(
       );
     }
 
-    await sendVerificationDecisionEmail({
-      email: userEmail,
-      decision: "approved",
-    }).catch((error) => {
-      console.error("Failed to send approval email", error);
-    });
+    await notifyVerificationDecision(userId, "approved");
   } else {
     const idDocumentPath = extractIdDocumentPath(existing.reviewer_notes);
 
@@ -261,21 +282,40 @@ export async function PATCH(
       );
     }
 
-    const { error: deleteUserError } =
-      await supabaseAdmin.auth.admin.deleteUser(userId);
-    if (deleteUserError) {
+    const { error: settingsError } = await supabaseAdmin
+      .from("profile_settings")
+      .update({
+        user_role: "view_only",
+        onboarding_completed: false,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("user_id", userId);
+
+    if (settingsError) {
       return NextResponse.json(
-        { error: deleteUserError.message },
+        { error: settingsError.message },
         { status: 500 },
       );
     }
 
-    await sendVerificationDecisionEmail({
-      email: userEmail,
-      decision: "rejected",
-    }).catch((error) => {
-      console.error("Failed to send rejection email", error);
-    });
+    const { error: metadataError } =
+      await supabaseAdmin.auth.admin.updateUserById(userId, {
+        user_metadata: {
+          ...(userData.user.user_metadata ?? {}),
+          account_access: "viewOnly",
+          onboarding_level: "view_only_unverified",
+          verification_status: "rejected",
+        },
+      });
+
+    if (metadataError) {
+      return NextResponse.json(
+        { error: metadataError.message },
+        { status: 500 },
+      );
+    }
+
+    await notifyVerificationDecision(userId, "rejected");
   }
 
   return NextResponse.json({ ok: true });

@@ -123,6 +123,31 @@ function createNotification(
   };
 }
 
+
+type PersistedNotificationRecord = {
+  id: string;
+  type: AppNotification["type"];
+  title: string;
+  detail: string;
+  target_href?: string | null;
+  unread?: boolean | null;
+  created_at?: string | null;
+};
+
+function fromPersistedNotification(
+  row: PersistedNotificationRecord,
+): AppNotification {
+  return {
+    id: row.id,
+    title: row.title,
+    detail: row.detail,
+    type: row.type,
+    unread: row.unread ?? true,
+    timestamp: row.created_at ?? new Date().toISOString(),
+    targetHref: row.target_href ?? undefined,
+  };
+}
+
 const discussionRooms = [
   { name: "General Room", href: "/discussion" },
   { name: "Video Room", href: "/video-room" },
@@ -609,6 +634,27 @@ export function AppSidebar() {
     const channels: ReturnType<typeof supabase.channel>[] = [];
     let isCleaningUp = false;
 
+    const persistedNotificationsChannel = supabase
+      .channel(`notifications-table-${viewerId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${viewerId}`,
+        },
+        (payload) => {
+          if (payload.eventType === "DELETE") return;
+          pushNotification(
+            fromPersistedNotification(
+              payload.new as PersistedNotificationRecord,
+            ),
+          );
+        },
+      );
+    channels.push(persistedNotificationsChannel);
+
     const postVotesChannel = supabase
       .channel(`notifications-post-votes-${viewerId}`)
       .on(
@@ -861,7 +907,7 @@ export function AppSidebar() {
         void supabase.removeChannel(channel);
       });
     };
-  }, [generalChannelId, isAdmin, pushLiveNotification, viewerId]);
+  }, [generalChannelId, isAdmin, pushLiveNotification, pushNotification, viewerId]);
 
   useEffect(() => {
     if (typeof document === "undefined" || typeof window === "undefined")
