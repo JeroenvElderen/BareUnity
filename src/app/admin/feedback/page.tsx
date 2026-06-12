@@ -15,11 +15,20 @@ type FeedbackReply = {
   created_at: string;
 };
 
+type FeedbackStatus = "new" | "reviewing" | "done" | "dismissed";
+
 type FeedbackMessage = {
   id: string;
   category: "bug" | "idea" | "question" | "other";
   message: string;
-  status: "open" | "awaiting_admin" | "answered" | "closed" | string | null;
+  status:
+    | FeedbackStatus
+    | "open"
+    | "awaiting_admin"
+    | "answered"
+    | "closed"
+    | string
+    | null;
   page_url: string | null;
   user_agent: string | null;
   user_email: string | null;
@@ -31,7 +40,13 @@ type FeedbackMessage = {
 function prettyDate(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "Unknown";
-  return date.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  return date.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function categoryLabel(category: FeedbackMessage["category"]) {
@@ -44,12 +59,20 @@ function categoryLabel(category: FeedbackMessage["category"]) {
 }
 
 function statusLabel(status: FeedbackMessage["status"]) {
-  return {
-    open: "Open",
-    awaiting_admin: "Needs admin reply",
-    answered: "Answered",
-    closed: "Closed",
-  }[status ?? "open"] ?? status ?? "Open";
+  return (
+    {
+      new: "Open",
+      reviewing: "Needs admin reply",
+      done: "Answered",
+      dismissed: "Closed",
+      open: "Open",
+      awaiting_admin: "Needs admin reply",
+      answered: "Answered",
+      closed: "Closed",
+    }[status ?? "open"] ??
+    status ??
+    "Open"
+  );
 }
 
 export default function AdminFeedbackPage() {
@@ -61,7 +84,8 @@ export default function AdminFeedbackPage() {
   const [error, setError] = useState("");
 
   const selectedTicket = useMemo(
-    () => feedback.find((item) => item.id === selectedId) ?? feedback[0] ?? null,
+    () =>
+      feedback.find((item) => item.id === selectedId) ?? feedback[0] ?? null,
     [feedback, selectedId],
   );
 
@@ -92,7 +116,10 @@ export default function AdminFeedbackPage() {
       headers: { Authorization: `Bearer ${token}` },
     });
 
-    const payload = (await response.json()) as { feedback?: FeedbackMessage[]; error?: string };
+    const payload = (await response.json()) as {
+      feedback?: FeedbackMessage[];
+      error?: string;
+    };
     if (!response.ok) {
       setError(payload.error ?? "Could not load feedback.");
       setIsLoading(false);
@@ -125,16 +152,22 @@ export default function AdminFeedbackPage() {
       return;
     }
 
-    const response = await fetch(`/api/admin/feedback/${selectedTicket.id}/replies`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
+    const response = await fetch(
+      `/api/admin/feedback/${selectedTicket.id}/replies`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ message: replyMessage }),
       },
-      body: JSON.stringify({ message: replyMessage }),
-    });
+    );
 
-    const payload = (await response.json().catch(() => ({}))) as { reply?: FeedbackReply; error?: string };
+    const payload = (await response.json().catch(() => ({}))) as {
+      reply?: FeedbackReply;
+      error?: string;
+    };
     if (!response.ok || !payload.reply) {
       setError(payload.error ?? "Could not send your reply.");
       setIsSending(false);
@@ -143,14 +176,20 @@ export default function AdminFeedbackPage() {
 
     setFeedback((current) =>
       current.map((item) =>
-        item.id === selectedTicket.id ? { ...item, status: "answered", replies: [...item.replies, payload.reply!] } : item,
+        item.id === selectedTicket.id
+          ? {
+              ...item,
+              status: "done",
+              replies: [...item.replies, payload.reply!],
+            }
+          : item,
       ),
     );
     setReplyMessage("");
     setIsSending(false);
   };
 
-  const updateStatus = async (status: "open" | "awaiting_admin" | "answered" | "closed") => {
+  const updateStatus = async (status: FeedbackStatus) => {
     if (!selectedTicket) return;
 
     setError("");
@@ -166,13 +205,22 @@ export default function AdminFeedbackPage() {
       body: JSON.stringify({ status }),
     });
 
-    const payload = (await response.json().catch(() => ({}))) as { error?: string };
+    const payload = (await response.json().catch(() => ({}))) as {
+      feedback?: { status: FeedbackMessage["status"] };
+      error?: string;
+    };
     if (!response.ok) {
       setError(payload.error ?? "Could not update ticket status.");
       return;
     }
 
-    setFeedback((current) => current.map((item) => (item.id === selectedTicket.id ? { ...item, status } : item)));
+    setFeedback((current) =>
+      current.map((item) =>
+        item.id === selectedTicket.id
+          ? { ...item, status: payload.feedback?.status ?? status }
+          : item,
+      ),
+    );
   };
 
   return (
@@ -182,9 +230,17 @@ export default function AdminFeedbackPage() {
           <div>
             <p className={styles.eyebrow}>🌿 BareUnity • Admin Studio</p>
             <h1 className={styles.title}>Feedback Ticket Inbox</h1>
-            <p className={styles.subtitle}>Discuss ideas, bugs, and questions with members in an ongoing ticket thread.</p>
+            <p className={styles.subtitle}>
+              Discuss ideas, bugs, and questions with members in an ongoing
+              ticket thread.
+            </p>
           </div>
-          <button className={styles.refreshButton} onClick={() => void loadFeedback()}>Refresh</button>
+          <button
+            className={styles.refreshButton}
+            onClick={() => void loadFeedback()}
+          >
+            Refresh
+          </button>
         </header>
 
         {error ? <p className={styles.error}>{error}</p> : null}
@@ -197,16 +253,26 @@ export default function AdminFeedbackPage() {
           <div className={styles.ticketDesk}>
             <aside className={styles.list} aria-label="Feedback tickets">
               {feedback.map((item) => (
-                <button key={item.id} className={styles.card} data-selected={selectedTicket?.id === item.id} type="button" onClick={() => setSelectedId(item.id)}>
+                <button
+                  key={item.id}
+                  className={styles.card}
+                  data-selected={selectedTicket?.id === item.id}
+                  type="button"
+                  onClick={() => setSelectedId(item.id)}
+                >
                   <div className={styles.cardHeader}>
                     <div>
-                      <span className={styles.category}>{categoryLabel(item.category)}</span>
+                      <span className={styles.category}>
+                        {categoryLabel(item.category)}
+                      </span>
                       <strong>{item.user_email || "Unknown member"}</strong>
                     </div>
                     <span>{prettyDate(item.created_at)}</span>
                   </div>
                   <p className={styles.message}>{item.message}</p>
-                  <span className={styles.statusPill}>{statusLabel(item.status)}</span>
+                  <span className={styles.statusPill}>
+                    {statusLabel(item.status)}
+                  </span>
                 </button>
               ))}
             </aside>
@@ -215,14 +281,34 @@ export default function AdminFeedbackPage() {
               <article className={styles.threadCard}>
                 <div className={styles.threadHeader}>
                   <div>
-                    <span className={styles.category}>{categoryLabel(selectedTicket.category)}</span>
+                    <span className={styles.category}>
+                      {categoryLabel(selectedTicket.category)}
+                    </span>
                     <h2>{selectedTicket.user_email || "Unknown member"}</h2>
-                    <p>Opened {prettyDate(selectedTicket.created_at)} • {statusLabel(selectedTicket.status)}</p>
+                    <p>
+                      Opened {prettyDate(selectedTicket.created_at)} •{" "}
+                      {statusLabel(selectedTicket.status)}
+                    </p>
                   </div>
                   <div className={styles.statusActions}>
-                    <button type="button" onClick={() => void updateStatus("open")}>Open</button>
-                    <button type="button" onClick={() => void updateStatus("awaiting_admin")}>Needs reply</button>
-                    <button type="button" onClick={() => void updateStatus("closed")}>Close</button>
+                    <button
+                      type="button"
+                      onClick={() => void updateStatus("new")}
+                    >
+                      Open
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void updateStatus("reviewing")}
+                    >
+                      Needs reply
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void updateStatus("dismissed")}
+                    >
+                      Close
+                    </button>
                   </div>
                 </div>
 
@@ -233,16 +319,26 @@ export default function AdminFeedbackPage() {
                     <small>{prettyDate(selectedTicket.created_at)}</small>
                   </section>
                   {selectedTicket.replies.map((reply) => (
-                    <section key={reply.id} className={styles.chatBubble} data-author={reply.author_role}>
-                      <span>{reply.author_role === "admin" ? "BareUnity team" : reply.author_email || "Member"}</span>
+                    <section
+                      key={reply.id}
+                      className={styles.chatBubble}
+                      data-author={reply.author_role}
+                    >
+                      <span>
+                        {reply.author_role === "admin"
+                          ? "BareUnity team"
+                          : reply.author_email || "Member"}
+                      </span>
                       <p>{reply.message}</p>
                       <small>{prettyDate(reply.created_at)}</small>
                     </section>
                   ))}
                 </div>
-                
+
                 <form className={styles.replyForm} onSubmit={sendReply}>
-                  <label htmlFor="admin-feedback-reply">Reply to this member</label>
+                  <label htmlFor="admin-feedback-reply">
+                    Reply to this member
+                  </label>
                   <textarea
                     id="admin-feedback-reply"
                     value={replyMessage}
@@ -253,7 +349,11 @@ export default function AdminFeedbackPage() {
                   />
                   <div className={styles.replyFooter}>
                     <span>{replyMessage.length}/1200 characters</span>
-                    <button className={styles.refreshButton} type="submit" disabled={isSending || replyMessage.trim().length < 2}>
+                    <button
+                      className={styles.refreshButton}
+                      type="submit"
+                      disabled={isSending || replyMessage.trim().length < 2}
+                    >
                       {isSending ? "Sending…" : "Send reply"}
                     </button>
                   </div>
@@ -262,7 +362,15 @@ export default function AdminFeedbackPage() {
                 <dl className={styles.metaGrid}>
                   <div>
                     <dt>Page</dt>
-                    <dd>{selectedTicket.page_url ? <a href={selectedTicket.page_url}>{selectedTicket.page_url}</a> : "Not captured"}</dd>
+                    <dd>
+                      {selectedTicket.page_url ? (
+                        <a href={selectedTicket.page_url}>
+                          {selectedTicket.page_url}
+                        </a>
+                      ) : (
+                        "Not captured"
+                      )}
+                    </dd>
                   </div>
                   <div>
                     <dt>User agent</dt>

@@ -2,10 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { ensureAdminRequest } from "@/lib/request-auth";
-import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase-admin";
+import {
+  createSupabaseAdminClient,
+  isSupabaseAdminConfigured,
+} from "@/lib/supabase-admin";
 
 const statusSchema = z.object({
-  status: z.enum(["open", "awaiting_admin", "answered", "closed"]),
+  status: z.enum(["new", "reviewing", "done", "dismissed"]),
 });
 
 type RouteContext = {
@@ -14,7 +17,10 @@ type RouteContext = {
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
   if (!isSupabaseAdminConfigured) {
-    return NextResponse.json({ error: "Supabase admin credentials are not configured." }, { status: 500 });
+    return NextResponse.json(
+      { error: "Supabase admin credentials are not configured." },
+      { status: 500 },
+    );
   }
 
   const adminResult = await ensureAdminRequest(request);
@@ -23,7 +29,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   const { feedbackId } = await context.params;
   const parsed = statusSchema.safeParse(await request.json().catch(() => ({})));
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid status." }, { status: 400 });
+    return NextResponse.json(
+      { error: parsed.error.issues[0]?.message ?? "Invalid status." },
+      { status: 400 },
+    );
   }
 
   const supabaseAdmin = createSupabaseAdminClient();
@@ -34,6 +43,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     .select("id, status")
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error)
+    return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ feedback: data });
 }
