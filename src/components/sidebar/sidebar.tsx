@@ -66,13 +66,12 @@ const fallbackCountryNavItems: readonly CountryNavItem[] = [
 
 const primaryItems: readonly SidebarNavLinkItem[] = [
   { id: "home", icon: Home, label: "Home", href: "/" },
-  { 
-    id: "explore", 
-    icon: Compass, 
-    label: "Explore", 
-    href: "/explore" 
-  },
+  { id: "rules", icon: ShieldCheck, label: "Rules", href: "/rules" },
   { id: "gallery", icon: Image, label: "Gallery", href: "/gallery" },
+];
+
+const travelItems: readonly SidebarNavLinkItem[] = [
+  { id: "explore", icon: Compass, label: "Explore", href: "/explore" },
 ];
 
 const bookingItems: readonly SidebarNavLinkItem[] = [
@@ -101,7 +100,7 @@ const communityItems: readonly SidebarNavItem[] = [
   { id: "members", icon: Users, label: "Members", href: "/members" },
 ];
 
-const accountItems: readonly SidebarNavItem[] = [  
+const accountItems: readonly SidebarNavItem[] = [
   { id: "settings", icon: Settings, label: "Settings", href: "/settings" },
   { id: "policies", icon: ScrollText, label: "Policies", href: "/policies" },
 ];
@@ -982,6 +981,9 @@ export function AppSidebar() {
   const visiblePrimaryItems = primaryItems.filter(
     (item) => !isSidebarItemHidden(hiddenSidebarItems, item.id),
   );
+  const visibleTravelItems = travelItems.filter(
+    (item) => !isSidebarItemHidden(hiddenSidebarItems, item.id),
+  );
   const visibleBookingItems = bookingItems.filter(
     (item) => !isSidebarItemHidden(hiddenSidebarItems, item.id),
   );
@@ -1003,6 +1005,7 @@ export function AppSidebar() {
   const visibleAdminItems = adminItems.filter(
     (item) => !isSidebarItemHidden(hiddenSidebarItems, item.id),
   );
+  const showTravelLinks = visibleTravelItems.length > 0;
   const showCountries = !isSidebarItemHidden(hiddenSidebarItems, "countries");
   const showBookings =
     !isSidebarItemHidden(hiddenSidebarItems, "bookings") &&
@@ -1074,10 +1077,24 @@ export function AppSidebar() {
               </nav>
           </section>
 
-          {showCountries || showBookings ? (
+          {showTravelLinks || showCountries || showBookings ? (
             <section className={styles.section}>
               <p className={styles.sectionLabel}>Explore & Travel</p>
               <nav>
+                {visibleTravelItems.map(({ icon: Icon, label, href, badge }) => (
+                  <Link
+                    key={label}
+                    href={href}
+                    className={`${styles.navItem} ${isActiveNavItem(pathname, href) ? styles.active : ""}`}
+                  >
+                    <span className={styles.itemLeft}>
+                      <Icon size={18} aria-hidden />
+                      <span>{label}</span>
+                    </span>
+                    {badge ? <span className={styles.badge}>{badge}</span> : null}
+                  </Link>
+                ))}
+                
                 {showCountries ? (
                   <div className={styles.dropdown}>
                     <button

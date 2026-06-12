@@ -17,6 +17,7 @@ export type SidebarItemId =
   | "notifications"
   | "members"
   | "settings"
+  | "rules"
   | "policies"
   | "verification"
   | "admin"
@@ -124,6 +125,12 @@ export const sidebarVisibilityOptions: readonly SidebarVisibilityOption[] = [
     id: "settings",
     label: "Settings",
     description: "Hide the account settings shortcut.",
+    group: "Naturist Circle",
+  },
+  {
+    id: "rules",
+    label: "Rules",
+    description: "Hide the dedicated community rules shortcut.",
     group: "Naturist Circle",
   },
   {
