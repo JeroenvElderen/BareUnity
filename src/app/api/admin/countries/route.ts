@@ -3,6 +3,11 @@ import { z } from "zod";
 
 import { ensureAdminRequest } from "@/lib/request-auth";
 import {
+  COUNTRY_DISCOVERY_COLUMNS,
+  countryDiscoveryFromRow,
+  type CountryDiscoveryRow,
+} from "@/lib/country-discovery";
+import {
   createSupabaseAdminClient,
   isSupabaseAdminConfigured,
 } from "@/lib/supabase-admin";
@@ -68,6 +73,41 @@ const countryProfileSchema = z.object({
   faqs: z.array(z.string().trim().min(1)),
   tags: z.array(z.string().trim().min(1)),
 });
+
+
+export async function GET(request: NextRequest) {
+  if (!isSupabaseAdminConfigured) {
+    return NextResponse.json(
+      { error: "Supabase admin credentials are not configured." },
+      { status: 500 },
+    );
+  }
+
+  const authResult = await ensureAdminRequest(request);
+  if ("error" in authResult) return authResult.error;
+
+  const name = request.nextUrl.searchParams.get("name")?.trim();
+  if (!name) {
+    return NextResponse.json(
+      { error: "Country name is required." },
+      { status: 400 },
+    );
+  }
+
+  const supabaseAdmin = createSupabaseAdminClient();
+  const { data, error } = await supabaseAdmin
+    .from("country_discovery_profiles")
+    .select(COUNTRY_DISCOVERY_COLUMNS)
+    .ilike("name", name)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  return NextResponse.json({
+    country: data ? countryDiscoveryFromRow(data as CountryDiscoveryRow) : null,
+  });
+}
 
 export async function POST(request: NextRequest) {
   if (!isSupabaseAdminConfigured) {

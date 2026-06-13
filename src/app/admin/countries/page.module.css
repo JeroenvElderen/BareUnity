@@ -15,7 +15,8 @@
 .form,
 .panel,
 .error,
-.success {
+.success,
+.info {
   border: 1px solid rgb(var(--border) / 0.75);
   background: rgb(var(--card) / 0.94);
   box-shadow: 0 20px 50px rgb(var(--shadow) / 0.08);
@@ -153,7 +154,8 @@
 }
 
 .error,
-.success {
+.success,
+.info {
   border-radius: 16px;
   padding: 0.85rem 1rem;
   font-weight: 800;
@@ -169,6 +171,12 @@
   border-color: rgb(var(--success) / 0.4);
   background: rgb(var(--success) / 0.16);
   color: rgb(var(--success));
+}
+
+.info {
+  border-color: rgb(var(--brand-2) / 0.4);
+  background: rgb(var(--brand-2) / 0.14);
+  color: rgb(var(--brand-2));
 }
 
 .success a {
