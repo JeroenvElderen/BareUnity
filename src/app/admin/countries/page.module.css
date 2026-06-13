@@ -405,35 +405,6 @@
   font-size: 0.9rem;
 }
 
-.sourcePanel {
-  border: 1px solid rgb(var(--brand-2) / 0.28);
-  border-radius: 16px;
-  background: rgb(var(--brand-2) / 0.08);
-  padding: 0.85rem;
-  display: grid;
-  gap: 0.65rem;
-}
-
-.sourcePanel strong {
-  color: rgb(var(--text-strong));
-}
-
-.sourceList {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-}
-
-.sourceList a {
-  border-radius: 999px;
-  background: rgb(var(--card));
-  color: rgb(var(--brand-2));
-  padding: 0.38rem 0.65rem;
-  font-size: 0.86rem;
-  font-weight: 800;
-  text-decoration: none;
-}
-
 .panel label {
   display: grid;
   gap: 0.35rem;
@@ -442,7 +413,8 @@
   font-weight: 800;
 }
 
-.panel input {
+.panel input,
+.panel textarea {
   width: 100%;
   border: 1px solid rgb(var(--border) / 0.75);
   border-radius: 12px;
@@ -450,6 +422,15 @@
   color: rgb(var(--text));
   padding: 0.65rem 0.75rem;
   font: inherit;
+}
+
+.panel textarea {
+  resize: vertical;
+  font-family: inherit;
+}
+
+.researchJsonField textarea {
+  min-height: 250px;
 }
 
 @media (max-width: 980px) {
@@ -461,7 +442,8 @@
 
 @media (max-width: 760px) {
   .researchControls .secondaryButton,
-  .researchControls .autoButton {
+  .researchControls .autoButton,
+  .panel > .autoButton {
     width: 100%;
   }
 }
