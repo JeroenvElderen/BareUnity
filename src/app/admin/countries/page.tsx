@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ChangeEvent, FormEvent, useState } from "react";
-import { Clipboard, ExternalLink, FileJson, Globe2, ListChecks, Plus, Save, Trash2 } from "lucide-react";
+import { Clipboard, ExternalLink, Globe2, ListChecks, Plus, Save, Trash2 } from "lucide-react";
 
 import {
   COUNTRY_DISCOVERY_DATA,
@@ -447,77 +447,6 @@ Important formatting rules:
     }
   }
 
-  async function copyChatGptPrompt() {
-    const countryName = (researchCountry || form.name || "[COUNTRY]").trim();
-    const prompt = `Research ${countryName} for BareUnity's naturist country discovery page.
-
-Return ONLY valid JSON matching this TypeScript structure:
-
-{
-slug: string,
-name: string,
-flag: string,
-continent: string,
-tagline: string,
-heroImage: string,
-legalStatus: string,
-beachesCount: string,
-resortsCount: string,
-communityRating: string,
-communityMembers: string,
-glance: Record<string,string>,
-cultureScores: Record<string,number>,
-laws: Array<{
-topic: string,
-status: "allowed" | "caution",
-summary: string
-}>,
-firstTimeTips: string[],
-etiquette: string[],
-bestTime: string,
-regions: Array<{
-name: string,
-score: number,
-details: string
-}>,
-beaches: Array<{
-name: string,
-region: string,
-rating: string,
-image: string,
-summary: string
-}>,
-season: {
-months: string[],
-air: number[],
-sea: number[],
-vibe: string[]
-},
-faqs: string[],
-tags: string[]
-}
-
-Rules:
-
-* Return only JSON.
-* No markdown.
-* No code fences.
-* Exactly 12 season values.
-* Include 5-7 law rows.
-* Include 4-6 FAQs.
-* Include 4-6 etiquette items.
-* Include 4-6 first-time tips.
-* Include up to 5 regions.
-* Include up to 4 beaches.
-* Add tags "AI researched" and "Admin review required".`;
-
-    try {
-      await navigator.clipboard.writeText(prompt);
-      setError("");
-    } catch {
-      setError("Could not copy the ChatGPT prompt. Copying may be blocked by your browser.");
-    }
-  }
 
   function useResearchCountry() {
     const countryName = researchCountry.trim();
@@ -661,9 +590,6 @@ Rules:
             <button className={styles.secondaryButton} type="button" onClick={copyManualResearchPrompt}>
               <Clipboard size={16} /> Copy Manual Prompt
             </button>
-            <button className={styles.secondaryButton} type="button" onClick={copyChatGptPrompt}>
-              <FileJson size={16} /> Copy JSON Prompt
-            </button>
             <button className={styles.secondaryButton} type="button" onClick={useResearchCountry}>
               Use in country fields
             </button>
@@ -676,7 +602,7 @@ Rules:
             <textarea
               value={manualPrompt}
               onChange={(event) => setManualPrompt(event.target.value)}
-              placeholder="Click Copy Manual Prompt to generate a field-by-field research prompt you can reuse in ChatGPT or another research tool."
+              placeholder="Click Copy Manual Prompt to generate a field-by-field research prompt for your own source review."
             />
           </label>
           <details className={styles.advancedImport}>
