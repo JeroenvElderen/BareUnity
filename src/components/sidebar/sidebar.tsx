@@ -60,9 +60,7 @@ type CountryNavItem = {
   flag?: string | null;
 };
 
-const fallbackCountryNavItems: readonly CountryNavItem[] = [
-  { slug: "spain", name: "Spain", flag: "🇪🇸" },
-];
+const fallbackCountryNavItems: readonly CountryNavItem[] = [];
 
 const primaryItems: readonly SidebarNavLinkItem[] = [
   { id: "home", icon: Home, label: "Home", href: "/" },

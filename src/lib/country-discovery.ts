@@ -50,176 +50,81 @@ export type CountryDiscovery = {
   tags: string[];
 };
 
-export const COUNTRY_DISCOVERY_DATA: Record<string, CountryDiscovery> = {
-  spain: {
-    slug: "spain",
-    name: "Spain",
-    flag: "🇪🇸",
-    continent: "Europe",
-    tagline:
-      "One of Europe's most naturist friendly countries with hundreds of beaches and a warm, open culture.",
-    heroImage:
-      "https://images.unsplash.com/photo-1533104816931-20fa691ff6ca?auto=format&fit=crop&w=1800&q=80",
-    legalStatus: "Legal",
-    beachesCount: "400+",
-    resortsCount: "Many",
-    communityRating: "4.9",
-    communityMembers: "327",
-    glance: {
-      Capital: "Madrid",
-      Language: "Spanish",
-      Population: "47.6 million",
-      Currency: "Euro (€)",
-      "Time Zone": "CET (UTC+1)",
-      "Driving Side": "Right",
-      "Plug Type": "Type C / F",
-    },
-    cultureScores: {
-      "Social Acceptance": 95,
-      "Beginner Friendly": 98,
-      "Family Friendly": 90,
-      "LGBT Friendly": 96,
-      Safety: 90,
-      "Tourist Friendly": 93,
-    },
-    laws: [
-      {
-        topic: "Public nudity",
-        status: "allowed",
-        summary: "Legal in naturist areas and where it does not cause offence.",
-      },
-      {
-        topic: "Naturist beaches",
-        status: "allowed",
-        summary: "Fully allowed and well established.",
-      },
-      {
-        topic: "Naturist resorts",
-        status: "allowed",
-        summary: "Many resorts and campsites are available.",
-      },
-      {
-        topic: "Photography rules",
-        status: "caution",
-        summary: "Ask for consent before taking photos or videos of people.",
-      },
-      {
-        topic: "Family naturism",
-        status: "allowed",
-        summary: "Very common and widely accepted.",
-      },
-      {
-        topic: "Urban nudity",
-        status: "caution",
-        summary: "Avoid urban areas unless rules clearly permit it.",
-      },
-      {
-        topic: "Saunas and spas",
-        status: "allowed",
-        summary: "Generally allowed in naturist wellness areas.",
-      },
-    ],
-    firstTimeTips: [
-      "Nude and textile people often mix on beaches.",
-      "Families are very common.",
-      "Nobody will stare or judge you.",
-      "Photography is frowned upon. Ask first.",
-      "Bring a large towel, sunscreen, and water.",
-      "Learn a few basic Spanish phrases.",
-    ],
-    etiquette: [
-      "Always sit on a towel.",
-      "Never photograph people without consent.",
-      "Respect personal space.",
-      "Families are normal.",
-      "Avoid staring or looking.",
-      "Leave no trace and keep beaches clean.",
-    ],
-    bestTime: "April – October. Warm weather and pleasant sea temperatures.",
-    regions: [
-      {
-        name: "Andalusia",
-        score: 1,
-        details: "Acceptance high · Beaches excellent · Climate warm",
-      },
-      {
-        name: "Catalonia (Costa Brava)",
-        score: 2,
-        details: "Acceptance high · Beaches excellent · Resorts excellent",
-      },
-      {
-        name: "Valencia Community",
-        score: 3,
-        details: "Acceptance high · Beaches good · Climate warm",
-      },
-      {
-        name: "Canary Islands",
-        score: 4,
-        details: "Year-round climate · Beaches excellent · Resort choice",
-      },
-      {
-        name: "Balearic Islands",
-        score: 5,
-        details: "Acceptance high · Beaches good · Island atmosphere",
-      },
-    ],
-    beaches: [
-      {
-        name: "Playa de Vera",
-        region: "Andalusia",
-        rating: "4.8",
-        image:
-          "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=700&q=80",
-        summary: "Long sandy beach with designated naturist sections.",
-      },
-      {
-        name: "El Torn Beach",
-        region: "Catalonia",
-        rating: "4.7",
-        image:
-          "https://images.unsplash.com/photo-1500375592092-40eb2168fd21?auto=format&fit=crop&w=700&q=80",
-        summary: "Beautiful cove surrounded by nature.",
-      },
-      {
-        name: "Playa de los Muertos",
-        region: "Almería",
-        rating: "4.6",
-        image:
-          "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=700&q=80",
-        summary: "Dramatic coastal scenery near the Cabo de Gata area.",
-      },
-      {
-        name: "Cantarriján Beach",
-        region: "Andalusia",
-        rating: "4.6",
-        image:
-          "https://images.unsplash.com/photo-1520454974749-611b7248ffdb?auto=format&fit=crop&w=700&q=80",
-        summary: "Clear water and relaxed atmosphere.",
-      },
-    ],
-    season: {
-      months: ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"],
-      air: [14, 15, 17, 19, 23, 27, 30, 26, 22, 17, 14, 14],
-      sea: [14, 14, 15, 16, 18, 21, 24, 23, 21, 18, 15, 14],
-      vibe: ["❄️", "❄️", "☀️", "☀️", "☀️", "☀️", "☀️", "☀️", "☀️", "☀️", "❄️", "❄️"],
-    },
-    faqs: [
-      "Do I need to be completely nude?",
-      "Are families with children welcome?",
-      "Is topless sunbathing common?",
-      "Are mobile phones allowed on beaches?",
-      "Is it safe for solo travellers?",
-    ],
-    tags: [
-      "Friendly atmosphere",
-      "Beautiful beaches",
-      "Easy for beginners",
-      "Great weather",
-      "Clean & safe",
-      "Welcoming people",
-    ],
+export const COUNTRY_DISCOVERY_TEMPLATE: CountryDiscovery = {
+  slug: "template",
+  name: "Country",
+  flag: "🌍",
+  continent: "World",
+  tagline:
+    "A BareUnity discovery template ready for local laws, beaches, resorts, and community insights.",
+  heroImage:
+    "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1800&q=80",
+  legalStatus: "Researching",
+  beachesCount: "Coming soon",
+  resortsCount: "Coming soon",
+  communityRating: "New",
+  communityMembers: "0",
+  glance: {
+    Capital: "To be added",
+    Language: "To be added",
+    Population: "To be added",
+    Currency: "To be added",
+    "Time Zone": "To be added",
+    "Driving Side": "To be added",
+    "Plug Type": "To be added",
   },
+  cultureScores: {
+    "Social Acceptance": 0,
+    "Beginner Friendly": 0,
+    "Family Friendly": 0,
+    "LGBT Friendly": 0,
+    Safety: 0,
+    "Tourist Friendly": 0,
+  },
+  laws: [
+    {
+      topic: "Public nudity",
+      status: "caution",
+      summary: "Local guidance is being prepared for this country.",
+    },
+    {
+      topic: "Naturist beaches",
+      status: "caution",
+      summary: "Local guidance is being prepared for this country.",
+    },
+    {
+      topic: "Photography rules",
+      status: "caution",
+      summary: "Ask for consent before taking photos or videos of people.",
+    },
+  ],
+  firstTimeTips: [
+    "Check local rules before visiting.",
+    "Use marked naturist areas where possible.",
+    "Ask before taking photos.",
+    "Respect local customs and other visitors.",
+  ],
+  etiquette: [
+    "Always sit on a towel.",
+    "Never photograph people without consent.",
+    "Respect personal space.",
+    "Avoid staring or looking.",
+    "Leave no trace and keep beaches clean.",
+  ],
+  bestTime: "Season guidance is being prepared.",
+  regions: [],
+  beaches: [],
+  season: {
+    months: ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"],
+    air: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    sea: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    vibe: ["", "", "", "", "", "", "", "", "", "", "", ""],
+  },
+  faqs: [],
+  tags: ["Template country", "Community data needed", "Local tips welcome"],
 };
+
+export const COUNTRY_DISCOVERY_DATA: Record<string, CountryDiscovery> = {};
 
 const titleCase = (value: string) =>
   value
@@ -235,7 +140,7 @@ function getTemplateCountryDiscovery(slug: string): CountryDiscovery {
 
   const name = titleCase(normalizedSlug) || "Country";
   return {
-    ...COUNTRY_DISCOVERY_DATA.spain,
+    ...COUNTRY_DISCOVERY_TEMPLATE,
     slug: normalizedSlug,
     name,
     flag: "🌍",
@@ -263,17 +168,14 @@ function getTemplateCountryDiscovery(slug: string): CountryDiscovery {
       Safety: 0,
       "Tourist Friendly": 0,
     },
-    laws: COUNTRY_DISCOVERY_DATA.spain.laws.map((law) => ({
-      ...law,
-      summary: "Local guidance is being prepared for this country.",
-    })),
+    laws: COUNTRY_DISCOVERY_TEMPLATE.laws,
     firstTimeTips: [
       "Check local rules before visiting.",
       "Use marked naturist areas where possible.",
       "Ask before taking photos.",
       "Respect local customs and other visitors.",
     ],
-    etiquette: COUNTRY_DISCOVERY_DATA.spain.etiquette,
+    etiquette: COUNTRY_DISCOVERY_TEMPLATE.etiquette,
     bestTime: "Season guidance is being prepared.",
     regions: [],
     beaches: [],

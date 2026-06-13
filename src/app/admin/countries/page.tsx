@@ -5,7 +5,7 @@ import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
 import { Globe2, Plus, Save, Trash2 } from "lucide-react";
 
 import {
-  COUNTRY_DISCOVERY_DATA,
+  COUNTRY_DISCOVERY_TEMPLATE,
   type CountryDiscovery,
   type CountryLawRow,
 } from "@/lib/country-discovery";
@@ -49,7 +49,7 @@ type CountryFormState = Omit<
   tags: string[];
 };
 
-const sampleCountry = COUNTRY_DISCOVERY_DATA.spain;
+const sampleCountry = COUNTRY_DISCOVERY_TEMPLATE;
 
 const coreDetailFields = [
   "Country name",
@@ -609,7 +609,7 @@ export default function AdminCountriesPage() {
             <FieldGuide label="Fields" items={coreDetailFields} />
             <div className={styles.twoColumns}>
               <label>Country name<input name="name" value={form.name} onChange={updateField} placeholder="Type a country name" /></label>
-              <label>URL slug<input name="slug" value={form.slug} onChange={updateField} placeholder="spain" /></label>
+              <label>URL slug<input name="slug" value={form.slug} onChange={updateField} placeholder="country-slug" /></label>
               <label>Flag emoji<input name="flag" value={form.flag} onChange={updateField} /></label>
               <label>Continent<input name="continent" value={form.continent} onChange={updateField} /></label>
               <label>Legal status<input name="legalStatus" value={form.legalStatus} onChange={updateField} /></label>
