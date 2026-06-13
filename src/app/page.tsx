@@ -485,9 +485,6 @@ export default function HomePage() {
   const [composerKind, setComposerKind] = useState<"post" | "story" | null>(
     null,
   );
-  const [activeFeedTab, setActiveFeedTab] = useState<"following" | "forYou">(
-    "following",
-  );
   const [postTitle, setPostTitle] = useState("");
   const [postContent, setPostContent] = useState("");
   const [postImagePreview, setPostImagePreview] = useState<string>("");
@@ -1537,6 +1534,7 @@ export default function HomePage() {
       return;
     }
 
+    setComposerKind("post");
     setComposerOpen(true);
   };
 
@@ -1583,29 +1581,6 @@ export default function HomePage() {
                     aria-hidden="true"
                   />
                   {liveFeedStatusLabel}
-                </div>
-                <div
-                  className={styles.feedTabSwitch}
-                  aria-label="Home feed filter"
-                >
-                  <button
-                    type="button"
-                    onClick={() => setActiveFeedTab("following")}
-                    className={
-                      activeFeedTab === "following" ? styles.feedTabActive : ""
-                    }
-                  >
-                    Following
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveFeedTab("forYou")}
-                    className={
-                      activeFeedTab === "forYou" ? styles.feedTabActive : ""
-                    }
-                  >
-                    For you
-                  </button>
                 </div>
                 <Button
                   size="sm"
@@ -2036,35 +2011,6 @@ export default function HomePage() {
                 <X className="h-4 w-4" />
               </button>
             </div>
-
-            {!composerKind ? (
-              <div className="grid gap-3 sm:grid-cols-2">
-                <button
-                  type="button"
-                  className="rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))] p-4 text-left hover:bg-[rgb(var(--card))]"
-                  onClick={() => setComposerKind("post")}
-                >
-                  <p className="font-semibold text-[rgb(var(--text-strong))]">
-                    New post
-                  </p>
-                  <p className="mt-1 text-sm text-[rgb(var(--muted))]">
-                    Share text, markdown formatting, and an image.
-                  </p>
-                </button>
-                <button
-                  type="button"
-                  className="rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))] p-4 text-left hover:bg-[rgb(var(--card))]"
-                  onClick={() => setComposerKind("story")}
-                >
-                  <p className="font-semibold text-[rgb(var(--text-strong))]">
-                    New story
-                  </p>
-                  <p className="mt-1 text-sm text-[rgb(var(--muted))]">
-                    Photo story that expires after 24 hours.
-                  </p>
-                </button>
-              </div>
-            ) : null}
 
             {composerKind ? (
               <div className={`${styles.composerBody} space-y-3`}>
