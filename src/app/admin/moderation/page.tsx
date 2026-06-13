@@ -137,7 +137,7 @@ export default function AdminModerationPage() {
             imagePath,
             reason:
               action === "auto_classify_existing"
-                ? "Bulk AI reclassification from admin dashboard."
+                ? "Bulk AI reclassification: nude people go to Nude Gallery, everything else goes to General Gallery."
                 : "Manual moderator decision.",
           }),
         },
@@ -151,7 +151,7 @@ export default function AdminModerationPage() {
         throw new Error(payload.error ?? "Could not update moderation state.");
       setStatus(
         action === "auto_classify_existing"
-          ? `Auto-classified ${payload.reviewed ?? 0} pending item(s).`
+          ? `Auto-classified ${payload.reviewed ?? 0} pending item(s): nude people moved to Nude Gallery, everything else moved to General Gallery.`
           : "Moderation decision saved.",
       );
       await loadQueue();
@@ -183,7 +183,7 @@ export default function AdminModerationPage() {
               onClick={() => void runAction("auto_classify_existing")}
               disabled={pendingPath !== null}
             >
-              Auto classify existing library
+              Auto sort galleries
             </button>
             <button onClick={() => void loadQueue()} disabled={isLoading}>
               Refresh

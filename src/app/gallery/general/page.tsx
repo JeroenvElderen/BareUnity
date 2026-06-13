@@ -1,5 +1,5 @@
-import { GalleryClient } from "@/components/gallery/gallery-client";
+import { GeneralGallery } from "@/components/gallery/general-gallery";
 
 export default function GeneralGalleryPage() {
-  return <GalleryClient initialGallery="general" />;
+  return <GeneralGallery />;
 }

@@ -20,6 +20,12 @@ export type GalleryModerationDecision = GalleryClassification & {
   moderationStatus: ModerationStatus;
 };
 
+export type PersonPresenceCheck = {
+  containsPerson: boolean;
+  confidence: number;
+  reason: string;
+};
+
 const CONFIDENCE_THRESHOLD = 0.8;
 
 const NUDE_HINTS = [
@@ -115,8 +121,7 @@ export function classifyGalleryImage(input: {
   const signal =
     `${input.fileName ?? ""} ${input.contentType ?? ""}`.toLowerCase();
   const containsAdultNudity = hasAnyHint(signal, NUDE_HINTS);
-  const containsPerson =
-    containsAdultNudity || hasAnyHint(signal, PERSON_HINTS);
+  const containsPerson = hasAnyHint(signal, PERSON_HINTS);
   const containsLandscape = hasAnyHint(signal, LANDSCAPE_HINTS);
   const containsAnimal = hasAnyHint(signal, ANIMAL_HINTS);
   const containsVehicle = hasAnyHint(signal, VEHICLE_HINTS);
@@ -204,6 +209,37 @@ export function classifyGalleryImage(input: {
     galleryType: "pending",
     moderationStatus: "pending",
     reason: "Classification conflict requires manual review.",
+  };
+}
+
+export function applyPersonPresenceCheck(
+  decision: GalleryModerationDecision,
+  personCheck?: PersonPresenceCheck,
+): GalleryModerationDecision {
+  if (!decision.containsAdultNudity) return decision;
+
+  const confidence = Math.max(decision.confidence, personCheck?.confidence ?? 0);
+
+  if (personCheck?.containsPerson) {
+    return {
+      ...decision,
+      containsPerson: true,
+      confidence,
+      galleryType: "nude",
+      moderationStatus: "approved",
+      reason: `${decision.reason} ${personCheck.reason}`,
+    };
+  }
+
+  return {
+    ...decision,
+    containsPerson: false,
+    confidence,
+    galleryType: "general",
+    moderationStatus: "approved",
+    reason: `${decision.reason} ${
+      personCheck?.reason ?? "No person-presence check was available."
+    } Routed to the general gallery because no nude person was detected.`,
   };
 }
 
