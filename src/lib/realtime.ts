@@ -17,7 +17,9 @@ type SubscribeToTablesArgs = {
 
 type TeardownRealtimeSubscription = () => void;
 
-export function subscribeToTables(args: SubscribeToTablesArgs): TeardownRealtimeSubscription {
+export function subscribeToTables(
+  args: SubscribeToTablesArgs,
+): TeardownRealtimeSubscription {
   let refreshTimer: number | undefined;
   const debounceMs = args.debounceMs ?? 400;
 
@@ -61,6 +63,16 @@ export const HOME_FEED_REALTIME_TABLES = [
   "post_votes",
   "profiles",
 ] as const;
-export const PROFILE_REALTIME_TABLES = ["profiles", "posts", "comments", "interests"] as const;
-export const GALLERY_REALTIME_TABLES = ["posts", "gallery_image_likes", "profiles"] as const;
+export const PROFILE_REALTIME_TABLES = [
+  "profiles",
+  "posts",
+  "comments",
+  "interests",
+] as const;
+export const GALLERY_REALTIME_TABLES = [
+  "gallery_media",
+  "gallery_image_likes",
+  "reports",
+  "profiles",
+] as const;
 export const MEMBERS_REALTIME_TABLES = ["profiles"] as const;

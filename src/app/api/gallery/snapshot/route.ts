@@ -6,6 +6,7 @@ import {
   createSupabaseAdminClient,
   isSupabaseAdminConfigured,
 } from "@/lib/supabase-admin";
+import { isPublicGalleryType } from "@/lib/gallery-moderation";
 import { loadViewerIdFromRequest } from "@/lib/viewer";
 import { db } from "@/server/db";
 
@@ -18,6 +19,7 @@ type GalleryStorageItem = {
   path: string;
   src: string;
   createdAt: string;
+  galleryType: "nude" | "general";
 };
 
 type GalleryLikeStats = {
@@ -120,7 +122,9 @@ async function listMediaObjectsInDirectories(
   return files;
 }
 
-async function buildGalleryFromStorage(): Promise<GalleryStorageItem[]> {
+async function buildGalleryFromStorage(
+  galleryType: "nude" | "general",
+): Promise<GalleryStorageItem[]> {
   const [objects, storyRows] = await Promise.all([
     listMediaObjectsInDirectories(GALLERY_VISIBLE_MEDIA_DIRECTORIES),
     db.posts.findMany({
@@ -137,6 +141,32 @@ async function buildGalleryFromStorage(): Promise<GalleryStorageItem[]> {
       .filter(Boolean),
   );
 
+  const paths = objects
+    .map((entry) => entry.name)
+    .filter((path) => IMAGE_EXTENSION_PATTERN.test(path))
+    .filter((path) => !storyPaths.has(path));
+
+  if (paths.length === 0) return [];
+
+  const mediaRows = await db.$queryRaw<
+    Array<{
+      image_path: string;
+      gallery_type: "nude" | "general" | "pending" | null;
+      moderation_status: "approved" | "pending" | "rejected" | null;
+      title: string | null;
+      owner_id: string | null;
+    }>
+  >(Prisma.sql`
+    select image_path, gallery_type, moderation_status, title, owner_id
+    from public.gallery_media
+    where image_path in (${Prisma.join(paths)})
+      and gallery_type = ${galleryType}
+      and moderation_status = 'approved'
+  `);
+  const approvedMediaByPath = new Map(
+    mediaRows.map((row) => [row.image_path, row]),
+  );
+
   const supabaseAdmin = createSupabaseAdminClient();
   const entries = objects
     .map((entry) => ({
@@ -144,22 +174,25 @@ async function buildGalleryFromStorage(): Promise<GalleryStorageItem[]> {
       createdAt:
         entry.created_at ?? entry.updated_at ?? "1970-01-01T00:00:00.000Z",
     }))
-    .filter((entry) => IMAGE_EXTENSION_PATTERN.test(entry.path))
-    .filter((entry) => !storyPaths.has(entry.path))
+    .filter((entry) => approvedMediaByPath.has(entry.path))
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     .map((entry) => {
+      const metadata = approvedMediaByPath.get(entry.path);
       const ownerIdSegment = entry.path.split("/")[1] ?? "";
       const normalizedOwnerId =
-        ownerIdSegment.match(/^[0-9a-fA-F-]{36}$/)?.[0] ?? "";
+        metadata?.owner_id ??
+        ownerIdSegment.match(/^[0-9a-fA-F-]{36}$/)?.[0] ??
+        "";
 
       return {
         id: `media-${entry.path}`,
-        title: humanizeFileName(entry.path),
+        title: metadata?.title?.trim() || humanizeFileName(entry.path),
         place: "BareUnity Community",
         ownerId: normalizedOwnerId,
         path: entry.path,
         src: entry.path,
         createdAt: entry.createdAt,
+        galleryType,
       };
     });
 
@@ -262,12 +295,20 @@ async function loadLikeStats(
 
 export async function GET(request: Request) {
   try {
+    const requestedGallery =
+      new URL(request.url).searchParams.get("gallery") ?? "general";
+    if (!isPublicGalleryType(requestedGallery)) {
+      return NextResponse.json(
+        { error: "Choose nude or general gallery." },
+        { status: 400 },
+      );
+    }
     if (!isSupabaseAdminConfigured) {
       return NextResponse.json({ items: [] });
     }
 
     const viewerId = await loadViewerIdFromRequest(request);
-    const payload = await buildGalleryFromStorage();
+    const payload = await buildGalleryFromStorage(requestedGallery);
     const likeStatsByPath = await loadLikeStats(
       payload.map((item) => item.path),
       viewerId,
@@ -281,6 +322,7 @@ export async function GET(request: Request) {
         username: item.username,
         path: item.path,
         src: item.src,
+        galleryType: item.galleryType,
         likeCount: likeStatsByPath.get(item.path)?.likeCount ?? 0,
         likedByViewer: likeStatsByPath.get(item.path)?.likedByViewer ?? false,
       })),

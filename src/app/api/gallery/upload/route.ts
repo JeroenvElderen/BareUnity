@@ -8,6 +8,8 @@ import { ensureUserMediaStorage } from "@/lib/storage-buckets";
 import { loadViewerIdFromRequest } from "@/lib/viewer";
 import { db } from "@/server/db";
 import { ensureMemberCanAct } from "@/lib/action-access";
+import { classifyGalleryImage } from "@/lib/gallery-moderation";
+import { Prisma } from "@prisma/client";
 import {
   IMAGE_UPLOAD_EXTENSION_BY_TYPE,
   IMAGE_UPLOAD_TYPES,
@@ -55,19 +57,31 @@ export async function POST(request: Request) {
         extensionByType: IMAGE_UPLOAD_EXTENSION_BY_TYPE,
         maxBytes: MAX_GALLERY_UPLOAD_BYTES,
         emptyMessage: "Please choose a non-empty image file to upload.",
-        typeMessage: "Unsupported file type. Please upload a JPG, PNG, WEBP, GIF, or AVIF image.",
+        typeMessage:
+          "Unsupported file type. Please upload a JPG, PNG, WEBP, GIF, or AVIF image.",
         sizeMessage: "Image uploads must be 8MB or smaller.",
         signatureMessage: "Image contents do not match the declared file type.",
       });
     } catch (error) {
       if (error instanceof UploadValidationError) {
-        return NextResponse.json({ error: error.message }, { status: error.status });
+        return NextResponse.json(
+          { error: error.message },
+          { status: error.status },
+        );
       }
       throw error;
     }
 
+    const moderation = classifyGalleryImage({
+      fileName: upload.name,
+      contentType: validatedUpload.contentType,
+    });
+
     const supabaseAdmin = createSupabaseAdminClient();
-    const userMediaStorage = await ensureUserMediaStorage({ supabaseAdmin, userId: viewerId });
+    const userMediaStorage = await ensureUserMediaStorage({
+      supabaseAdmin,
+      userId: viewerId,
+    });
     const storagePath = `${userMediaStorage.galleryFolder}/${Date.now()}-${crypto.randomUUID()}.${validatedUpload.extension}`;
     const { error } = await supabaseAdmin.storage
       .from(userMediaStorage.bucketId)
@@ -79,6 +93,60 @@ export async function POST(request: Request) {
     if (error) {
       throw new Error(error.message);
     }
+
+    const title =
+      upload.name
+        .replace(/\.[^.]+$/, "")
+        .replace(/[\-_]+/g, " ")
+        .trim() || "Untitled capture";
+
+    await db.$executeRaw(Prisma.sql`
+      insert into public.gallery_media (
+        image_path,
+        owner_id,
+        title,
+        gallery_type,
+        moderation_status,
+        moderation_confidence,
+        moderation_reason,
+        contains_person,
+        contains_adult_nudity,
+        contains_landscape,
+        contains_animal,
+        contains_vehicle,
+        contains_building,
+        updated_at
+      ) values (
+        ${storagePath},
+        ${viewerId}::uuid,
+        ${title},
+        ${moderation.galleryType},
+        ${moderation.moderationStatus},
+        ${moderation.confidence},
+        ${moderation.reason},
+        ${moderation.containsPerson},
+        ${moderation.containsAdultNudity},
+        ${moderation.containsLandscape},
+        ${moderation.containsAnimal},
+        ${moderation.containsVehicle},
+        ${moderation.containsBuilding},
+        now()
+      )
+      on conflict (image_path) do update set
+        owner_id = excluded.owner_id,
+        title = excluded.title,
+        gallery_type = excluded.gallery_type,
+        moderation_status = excluded.moderation_status,
+        moderation_confidence = excluded.moderation_confidence,
+        moderation_reason = excluded.moderation_reason,
+        contains_person = excluded.contains_person,
+        contains_adult_nudity = excluded.contains_adult_nudity,
+        contains_landscape = excluded.contains_landscape,
+        contains_animal = excluded.contains_animal,
+        contains_vehicle = excluded.contains_vehicle,
+        contains_building = excluded.contains_building,
+        updated_at = now()
+    `);
 
     const [{ data: signedUrlData }, profile] = await Promise.all([
       supabaseAdmin.storage
@@ -99,13 +167,13 @@ export async function POST(request: Request) {
       item: signedUrlData?.signedUrl
         ? {
             id: `media-${storagePath}`,
-            title:
-              upload.name.replace(/\.[^.]+$/, "").replace(/[\-_]+/g, " ").trim() ||
-              "Untitled capture",
+            title,
             place: "BareUnity Community",
             username: profile?.username ?? "unknown",
             path: storagePath,
             src: signedUrlData.signedUrl,
+            galleryType: moderation.galleryType,
+            moderationStatus: moderation.moderationStatus,
             likeCount: 0,
             likedByViewer: false,
           }
