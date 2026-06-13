@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ChangeEvent, FormEvent, useState } from "react";
-import { Bot, ExternalLink, Globe2, Plus, Save, Sparkles, Trash2 } from "lucide-react";
+import { Clipboard, ExternalLink, FileJson, Globe2, Plus, Save, Trash2 } from "lucide-react";
 
 import {
   COUNTRY_DISCOVERY_DATA,
@@ -88,11 +88,6 @@ type ResearchLink = {
   label: string;
   href: string;
   description: string;
-};
-
-type ResearchSource = {
-  title: string;
-  url: string;
 };
 
 function slugifyCountryName(countryName: string) {
@@ -262,11 +257,10 @@ function payloadFromForm(form: CountryFormState): CountryDiscovery {
 export default function AdminCountriesPage() {
   const [form, setForm] = useState<CountryFormState>(fromCountry(sampleCountry));
   const [isSaving, setIsSaving] = useState(false);
-  const [isAutoResearching, setIsAutoResearching] = useState(false);
   const [error, setError] = useState("");
   const [successSlug, setSuccessSlug] = useState("");
   const [researchCountry, setResearchCountry] = useState(sampleCountry.name);
-  const [researchSources, setResearchSources] = useState<ResearchSource[]>([]);
+  const [researchJson, setResearchJson] = useState("");
 
   const researchLinks = getCountryResearchLinks(researchCountry || form.name);
 
@@ -348,66 +342,108 @@ export default function AdminCountriesPage() {
       tags: ["Template country", "Community data needed", "Local tips welcome"],
       heroImage: current.heroImage,
     }));
-    setResearchSources([]);
     setError("");
     setSuccessSlug("");
   }
 
-  async function autoResearchCountry() {
-    const countryName = (researchCountry || form.name).trim();
-    if (!countryName) {
-      setError("Enter a country name before starting automatic research.");
-      return;
+  function validateCountryDiscovery(value: CountryDiscovery) {
+    if (!value || typeof value !== "object") {
+      throw new Error("Invalid CountryDiscovery JSON");
     }
 
-    setIsAutoResearching(true);
-    setError("");
-    setSuccessSlug("");
-    setResearchSources([]);
+    if (!value.name || !value.slug || !value.season) {
+      throw new Error("Invalid CountryDiscovery JSON");
+    }
+
+    const seasonValues = [value.season.months, value.season.air, value.season.sea, value.season.vibe];
+    if (seasonValues.some((items) => !Array.isArray(items) || items.length !== 12)) {
+      throw new Error("Invalid CountryDiscovery JSON");
+    }
+  }
+
+  function populateFromJson() {
+    try {
+      const parsed = JSON.parse(researchJson) as CountryDiscovery;
+      validateCountryDiscovery(parsed);
+
+      setForm(fromCountry(parsed));
+      setResearchCountry(parsed.name ?? "");
+      setError("");
+      setSuccessSlug("");
+    } catch {
+      setError("Invalid CountryDiscovery JSON");
+    }
+  }
+
+  async function copyChatGptPrompt() {
+    const countryName = (researchCountry || form.name || "[COUNTRY]").trim();
+    const prompt = `Research ${countryName} for BareUnity's naturist country discovery page.
+
+Return ONLY valid JSON matching this TypeScript structure:
+
+{
+slug: string,
+name: string,
+flag: string,
+continent: string,
+tagline: string,
+heroImage: string,
+legalStatus: string,
+beachesCount: string,
+resortsCount: string,
+communityRating: string,
+communityMembers: string,
+glance: Record<string,string>,
+cultureScores: Record<string,number>,
+laws: Array<{
+topic: string,
+status: "allowed" | "caution",
+summary: string
+}>,
+firstTimeTips: string[],
+etiquette: string[],
+bestTime: string,
+regions: Array<{
+name: string,
+score: number,
+details: string
+}>,
+beaches: Array<{
+name: string,
+region: string,
+rating: string,
+image: string,
+summary: string
+}>,
+season: {
+months: string[],
+air: number[],
+sea: number[],
+vibe: string[]
+},
+faqs: string[],
+tags: string[]
+}
+
+Rules:
+
+* Return only JSON.
+* No markdown.
+* No code fences.
+* Exactly 12 season values.
+* Include 5-7 law rows.
+* Include 4-6 FAQs.
+* Include 4-6 etiquette items.
+* Include 4-6 first-time tips.
+* Include up to 5 regions.
+* Include up to 4 beaches.
+* Add tags "AI researched" and "Admin review required".`;
 
     try {
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession();
-
-      if (sessionError || !session?.access_token) {
-        throw new Error("Please sign in first. We could not verify your admin session.");
-      }
-
-      if (!isPlatformAdminEmail(session.user.email)) {
-        throw new Error("Automatic country research is restricted to your owner account.");
-      }
-
-      const response = await fetch("/api/admin/countries/research", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ countryName }),
-      });
-      const payload = await parseJsonResponse<{
-        country?: CountryDiscovery;
-        sources?: ResearchSource[];
-        error?: string;
-      }>(response);
-
-      if (!response.ok || !payload?.country) {
-        throw new Error(payload?.error ?? fallbackRequestError(response, "Automatic country research"));
-      }
-
-      setForm(fromCountry(payload.country));
-      setResearchCountry(payload.country.name);
-      setResearchSources(payload.sources ?? []);
-    } catch (researchError) {
-      setError(
-        researchError instanceof Error
-          ? researchError.message
-          : "Could not automatically research this country.",
-      );
-    } finally {
-      setIsAutoResearching(false);
+      await navigator.clipboard.writeText(prompt);
+      setError("");
+    } catch {
+      setError("Could not copy the ChatGPT prompt. Copying may be blocked by your browser.");
     }
   }
 
@@ -534,24 +570,24 @@ export default function AdminCountriesPage() {
         <section className={styles.panel}>
           <div className={styles.sectionHeader}>
             <div>
-              <h2>Country law research assistant</h2>
+              <h2>Paste ChatGPT Research</h2>
               <p>
-                Type a country such as Sweden, then let ChatGPT research the profile automatically with web search. Manual Google links remain available for verification.
+                Generate a country profile in ChatGPT Plus, paste the JSON below, and populate the form automatically.
               </p>
             </div>
-            <Bot className={styles.headerIcon} size={20} aria-hidden="true" />
+            <FileJson className={styles.headerIcon} size={20} aria-hidden="true" />
           </div>
           <div className={styles.researchControls}>
             <label>
-              Country to research
+              Country for prompt and verification links
               <input
                 value={researchCountry}
                 onChange={(event) => setResearchCountry(event.target.value)}
                 placeholder="Sweden"
               />
             </label>
-            <button className={styles.autoButton} type="button" onClick={autoResearchCountry} disabled={isAutoResearching}>
-              <Sparkles size={16} /> {isAutoResearching ? "Researching..." : "Auto-fill with ChatGPT"}
+            <button className={styles.secondaryButton} type="button" onClick={copyChatGptPrompt}>
+              <Clipboard size={16} /> Copy ChatGPT Prompt
             </button>
             <button className={styles.secondaryButton} type="button" onClick={useResearchCountry}>
               Use in country fields
@@ -560,6 +596,20 @@ export default function AdminCountriesPage() {
               <Plus size={14} /> Add law checklist
             </button>
           </div>
+          <label className={styles.researchJsonField}>
+            CountryDiscovery JSON
+            <textarea
+              value={researchJson}
+              onChange={(event) => setResearchJson(event.target.value)}
+              placeholder='{
+  "slug": "sweden",
+  "name": "Sweden"
+}'
+            />
+          </label>
+          <button className={styles.autoButton} type="button" onClick={populateFromJson}>
+            Populate Form
+          </button>
           <div className={styles.researchGrid}>
             {researchLinks.map((link) => (
               <a className={styles.researchCard} href={link.href} target="_blank" rel="noreferrer" key={link.label}>
@@ -571,20 +621,8 @@ export default function AdminCountriesPage() {
               </a>
             ))}
           </div>
-          {researchSources.length > 0 ? (
-            <div className={styles.sourcePanel}>
-              <strong>Sources used by ChatGPT web research</strong>
-              <div className={styles.sourceList}>
-                {researchSources.map((source) => (
-                  <a href={source.url} target="_blank" rel="noreferrer" key={source.url}>
-                    {source.title || source.url}
-                  </a>
-                ))}
-              </div>
-            </div>
-          ) : null}
           <p className={styles.researchNote}>
-            Automatic research drafts the profile for you, but keep it as an admin review step: check the source links, confirm official or reputable local guidance, then save. This helper does not replace legal review.
+            Paste JSON drafted in ChatGPT Plus, populate the fields, then verify source links and save. This helper does not replace legal review.
           </p>
         </section>
         
