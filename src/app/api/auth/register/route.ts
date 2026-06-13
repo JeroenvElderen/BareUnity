@@ -13,6 +13,7 @@ import {
   VERIFICATION_DOCUMENT_EXTENSION_BY_TYPE,
   VERIFICATION_DOCUMENT_TYPES,
 } from "@/lib/upload-security";
+import { buildVisitorTrialMetadata } from "@/lib/visitor-trial";
 import { isUsernameValid, normalizeUsername } from "@/lib/username";
 
 const MAX_ID_UPLOAD_BYTES = 10 * 1024 * 1024;
@@ -416,6 +417,7 @@ function buildUserMetadata(args: {
         : "registration_submitted",
     username: args.username,
     verification_status: args.verificationStatus,
+    ...(args.accountAccess === "viewOnly" ? buildVisitorTrialMetadata() : {}),
   };
 }
 
