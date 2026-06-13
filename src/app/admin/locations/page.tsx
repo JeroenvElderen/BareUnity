@@ -131,6 +131,9 @@ export default function AdminLocationsPage() {
     null,
   );
   const [isLoadingRequests, setIsLoadingRequests] = useState(true);
+  const [deletingRequestId, setDeletingRequestId] = useState<string | null>(
+    null,
+  );
   const [requestLoadError, setRequestLoadError] = useState("");
   const [feedback, setFeedback] = useState<{
     type: "success" | "error";
@@ -226,6 +229,64 @@ export default function AdminLocationsPage() {
       message:
         "Request copied into the editor. Fill the remaining marker details before publishing.",
     });
+  }
+
+  async function deleteLocationRequest(
+    requestId: string,
+    options: { showSuccessFeedback?: boolean } = {},
+  ) {
+    const { showSuccessFeedback = true } = options;
+    setDeletingRequestId(requestId);
+    setFeedback(null);
+
+    try {
+      const { data } = await supabase.auth.getSession();
+      const accessToken = data.session?.access_token;
+      if (!accessToken) {
+        throw new Error(
+          "Please sign in first. We could not verify your admin session.",
+        );
+      }
+
+      const response = await fetch(
+        `/api/admin/location-requests/${encodeURIComponent(requestId)}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${accessToken}` },
+        },
+      );
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+      } | null;
+      if (!response.ok) {
+        throw new Error(payload?.error ?? "Could not delete this request.");
+      }
+
+      setRequests((current) =>
+        current.filter((request) => request.id !== requestId),
+      );
+      setSelectedRequestId((current) =>
+        current === requestId ? null : current,
+      );
+      if (showSuccessFeedback) {
+        setFeedback({
+          type: "success",
+          message: "Location request deleted from the admin queue.",
+        });
+      }
+      return true;
+    } catch (error) {
+      setFeedback({
+        type: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Unable to delete location request.",
+      });
+      return false;
+    } finally {
+      setDeletingRequestId(null);
+    }
   }
 
   function copyImportToEditor(draft: ImportDraft) {
@@ -352,14 +413,31 @@ export default function AdminLocationsPage() {
           payload?.error ?? `Unable to create location (${response.status}).`,
         );
 
+      const selectedRequestWasDeleted = selectedRequestId
+        ? await deleteLocationRequest(selectedRequestId, {
+            showSuccessFeedback: false,
+          })
+        : false;
+
+      if (selectedRequestId) {
+        setFeedback({
+          type: selectedRequestWasDeleted ? "success" : "error",
+          message: selectedRequestWasDeleted
+            ? "Location marker added to the Explore map and the request was removed from the queue."
+            : "Location marker was added, but the request could not be deleted. Please delete it manually.",
+        });
+      }
+
       setForm(INITIAL_FORM);
       setSelectedRequestId(null);
       setImportVerification(null);
       setImportWarnings([]);
-      setFeedback({
-        type: "success",
-        message: "Location marker added to the Explore map.",
-      });
+      if (!selectedRequestId) {
+        setFeedback({
+          type: "success",
+          message: "Location marker added to the Explore map.",
+        });
+      }
     } catch (error) {
       setFeedback({
         type: "error",
@@ -468,6 +546,17 @@ export default function AdminLocationsPage() {
                       onClick={() => copyRequestToEditor(request)}
                     >
                       Use in marker editor
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={deletingRequestId === request.id}
+                      onClick={() => void deleteLocationRequest(request.id)}
+                    >
+                      {deletingRequestId === request.id
+                        ? "Deleting..."
+                        : "Delete request"}
                     </Button>
                     {request.requestType === "stay" ? (
                       <Button asChild type="button" size="sm" variant="outline">
