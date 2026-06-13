@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ChangeEvent, FormEvent, useState } from "react";
-import { Clipboard, ExternalLink, Globe2, ListChecks, Plus, Save, Trash2 } from "lucide-react";
+import { Globe2, Plus, Save, Trash2 } from "lucide-react";
 
 import {
   COUNTRY_DISCOVERY_DATA,
@@ -50,96 +50,6 @@ type CountryFormState = Omit<
 };
 
 const sampleCountry = COUNTRY_DISCOVERY_DATA.spain;
-
-const lawResearchTopics = [
-  {
-    topic: "Public nudity and indecency",
-    summary:
-      "Research national and local rules for non-sexual public nudity, public order offences, disorderly conduct, and indecent exposure. Note whether enforcement differs by municipality or context.",
-  },
-  {
-    topic: "Official and tolerated naturist places",
-    summary:
-      "Find official naturist beaches, traditional nude bathing areas, resorts, clubs, spas, saunas, and places where nudity is tolerated by custom rather than written law.",
-  },
-  {
-    topic: "Photography, privacy, and consent",
-    summary:
-      "Check privacy, harassment, image-sharing, and consent rules that affect taking photos or videos around naturist spaces.",
-  },
-  {
-    topic: "Minors, family spaces, and safeguarding",
-    summary:
-      "Confirm any child-safeguarding, age-restricted venue, school/group, or family naturism rules that admins should summarize carefully.",
-  },
-  {
-    topic: "Camping, hiking, and outdoor recreation",
-    summary:
-      "Research whether nudity rules change for camping, hiking, boats, lakes, forests, national parks, and other outdoor recreation areas.",
-  },
-  {
-    topic: "Local enforcement and practical etiquette",
-    summary:
-      "Collect recent local guidance, tourist-board advice, beach signage, police/municipal notes, and community etiquette so the profile can separate legal facts from practical caution.",
-  },
-] satisfies Array<Omit<CountryLawRow, "status">>;
-
-type ResearchLink = {
-  label: string;
-  href: string;
-  description: string;
-};
-
-function slugifyCountryName(countryName: string) {
-  return countryName
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
-function createSearchUrl(query: string) {
-  return `https://www.google.com/search?q=${encodeURIComponent(query)}`;
-}
-
-function getCountryResearchLinks(countryName: string): ResearchLink[] {
-  const country = countryName.trim() || "Sweden";
-
-  return [
-    {
-      label: "Public nudity law",
-      href: createSearchUrl(`${country} public nudity law naturism nudist legal`),
-      description: "Start with statutory public-order, indecency, and non-sexual nudity rules.",
-    },
-    {
-      label: "Official legal sources",
-      href: createSearchUrl(`${country} government public order indecent exposure nudity law`),
-      description: "Prioritize government, court, municipal, police, and tourist-board sources.",
-    },
-    {
-      label: "Naturist organizations",
-      href: createSearchUrl(`${country} naturist federation nude beach official advice`),
-      description: "Look for local naturist federation guidance and established club information.",
-    },
-    {
-      label: "Nude beaches and saunas",
-      href: createSearchUrl(`${country} nude beach naturist sauna rules`),
-      description: "Find named places, accepted customs, signage, and visitor expectations.",
-    },
-    {
-      label: "Photography privacy",
-      href: createSearchUrl(`${country} privacy photography consent beach law`),
-      description: "Check image capture, sharing, harassment, and consent rules for public places.",
-    },
-    {
-      label: "Recent enforcement/news",
-      href: createSearchUrl(`${country} nudity beach police fine naturist news`),
-      description: "Cross-check whether recent enforcement changes the practical risk level.",
-    },
-  ];
-}
 
 async function parseJsonResponse<T>(response: Response): Promise<T | null> {
   const contentType = response.headers.get("content-type") ?? "";
@@ -259,12 +169,6 @@ export default function AdminCountriesPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
   const [successSlug, setSuccessSlug] = useState("");
-  const [researchCountry, setResearchCountry] = useState(sampleCountry.name);
-  const [researchJson, setResearchJson] = useState("");
-  const [manualPrompt, setManualPrompt] = useState("");
-
-  const researchLinks = getCountryResearchLinks(researchCountry || form.name);
-
   function updateField(event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
     const { name, value } = event.target;
     setForm((current) => ({ ...current, [name]: value }));
@@ -325,7 +229,6 @@ export default function AdminCountriesPage() {
   }
 
   function startBlankCountry() {
-    setResearchCountry("");
     setForm((current) => ({
       ...fromCountry(sampleCountry),
       slug: "",
@@ -345,152 +248,6 @@ export default function AdminCountriesPage() {
     }));
     setError("");
     setSuccessSlug("");
-  }
-
-  function validateCountryDiscovery(value: CountryDiscovery) {
-    if (!value || typeof value !== "object") {
-      throw new Error("Invalid CountryDiscovery JSON");
-    }
-
-    if (!value.name || !value.slug || !value.season) {
-      throw new Error("Invalid CountryDiscovery JSON");
-    }
-
-    const seasonValues = [value.season.months, value.season.air, value.season.sea, value.season.vibe];
-    if (seasonValues.some((items) => !Array.isArray(items) || items.length !== 12)) {
-      throw new Error("Invalid CountryDiscovery JSON");
-    }
-  }
-
-  function populateFromJson() {
-    try {
-      const parsed = JSON.parse(researchJson) as CountryDiscovery;
-      validateCountryDiscovery(parsed);
-
-      setForm(fromCountry(parsed));
-      setResearchCountry(parsed.name ?? "");
-      setError("");
-      setSuccessSlug("");
-    } catch {
-      setError("Invalid CountryDiscovery JSON");
-    }
-  }
-
-
-  function buildManualResearchPrompt(countryName: string) {
-    return `Research ${countryName} for BareUnity's naturist country discovery page.
-
-Do NOT return JSON. Return easy-to-copy notes grouped under these exact headings so I can paste each answer into the admin fields manually. Keep every answer short and frontend-ready.
-
-1. Core details
-- Name:
-- URL slug:
-- Flag emoji:
-- Continent:
-- Hero image URL: use a clean Unsplash photo URL only, no markdown
-- Tagline: one sentence, max 180 characters
-- Legal status: short label only, 2-5 words, for example "Legal", "Generally tolerated", or "Restricted"
-- Official beaches: short count only, for example "40+"
-- Naturist resorts: short count or phrase only, for example "10+" or "Many"
-- Community rating: number only, for example "4.7"; do not include "/5"
-- Community members: short count only, for example "15,000+"
-- Best time to visit: one short sentence
-
-2. Quick glance
-Provide 6-8 label/value rows. Prefer these labels when known: Capital, Language, Population, Currency, Time Zone, Driving Side, Plug Type, Best Season.
-
-3. Culture scores
-Use these exact labels with 0-100 numbers: Social Acceptance, Beginner Friendly, Family Friendly, LGBT Friendly, Safety, Tourist Friendly.
-
-4. Naturist laws
-Provide 5-7 rows. Each row must include Topic, Status (allowed or caution), and a one-sentence Summary.
-
-5. First-time tips
-Provide 4-6 short bullet points.
-
-6. Etiquette
-Provide 4-6 short bullet points.
-
-7. Regions
-Provide up to 5 rows. Use Score as a display rank only: 1, 2, 3, 4, 5. Include Name and Details.
-
-8. Beaches
-Provide up to 4 rows. Each row needs Name, Region, Rating as a number only, Image URL as plain URL only, and Summary. No markdown links.
-
-9. Season guide
-Provide 12 rows for Jan-Dec. Each row needs Month, Air °C, Sea °C, and Vibe. Use short month labels like Jan, Feb, Mar.
-
-10. FAQs
-Provide 4-6 questions only.
-
-11. Tags
-Provide 4-6 short tags.
-
-Important formatting rules:
-- No markdown links. Use plain URLs only.
-- No JSON.
-- Keep stat-card values short.
-- If you are unsure, say "Needs verification" instead of inventing details.
-- Include 3-5 source URLs at the end under "Sources to verify".`;
-  }
-
-  async function copyManualResearchPrompt() {
-    const countryName = (researchCountry || form.name || "[COUNTRY]").trim();
-    const prompt = buildManualResearchPrompt(countryName);
-    setManualPrompt(prompt);
-
-    try {
-      await navigator.clipboard.writeText(prompt);
-      setError("");
-    } catch {
-      setError("Could not copy the manual research prompt. Copying may be blocked by your browser, but you can copy it from the preview box.");
-    }
-  }
-
-
-  function useResearchCountry() {
-    const countryName = researchCountry.trim();
-    if (!countryName) {
-      setError("Enter a country name first, for example Sweden.");
-      return;
-    }
-
-    setForm((current) => ({
-      ...current,
-      name: countryName,
-      slug: slugifyCountryName(countryName),
-      legalStatus: "Research required",
-      tags: Array.from(
-        new Set([
-          ...current.tags.filter(Boolean),
-          `${countryName} naturism`,
-          "Law research needed",
-          "Local source verification",
-        ]),
-      ),
-    }));
-    setError("");
-  }
-
-  function addLawResearchChecklist() {
-    const countryName = (researchCountry || form.name).trim();
-    if (!countryName) {
-      setError("Enter a country name before adding the law research checklist.");
-      return;
-    }
-
-    setForm((current) => ({
-      ...current,
-      name: countryName,
-      slug: slugifyCountryName(countryName),
-      legalStatus: "Research required",
-      laws: lawResearchTopics.map((law) => ({
-        ...law,
-        status: "caution",
-        summary: `${countryName}: ${law.summary}`,
-      })),
-    }));
-    setError("");
   }
 
   async function saveCountry(event: FormEvent<HTMLFormElement>) {
@@ -568,76 +325,6 @@ Important formatting rules:
           </p>
         ) : null}
 
-        <section className={styles.panel}>
-          <div className={styles.sectionHeader}>
-            <div>
-              <h2>Research helper</h2>
-              <p>
-                Copy a manual field-by-field prompt, research the country, then paste each answer into the guided fields below. JSON import is still available as an optional advanced shortcut.
-              </p>
-            </div>
-            <ListChecks className={styles.headerIcon} size={20} aria-hidden="true" />
-          </div>
-          <div className={styles.researchControls}>
-            <label>
-              Country for prompt and verification links
-              <input
-                value={researchCountry}
-                onChange={(event) => setResearchCountry(event.target.value)}
-                placeholder="Sweden"
-              />
-            </label>
-            <button className={styles.secondaryButton} type="button" onClick={copyManualResearchPrompt}>
-              <Clipboard size={16} /> Copy Manual Prompt
-            </button>
-            <button className={styles.secondaryButton} type="button" onClick={useResearchCountry}>
-              Use in country fields
-            </button>
-            <button className={styles.smallButton} type="button" onClick={addLawResearchChecklist}>
-              <Plus size={14} /> Add law checklist
-            </button>
-          </div>
-          <label className={styles.promptPreviewField}>
-            Manual research prompt preview
-            <textarea
-              value={manualPrompt}
-              onChange={(event) => setManualPrompt(event.target.value)}
-              placeholder="Click Copy Manual Prompt to generate a field-by-field research prompt for your own source review."
-            />
-          </label>
-          <details className={styles.advancedImport}>
-            <summary>Advanced: paste full CountryDiscovery JSON instead</summary>
-            <label className={styles.researchJsonField}>
-              CountryDiscovery JSON
-              <textarea
-                value={researchJson}
-                onChange={(event) => setResearchJson(event.target.value)}
-                placeholder='{
-  "slug": "sweden",
-  "name": "Sweden"
-}'
-              />
-            </label>
-            <button className={styles.autoButton} type="button" onClick={populateFromJson}>
-              Populate Form
-            </button>
-          </details>
-          <div className={styles.researchGrid}>
-            {researchLinks.map((link) => (
-              <a className={styles.researchCard} href={link.href} target="_blank" rel="noreferrer" key={link.label}>
-                <span>
-                  <strong>{link.label}</strong>
-                  <small>{link.description}</small>
-                </span>
-                <ExternalLink size={16} aria-hidden="true" />
-              </a>
-            ))}
-          </div>
-          <p className={styles.researchNote}>
-            Recommended flow: copy the manual prompt, verify the source links, type or paste each answer into the form, then save. This helper does not replace legal review.
-          </p>
-        </section>
-        
         <form className={styles.form} onSubmit={saveCountry}>
           <section className={styles.panel}>
             <h2>Core details</h2>
