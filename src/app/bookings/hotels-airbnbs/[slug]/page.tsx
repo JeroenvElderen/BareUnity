@@ -63,7 +63,15 @@ export default async function StayDetailsPage({
           <section className={styles.descriptionBlock}>
             <article>
               <h2>About this stay</h2>
-              <p>{listing.description}</p>
+              <div className={styles.fullDescription}>
+                {listing.description
+                  .split(/\n{2,}/)
+                  .map((paragraph) => paragraph.trim())
+                  .filter(Boolean)
+                  .map((paragraph) => (
+                    <p key={paragraph}>{paragraph}</p>
+                  ))}
+              </div>
             </article>
             <aside className={styles.ratingCard}>
               <h3>Guest rating</h3>

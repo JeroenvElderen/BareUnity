@@ -204,3 +204,12 @@
     grid-template-columns: 1fr;
   }
 }
+
+.fullDescription {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.fullDescription p {
+  white-space: pre-wrap;
+}

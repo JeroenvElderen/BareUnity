@@ -250,3 +250,31 @@
     display: none;
   }
 }
+
+.mobileCardLink {
+  display: none;
+}
+
+@media (max-width: 780px) {
+  .card {
+    position: relative;
+  }
+
+  .mobileCardLink {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border-radius: inherit;
+  }
+
+  .mobileCardLink:focus-visible {
+    outline: 3px solid rgb(var(--brand));
+    outline-offset: -3px;
+  }
+
+  .actions {
+    position: relative;
+    z-index: 2;
+  }
+}

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import styles from "@/app/bookings/hotels-airbnbs/stays-list.module.css";
 import {
@@ -266,6 +267,13 @@ export function BookingListingsClient({
             <div className={styles.results}>
               {results.map((listing, index) => (
                 <article key={listing.slug} className={styles.card}>
+                  {detailsBasePath ? (
+                    <Link
+                      href={`${detailsBasePath}/${listing.slug}`}
+                      className={styles.mobileCardLink}
+                      aria-label={`See more details for ${listing.name}`}
+                    />
+                  ) : null}
                   <div
                     className={styles.media}
                     style={{

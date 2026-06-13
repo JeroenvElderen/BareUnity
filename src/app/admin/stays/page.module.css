@@ -242,3 +242,10 @@
     padding: 0.85rem 0.75rem 1.4rem;
   }
 }
+
+.fieldHint {
+  color: rgb(var(--muted));
+  font-size: 0.82rem;
+  font-weight: 500;
+  line-height: 1.45;
+}

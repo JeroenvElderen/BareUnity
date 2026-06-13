@@ -572,14 +572,18 @@ export default function AdminStaysPage() {
             />
           </label>
           <label>
-            Description
+            Full detailed description
             <textarea
               name="description"
               value={form.description}
               onChange={updateField}
-              rows={5}
+              rows={12}
               required
+              placeholder="Add the complete stay description. There is no character limit, so include room details, naturist context, facilities, dining, services, nearby highlights, accessibility notes, and anything guests should know."
             />
+            <span className={styles.fieldHint}>
+              No character limit: write the complete description that should appear on the stay details page.
+            </span>
           </label>
           <label>
             Amenities (comma-separated or one per line)
