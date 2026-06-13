@@ -282,10 +282,10 @@ function getTemplateCountryDiscovery(slug: string): CountryDiscovery {
 }
 
 
-const COUNTRY_DISCOVERY_COLUMNS =
+export const COUNTRY_DISCOVERY_COLUMNS =
   "slug,name,flag,continent,tagline,hero_image,legal_status,beaches_count,resorts_count,community_rating,community_members,glance,culture_scores,laws,first_time_tips,etiquette,best_time,regions,beaches,season,faqs,tags";
 
-type CountryDiscoveryRow = {
+export type CountryDiscoveryRow = {
   slug: string;
   name: string;
   flag: string | null;
@@ -408,7 +408,7 @@ function seasonGuide(value: unknown, fallback: CountryDiscovery["season"]) {
   };
 }
 
-function countryDiscoveryFromRow(row: CountryDiscoveryRow): CountryDiscovery {
+export function countryDiscoveryFromRow(row: CountryDiscoveryRow): CountryDiscovery {
   const fallback = getTemplateCountryDiscovery(row.slug);
 
   return {

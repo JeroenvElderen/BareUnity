@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChangeEvent, FormEvent, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
 import { Globe2, Plus, Save, Trash2 } from "lucide-react";
 
 import {
@@ -50,6 +50,36 @@ type CountryFormState = Omit<
 };
 
 const sampleCountry = COUNTRY_DISCOVERY_DATA.spain;
+
+function slugFromName(name: string) {
+  return name
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function blankCountryFromName(name: string, currentHeroImage: string): CountryFormState {
+  return {
+    ...fromCountry(sampleCountry),
+    slug: slugFromName(name),
+    name,
+    flag: "🌍",
+    continent: "",
+    tagline: "",
+    legalStatus: "Researching",
+    beachesCount: "Coming soon",
+    resortsCount: "Coming soon",
+    communityRating: "New",
+    communityMembers: "0",
+    regions: [],
+    beaches: [],
+    tags: ["Template country", "Community data needed", "Local tips welcome"],
+    heroImage: currentHeroImage,
+  };
+}
 
 async function parseJsonResponse<T>(response: Response): Promise<T | null> {
   const contentType = response.headers.get("content-type") ?? "";
@@ -169,6 +199,8 @@ export default function AdminCountriesPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
   const [successSlug, setSuccessSlug] = useState("");
+  const [lookupStatus, setLookupStatus] = useState("");
+  const lastLookupName = useRef(sampleCountry.name.toLowerCase());
   function updateField(event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
     const { name, value } = event.target;
     setForm((current) => ({ ...current, [name]: value }));
@@ -229,26 +261,70 @@ export default function AdminCountriesPage() {
   }
 
   function startBlankCountry() {
-    setForm((current) => ({
-      ...fromCountry(sampleCountry),
-      slug: "",
-      name: "",
-      flag: "🌍",
-      continent: "",
-      tagline: "",
-      legalStatus: "Researching",
-      beachesCount: "Coming soon",
-      resortsCount: "Coming soon",
-      communityRating: "New",
-      communityMembers: "0",
-      regions: [],
-      beaches: [],
-      tags: ["Template country", "Community data needed", "Local tips welcome"],
-      heroImage: current.heroImage,
-    }));
+    setForm((current) => blankCountryFromName("", current.heroImage));
+    lastLookupName.current = "";
+    setLookupStatus("");
     setError("");
     setSuccessSlug("");
   }
+
+  useEffect(() => {
+    const requestedName = form.name.trim();
+    const lookupKey = requestedName.toLowerCase();
+    if (!requestedName || lookupKey === lastLookupName.current) return;
+
+    const timeout = window.setTimeout(async () => {
+      setLookupStatus(`Checking ${requestedName}…`);
+      setError("");
+      setSuccessSlug("");
+
+      try {
+        const {
+          data: { session },
+          error: sessionError,
+        } = await supabase.auth.getSession();
+
+        if (sessionError || !session?.access_token) {
+          throw new Error("Please sign in first. We could not verify your admin session.");
+        }
+
+        if (!isPlatformAdminEmail(session.user.email)) {
+          throw new Error("This country manager is restricted to your owner account.");
+        }
+
+        const response = await fetch(`/api/admin/countries?name=${encodeURIComponent(requestedName)}`, {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        const payload = await parseJsonResponse<{
+          country?: CountryDiscovery | null;
+          error?: string;
+        }>(response);
+
+        if (!response.ok) {
+          throw new Error(payload?.error ?? fallbackRequestError(response, "Loading this country profile"));
+        }
+
+        lastLookupName.current = lookupKey;
+        if (payload?.country) {
+          setForm(fromCountry(payload.country));
+          setLookupStatus(`Loaded existing data for ${payload.country.name}.`);
+          return;
+        }
+
+        setForm((current) => blankCountryFromName(requestedName, current.heroImage));
+        setLookupStatus(`No saved data for ${requestedName} yet. Started a new profile.`);
+      } catch (lookupError) {
+        setLookupStatus("");
+        setError(
+          lookupError instanceof Error
+            ? lookupError.message
+            : "Could not check whether this country already exists.",
+        );
+      }
+    }, 800);
+
+    return () => window.clearTimeout(timeout);
+  }, [form.name]);
 
   async function saveCountry(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -319,6 +395,7 @@ export default function AdminCountriesPage() {
         </header>
 
         {error ? <p className={styles.error}>{error}</p> : null}
+        {lookupStatus ? <p className={styles.info}>{lookupStatus}</p> : null}
         {successSlug ? (
           <p className={styles.success}>
             Saved country profile. <Link href={`/countries/${successSlug}`}>View public page</Link>
@@ -329,7 +406,7 @@ export default function AdminCountriesPage() {
           <section className={styles.panel}>
             <h2>Core details</h2>
             <div className={styles.twoColumns}>
-              <label>Country name<input name="name" value={form.name} onChange={updateField} required /></label>
+              <label>Country name<input name="name" value={form.name} onChange={updateField} placeholder="Type a country name" required /></label>
               <label>URL slug<input name="slug" value={form.slug} onChange={updateField} placeholder="spain" required /></label>
               <label>Flag emoji<input name="flag" value={form.flag} onChange={updateField} required /></label>
               <label>Continent<input name="continent" value={form.continent} onChange={updateField} required /></label>
