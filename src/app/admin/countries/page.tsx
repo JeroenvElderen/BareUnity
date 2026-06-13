@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ChangeEvent, FormEvent, useState } from "react";
-import { Clipboard, ExternalLink, FileJson, Globe2, Plus, Save, Trash2 } from "lucide-react";
+import { Clipboard, ExternalLink, FileJson, Globe2, ListChecks, Plus, Save, Trash2 } from "lucide-react";
 
 import {
   COUNTRY_DISCOVERY_DATA,
@@ -261,6 +261,7 @@ export default function AdminCountriesPage() {
   const [successSlug, setSuccessSlug] = useState("");
   const [researchCountry, setResearchCountry] = useState(sampleCountry.name);
   const [researchJson, setResearchJson] = useState("");
+  const [manualPrompt, setManualPrompt] = useState("");
 
   const researchLinks = getCountryResearchLinks(researchCountry || form.name);
 
@@ -372,6 +373,77 @@ export default function AdminCountriesPage() {
       setSuccessSlug("");
     } catch {
       setError("Invalid CountryDiscovery JSON");
+    }
+  }
+
+
+  function buildManualResearchPrompt(countryName: string) {
+    return `Research ${countryName} for BareUnity's naturist country discovery page.
+
+Do NOT return JSON. Return easy-to-copy notes grouped under these exact headings so I can paste each answer into the admin fields manually. Keep every answer short and frontend-ready.
+
+1. Core details
+- Name:
+- URL slug:
+- Flag emoji:
+- Continent:
+- Hero image URL: use a clean Unsplash photo URL only, no markdown
+- Tagline: one sentence, max 180 characters
+- Legal status: short label only, 2-5 words, for example "Legal", "Generally tolerated", or "Restricted"
+- Official beaches: short count only, for example "40+"
+- Naturist resorts: short count or phrase only, for example "10+" or "Many"
+- Community rating: number only, for example "4.7"; do not include "/5"
+- Community members: short count only, for example "15,000+"
+- Best time to visit: one short sentence
+
+2. Quick glance
+Provide 6-8 label/value rows. Prefer these labels when known: Capital, Language, Population, Currency, Time Zone, Driving Side, Plug Type, Best Season.
+
+3. Culture scores
+Use these exact labels with 0-100 numbers: Social Acceptance, Beginner Friendly, Family Friendly, LGBT Friendly, Safety, Tourist Friendly.
+
+4. Naturist laws
+Provide 5-7 rows. Each row must include Topic, Status (allowed or caution), and a one-sentence Summary.
+
+5. First-time tips
+Provide 4-6 short bullet points.
+
+6. Etiquette
+Provide 4-6 short bullet points.
+
+7. Regions
+Provide up to 5 rows. Use Score as a display rank only: 1, 2, 3, 4, 5. Include Name and Details.
+
+8. Beaches
+Provide up to 4 rows. Each row needs Name, Region, Rating as a number only, Image URL as plain URL only, and Summary. No markdown links.
+
+9. Season guide
+Provide 12 rows for Jan-Dec. Each row needs Month, Air °C, Sea °C, and Vibe. Use short month labels like Jan, Feb, Mar.
+
+10. FAQs
+Provide 4-6 questions only.
+
+11. Tags
+Provide 4-6 short tags.
+
+Important formatting rules:
+- No markdown links. Use plain URLs only.
+- No JSON.
+- Keep stat-card values short.
+- If you are unsure, say "Needs verification" instead of inventing details.
+- Include 3-5 source URLs at the end under "Sources to verify".`;
+  }
+
+  async function copyManualResearchPrompt() {
+    const countryName = (researchCountry || form.name || "[COUNTRY]").trim();
+    const prompt = buildManualResearchPrompt(countryName);
+    setManualPrompt(prompt);
+
+    try {
+      await navigator.clipboard.writeText(prompt);
+      setError("");
+    } catch {
+      setError("Could not copy the manual research prompt. Copying may be blocked by your browser, but you can copy it from the preview box.");
     }
   }
 
@@ -570,12 +642,12 @@ Rules:
         <section className={styles.panel}>
           <div className={styles.sectionHeader}>
             <div>
-              <h2>Paste ChatGPT Research</h2>
+              <h2>Research helper</h2>
               <p>
-                Generate a country profile in ChatGPT Plus, paste the JSON below, and populate the form automatically.
+                Copy a manual field-by-field prompt, research the country, then paste each answer into the guided fields below. JSON import is still available as an optional advanced shortcut.
               </p>
             </div>
-            <FileJson className={styles.headerIcon} size={20} aria-hidden="true" />
+            <ListChecks className={styles.headerIcon} size={20} aria-hidden="true" />
           </div>
           <div className={styles.researchControls}>
             <label>
@@ -586,8 +658,11 @@ Rules:
                 placeholder="Sweden"
               />
             </label>
+            <button className={styles.secondaryButton} type="button" onClick={copyManualResearchPrompt}>
+              <Clipboard size={16} /> Copy Manual Prompt
+            </button>
             <button className={styles.secondaryButton} type="button" onClick={copyChatGptPrompt}>
-              <Clipboard size={16} /> Copy ChatGPT Prompt
+              <FileJson size={16} /> Copy JSON Prompt
             </button>
             <button className={styles.secondaryButton} type="button" onClick={useResearchCountry}>
               Use in country fields
@@ -596,20 +671,31 @@ Rules:
               <Plus size={14} /> Add law checklist
             </button>
           </div>
-          <label className={styles.researchJsonField}>
-            CountryDiscovery JSON
+          <label className={styles.promptPreviewField}>
+            Manual research prompt preview
             <textarea
-              value={researchJson}
-              onChange={(event) => setResearchJson(event.target.value)}
-              placeholder='{
+              value={manualPrompt}
+              onChange={(event) => setManualPrompt(event.target.value)}
+              placeholder="Click Copy Manual Prompt to generate a field-by-field research prompt you can reuse in ChatGPT or another research tool."
+            />
+          </label>
+          <details className={styles.advancedImport}>
+            <summary>Advanced: paste full CountryDiscovery JSON instead</summary>
+            <label className={styles.researchJsonField}>
+              CountryDiscovery JSON
+              <textarea
+                value={researchJson}
+                onChange={(event) => setResearchJson(event.target.value)}
+                placeholder='{
   "slug": "sweden",
   "name": "Sweden"
 }'
-            />
-          </label>
-          <button className={styles.autoButton} type="button" onClick={populateFromJson}>
-            Populate Form
-          </button>
+              />
+            </label>
+            <button className={styles.autoButton} type="button" onClick={populateFromJson}>
+              Populate Form
+            </button>
+          </details>
           <div className={styles.researchGrid}>
             {researchLinks.map((link) => (
               <a className={styles.researchCard} href={link.href} target="_blank" rel="noreferrer" key={link.label}>
@@ -622,7 +708,7 @@ Rules:
             ))}
           </div>
           <p className={styles.researchNote}>
-            Paste JSON drafted in ChatGPT Plus, populate the fields, then verify source links and save. This helper does not replace legal review.
+            Recommended flow: copy the manual prompt, verify the source links, type or paste each answer into the form, then save. This helper does not replace legal review.
           </p>
         </section>
         
