@@ -16,5 +16,5 @@ export default async function GalleryIndexPage({
   }
 
   const queryString = targetParams.toString();
-  redirect(`/gallery/general${queryString ? `?${queryString}` : ""}`);
+  redirect(`/gallery/nude${queryString ? `?${queryString}` : ""}`);
 }

@@ -976,6 +976,7 @@ export default function HomePage() {
           fileName: sanitized.name,
           contentType: sanitized.type,
           size: sanitized.size,
+          kind: composerKind,
         }),
       });
 

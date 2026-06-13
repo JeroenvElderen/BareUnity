@@ -76,5 +76,6 @@ export async function ensureUserMediaStorage(args: {
     avatarFolder: `avatars/${args.userId}`,
     galleryFolder: `gallery/${args.userId}`,
     postsFolder: `posts/${args.userId}`,
+    storiesFolder: `stories/${args.userId}`,
   };
 }

@@ -243,6 +243,30 @@ export function applyPersonPresenceCheck(
   };
 }
 
+export function classifyPostImageByPersonPresence(
+  personCheck?: PersonPresenceCheck,
+): GalleryModerationDecision {
+  const confidence = personCheck?.confidence ?? 0;
+  const containsPerson = personCheck?.containsPerson === true;
+
+  return {
+    containsPerson,
+    containsAdultNudity: containsPerson,
+    containsLandscape: !containsPerson,
+    containsAnimal: false,
+    containsVehicle: false,
+    containsBuilding: false,
+    confidence,
+    galleryType: containsPerson ? "nude" : "general",
+    moderationStatus: "approved",
+    reason: `${
+      personCheck?.reason ?? "No person-presence check was available."
+    } Routed posts-bucket media to the ${
+      containsPerson ? "nude" : "general"
+    } gallery based on person presence.`,
+  };
+}
+
 export function reportThreshold() {
   const parsed = Number.parseInt(process.env.REPORT_THRESHOLD ?? "3", 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 3;

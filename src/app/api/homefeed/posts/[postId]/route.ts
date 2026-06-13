@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { Prisma } from "@prisma/client";
 import { db } from "@/server/db";
 import { loadViewerIdFromRequest } from "@/lib/viewer";
 import { ensureMemberCanAct } from "@/lib/action-access";
@@ -7,6 +6,10 @@ import {
   createSupabaseAdminClient,
   isSupabaseAdminConfigured,
 } from "@/lib/supabase-admin";
+import {
+  classifyPostsBucketImageForGallery,
+  removeImageFromGalleryInventory,
+} from "@/lib/post-gallery-classification";
 
 function toStoragePath(pathOrUrl: string | null | undefined): string {
   const value = pathOrUrl?.trim() ?? "";
@@ -46,9 +49,7 @@ async function deleteMediaAsset(pathOrUrl: string | null | undefined) {
 
   await Promise.all([
     supabaseAdmin.storage.from("media").remove([storagePath]),
-    db.$executeRaw(
-      Prisma.sql`delete from public.gallery_image_likes where image_path = ${storagePath}`,
-    ),
+    removeImageFromGalleryInventory(storagePath),
   ]);
 }
 
@@ -112,6 +113,14 @@ export async function PATCH(
         post_type: nextMediaUrl ? "image" : "text",
       },
     });
+
+    if (persistedMediaUrl) {
+      await classifyPostsBucketImageForGallery({
+        imagePath: persistedMediaUrl,
+        ownerId: viewerId,
+        title,
+      });
+    }
 
     if (
       persistedMediaUrl &&

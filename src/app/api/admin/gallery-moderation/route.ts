@@ -2,8 +2,7 @@ import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 
 import {
-  applyPersonPresenceCheck,
-  classifyGalleryImage,
+  classifyPostImageByPersonPresence,
   parseGalleryType,
 } from "@/lib/gallery-moderation";
 import { detectPersonInImage } from "@/lib/person-detection";
@@ -21,7 +20,7 @@ type Action =
   | "auto_classify_existing";
 
 const IMAGE_EXTENSION_PATTERN = /\.(avif|webp|jpe?g|png|gif)$/i;
-const DIRECTORIES = ["gallery", "posts"] as const;
+const DIRECTORIES = ["posts"] as const;
 
 type StorageEntry = {
   name: string;
@@ -68,10 +67,22 @@ async function listMediaObjects() {
 
 async function ensureInventoryRows() {
   if (!isSupabaseAdminConfigured) return 0;
-  const objects = await listMediaObjects();
+  const [objects, storyRows] = await Promise.all([
+    listMediaObjects(),
+    db.posts.findMany({
+      where: { post_type: "story", media_url: { not: null } },
+      select: { media_url: true },
+    }),
+  ]);
+  const storyPaths = new Set(
+    storyRows
+      .map((row) => row.media_url?.trim())
+      .filter((value): value is string => Boolean(value)),
+  );
   let inserted = 0;
 
   for (const object of objects) {
+    if (storyPaths.has(object.name)) continue;
     const ownerId =
       object.name.split("/")[1]?.match(/^[0-9a-fA-F-]{36}$/)?.[0] ?? null;
     const title =
@@ -240,33 +251,19 @@ export async function POST(request: NextRequest) {
     const pendingRows = await db.$queryRaw<
       Array<{ image_path: string; title: string | null }>
     >(Prisma.sql`
-      select image_path, title from public.gallery_media where moderation_status = 'pending' limit 500
+      select image_path, title from public.gallery_media where moderation_status = 'pending' and image_path like 'posts/%' limit 500
     `);
 
     const supabaseAdmin = createSupabaseAdminClient();
 
     for (const row of pendingRows) {
-      const initialDecision = classifyGalleryImage({
-        fileName: row.title ?? row.image_path,
+      const { data } = await supabaseAdmin.storage
+        .from("media")
+        .download(row.image_path);
+      const personCheck = await detectPersonInImage({
+        buffer: data ? Buffer.from(await data.arrayBuffer()) : undefined,
       });
-      let imageBuffer: Buffer | undefined;
-
-      if (initialDecision.containsAdultNudity) {
-        const { data } = await supabaseAdmin.storage
-          .from("media")
-          .download(row.image_path);
-        if (data) imageBuffer = Buffer.from(await data.arrayBuffer());
-      }
-
-      const personCheck = initialDecision.containsAdultNudity
-        ? await detectPersonInImage({
-            buffer: imageBuffer,
-          })
-        : undefined;
-      const decision = applyPersonPresenceCheck(
-        initialDecision,
-        personCheck,
-      );
+      const decision = classifyPostImageByPersonPresence(personCheck);
 
       await db.$executeRaw(Prisma.sql`
         update public.gallery_media set

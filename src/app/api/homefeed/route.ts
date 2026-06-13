@@ -11,6 +11,7 @@ import {
 import { readServerCache, writeServerCache } from "@/lib/server-user-cache";
 import { UploadValidationError } from "@/lib/upload-security";
 import { ensureMemberCanAct } from "@/lib/action-access";
+import { classifyPostsBucketImageForGallery } from "@/lib/post-gallery-classification";
 
 export async function GET(request: Request) {
   try {
@@ -138,6 +139,14 @@ export async function POST(request: Request) {
         post_type: persistedMediaUrl ? "image" : "text",
       },
     });
+
+    if (persistedMediaUrl) {
+      await classifyPostsBucketImageForGallery({
+        imagePath: persistedMediaUrl,
+        ownerId: viewerId,
+        title,
+      });
+    }
 
     return NextResponse.json({ ok: true });
   } catch (error) {
