@@ -747,11 +747,7 @@ export function AppSidebar() {
         ({ new: row }) => {
           const payload = row as { image_path?: string; user_id?: string };
           if (!payload.image_path || payload.user_id === viewerId) return;
-          if (
-            !payload.image_path.includes(`/gallery/${viewerId}/`) &&
-            !payload.image_path.includes(`gallery/${viewerId}/`)
-          )
-            return;
+          if (!payload.image_path.includes(`posts/${viewerId}/`)) return;
           pushLiveNotification(
             createNotification(
               "New gallery like",

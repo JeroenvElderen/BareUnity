@@ -36,7 +36,7 @@ type SupabaseListEntry = {
 };
 
 const IMAGE_EXTENSION_PATTERN = /\.(avif|webp|jpe?g|png|gif)$/i;
-const GALLERY_VISIBLE_MEDIA_DIRECTORIES = ["gallery", "posts"] as const;
+const GALLERY_VISIBLE_MEDIA_DIRECTORIES = ["posts"] as const;
 
 function toStoragePath(pathOrUrl: string): string {
   const value = pathOrUrl.trim();
@@ -221,10 +221,9 @@ async function buildGalleryFromStorage(
       settings.add_post_images_to_gallery,
     ]),
   );
-  const visibleEntries = entries.filter((entry) => {
-    if (!entry.path.startsWith("posts/")) return true;
-    return postImagesInGalleryByOwnerId.get(entry.ownerId) ?? true;
-  });
+  const visibleEntries = entries.filter(
+    (entry) => postImagesInGalleryByOwnerId.get(entry.ownerId) ?? true,
+  );
 
   const signedItems = await Promise.all(
     visibleEntries.map(async (entry) => {
