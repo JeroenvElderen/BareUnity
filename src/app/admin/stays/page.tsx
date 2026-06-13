@@ -2,7 +2,14 @@
 
 import Link from "next/link";
 import { Building2, ExternalLink, Plus, Sparkles } from "lucide-react";
-import { ChangeEvent, FormEvent, useState } from "react";
+import {
+  ChangeEvent,
+  FormEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import type { Listing } from "@/app/bookings/hotels-airbnbs/stays-data";
 import { isPlatformAdminEmail } from "@/lib/platform-admin";
 import { supabase } from "@/lib/supabase";
@@ -152,6 +159,8 @@ export default function AdminStaysPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState<Listing | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
+  const [sourceRequestId, setSourceRequestId] = useState("");
+  const importedHandoffUrlRef = useRef("");
 
   function updateField(
     event: ChangeEvent<
@@ -178,7 +187,7 @@ export default function AdminStaysPage() {
     setPolicies((current) => [...current, { category: "", items: "" }]);
   }
 
-  async function getAdminToken() {
+  const getAdminToken = useCallback(async () => {
     const {
       data: { session },
       error: sessionError,
@@ -195,10 +204,9 @@ export default function AdminStaysPage() {
     }
 
     return session.access_token;
-  }
+  }, []);
 
-  async function importStay(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  const importStayFromUrl = useCallback(async (url: string) => {
     setIsImporting(true);
     setError("");
     setWarnings([]);
@@ -207,7 +215,7 @@ export default function AdminStaysPage() {
     try {
       const token = await getAdminToken();
       const response = await fetch(
-        `/api/admin/stays/import?url=${encodeURIComponent(importUrl)}`,
+        `/api/admin/stays/import?url=${encodeURIComponent(url)}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         },
@@ -234,7 +242,72 @@ export default function AdminStaysPage() {
     } finally {
       setIsImporting(false);
     }
+  }, [getAdminToken]);
+
+  async function importStay(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await importStayFromUrl(importUrl);
   }
+
+  async function deleteSourceRequest(requestId: string, token: string) {
+    const response = await fetch(
+      `/api/admin/location-requests/${encodeURIComponent(requestId)}`,
+      {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    );
+    const payload = (await response.json().catch(() => null)) as {
+      error?: string;
+    } | null;
+
+    if (!response.ok) {
+      throw new Error(
+        payload?.error ?? "Saved stay, but could not remove the source request.",
+      );
+    }
+  }
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const handoffWebsite = params.get("website")?.trim() ?? "";
+    const handoffRequestId = params.get("sourceRequestId")?.trim() ?? "";
+    const handoffName = params.get("name")?.trim() ?? "";
+    const handoffLocationHint = params.get("locationHint")?.trim() ?? "";
+    const handoffLatitude = params.get("latitude")?.trim() ?? "";
+    const handoffLongitude = params.get("longitude")?.trim() ?? "";
+    const handoffNotes = params.get("notes")?.trim() ?? "";
+
+    if (handoffRequestId) setSourceRequestId(handoffRequestId);
+    if (handoffWebsite) setImportUrl(handoffWebsite);
+
+    if (
+      handoffName ||
+      handoffWebsite ||
+      handoffLocationHint ||
+      handoffLatitude ||
+      handoffLongitude ||
+      handoffNotes
+    ) {
+      setForm((current) => ({
+        ...current,
+        name: handoffName || current.name,
+        websiteUrl: handoffWebsite || current.websiteUrl,
+        address: handoffLocationHint || current.address,
+        placeName: handoffLocationHint || current.placeName,
+        mapLatitude: handoffLatitude || current.mapLatitude,
+        mapLongitude: handoffLongitude || current.mapLongitude,
+        description: handoffNotes
+          ? [current.description, handoffNotes].filter(Boolean).join("\n\n")
+          : current.description,
+      }));
+    }
+
+    if (handoffWebsite && importedHandoffUrlRef.current !== handoffWebsite) {
+      importedHandoffUrlRef.current = handoffWebsite;
+      void importStayFromUrl(handoffWebsite);
+    }
+  }, [importStayFromUrl]);
 
   async function saveStay(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -270,6 +343,11 @@ export default function AdminStaysPage() {
 
       if (!response.ok || !payload.listing) {
         throw new Error(payload.error ?? "Could not save this stay.");
+      }
+
+      if (sourceRequestId) {
+        await deleteSourceRequest(sourceRequestId, token);
+        setSourceRequestId("");
       }
 
       setSuccess(payload.listing);

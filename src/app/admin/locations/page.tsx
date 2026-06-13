@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -125,6 +126,7 @@ function prettyDate(value: string) {
 }
 
 export default function AdminLocationsPage() {
+  const router = useRouter();
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [requests, setRequests] = useState<LocationRequest[]>([]);
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(
@@ -147,6 +149,49 @@ export default function AdminLocationsPage() {
   const [importWarnings, setImportWarnings] = useState<string[]>([]);
   const [importVerification, setImportVerification] =
     useState<ImportVerification | null>(null);
+
+  function buildStayImportHref(
+    draft: FormState,
+    requestId: string | null = selectedRequestId,
+  ) {
+    const params = new URLSearchParams();
+    if (requestId) params.set("sourceRequestId", requestId);
+    if (draft.website) params.set("website", draft.website);
+    if (draft.name) params.set("name", draft.name);
+    if (draft.locationHint) params.set("locationHint", draft.locationHint);
+    if (draft.latitude) params.set("latitude", draft.latitude);
+    if (draft.longitude) params.set("longitude", draft.longitude);
+    if (draft.reporterNotes) params.set("notes", draft.reporterNotes);
+
+    const queryString = params.toString();
+    return queryString ? `/admin/stays?${queryString}` : "/admin/stays";
+  }
+
+  function buildStayRequestHref(request: LocationRequest) {
+    const params = new URLSearchParams();
+    params.set("sourceRequestId", request.id);
+    if (request.website) params.set("website", request.website);
+    if (request.placeName) params.set("name", request.placeName);
+    if (request.locationHint) params.set("locationHint", request.locationHint);
+    if (typeof request.latitude === "number") {
+      params.set("latitude", request.latitude.toFixed(6));
+    }
+    if (typeof request.longitude === "number") {
+      params.set("longitude", request.longitude.toFixed(6));
+    }
+
+    const notes = [
+      `Requested by ${request.userEmail ?? "unknown member"}`,
+      `Request ID: ${request.id}`,
+      `Member requested type: ${REQUEST_TYPE_LABELS[request.requestType]}.`,
+      request.notes ? `Notes: ${request.notes}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+    if (notes) params.set("notes", notes);
+
+    return `/admin/stays?${params.toString()}`;
+  }
 
   const loadRequests = useCallback(async () => {
     setRequestLoadError("");
@@ -368,6 +413,11 @@ export default function AdminLocationsPage() {
     event.preventDefault();
     setFeedback(null);
 
+    if (form.terrain === "Stays") {
+      router.push(buildStayImportHref(form));
+      return;
+    }
+
     const latitude = Number(form.latitude);
     const longitude = Number(form.longitude);
     if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
@@ -560,7 +610,9 @@ export default function AdminLocationsPage() {
                     </Button>
                     {request.requestType === "stay" ? (
                       <Button asChild type="button" size="sm" variant="outline">
-                        <Link href="/admin/stays">Open stay manager</Link>
+                        <Link href={buildStayRequestHref(request)}>
+                          Import stay listing
+                        </Link>
                       </Button>
                     ) : null}
                   </div>
@@ -899,7 +951,9 @@ export default function AdminLocationsPage() {
               </Button>
               {form.terrain === "Stays" ? (
                 <Button asChild type="button" variant="outline">
-                  <Link href="/admin/stays">Finish stay listing</Link>
+                  <Link href={buildStayImportHref(form)}>
+                    Finish stay listing
+                  </Link>
                 </Button>
               ) : null}
             </div>
