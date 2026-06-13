@@ -10,7 +10,6 @@ import {
 } from "react";
 import { Flag, Heart } from "lucide-react";
 import NextImage from "next/image";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
 import { AppSidebar } from "@/components/sidebar/sidebar";
@@ -42,7 +41,9 @@ type GalleryItem = {
 type GalleryType = "nude" | "general";
 
 type GalleryClientProps = {
-  initialGallery: GalleryType;
+  galleryType: GalleryType;
+  title: string;
+  subtitle: string;
 };
 
 const GALLERY_CACHE_MAX_AGE_MS = 1000 * 60 * 15;
@@ -162,12 +163,14 @@ async function convertImageToWebp(file: File): Promise<File> {
   }
 }
 
-export function GalleryClient({ initialGallery }: GalleryClientProps) {
+export function GalleryClient({
+  galleryType,
+  title,
+  subtitle,
+}: GalleryClientProps) {
   const searchParams = useSearchParams();
-  const [activeGallery, setActiveGallery] =
-    useState<GalleryType>(initialGallery);
   const [prefetchedItems] = useState<GalleryItem[]>(() =>
-    initialGallery === "general"
+    galleryType === "general"
       ? (takePrefetchedRouteData<GalleryItem[]>("gallery-snapshot") ?? [])
       : [],
   );
@@ -197,13 +200,6 @@ export function GalleryClient({ initialGallery }: GalleryClientProps) {
     ? items.findIndex((item) => item.id === activeItem.id)
     : -1;
 
-  useEffect(() => {
-    setActiveGallery(initialGallery);
-    setItems([]);
-    setIsLoading(true);
-    setActiveItem(null);
-  }, [initialGallery]);
-
   const moveFullscreenBy = (delta: number) => {
     if (activeItemIndex < 0) return;
 
@@ -227,12 +223,12 @@ export function GalleryClient({ initialGallery }: GalleryClientProps) {
       const { data } = await supabase.auth.getSession();
       const userId = data.session?.user?.id ?? null;
       const cacheKey = buildUserScopedCacheKey(
-        `gallery-items-${activeGallery}`,
+        `gallery-items-${galleryType}`,
         userId,
       );
       writeCachedValue(cacheKey, nextItems);
     },
-    [activeGallery],
+    [galleryType],
   );
 
   const refreshGallery = useCallback(async () => {
@@ -240,16 +236,16 @@ export function GalleryClient({ initialGallery }: GalleryClientProps) {
     const userId = data.session?.user?.id ?? null;
     const accessToken = data.session?.access_token ?? null;
     const cacheKey = buildUserScopedCacheKey(
-      `gallery-items-${activeGallery}`,
+      `gallery-items-${galleryType}`,
       userId,
     );
 
     return loadCachedThenRefresh<GalleryItem[]>({
       key: cacheKey,
       maxAgeMs: GALLERY_CACHE_MAX_AGE_MS,
-      fetchFresh: () => fetchGallerySnapshot(activeGallery, accessToken),
+      fetchFresh: () => fetchGallerySnapshot(galleryType, accessToken),
     });
-  }, [activeGallery]);
+  }, [galleryType]);
 
   useEffect(() => {
     let mounted = true;
@@ -259,7 +255,7 @@ export function GalleryClient({ initialGallery }: GalleryClientProps) {
       const userId = data.session?.user?.id ?? null;
       const accessToken = data.session?.access_token ?? null;
       const cacheKey = buildUserScopedCacheKey(
-        `gallery-items-${activeGallery}`,
+        `gallery-items-${galleryType}`,
         userId,
       );
 
@@ -272,7 +268,7 @@ export function GalleryClient({ initialGallery }: GalleryClientProps) {
             setItems(cached);
             setIsLoading(false);
           },
-          fetchFresh: () => fetchGallerySnapshot(activeGallery, accessToken),
+          fetchFresh: () => fetchGallerySnapshot(galleryType, accessToken),
         });
 
         if (!mounted) return;
@@ -289,7 +285,7 @@ export function GalleryClient({ initialGallery }: GalleryClientProps) {
     return () => {
       mounted = false;
     };
-  }, [activeGallery]);
+  }, [galleryType]);
 
   useEffect(() => {
     return subscribeToTables({
@@ -440,7 +436,7 @@ export function GalleryClient({ initialGallery }: GalleryClientProps) {
       const uploadedItem = body.item;
 
       if (
-        uploadedItem?.galleryType === activeGallery &&
+        uploadedItem?.galleryType === galleryType &&
         uploadedItem.moderationStatus === "approved"
       ) {
         setItems((current) => mergeGalleryItems(current, [uploadedItem]));
@@ -454,7 +450,7 @@ export function GalleryClient({ initialGallery }: GalleryClientProps) {
       for (let attempt = 0; attempt < UPLOAD_RECONCILE_ATTEMPTS; attempt += 1) {
         const nextItems = await refreshGallery();
         const shouldOptimisticallyShow =
-          uploadedItem?.galleryType === activeGallery &&
+          uploadedItem?.galleryType === galleryType &&
           uploadedItem.moderationStatus === "approved";
         const mergedItems = shouldOptimisticallyShow
           ? mergeGalleryItems(nextItems, [uploadedItem])
@@ -667,27 +663,8 @@ export function GalleryClient({ initialGallery }: GalleryClientProps) {
 
       <section className={styles.wrapper}>
         <header className={styles.galleryHeader}>
-          <h1 className={styles.galleryTitle}>
-            {activeGallery === "nude" ? "Nude Gallery" : "General Gallery"}
-          </h1>
-          <p className={styles.gallerySubtitle}>
-            Fresh captures from the BareUnity community, separated by moderation
-            class.
-          </p>
-          <nav className={styles.galleryTabs} aria-label="Gallery sections">
-            <Link
-              className={`${styles.galleryTab} ${activeGallery === "nude" ? styles.galleryTabActive : ""}`}
-              href="/gallery/nude"
-            >
-              Nude Gallery
-            </Link>
-            <Link
-              className={`${styles.galleryTab} ${activeGallery === "general" ? styles.galleryTabActive : ""}`}
-              href="/gallery/general"
-            >
-              General Gallery
-            </Link>
-          </nav>
+          <h1 className={styles.galleryTitle}>{title}</h1>
+          <p className={styles.gallerySubtitle}>{subtitle}</p>
           <div className={styles.uploadAction}>
             <label className={styles.uploadButton} aria-disabled={isUploading}>
               <input

@@ -517,56 +517,8 @@
 .fullscreenReport:focus-visible {
   background: rgb(190 18 60 / 0.92);
 }
-.galleryTabs {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  border: 1px solid rgb(var(--border));
-  border-radius: 999px;
-  background: rgb(var(--card) / 0.62);
-  padding: 0.25rem;
-}
-
-.galleryTab {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 2rem;
-  border-radius: 999px;
-  padding: 0 0.85rem;
-  color: rgb(var(--muted));
-  font-size: 0.8rem;
-  font-weight: 700;
-  text-decoration: none;
-  transition:
-    background 180ms ease,
-    color 180ms ease,
-    box-shadow 180ms ease;
-}
-
-.galleryTab:hover,
-.galleryTab:focus-visible {
-  color: rgb(var(--text-strong));
-  background: rgb(var(--bg-soft));
-}
-
-.galleryTabActive {
-  color: rgb(var(--text-strong));
-  background: rgb(var(--card));
-  box-shadow: 0 8px 18px rgb(4 8 20 / 0.14);
-}
-
 @media (max-width: 760px) {
   .galleryHeader {
     flex-wrap: wrap;
-  }
-
-  .galleryTabs {
-    order: 3;
-    width: 100%;
-  }
-
-  .galleryTab {
-    flex: 1;
   }
 }

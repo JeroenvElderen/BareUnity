@@ -2,9 +2,11 @@ import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 
 import {
+  applyPersonPresenceCheck,
   classifyGalleryImage,
   parseGalleryType,
 } from "@/lib/gallery-moderation";
+import { detectPersonInImage } from "@/lib/person-detection";
 import { ensureAdminRequest } from "@/lib/request-auth";
 import {
   createSupabaseAdminClient,
@@ -241,10 +243,31 @@ export async function POST(request: NextRequest) {
       select image_path, title from public.gallery_media where moderation_status = 'pending' limit 500
     `);
 
+    const supabaseAdmin = createSupabaseAdminClient();
+
     for (const row of pendingRows) {
-      const decision = classifyGalleryImage({
+      const initialDecision = classifyGalleryImage({
         fileName: row.title ?? row.image_path,
       });
+      let imageBuffer: Buffer | undefined;
+
+      if (initialDecision.containsAdultNudity) {
+        const { data } = await supabaseAdmin.storage
+          .from("media")
+          .download(row.image_path);
+        if (data) imageBuffer = Buffer.from(await data.arrayBuffer());
+      }
+
+      const personCheck = initialDecision.containsAdultNudity
+        ? await detectPersonInImage({
+            buffer: imageBuffer,
+          })
+        : undefined;
+      const decision = applyPersonPresenceCheck(
+        initialDecision,
+        personCheck,
+      );
+
       await db.$executeRaw(Prisma.sql`
         update public.gallery_media set
           gallery_type = ${decision.galleryType},

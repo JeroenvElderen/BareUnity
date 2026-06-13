@@ -1,5 +1,5 @@
-import { GalleryClient } from "@/components/gallery/gallery-client";
+import { NudeGallery } from "@/components/gallery/nude-gallery";
 
 export default function NudeGalleryPage() {
-  return <GalleryClient initialGallery="nude" />;
+  return <NudeGallery />;
 }
