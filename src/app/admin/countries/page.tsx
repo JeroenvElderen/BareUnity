@@ -51,6 +51,81 @@ type CountryFormState = Omit<
 
 const sampleCountry = COUNTRY_DISCOVERY_DATA.spain;
 
+const coreDetailFields = [
+  "Country name",
+  "URL slug",
+  "Flag emoji",
+  "Continent",
+  "Legal status",
+  "Official beaches",
+  "Naturist resorts",
+  "Community rating",
+  "Community members",
+  "Hero image URL",
+  "Tagline",
+  "Best time to visit",
+];
+
+const quickGlanceSuggestions = [
+  "Capital",
+  "Currency",
+  "Language",
+  "Plug Type",
+  "Time Zone",
+  "Population",
+  "Driving Side",
+  "Climate",
+  "Best Season",
+  "Sauna Culture",
+  "Family Friendly",
+  "Top Naturist Area",
+];
+
+const cultureScoreSuggestions = [
+  "Safety",
+  "LGBT Friendly / LGBTQ Friendliness",
+  "Family Friendly / Family Friendliness",
+  "Tourist Friendly",
+  "Beginner Friendly",
+  "Social Acceptance / Naturist Acceptance",
+  "Beach Quality",
+  "Legal Clarity",
+  "Privacy Respect",
+];
+
+const lawTopicSuggestions = [
+  "Public nudity",
+  "Naturist beaches / designated naturist beaches",
+  "Naturist resorts / clubs / campsites",
+  "Photography rules",
+  "Family naturism / children and families",
+  "Urban nudity",
+  "Saunas and spas",
+  "Sexual behavior",
+  "Local regulations",
+];
+
+const listGuideItems = [
+  "First-time tips: first visit advice, what to bring, mixed textile/nude expectations, language or cover-up tips",
+  "Etiquette: towel use, consent before photos, personal space, no staring, non-sexual conduct, local rule respect",
+  "FAQs: legal questions, family friendliness, whether nudity is required, best season, phones/photos, solo traveller safety",
+  "Tags: destination highlights such as Friendly atmosphere, Beautiful beaches, Easy for beginners, Sauna culture, Lake swimming, Admin review required",
+];
+
+function FieldGuide({
+  label = "Guide",
+  items,
+}: {
+  label?: string;
+  items: string[];
+}) {
+  return (
+    <p className={styles.fieldGuide}>
+      <strong>{label}:</strong> {items.join(" · ")}.
+    </p>
+  );
+}
+
 function slugFromName(name: string) {
   return name
     .trim()
@@ -405,6 +480,7 @@ export default function AdminCountriesPage() {
         <form className={styles.form} onSubmit={saveCountry}>
           <section className={styles.panel}>
             <h2>Core details</h2>
+            <FieldGuide label="Fields" items={coreDetailFields} />
             <div className={styles.twoColumns}>
               <label>Country name<input name="name" value={form.name} onChange={updateField} placeholder="Type a country name" required /></label>
               <label>URL slug<input name="slug" value={form.slug} onChange={updateField} placeholder="spain" required /></label>
@@ -426,6 +502,7 @@ export default function AdminCountriesPage() {
               <div>
                 <h2>Quick glance</h2>
                 <p>Add small facts such as capital, language, currency, or plug type.</p>
+                <FieldGuide label="Suggested quick-glance facts" items={quickGlanceSuggestions} />
               </div>
               <button className={styles.smallButton} type="button" onClick={() => addRow("glance", { key: "", value: "" })}>
                 <Plus size={14} /> Add fact
@@ -449,6 +526,7 @@ export default function AdminCountriesPage() {
               <div>
                 <h2>Culture scores</h2>
                 <p>Score each category from 0 to 100.</p>
+                <FieldGuide label="Suggested score categories" items={cultureScoreSuggestions} />
               </div>
               <button className={styles.smallButton} type="button" onClick={() => addRow("cultureScores", { label: "", score: 80 })}>
                 <Plus size={14} /> Add score
@@ -472,6 +550,7 @@ export default function AdminCountriesPage() {
               <div>
                 <h2>Naturist laws</h2>
                 <p>Use cards for each law or practical rule.</p>
+                <FieldGuide label="Suggested law topics" items={lawTopicSuggestions} />
               </div>
               <button className={styles.smallButton} type="button" onClick={() => addRow("laws", { topic: "", status: "caution", summary: "" })}>
                 <Plus size={14} /> Add law
@@ -499,6 +578,7 @@ export default function AdminCountriesPage() {
               <div>
                 <h2>Regions</h2>
                 <p>Add notable regions and give each one a friendliness score.</p>
+                <FieldGuide label="Each region needs" items={["Name", "Friendliness score", "Details such as acceptance, beaches, climate, resorts, access, or local highlights"]} />
               </div>
               <button className={styles.smallButton} type="button" onClick={() => addRow("regions", { name: "", score: 80, details: "" })}>
                 <Plus size={14} /> Add region
@@ -526,6 +606,7 @@ export default function AdminCountriesPage() {
               <div>
                 <h2>Beaches</h2>
                 <p>Add beach cards with ratings, images, and short summaries.</p>
+                <FieldGuide label="Each beach needs" items={["Name", "Region", "Rating", "Image URL", "Summary covering setting, access, atmosphere, or designation"]} />
               </div>
               <button className={styles.smallButton} type="button" onClick={() => addRow("beaches", { name: "", region: "", rating: "4.5", image: "", summary: "" })}>
                 <Plus size={14} /> Add beach
@@ -557,6 +638,7 @@ export default function AdminCountriesPage() {
               <div>
                 <h2>Season guide</h2>
                 <p>Fill the 12 monthly temperature and vibe rows.</p>
+                <FieldGuide label="Each month needs" items={["Month label", "Air °C", "Sea °C", "Vibe such as ☀️, winter wellness, peak season, festive beaches, or Nordic calm"]} />
               </div>
             </div>
             <div className={styles.seasonGrid}>
@@ -574,6 +656,7 @@ export default function AdminCountriesPage() {
           <section className={styles.panel}>
             <h2>Lists</h2>
             <p>Add one item per field. Use the plus buttons for more entries.</p>
+            <FieldGuide label="List guidance" items={listGuideItems} />
             <div className={styles.listGrid}>
               <EditableList title="First-time tips" items={form.firstTimeTips} onAdd={() => addListItem("firstTimeTips")} onChange={(index, value) => updateListItem("firstTimeTips", index, value)} onRemove={(index) => removeListItem("firstTimeTips", index)} />
               <EditableList title="Etiquette" items={form.etiquette} onAdd={() => addListItem("etiquette")} onChange={(index, value) => updateListItem("etiquette", index, value)} onRemove={(index) => removeListItem("etiquette", index)} />
