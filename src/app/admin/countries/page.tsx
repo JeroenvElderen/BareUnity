@@ -61,7 +61,7 @@ const coreDetailFields = [
   "Naturist resorts",
   "Community rating",
   "Community members",
-  "Hero image URL",
+  "Hero image upload",
   "Tagline",
   "Best time to visit",
 ];
@@ -305,7 +305,7 @@ export default function AdminCountriesPage() {
     setForm((current) => {
       const rows = current[field];
       if (!Array.isArray(rows)) return current;
-      return { ...current, [field]: [...rows, row] };
+      return { ...current, [field]: [row, ...rows] };
     });
   }
 
@@ -325,7 +325,7 @@ export default function AdminCountriesPage() {
   }
 
   function addListItem(field: "firstTimeTips" | "etiquette" | "faqs" | "tags") {
-    setForm((current) => ({ ...current, [field]: [...current[field], ""] }));
+    setForm((current) => ({ ...current, [field]: ["", ...current[field]] }));
   }
 
   function removeListItem(field: "firstTimeTips" | "etiquette" | "faqs" | "tags", index: number) {
@@ -400,6 +400,70 @@ export default function AdminCountriesPage() {
 
     return () => window.clearTimeout(timeout);
   }, [form.name]);
+
+  async function uploadCountryImage(file: File, slot: string) {
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession();
+
+    if (sessionError || !session?.access_token) {
+      throw new Error("Please sign in first. We could not verify your admin session.");
+    }
+
+    if (!isPlatformAdminEmail(session.user.email)) {
+      throw new Error("This country manager is restricted to your owner account.");
+    }
+
+    const uploadForm = new FormData();
+    uploadForm.append("file", file);
+    uploadForm.append("continent", form.continent);
+    uploadForm.append("country", form.name || form.slug);
+    uploadForm.append("slot", slot);
+
+    const response = await fetch("/api/admin/countries/image-upload", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${session.access_token}` },
+      body: uploadForm,
+    });
+    const payload = await parseJsonResponse<{ publicUrl?: string; path?: string; error?: string }>(response);
+
+    if (!response.ok || !payload?.publicUrl) {
+      throw new Error(payload?.error ?? fallbackRequestError(response, "Uploading this country image"));
+    }
+
+    return payload.publicUrl;
+  }
+
+  async function uploadHeroImage(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setError("");
+    try {
+      const publicUrl = await uploadCountryImage(file, "hero");
+      setForm((current) => ({ ...current, heroImage: publicUrl }));
+    } catch (uploadError) {
+      setError(uploadError instanceof Error ? uploadError.message : "Could not upload hero image.");
+    } finally {
+      event.target.value = "";
+    }
+  }
+
+  async function uploadBeachImage(index: number, file: File) {
+    setError("");
+    try {
+      const beach = form.beaches[index];
+      const publicUrl = await uploadCountryImage(file, `beach-${beach?.name || index + 1}`);
+      updateRow("beaches", index, { image: publicUrl });
+    } catch (uploadError) {
+      setError(uploadError instanceof Error ? uploadError.message : "Could not upload beach image.");
+    }
+  }
+
+  function descendingNumber(total: number, index: number) {
+    return total - index;
+  }
 
   async function saveCountry(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -491,6 +555,7 @@ export default function AdminCountriesPage() {
               <label>Naturist resorts<input name="resortsCount" value={form.resortsCount} onChange={updateField} required /></label>
               <label>Community rating<input name="communityRating" value={form.communityRating} onChange={updateField} required /></label>
               <label>Community members<input name="communityMembers" value={form.communityMembers} onChange={updateField} required /></label>
+              <label>Hero image<input type="file" accept="image/*" onChange={uploadHeroImage} /></label>
               <label>Hero image URL<input name="heroImage" type="url" value={form.heroImage} onChange={updateField} required /></label>
             </div>
             <label>Tagline<textarea name="tagline" value={form.tagline} onChange={updateField} rows={3} required /></label>
@@ -560,7 +625,7 @@ export default function AdminCountriesPage() {
               {form.laws.map((law, index) => (
                 <article className={styles.editCard} key={`law-${index}`}>
                   <div className={styles.cardHeader}>
-                    <strong>Law #{index + 1}</strong>
+                    <strong>Law #{descendingNumber(form.laws.length, index)}</strong>
                     <button className={styles.iconButton} type="button" onClick={() => removeRow("laws", index)} aria-label="Remove law">
                       <Trash2 size={16} />
                     </button>
@@ -588,7 +653,7 @@ export default function AdminCountriesPage() {
               {form.regions.map((region, index) => (
                 <article className={styles.editCard} key={`region-${index}`}>
                   <div className={styles.cardHeader}>
-                    <strong>Region #{index + 1}</strong>
+                    <strong>Region #{descendingNumber(form.regions.length, index)}</strong>
                     <button className={styles.iconButton} type="button" onClick={() => removeRow("regions", index)} aria-label="Remove region">
                       <Trash2 size={16} />
                     </button>
@@ -606,7 +671,7 @@ export default function AdminCountriesPage() {
               <div>
                 <h2>Beaches</h2>
                 <p>Add beach cards with ratings, images, and short summaries.</p>
-                <FieldGuide label="Each beach needs" items={["Name", "Region", "Rating", "Image URL", "Summary covering setting, access, atmosphere, or designation"]} />
+                <FieldGuide label="Each beach needs" items={["Name", "Region", "Rating", "Image upload", "Summary covering setting, access, atmosphere, or designation"]} />
               </div>
               <button className={styles.smallButton} type="button" onClick={() => addRow("beaches", { name: "", region: "", rating: "4.5", image: "", summary: "" })}>
                 <Plus size={14} /> Add beach
@@ -616,7 +681,7 @@ export default function AdminCountriesPage() {
               {form.beaches.map((beach, index) => (
                 <article className={styles.editCard} key={`beach-${index}`}>
                   <div className={styles.cardHeader}>
-                    <strong>Beach #{index + 1}</strong>
+                    <strong>Beach #{descendingNumber(form.beaches.length, index)}</strong>
                     <button className={styles.iconButton} type="button" onClick={() => removeRow("beaches", index)} aria-label="Remove beach">
                       <Trash2 size={16} />
                     </button>
@@ -625,6 +690,7 @@ export default function AdminCountriesPage() {
                     <label>Name<input value={beach.name} onChange={(event) => updateRow("beaches", index, { name: event.target.value })} required /></label>
                     <label>Region<input value={beach.region} onChange={(event) => updateRow("beaches", index, { region: event.target.value })} required /></label>
                     <label>Rating<input value={beach.rating} onChange={(event) => updateRow("beaches", index, { rating: event.target.value })} required /></label>
+                    <label>Image upload<input type="file" accept="image/*" onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadBeachImage(index, file); event.target.value = ""; }} /></label>
                     <label>Image URL<input type="url" value={beach.image} onChange={(event) => updateRow("beaches", index, { image: event.target.value })} required /></label>
                   </div>
                   <label>Summary<textarea value={beach.summary} onChange={(event) => updateRow("beaches", index, { summary: event.target.value })} rows={3} required /></label>
@@ -695,7 +761,7 @@ function EditableList({ title, items, onAdd, onChange, onRemove }: EditableListP
         {items.map((item, index) => (
           <div className={styles.inlineRow} key={`${title}-${index}`}>
             <label>
-              Item #{index + 1}
+              Item #{items.length - index}
               <input value={item} onChange={(event) => onChange(index, event.target.value)} required />
             </label>
             <button className={styles.iconButton} type="button" onClick={() => onRemove(index)} aria-label={`Remove ${title} item`}>
