@@ -26,6 +26,13 @@ const sections = [
     cta: "Open reports",
   },
   {
+    title: "Gallery moderation",
+    description:
+      "Review pending gallery images, override AI routing, run bulk classification, and monitor gallery moderation analytics.",
+    href: "/admin/moderation",
+    cta: "Open moderation",
+  },
+  {
     title: "Manual user creation",
     description:
       "Create new users directly in Supabase auth + profiles, restricted to your owner account.",
