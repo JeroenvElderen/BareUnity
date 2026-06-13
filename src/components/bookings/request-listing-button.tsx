@@ -165,9 +165,10 @@ export function RequestListingButton({
               </label>
 
               <label className={styles.field}>
-                <span>Website</span>
+                <span>Website{requestType === "stay" ? " *" : ""}</span>
                 <input
                   type="url"
+                  required={requestType === "stay"}
                   value={form.website}
                   onChange={(event) =>
                     updateField("website", event.target.value)

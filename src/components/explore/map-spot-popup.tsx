@@ -15,6 +15,7 @@ type MapSpotPopupProps = {
   reportStatus?: string | null;
   onCheckIn?: () => void;
   onReport?: () => void;
+  onRequestLocation?: () => void;
   onClose?: () => void;
 };
 
@@ -42,6 +43,7 @@ export function MapSpotPopup({
   reportStatus,
   onCheckIn,
   onReport,
+  onRequestLocation,
   onClose,
 }: MapSpotPopupProps) {
   const isPublic = privacy === "Public";
@@ -123,7 +125,10 @@ export function MapSpotPopup({
           <button type="button" className={styles.secondaryCta} onClick={onReport}>
             Report this spot
           </button>
-          <p className={styles.helperText}>Let others know this marker is active and up to date.</p>
+          <button type="button" className={styles.secondaryCta} onClick={onRequestLocation} disabled={isActionLocked}>
+            Request another location
+          </button>
+          <p className={styles.helperText}>Let others know this marker is active and up to date, or suggest a missing location from here.</p>
         </div>
         {checkInError ? <p className={styles.error}>{checkInError}</p> : null}
         {reportStatus ? <p className={styles.status}>{reportStatus}</p> : null}

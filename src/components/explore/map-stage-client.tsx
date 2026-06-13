@@ -66,13 +66,15 @@ type CreateLocationFormState = {
   reporterNotes: string;
 };
 
+type LocationRequestKind = "location" | "stay";
+
 type LocationRequestFormState = {
   placeName: string;
   locationHint: string;
   latitude: string;
   longitude: string;
   website: string;
-  isStay: boolean;
+  requestKind: LocationRequestKind;
   notes: string;
 };
 
@@ -368,7 +370,7 @@ const INITIAL_LOCATION_REQUEST_FORM: LocationRequestFormState = {
   latitude: "",
   longitude: "",
   website: "",
-  isStay: false,
+  requestKind: "location",
   notes: "",
 };
 
@@ -1024,6 +1026,11 @@ export function MapStageClient() {
       return;
     }
 
+    if (locationRequestForm.requestKind === "stay" && !locationRequestForm.website.trim()) {
+      setLocationRequestFeedback({ type: "error", message: "Add the official website for stay requests. Stays are only hotels, resorts, or camping." });
+      return;
+    }
+
     const requestLatitude = Number(locationRequestForm.latitude);
     const requestLongitude = Number(locationRequestForm.longitude);
     if (!Number.isFinite(requestLatitude) || !Number.isFinite(requestLongitude)) {
@@ -1049,6 +1056,8 @@ export function MapStageClient() {
           latitude: requestLatitude,
           longitude: requestLongitude,
           website: locationRequestForm.website.trim(),
+          requestType: locationRequestForm.requestKind,
+          isStay: locationRequestForm.requestKind === "stay",
           notes: locationRequestForm.notes.trim(),
           pageUrl: window.location.href,
         }),
@@ -1377,6 +1386,11 @@ export function MapStageClient() {
             reportStatus={spotReportStatus}
             onCheckIn={() => void handleSpotCheckIn()}
             onReport={() => void handleSpotReport()}
+            onRequestLocation={() => {
+              setSelectedSpot(null);
+              setSpotReportStatus(null);
+              openLocationRequestModal();
+            }}
             onClose={() => {
               setSelectedSpot(null);
               setSpotReportStatus(null);
@@ -1431,9 +1445,9 @@ export function MapStageClient() {
           >
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h3 className="m-0 text-lg font-semibold text-[rgb(var(--text-strong))]">Request a new location</h3>
+                <h3 className="m-0 text-lg font-semibold text-[rgb(var(--text-strong))]">Request a new map place</h3>
                 <p className="mt-1 text-sm text-[rgb(var(--muted))]">
-                  Send the place to admins. They will verify it, fill in marker details, and create a stay listing if it is a stay.
+                  Choose whether admins should add a general location marker or a stay. A club is not a stay; request it as a location so it appears on the map itself.
                 </p>
               </div>
               <Button type="button" variant="outline" onClick={closeLocationRequestModal}>
@@ -1442,6 +1456,21 @@ export function MapStageClient() {
             </div>
 
             <div className="mt-5 grid gap-4">
+              <section className="grid gap-2 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--bg-soft))/0.45] p-3">
+                <p className="m-0 text-sm font-medium text-[rgb(var(--text-strong))]">What are you requesting?</p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <label className="flex cursor-pointer gap-2 rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--card))/0.58] p-3 text-sm text-[rgb(var(--text-strong))]">
+                    <input type="radio" name="requestKind" value="location" checked={locationRequestForm.requestKind === "location"} onChange={() => updateLocationRequestField("requestKind", "location")} className="mt-1 accent-[rgb(var(--brand))]" />
+                    <span><strong className="block">Location</strong><span className="text-xs text-[rgb(var(--muted))]">Beaches, clubs, saunas, events, and other map places. Website optional.</span></span>
+                  </label>
+                  <label className="flex cursor-pointer gap-2 rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--card))/0.58] p-3 text-sm text-[rgb(var(--text-strong))]">
+                    <input type="radio" name="requestKind" value="stay" checked={locationRequestForm.requestKind === "stay"} onChange={() => updateLocationRequestField("requestKind", "stay")} className="mt-1 accent-[rgb(var(--brand))]" />
+                    <span><strong className="block">Stay</strong><span className="text-xs text-[rgb(var(--muted))]">Only hotels, resorts, or camping. Official website required.</span></span>
+                  </label>
+                </div>
+                <p className="m-0 text-xs text-[rgb(var(--muted))]">Clubs are locations, not stays, and will be added directly to the map rather than under stays.</p>
+              </section>
+
               <label className="grid gap-1">
                 <span className="text-sm font-medium text-[rgb(var(--text-strong))]">Location or stay name *</span>
                 <input
@@ -1493,22 +1522,13 @@ export function MapStageClient() {
               </section>
 
               <label className="grid gap-1">
-                <span className="text-sm font-medium text-[rgb(var(--text-strong))]">Website or info link</span>
+                <span className="text-sm font-medium text-[rgb(var(--text-strong))]">Website or info link{locationRequestForm.requestKind === "stay" ? " *" : ""}</span>
                 <input
+                  required={locationRequestForm.requestKind === "stay"}
                   value={locationRequestForm.website}
                   onChange={(event) => updateLocationRequestField("website", event.target.value)}
                   placeholder="https://"
                   className="rounded-xl border border-[rgb(var(--border))] bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[rgb(var(--brand))]"
-                />
-              </label>
-
-              <label className="flex items-center justify-between gap-3 rounded-xl border border-[rgb(var(--border))] p-3 text-sm text-[rgb(var(--text-strong))]">
-                <span>This is a hotel, resort, camping, or other stay</span>
-                <input
-                  type="checkbox"
-                  checked={locationRequestForm.isStay}
-                  onChange={(event) => updateLocationRequestField("isStay", event.target.checked)}
-                  className="h-4 w-4 accent-[rgb(var(--brand))]"
                 />
               </label>
 

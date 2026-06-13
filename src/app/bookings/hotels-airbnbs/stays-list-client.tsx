@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import styles from "./stays-list.module.css";
 import type { Listing } from "./stays-data";
-import { RequestListingButton } from "@/components/bookings/request-listing-button";
 
 type StaysListClientProps = {
   listings: Listing[];
@@ -131,7 +130,6 @@ export function StaysListClient({ listings }: StaysListClientProps) {
             Compare hotels, camping, and entire places with unified filters and
             quick booking links.
           </p>
-          <RequestListingButton requestType="stay" label="Request a stay" />
         </div>
         <form
           className={styles.searchRow}

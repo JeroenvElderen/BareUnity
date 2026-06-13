@@ -146,6 +146,23 @@ function getCountryResearchLinks(countryName: string): ResearchLink[] {
   ];
 }
 
+async function parseJsonResponse<T>(response: Response): Promise<T | null> {
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!contentType.toLowerCase().includes("application/json")) {
+    return null;
+  }
+
+  try {
+    return (await response.json()) as T;
+  } catch {
+    return null;
+  }
+}
+
+function fallbackRequestError(response: Response, action: string) {
+  return `${action} failed with a non-JSON response (${response.status} ${response.statusText || "Unknown status"}). Please try again or check the server logs.`;
+}
+
 function recordToRows(record: Record<string, string>): KeyValueRow[] {
   return Object.entries(record).map(([key, value]) => ({ key, value }));
 }
@@ -370,14 +387,14 @@ export default function AdminCountriesPage() {
         },
         body: JSON.stringify({ countryName }),
       });
-      const payload = (await response.json()) as {
+      const payload = await parseJsonResponse<{
         country?: CountryDiscovery;
         sources?: ResearchSource[];
         error?: string;
-      };
+      }>(response);
 
-      if (!response.ok || !payload.country) {
-        throw new Error(payload.error ?? "Could not automatically research this country.");
+      if (!response.ok || !payload?.country) {
+        throw new Error(payload?.error ?? fallbackRequestError(response, "Automatic country research"));
       }
 
       setForm(fromCountry(payload.country));
@@ -468,13 +485,13 @@ export default function AdminCountriesPage() {
         },
         body: JSON.stringify(country),
       });
-      const payload = (await response.json()) as {
+      const payload = await parseJsonResponse<{
         country?: { slug: string; name: string };
         error?: string;
-      };
+      }>(response);
 
-      if (!response.ok || !payload.country) {
-        throw new Error(payload.error ?? "Could not save this country profile.");
+      if (!response.ok || !payload?.country) {
+        throw new Error(payload?.error ?? fallbackRequestError(response, "Saving this country profile"));
       }
 
       setSuccessSlug(payload.country.slug);

@@ -67,6 +67,13 @@ export async function POST(request: NextRequest) {
   const hasLatitude = typeof parsed.data.latitude === "number";
   const hasLongitude = typeof parsed.data.longitude === "number";
 
+  if ((parsed.data.requestType === "stay" || parsed.data.isStay) && !parsed.data.website?.trim()) {
+    return NextResponse.json(
+      { error: "Add the official website for stay requests. Stays are only hotels, resorts, or camping." },
+      { status: 400 },
+    );
+  }
+  
   if (hasLatitude !== hasLongitude) {
     return NextResponse.json(
       { error: "Add both latitude and longitude, or leave both blank." },

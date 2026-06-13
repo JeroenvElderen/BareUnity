@@ -153,6 +153,27 @@ function padSeason(country: CountryDiscovery): CountryDiscovery {
   };
 }
 
+async function parseOpenAiJsonResponse(response: Response): Promise<Record<string, unknown> | null> {
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!contentType.toLowerCase().includes("application/json")) {
+    return null;
+  }
+
+  try {
+    return (await response.json()) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+function getOpenAiErrorMessage(responseBody: Record<string, unknown> | null) {
+  if (responseBody?.error && typeof responseBody.error === "object") {
+    return String((responseBody.error as { message?: unknown }).message ?? "OpenAI research failed.");
+  }
+
+  return "OpenAI research failed.";
+}
+
 function extractOutputText(responseBody: Record<string, unknown>) {
   if (typeof responseBody.output_text === "string") return responseBody.output_text;
 
@@ -266,13 +287,16 @@ Rules:
     }),
   });
 
-  const responseBody = (await openAiResponse.json().catch(() => ({}))) as Record<string, unknown>;
+  const responseBody = await parseOpenAiJsonResponse(openAiResponse);
   if (!openAiResponse.ok) {
-    const message =
-      responseBody.error && typeof responseBody.error === "object"
-        ? String((responseBody.error as { message?: unknown }).message ?? "OpenAI research failed.")
-        : "OpenAI research failed.";
-    return NextResponse.json({ error: message }, { status: 502 });
+    return NextResponse.json({ error: getOpenAiErrorMessage(responseBody) }, { status: 502 });
+  }
+
+  if (!responseBody) {
+    return NextResponse.json(
+      { error: "OpenAI research returned a non-JSON response. Try again." },
+      { status: 502 },
+    );
   }
 
   const outputText = extractOutputText(responseBody);
