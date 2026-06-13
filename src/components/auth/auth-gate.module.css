@@ -143,3 +143,58 @@
     opacity: 1;
   }
 }
+.visitorTrialOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 230;
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+  background:
+    radial-gradient(circle at 50% 18%, rgb(var(--accent) / 0.22), transparent 24rem),
+    rgb(5 12 18 / 0.72);
+  backdrop-filter: blur(10px);
+}
+
+.visitorTrialCard {
+  width: min(32rem, 100%);
+  border-radius: 1.4rem;
+  border: 1px solid rgb(var(--border) / 0.72);
+  background: linear-gradient(155deg, rgb(var(--card)), rgb(var(--bg-soft)));
+  box-shadow: 0 26px 70px rgb(0 0 0 / 0.34);
+  padding: clamp(1.35rem, 4vw, 2rem);
+  color: rgb(var(--text));
+}
+
+.visitorTrialEyebrow {
+  display: inline-flex;
+  margin-bottom: 0.85rem;
+  border-radius: 999px;
+  background: rgb(var(--warning) / 0.14);
+  color: rgb(var(--warning));
+  padding: 0.32rem 0.7rem;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.visitorTrialTitle {
+  margin: 0;
+  color: rgb(var(--text-strong));
+  font-size: clamp(1.45rem, 4vw, 2rem);
+  line-height: 1.12;
+}
+
+.visitorTrialDescription {
+  margin: 0.85rem 0 0;
+  color: rgb(var(--muted));
+  line-height: 1.6;
+}
+
+.visitorTrialActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.35rem;
+}

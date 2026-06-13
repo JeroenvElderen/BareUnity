@@ -13,8 +13,10 @@ import {
 import { applyColorMode, COLOR_MODE_STORAGE_KEY, ColorModePreference, isColorModePreference } from "@/lib/color-mode";
 import type { HomeFeedPayload } from "@/lib/homefeed";
 import { setPrefetchedRouteData } from "@/lib/prefetched-route-data";
+import { isPlatformAdminEmail } from "@/lib/platform-admin";
 import { supabase } from "@/lib/supabase";
 import { normalizeUsername } from "@/lib/username";
+import { getVisitorTrialEndDate, getVisitorTrialStatus, type VisitorTrialStatus } from "@/lib/visitor-trial";
 
 import styles from "./auth-gate.module.css";
 import { registerPushNotifications, setupPushNotificationListeners } from "@/lib/mobile/push-notifications";
@@ -28,6 +30,13 @@ type ViewerImageAccess = "visitor" | "verified";
 type ViewerAccessSettingsRow = {
   onboarding_completed: boolean | null;
   user_role: string | null;
+};
+
+type ViewerAuthSnapshot = {
+  id: string;
+  email?: string | null;
+  created_at?: string;
+  user_metadata?: Record<string, unknown>;
 };
 
 type GallerySnapshotPayload = {
@@ -98,6 +107,30 @@ const POST_LOGIN_PROFILE_ENDPOINT = "/api/profile/snapshot";
 const WARMUP_MIN_INTERVAL_MS = 5 * 60_000;
 const MEMBER_PROFILE_WARMUP_LIMIT = 12;
 
+function getVisitorTrialStatusForViewer(
+  settings: ViewerAccessSettingsRow | null | undefined,
+  viewer: ViewerAuthSnapshot | null,
+): VisitorTrialStatus | null {
+  if (!viewer) return null;
+
+  const isViewOnlyVisitor = settings?.user_role === "view_only" && settings.onboarding_completed !== true;
+  if (!isViewOnlyVisitor || isPlatformAdminEmail(viewer.email)) return null;
+
+  const metadata = viewer.user_metadata ?? {};
+  if (typeof metadata.visitor_trial_ends_at === "string") {
+    return getVisitorTrialStatus(metadata);
+  }
+
+  const createdAt = typeof viewer.created_at === "string" ? new Date(viewer.created_at) : null;
+  if (!createdAt || Number.isNaN(createdAt.getTime())) return null;
+
+  return getVisitorTrialStatus({
+    visitor_trial: "active",
+    visitor_trial_started_at: createdAt.toISOString(),
+    visitor_trial_ends_at: getVisitorTrialEndDate(createdAt).toISOString(),
+  });
+}
+
 export function AuthGate({ children }: AuthGateProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -105,6 +138,9 @@ export function AuthGate({ children }: AuthGateProps) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [viewerId, setViewerId] = useState<string | null>(null);
   const [viewerImageAccess, setViewerImageAccess] = useState<ViewerImageAccess>("visitor");
+  const [viewerIsAdmin, setViewerIsAdmin] = useState(false);
+  const [visitorTrialStatus, setVisitorTrialStatus] = useState<VisitorTrialStatus | null>(null);
+  const [isVisitorTrialPromptDismissed, setIsVisitorTrialPromptDismissed] = useState(false);
   const [isHydratingApp, setIsHydratingApp] = useState(() => {
     if (typeof window === "undefined") return false;
     return window.sessionStorage.getItem(POST_LOGIN_LOADER_FLAG) === "true";
@@ -138,13 +174,22 @@ export function AuthGate({ children }: AuthGateProps) {
     });
   }, []);
 
-  const syncViewerImageAccess = useCallback(async (userId: string) => {
+  const syncViewerImageAccess = useCallback(async (viewer: ViewerAuthSnapshot) => {
+    const isAdmin = isPlatformAdminEmail(viewer.email);
+    setViewerIsAdmin(isAdmin);
+    setVisitorTrialStatus(null);
+
+    if (isAdmin) {
+      setViewerImageAccess("verified");
+      return;
+    }
+
     setViewerImageAccess("visitor");
 
     const { data, error } = await supabase
       .from("profile_settings")
       .select("onboarding_completed,user_role")
-      .eq("user_id", userId)
+      .eq("user_id", viewer.id)
       .maybeSingle<ViewerAccessSettingsRow>();
 
     if (error) {
@@ -154,6 +199,7 @@ export function AuthGate({ children }: AuthGateProps) {
 
     const isVerifiedMember = data?.onboarding_completed === true && data.user_role !== "view_only";
     setViewerImageAccess(isVerifiedMember ? "verified" : "visitor");
+    setVisitorTrialStatus(getVisitorTrialStatusForViewer(data, viewer));
   }, []);
 
   const isPublicPath = useMemo(() => {
@@ -178,6 +224,7 @@ export function AuthGate({ children }: AuthGateProps) {
 
     const syncAuthState = async () => {
       let sessionUserId: string | null = null;
+      let sessionUserEmail: string | null = null;
       let authed = false;
 
       try {
@@ -186,6 +233,7 @@ export function AuthGate({ children }: AuthGateProps) {
         } = await supabase.auth.getSession();
         authed = Boolean(session?.user);
         sessionUserId = session?.user?.id ?? null;
+        sessionUserEmail = session?.user?.email ?? null;
       } catch (error) {
         console.error("Failed to initialize auth session", error);
         setAuthInitError(true);
@@ -194,6 +242,7 @@ export function AuthGate({ children }: AuthGateProps) {
       if (!mounted) return;
       setIsAuthenticated(authed);
       setViewerId(sessionUserId);
+      setViewerIsAdmin(isPlatformAdminEmail(sessionUserEmail));
       setIsHydratingApp(authed && consumePostLoginLoaderFlag());
       setActiveCacheUser(sessionUserId);
       setIsReady(true);
@@ -216,6 +265,7 @@ export function AuthGate({ children }: AuthGateProps) {
       const authed = Boolean(session?.user);
       setIsAuthenticated(authed);
       setViewerId(session?.user?.id ?? null);
+      setViewerIsAdmin(isPlatformAdminEmail(session?.user?.email));
       const shouldStartHydrationLoader = authed && _event === "SIGNED_IN" && consumePostLoginLoaderFlag();
       if (shouldStartHydrationLoader) {
         setIsHydratingApp(true);
@@ -435,6 +485,10 @@ export function AuthGate({ children }: AuthGateProps) {
   }, [pathname, prefetchEndpoints, router]);
 
   useEffect(() => {
+    setIsVisitorTrialPromptDismissed(false);
+  }, [viewerId]);
+
+  useEffect(() => {
     if (typeof window === "undefined") return;
 
     const stored = window.localStorage.getItem(COLOR_MODE_STORAGE_KEY);
@@ -453,23 +507,45 @@ export function AuthGate({ children }: AuthGateProps) {
 
     if (!isAuthenticated || isPublicPath) {
       delete document.documentElement.dataset.imageAccess;
+      delete document.documentElement.dataset.viewerRole;
       return;
     }
 
     document.documentElement.dataset.imageAccess = viewerImageAccess;
+    document.documentElement.dataset.viewerRole = viewerIsAdmin ? "admin" : "member";
 
     return () => {
       delete document.documentElement.dataset.imageAccess;
+      delete document.documentElement.dataset.viewerRole;
     };
-  }, [isAuthenticated, isPublicPath, viewerImageAccess]);
+  }, [isAuthenticated, isPublicPath, viewerImageAccess, viewerIsAdmin]);
 
   useEffect(() => {
     if (!isAuthenticated || !viewerId) {
       setViewerImageAccess("visitor");
+      setViewerIsAdmin(false);
+      setVisitorTrialStatus(null);
       return;
     }
 
-    void syncViewerImageAccess(viewerId);
+    let isMounted = true;
+    let viewerSnapshot: ViewerAuthSnapshot | null = null;
+
+    const syncCurrentViewer = async () => {
+      const { data } = await supabase.auth.getSession();
+      const user = data.session?.user;
+      if (!user || !isMounted) return;
+
+      viewerSnapshot = {
+        id: user.id,
+        email: user.email,
+        created_at: user.created_at,
+        user_metadata: user.user_metadata as Record<string, unknown> | undefined,
+      };
+      await syncViewerImageAccess(viewerSnapshot);
+    };
+
+    void syncCurrentViewer();
 
     const profileSettingsChannel = supabase
       .channel(`viewer-image-access:${viewerId}`)
@@ -477,12 +553,18 @@ export function AuthGate({ children }: AuthGateProps) {
         "postgres_changes",
         { event: "*", schema: "public", table: "profile_settings", filter: `user_id=eq.${viewerId}` },
         () => {
-          void syncViewerImageAccess(viewerId);
+          if (viewerSnapshot) {
+            void syncViewerImageAccess(viewerSnapshot);
+            return;
+          }
+
+          void syncCurrentViewer();
         },
       )
       .subscribe();
 
     return () => {
+      isMounted = false;
       void supabase.removeChannel(profileSettingsChannel);
     };
   }, [isAuthenticated, syncViewerImageAccess, viewerId]);
@@ -601,6 +683,13 @@ export function AuthGate({ children }: AuthGateProps) {
   }
 
   const showColorModePicker = isAuthenticated && !isPublicPath && !hasSelectedColorMode;
+  const showVisitorTrialExpiredPrompt =
+    isAuthenticated &&
+    !isPublicPath &&
+    !viewerIsAdmin &&
+    visitorTrialStatus?.isVisitorTrial === true &&
+    visitorTrialStatus.isActive === false &&
+    !isVisitorTrialPromptDismissed;
 
   const onColorModeSelected = (selection: ColorModePreference) => {
     if (typeof window === "undefined") return;
@@ -626,6 +715,25 @@ export function AuthGate({ children }: AuthGateProps) {
               </Button>
               <Button type="button" onClick={() => onColorModeSelected("system")}>
                 System
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {showVisitorTrialExpiredPrompt ? (
+        <div className={styles.visitorTrialOverlay} role="dialog" aria-modal="true" aria-labelledby="visitor-trial-title">
+          <div className={styles.visitorTrialCard}>
+            <span className={styles.visitorTrialEyebrow}>Visitor Pass ended</span>
+            <h2 id="visitor-trial-title" className={styles.visitorTrialTitle}>Register for verification to keep exploring BareUnity</h2>
+            <p className={styles.visitorTrialDescription}>
+              Your 7-day browsing period is complete. Submit a verification application so admins can review your details and unlock posting, check-ins, messages, and full community access.
+            </p>
+            <div className={styles.visitorTrialActions}>
+              <Button type="button" onClick={() => router.push("/settings#verification")}>
+                Start verification
+              </Button>
+              <Button type="button" variant="outline" onClick={() => setIsVisitorTrialPromptDismissed(true)}>
+                Remind me later
               </Button>
             </div>
           </div>
