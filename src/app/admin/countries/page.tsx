@@ -136,24 +136,84 @@ function slugFromName(name: string) {
     .replace(/^-+|-+$/g, "");
 }
 
-function blankCountryFromName(name: string, currentHeroImage: string): CountryFormState {
+const emptySeasonRows = Array.from({ length: 12 }, () => ({
+  month: "",
+  air: 0,
+  sea: 0,
+  vibe: "",
+}));
+
+function emptyCountryForm(name = "", currentHeroImage = ""): CountryFormState {
   return {
-    ...fromCountry(sampleCountry),
     slug: slugFromName(name),
     name,
-    flag: "🌍",
+    flag: "",
     continent: "",
     tagline: "",
-    legalStatus: "Researching",
-    beachesCount: "Coming soon",
-    resortsCount: "Coming soon",
-    communityRating: "New",
-    communityMembers: "0",
+    heroImage: currentHeroImage,
+    legalStatus: "",
+    beachesCount: "",
+    resortsCount: "",
+    communityRating: "",
+    communityMembers: "",
+    glance: [],
+    cultureScores: [],
+    laws: [],
+    firstTimeTips: [],
+    etiquette: [],
+    bestTime: "",
     regions: [],
     beaches: [],
-    tags: ["Template country", "Community data needed", "Local tips welcome"],
-    heroImage: currentHeroImage,
+    season: emptySeasonRows.map((row) => ({ ...row })),
+    faqs: [],
+    tags: [],
   };
+}
+
+function defaultsForCountry(form: CountryFormState): CountryDiscovery {
+  const name = form.name.trim();
+  const fallbackName = name || "New country";
+  const laws = form.laws.filter((law) => law.topic.trim() && law.summary.trim());
+  const firstTimeTips = form.firstTimeTips.map((item) => item.trim()).filter(Boolean);
+  const etiquette = form.etiquette.map((item) => item.trim()).filter(Boolean);
+  const faqs = form.faqs.map((item) => item.trim()).filter(Boolean);
+  const tags = form.tags.map((item) => item.trim()).filter(Boolean);
+
+  return {
+    slug: form.slug.trim() || slugFromName(fallbackName) || "new-country",
+    name: fallbackName,
+    flag: form.flag.trim() || "🌍",
+    continent: form.continent.trim() || "Researching",
+    tagline: form.tagline.trim() || `Naturist guidance for ${fallbackName} is coming soon.`,
+    heroImage: form.heroImage.trim() || sampleCountry.heroImage,
+    legalStatus: form.legalStatus.trim() || "Researching",
+    beachesCount: form.beachesCount.trim() || "Coming soon",
+    resortsCount: form.resortsCount.trim() || "Coming soon",
+    communityRating: form.communityRating.trim() || "New",
+    communityMembers: form.communityMembers.trim() || "0",
+    glance: rowsToStringRecord(form.glance),
+    cultureScores: rowsToNumberRecord(form.cultureScores),
+    laws: laws.length
+      ? laws
+      : [{ topic: "Local guidance", status: "caution", summary: "Local naturist guidance is being researched." }],
+    firstTimeTips: firstTimeTips.length ? firstTimeTips : ["Local first-time tips are being collected."],
+    etiquette: etiquette.length ? etiquette : ["Respect local rules, consent, privacy, and personal space."],
+    bestTime: form.bestTime.trim() || "Coming soon.",
+    regions: form.regions.filter((region) => region.name.trim() && region.details.trim()),
+    beaches: form.beaches.filter((beach) => beach.name.trim() && beach.region.trim() && beach.image.trim() && beach.summary.trim()),
+    season: {
+      months: form.season.map((row, index) => row.month.trim() || sampleCountry.season.months[index] || ""),
+      air: form.season.map((row) => Number(row.air) || 0),
+      sea: form.season.map((row) => Number(row.sea) || 0),
+      vibe: form.season.map((row) => row.vibe.trim() || "Researching"),
+    },
+    faqs: faqs.length ? faqs : ["Is naturism legal here?"],
+    tags: tags.length ? tags : ["Community data needed", "Local tips welcome"],
+  };
+}
+
+function blankCountryFromName(name: string, currentHeroImage: string): CountryFormState {
+  return emptyCountryForm(name, currentHeroImage);
 }
 
 async function parseJsonResponse<T>(response: Response): Promise<T | null> {
@@ -234,24 +294,26 @@ function fromCountry(country: CountryDiscovery): CountryFormState {
 }
 
 function payloadFromForm(form: CountryFormState): CountryDiscovery {
+  const withDefaults = defaultsForCountry(form);
+
   return {
-    ...form,
-    slug: form.slug.trim().toLowerCase(),
+    ...withDefaults,
+    slug: withDefaults.slug.trim().toLowerCase(),
     glance: rowsToStringRecord(form.glance),
     cultureScores: rowsToNumberRecord(form.cultureScores),
-    laws: form.laws.map((law) => ({
+    laws: withDefaults.laws.map((law) => ({
       topic: law.topic.trim(),
       status: law.status,
       summary: law.summary.trim(),
     })),
-    firstTimeTips: form.firstTimeTips.map((item) => item.trim()).filter(Boolean),
-    etiquette: form.etiquette.map((item) => item.trim()).filter(Boolean),
-    regions: form.regions.map((region) => ({
+    firstTimeTips: withDefaults.firstTimeTips.map((item) => item.trim()).filter(Boolean),
+    etiquette: withDefaults.etiquette.map((item) => item.trim()).filter(Boolean),
+    regions: withDefaults.regions.map((region) => ({
       name: region.name.trim(),
       score: Number(region.score),
       details: region.details.trim(),
     })),
-    beaches: form.beaches.map((beach) => ({
+    beaches: withDefaults.beaches.map((beach) => ({
       name: beach.name.trim(),
       region: beach.region.trim(),
       rating: beach.rating.trim(),
@@ -259,23 +321,23 @@ function payloadFromForm(form: CountryFormState): CountryDiscovery {
       summary: beach.summary.trim(),
     })),
     season: {
-      months: form.season.map((row) => row.month.trim()),
-      air: form.season.map((row) => Number(row.air)),
-      sea: form.season.map((row) => Number(row.sea)),
-      vibe: form.season.map((row) => row.vibe.trim()),
+      months: withDefaults.season.months.map((month) => month.trim()),
+      air: withDefaults.season.air.map((air) => Number(air)),
+      sea: withDefaults.season.sea.map((sea) => Number(sea)),
+      vibe: withDefaults.season.vibe.map((vibe) => vibe.trim()),
     },
-    faqs: form.faqs.map((item) => item.trim()).filter(Boolean),
-    tags: form.tags.map((item) => item.trim()).filter(Boolean),
+    faqs: withDefaults.faqs.map((item) => item.trim()).filter(Boolean),
+    tags: withDefaults.tags.map((item) => item.trim()).filter(Boolean),
   };
 }
 
 export default function AdminCountriesPage() {
-  const [form, setForm] = useState<CountryFormState>(fromCountry(sampleCountry));
+  const [form, setForm] = useState<CountryFormState>(() => emptyCountryForm());
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
   const [successSlug, setSuccessSlug] = useState("");
   const [lookupStatus, setLookupStatus] = useState("");
-  const lastLookupName = useRef(sampleCountry.name.toLowerCase());
+  const lastLookupName = useRef("");
   function updateField(event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
     const { name, value } = event.target;
     setForm((current) => ({ ...current, [name]: value }));
@@ -541,25 +603,25 @@ export default function AdminCountriesPage() {
           </p>
         ) : null}
 
-        <form className={styles.form} onSubmit={saveCountry}>
+        <form className={styles.form} onSubmit={saveCountry} noValidate>
           <section className={styles.panel}>
             <h2>Core details</h2>
             <FieldGuide label="Fields" items={coreDetailFields} />
             <div className={styles.twoColumns}>
-              <label>Country name<input name="name" value={form.name} onChange={updateField} placeholder="Type a country name" required /></label>
-              <label>URL slug<input name="slug" value={form.slug} onChange={updateField} placeholder="spain" required /></label>
-              <label>Flag emoji<input name="flag" value={form.flag} onChange={updateField} required /></label>
-              <label>Continent<input name="continent" value={form.continent} onChange={updateField} required /></label>
-              <label>Legal status<input name="legalStatus" value={form.legalStatus} onChange={updateField} required /></label>
-              <label>Official beaches<input name="beachesCount" value={form.beachesCount} onChange={updateField} required /></label>
-              <label>Naturist resorts<input name="resortsCount" value={form.resortsCount} onChange={updateField} required /></label>
-              <label>Community rating<input name="communityRating" value={form.communityRating} onChange={updateField} required /></label>
-              <label>Community members<input name="communityMembers" value={form.communityMembers} onChange={updateField} required /></label>
+              <label>Country name<input name="name" value={form.name} onChange={updateField} placeholder="Type a country name" /></label>
+              <label>URL slug<input name="slug" value={form.slug} onChange={updateField} placeholder="spain" /></label>
+              <label>Flag emoji<input name="flag" value={form.flag} onChange={updateField} /></label>
+              <label>Continent<input name="continent" value={form.continent} onChange={updateField} /></label>
+              <label>Legal status<input name="legalStatus" value={form.legalStatus} onChange={updateField} /></label>
+              <label>Official beaches<input name="beachesCount" value={form.beachesCount} onChange={updateField} /></label>
+              <label>Naturist resorts<input name="resortsCount" value={form.resortsCount} onChange={updateField} /></label>
+              <label>Community rating<input name="communityRating" value={form.communityRating} onChange={updateField} /></label>
+              <label>Community members<input name="communityMembers" value={form.communityMembers} onChange={updateField} /></label>
               <label>Hero image<input type="file" accept="image/*" onChange={uploadHeroImage} /></label>
-              <label>Hero image URL<input name="heroImage" type="url" value={form.heroImage} onChange={updateField} required /></label>
+              <label>Hero image URL<input name="heroImage" type="url" value={form.heroImage} onChange={updateField} /></label>
             </div>
-            <label>Tagline<textarea name="tagline" value={form.tagline} onChange={updateField} rows={3} required /></label>
-            <label>Best time to visit<textarea name="bestTime" value={form.bestTime} onChange={updateField} rows={2} required /></label>
+            <label>Tagline<textarea name="tagline" value={form.tagline} onChange={updateField} rows={3} /></label>
+            <label>Best time to visit<textarea name="bestTime" value={form.bestTime} onChange={updateField} rows={2} /></label>
           </section>
 
           <section className={styles.panel}>
@@ -576,8 +638,8 @@ export default function AdminCountriesPage() {
             <div className={styles.stack}>
               {form.glance.map((row, index) => (
                 <div className={styles.inlineRow} key={`glance-${index}`}>
-                  <label>Label<input value={row.key} onChange={(event) => updateRow("glance", index, { key: event.target.value })} placeholder="Capital" required /></label>
-                  <label>Value<input value={row.value} onChange={(event) => updateRow("glance", index, { value: event.target.value })} placeholder="Madrid" required /></label>
+                  <label>Label<input value={row.key} onChange={(event) => updateRow("glance", index, { key: event.target.value })} placeholder="Capital" /></label>
+                  <label>Value<input value={row.value} onChange={(event) => updateRow("glance", index, { value: event.target.value })} placeholder="Madrid" /></label>
                   <button className={styles.iconButton} type="button" onClick={() => removeRow("glance", index)} aria-label="Remove quick glance fact">
                     <Trash2 size={16} />
                   </button>
@@ -600,8 +662,8 @@ export default function AdminCountriesPage() {
             <div className={styles.twoColumns}>
               {form.cultureScores.map((row, index) => (
                 <div className={styles.inlineRow} key={`score-${index}`}>
-                  <label>Category<input value={row.label} onChange={(event) => updateRow("cultureScores", index, { label: event.target.value })} placeholder="Beginner Friendly" required /></label>
-                  <label>Score<input type="number" min="0" max="100" value={row.score} onChange={(event) => updateRow("cultureScores", index, { score: Number(event.target.value) })} required /></label>
+                  <label>Category<input value={row.label} onChange={(event) => updateRow("cultureScores", index, { label: event.target.value })} placeholder="Beginner Friendly" /></label>
+                  <label>Score<input type="number" min="0" max="100" value={row.score} onChange={(event) => updateRow("cultureScores", index, { score: Number(event.target.value) })} /></label>
                   <button className={styles.iconButton} type="button" onClick={() => removeRow("cultureScores", index)} aria-label="Remove culture score">
                     <Trash2 size={16} />
                   </button>
@@ -630,9 +692,9 @@ export default function AdminCountriesPage() {
                       <Trash2 size={16} />
                     </button>
                   </div>
-                  <label>Topic<input value={law.topic} onChange={(event) => updateRow("laws", index, { topic: event.target.value })} required /></label>
-                  <label>Status<select value={law.status} onChange={(event: ChangeEvent<HTMLSelectElement>) => updateRow("laws", index, { status: event.target.value as CountryLawRow["status"] })} required><option value="allowed">Allowed</option><option value="caution">Caution</option></select></label>
-                  <label>Summary<textarea value={law.summary} onChange={(event) => updateRow("laws", index, { summary: event.target.value })} rows={3} required /></label>
+                  <label>Topic<input value={law.topic} onChange={(event) => updateRow("laws", index, { topic: event.target.value })} /></label>
+                  <label>Status<select value={law.status} onChange={(event: ChangeEvent<HTMLSelectElement>) => updateRow("laws", index, { status: event.target.value as CountryLawRow["status"] })}><option value="allowed">Allowed</option><option value="caution">Caution</option></select></label>
+                  <label>Summary<textarea value={law.summary} onChange={(event) => updateRow("laws", index, { summary: event.target.value })} rows={3} /></label>
                 </article>
               ))}
             </div>
@@ -658,9 +720,9 @@ export default function AdminCountriesPage() {
                       <Trash2 size={16} />
                     </button>
                   </div>
-                  <label>Name<input value={region.name} onChange={(event) => updateRow("regions", index, { name: event.target.value })} required /></label>
-                  <label>Score<input type="number" min="1" value={region.score} onChange={(event) => updateRow("regions", index, { score: Number(event.target.value) })} required /></label>
-                  <label>Details<textarea value={region.details} onChange={(event) => updateRow("regions", index, { details: event.target.value })} rows={3} required /></label>
+                  <label>Name<input value={region.name} onChange={(event) => updateRow("regions", index, { name: event.target.value })} /></label>
+                  <label>Score<input type="number" min="1" value={region.score} onChange={(event) => updateRow("regions", index, { score: Number(event.target.value) })} /></label>
+                  <label>Details<textarea value={region.details} onChange={(event) => updateRow("regions", index, { details: event.target.value })} rows={3} /></label>
                 </article>
               ))}
             </div>
@@ -687,13 +749,13 @@ export default function AdminCountriesPage() {
                     </button>
                   </div>
                   <div className={styles.twoColumns}>
-                    <label>Name<input value={beach.name} onChange={(event) => updateRow("beaches", index, { name: event.target.value })} required /></label>
-                    <label>Region<input value={beach.region} onChange={(event) => updateRow("beaches", index, { region: event.target.value })} required /></label>
-                    <label>Rating<input value={beach.rating} onChange={(event) => updateRow("beaches", index, { rating: event.target.value })} required /></label>
+                    <label>Name<input value={beach.name} onChange={(event) => updateRow("beaches", index, { name: event.target.value })} /></label>
+                    <label>Region<input value={beach.region} onChange={(event) => updateRow("beaches", index, { region: event.target.value })} /></label>
+                    <label>Rating<input value={beach.rating} onChange={(event) => updateRow("beaches", index, { rating: event.target.value })} /></label>
                     <label>Image upload<input type="file" accept="image/*" onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadBeachImage(index, file); event.target.value = ""; }} /></label>
-                    <label>Image URL<input type="url" value={beach.image} onChange={(event) => updateRow("beaches", index, { image: event.target.value })} required /></label>
+                    <label>Image URL<input type="url" value={beach.image} onChange={(event) => updateRow("beaches", index, { image: event.target.value })} /></label>
                   </div>
-                  <label>Summary<textarea value={beach.summary} onChange={(event) => updateRow("beaches", index, { summary: event.target.value })} rows={3} required /></label>
+                  <label>Summary<textarea value={beach.summary} onChange={(event) => updateRow("beaches", index, { summary: event.target.value })} rows={3} /></label>
                 </article>
               ))}
             </div>
@@ -710,10 +772,10 @@ export default function AdminCountriesPage() {
             <div className={styles.seasonGrid}>
               {form.season.map((row, index) => (
                 <div className={styles.seasonRow} key={`season-${index}`}>
-                  <label>Month<input value={row.month} onChange={(event) => updateRow("season", index, { month: event.target.value })} required /></label>
-                  <label>Air °C<input type="number" value={row.air} onChange={(event) => updateRow("season", index, { air: Number(event.target.value) })} required /></label>
-                  <label>Sea °C<input type="number" value={row.sea} onChange={(event) => updateRow("season", index, { sea: Number(event.target.value) })} required /></label>
-                  <label>Vibe<input value={row.vibe} onChange={(event) => updateRow("season", index, { vibe: event.target.value })} required /></label>
+                  <label>Month<input value={row.month} onChange={(event) => updateRow("season", index, { month: event.target.value })} /></label>
+                  <label>Air °C<input type="number" value={row.air} onChange={(event) => updateRow("season", index, { air: Number(event.target.value) })} /></label>
+                  <label>Sea °C<input type="number" value={row.sea} onChange={(event) => updateRow("season", index, { sea: Number(event.target.value) })} /></label>
+                  <label>Vibe<input value={row.vibe} onChange={(event) => updateRow("season", index, { vibe: event.target.value })} /></label>
                 </div>
               ))}
             </div>
@@ -762,7 +824,7 @@ function EditableList({ title, items, onAdd, onChange, onRemove }: EditableListP
           <div className={styles.inlineRow} key={`${title}-${index}`}>
             <label>
               Item #{items.length - index}
-              <input value={item} onChange={(event) => onChange(index, event.target.value)} required />
+              <input value={item} onChange={(event) => onChange(index, event.target.value)} />
             </label>
             <button className={styles.iconButton} type="button" onClick={() => onRemove(index)} aria-label={`Remove ${title} item`}>
               <Trash2 size={16} />
