@@ -187,7 +187,7 @@ export async function GET(request: Request) {
       from public.gallery_image_likes gil
       left join public.profiles pr on pr.id = gil.user_id
       where gil.user_id <> ${viewerId}::uuid
-        and (gil.image_path like ${`gallery/${viewerId}/%`} or gil.image_path like ${`%/gallery/${viewerId}/%`})
+        and gil.image_path like ${`posts/${viewerId}/%`}
         and gil.created_at >= ${notificationSince}
       order by gil.created_at desc
       limit ${MAX_NOTIFICATIONS}

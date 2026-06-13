@@ -14,7 +14,7 @@ import {
   Globe2,
   CircleUser,
   Home,
-  Image,
+  Image as ImageIcon,
   LogOut,
   Menu,
   Settings,
@@ -67,7 +67,7 @@ const fallbackCountryNavItems: readonly CountryNavItem[] = [
 const primaryItems: readonly SidebarNavLinkItem[] = [
   { id: "home", icon: Home, label: "Home", href: "/" },
   { id: "rules", icon: ShieldCheck, label: "Rules", href: "/rules" },
-  { id: "gallery", icon: Image, label: "Gallery", href: "/gallery" },
+  { id: "gallery", icon: ImageIcon, label: "Gallery", href: "/gallery" },
 ];
 
 const travelItems: readonly SidebarNavLinkItem[] = [
@@ -230,6 +230,8 @@ export function AppSidebar() {
   const [isRoomsOpen, setIsRoomsOpen] = useState(
     pathname === "/discussion" || pathname === "/video-room",
   );
+  const isGallerySection = pathname?.startsWith("/gallery") ?? false;
+  const [isGalleryOpen, setIsGalleryOpen] = useState(isGallerySection);
   const isCountriesSection = pathname?.startsWith("/countries") ?? false;
   const [isCountriesOpen, setIsCountriesOpen] = useState(isCountriesSection);
   const [countryNavItems, setCountryNavItems] = useState<CountryNavItem[]>(
@@ -745,11 +747,7 @@ export function AppSidebar() {
         ({ new: row }) => {
           const payload = row as { image_path?: string; user_id?: string };
           if (!payload.image_path || payload.user_id === viewerId) return;
-          if (
-            !payload.image_path.includes(`/gallery/${viewerId}/`) &&
-            !payload.image_path.includes(`gallery/${viewerId}/`)
-          )
-            return;
+          if (!payload.image_path.includes(`posts/${viewerId}/`)) return;
           pushLiveNotification(
             createNotification(
               "New gallery like",
@@ -979,8 +977,10 @@ export function AppSidebar() {
   };
 
   const visiblePrimaryItems = primaryItems.filter(
-    (item) => !isSidebarItemHidden(hiddenSidebarItems, item.id),
+    (item) =>
+      item.id !== "gallery" && !isSidebarItemHidden(hiddenSidebarItems, item.id),
   );
+  const showGalleryMenu = !isSidebarItemHidden(hiddenSidebarItems, "gallery");
   const visibleTravelItems = travelItems.filter(
     (item) => !isSidebarItemHidden(hiddenSidebarItems, item.id),
   );
@@ -1074,6 +1074,48 @@ export function AppSidebar() {
                   {badge ? <span className={styles.badge}>{badge}</span> : null}
                 </Link>
               ))}
+
+              {showGalleryMenu ? (
+                <div className={styles.dropdown}>
+                  <button
+                    type="button"
+                    className={`${styles.navItem} ${styles.dropdownTrigger} ${isGallerySection ? styles.active : ""}`}
+                    onClick={() => setIsGalleryOpen((current) => !current)}
+                    aria-expanded={isGalleryOpen || isGallerySection}
+                  >
+                    <span className={styles.itemLeft}>
+                      <ImageIcon size={18} aria-hidden />
+                      <span>Gallery</span>
+                    </span>
+                    <ChevronDown
+                      className={
+                        isGalleryOpen || isGallerySection
+                          ? styles.chevronOpen
+                          : ""
+                      }
+                      size={16}
+                      aria-hidden
+                    />
+                  </button>
+
+                  {(isGalleryOpen || isGallerySection) && (
+                    <div className={styles.dropdownList}>
+                      <Link
+                        href="/gallery/nude"
+                        className={`${styles.navItem} ${styles.dropdownItem} ${pathname === "/gallery" || pathname === "/gallery/nude" ? styles.active : ""}`}
+                      >
+                        Nude gallery
+                      </Link>
+                      <Link
+                        href="/gallery/general"
+                        className={`${styles.navItem} ${styles.dropdownItem} ${pathname === "/gallery/general" ? styles.active : ""}`}
+                      >
+                        General gallery
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              ) : null}
               </nav>
           </section>
 

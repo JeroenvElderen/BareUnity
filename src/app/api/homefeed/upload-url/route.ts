@@ -18,6 +18,7 @@ type UploadRequestBody = {
   fileName?: unknown;
   contentType?: unknown;
   size?: unknown;
+  kind?: unknown;
 };
 
 function cleanFileBaseName(value: string) {
@@ -65,6 +66,7 @@ export async function POST(request: Request) {
     typeof body?.size === "number"
       ? body.size
       : 0;
+  const kind = body?.kind === "story" ? "story" : "post";
 
   if (!IMAGE_UPLOAD_TYPES.has(contentType)) {
     return NextResponse.json(
@@ -95,8 +97,13 @@ export async function POST(request: Request) {
   const extension =
     IMAGE_UPLOAD_EXTENSION_BY_TYPE[contentType] ?? "bin";
 
+  const storageFolder =
+    kind === "story"
+      ? userMediaStorage.storiesFolder
+      : userMediaStorage.postsFolder;
+
   const storagePath =
-    `${userMediaStorage.postsFolder}/${Date.now()}-${crypto.randomUUID()}-${cleanFileBaseName(fileName)}.${extension}`;
+    `${storageFolder}/${Date.now()}-${crypto.randomUUID()}-${cleanFileBaseName(fileName)}.${extension}`;
 
   const { data, error } = await supabaseAdmin.storage
     .from(userMediaStorage.bucketId)

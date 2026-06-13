@@ -134,7 +134,7 @@ function resolveMediaUrl(rawUrl: string | null): string | null {
 
   if (value.startsWith("http")) return value;
 
-  const knownStoragePath = ["avatars/", "gallery/", "posts/"].some((prefix) => value.startsWith(prefix));
+  const knownStoragePath = ["avatars/", "posts/", "stories/"].some((prefix) => value.startsWith(prefix));
   const normalizedPath = knownStoragePath ? value : `posts/${value}`;
   const { data } = supabase.storage.from("media").getPublicUrl(normalizedPath);
   return data.publicUrl;

@@ -8,10 +8,7 @@ import { ensureUserMediaStorage } from "@/lib/storage-buckets";
 import { loadViewerIdFromRequest } from "@/lib/viewer";
 import { db } from "@/server/db";
 import { ensureMemberCanAct } from "@/lib/action-access";
-import {
-  applyPersonPresenceCheck,
-  classifyGalleryImage,
-} from "@/lib/gallery-moderation";
+import { classifyPostImageByPersonPresence } from "@/lib/gallery-moderation";
 import { detectPersonInImage } from "@/lib/person-detection";
 import { Prisma } from "@prisma/client";
 import {
@@ -76,26 +73,17 @@ export async function POST(request: Request) {
       throw error;
     }
 
-    const initialModeration = classifyGalleryImage({
-      fileName: upload.name,
-      contentType: validatedUpload.contentType,
+    const personCheck = await detectPersonInImage({
+      buffer: validatedUpload.buffer,
     });
-    const personCheck = initialModeration.containsAdultNudity
-      ? await detectPersonInImage({
-          buffer: validatedUpload.buffer,
-        })
-      : undefined;
-    const moderation = applyPersonPresenceCheck(
-      initialModeration,
-      personCheck,
-    );
+    const moderation = classifyPostImageByPersonPresence(personCheck);
 
     const supabaseAdmin = createSupabaseAdminClient();
     const userMediaStorage = await ensureUserMediaStorage({
       supabaseAdmin,
       userId: viewerId,
     });
-    const storagePath = `${userMediaStorage.galleryFolder}/${Date.now()}-${crypto.randomUUID()}.${validatedUpload.extension}`;
+    const storagePath = `${userMediaStorage.postsFolder}/${Date.now()}-${crypto.randomUUID()}.${validatedUpload.extension}`;
     const { error } = await supabaseAdmin.storage
       .from(userMediaStorage.bucketId)
       .upload(storagePath, validatedUpload.buffer, {
