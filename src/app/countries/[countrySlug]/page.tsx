@@ -125,7 +125,7 @@ export default async function CountryDiscoveryPage({
         </section>
 
         <section className={styles.contentGrid}>
-          <div className={styles.leftColumn}>
+          <div className={styles.masonryItem}>
             <Card title={`Naturist Laws in ${country.name}`} icon={ShieldCheck}>
               <div className={styles.lawTable}>
                 <div className={styles.lawHeader}>Topic</div>
@@ -146,7 +146,9 @@ export default async function CountryDiscoveryPage({
               </div>
               <aside className={styles.notice}><Info size={18} /> Laws can be interpreted differently in some regions. Always respect local customs and other people.</aside>
             </Card>
+          </div>
 
+          <div className={styles.masonryItem}>
             <Card title="Best Regions for Naturists" icon={Map}>
               <div className={styles.regionsLayout}>
                 <div className={styles.mapPreview} aria-hidden>
@@ -175,7 +177,7 @@ export default async function CountryDiscoveryPage({
             </Card>
           </div>
 
-          <div className={styles.middleColumn}>
+          <div className={styles.masonryItem}>
             <Card title={`Naturism Culture in ${country.name}`} icon={Sparkles}>
               <div className={styles.scoreList}>
                 {Object.entries(country.cultureScores).map(([label, value]) => (
@@ -187,7 +189,9 @@ export default async function CountryDiscoveryPage({
                 ))}
               </div>
             </Card>
+          </div>
 
+          <div className={styles.masonryItem}>
             <Card title={`First Time Visiting ${country.name}?`} icon={CheckCircle2}>
               <ul className={styles.checkList}>
                 {country.firstTimeTips.map((tip) => (
@@ -195,7 +199,9 @@ export default async function CountryDiscoveryPage({
                 ))}
               </ul>
             </Card>
+          </div>
 
+          <div className={styles.masonryItem}>
             <Card title="Naturist Season Guide" icon={ThermometerSun}>
               <div className={styles.seasonTable}>
                 <span />
@@ -208,7 +214,9 @@ export default async function CountryDiscoveryPage({
                 {country.season.vibe.map((vibe, index) => <em key={`vibe-${index}`}>{vibe}</em>)}
               </div>
             </Card>
+          </div>
 
+          <div className={styles.masonryItem}>
             <Card title="Frequently Asked" icon={Info}>
               <div className={styles.faqList}>
                 {country.faqs.map((faq) => (
@@ -218,7 +226,7 @@ export default async function CountryDiscoveryPage({
             </Card>
           </div>
 
-          <aside className={styles.rightColumn}>
+          <div className={styles.masonryItem}>
             <Card title="At a glance" icon={Globe2}>
               <dl className={styles.glanceList}>
                 {Object.entries(country.glance).map(([label, value]) => {
@@ -232,7 +240,9 @@ export default async function CountryDiscoveryPage({
                 })}
               </dl>
             </Card>
+          </div>
 
+          <div className={styles.masonryItem}>
             <Card title="BareUnity Community" icon={Users}>
               <div className={styles.communityStats}>
                 <strong>{country.communityMembers}<span>Members visited</span></strong>
@@ -241,7 +251,9 @@ export default async function CountryDiscoveryPage({
               <p className={styles.tagIntro}>Most mentioned by members</p>
               <div className={styles.tags}>{country.tags.map((tag) => <span key={tag}>{tag}</span>)}</div>
             </Card>
+          </div>
 
+          <div className={styles.masonryItem}>
             <Card title="Naturist Etiquette" icon={Waves}>
               <ul className={styles.iconList}>
                 {country.etiquette.map((item, index) => (
@@ -249,11 +261,15 @@ export default async function CountryDiscoveryPage({
                 ))}
               </ul>
             </Card>
+          </div>
 
+          <div className={styles.masonryItem}>
             <Card title="Best time to visit" icon={Sun}>
               <p className={styles.bestTime}>{country.bestTime}</p>
             </Card>
+          </div>
 
+          <div className={styles.masonryItem}>
             <div className={styles.ctaCard}>
               <h2>Ready to explore {country.name}?</h2>
               <p>Find beaches, resorts and connect with naturists.</p>
@@ -262,7 +278,7 @@ export default async function CountryDiscoveryPage({
                 <Link href="/bookings/hotels-airbnbs">Find Resorts</Link>
               </div>
             </div>
-          </aside>
+          </div>
         </section>
         <section className={styles.beachSection}>
             <div className={styles.sectionHeading}>
