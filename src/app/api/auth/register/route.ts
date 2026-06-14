@@ -298,12 +298,14 @@ async function redeemTeamNaturistInvite(
   supabaseAdmin: SupabaseAdminClient,
   inviteCode: string,
   discordUsername: string,
+  userId: string,
 ) {
   const { data, error } = await supabaseAdmin.rpc(
     "redeem_teamnaturist_invite",
     {
       p_code_text: inviteCode,
       p_discord_username: discordUsername,
+      p_redeemed_by: userId,
     },
   );
 
@@ -326,12 +328,14 @@ async function releaseTeamNaturistInviteRedemption(
   supabaseAdmin: SupabaseAdminClient,
   inviteCode: string,
   discordUsername: string,
+  userId: string,
 ) {
   const { error } = await supabaseAdmin.rpc(
     "release_teamnaturist_invite_redemption",
     {
       p_code_text: inviteCode,
       p_discord_username: discordUsername,
+      p_redeemed_by: userId,
     },
   );
 
@@ -470,16 +474,6 @@ export async function POST(req: Request) {
   let redeemedTeamNaturistUsername: string | null = null;
 
   try {
-    if (validation.accountAccess === "invite") {
-      const redemption = await redeemTeamNaturistInvite(
-        supabaseAdmin,
-        validation.inviteCode,
-        validation.discordUsername,
-      );
-
-      redeemedTeamNaturistUsername = redemption.username;
-    }
-
     const username = await generateUniqueUsername(
       supabaseAdmin,
       validation.username,
@@ -509,15 +503,6 @@ export async function POST(req: Request) {
       });
 
     if (signUpError || !signUpData?.user || !signUpData.properties?.action_link) {
-      if (redeemedTeamNaturistUsername) {
-        await releaseTeamNaturistInviteRedemption(
-          supabaseAdmin,
-          validation.inviteCode,
-          redeemedTeamNaturistUsername,
-        );
-        redeemedTeamNaturistUsername = null;
-      }
-
       const message = signUpError?.message ?? "Could not create auth user.";
       return NextResponse.json(
         {
@@ -530,6 +515,17 @@ export async function POST(req: Request) {
     }
 
     userId = signUpData.user.id;
+
+    if (validation.accountAccess === "invite") {
+      const redemption = await redeemTeamNaturistInvite(
+        supabaseAdmin,
+        validation.inviteCode,
+        validation.discordUsername,
+        userId,
+      );
+
+      redeemedTeamNaturistUsername = redemption.username;
+    }
 
     const { error: profileError } = await supabaseAdmin
       .from("profiles")
@@ -630,11 +626,12 @@ export async function POST(req: Request) {
         });
     }
 
-    if (redeemedTeamNaturistUsername) {
+    if (redeemedTeamNaturistUsername && userId) {
       await releaseTeamNaturistInviteRedemption(
         supabaseAdmin,
         validation.inviteCode,
         redeemedTeamNaturistUsername,
+        userId,
       );
     }
 
