@@ -219,18 +219,18 @@
 }
 
 .contentGrid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.95fr) minmax(16rem, 0.75fr);
-  gap: 1rem;
-  align-items: start;
+  column-count: 3;
+  column-gap: 1rem;
+  margin-bottom: 1rem;
 }
 
-.leftColumn,
-.middleColumn,
-.rightColumn {
-  display: grid;
-  gap: 1rem;
-  min-width: 0;
+.masonryItem {
+  display: inline-block;
+  width: 100%;
+  margin: 0 0 1rem;
+  break-inside: avoid;
+  page-break-inside: avoid;
+  -webkit-column-break-inside: avoid;
 }
 
 .card {
@@ -666,34 +666,23 @@
 
 @media (max-width: 1600px) {
   .contentGrid {
-    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
-  }
-
-  .rightColumn {
-    grid-column: 1 / -1;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-
-  .ctaCard {
-    grid-column: span 2;
+    column-count: 2;
   }
 }
 
 @media (max-width: 1100px) {
   .topBar,
-  .contentGrid,
-  .regionsLayout,
-  .rightColumn {
+  .regionsLayout {
     grid-template-columns: 1fr;
+  }
+
+  .contentGrid {
+    column-count: 1;
   }
 
   .statGrid,
   .beachGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .ctaCard {
-    grid-column: auto;
   }
 }
 
