@@ -6,15 +6,21 @@ import {
   isSupabaseAdminConfigured,
 } from "@/lib/supabase-admin";
 import { ensureMediaBucket } from "@/lib/storage-buckets";
+import {
+  IMAGE_UPLOAD_EXTENSION_BY_TYPE,
+  IMAGE_UPLOAD_TYPES,
+} from "@/lib/upload-security";
 
 const MAX_COUNTRY_IMAGE_SIZE = 15 * 1024 * 1024;
-const ALLOWED_COUNTRY_IMAGE_TYPES = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/gif",
-  "image/avif",
-]);
+
+type CountryImageUploadRequestBody = {
+  fileName?: unknown;
+  contentType?: unknown;
+  size?: unknown;
+  continent?: unknown;
+  country?: unknown;
+  slot?: unknown;
+};
 
 function pathSegment(value: string) {
   return value
@@ -26,11 +32,12 @@ function pathSegment(value: string) {
     .toLowerCase();
 }
 
-function extensionFromFile(file: File) {
-  const nameExtension = file.name.split(".").pop()?.toLowerCase();
-  if (nameExtension && /^[a-z0-9]+$/.test(nameExtension)) return nameExtension;
-
-  return file.type.split("/").pop()?.replace("jpeg", "jpg") ?? "jpg";
+function cleanFileBaseName(value: string) {
+  return value
+    .replace(/\.[^.]+$/, "")
+    .replace(/[^a-z0-9-_]+/gi, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48) || "country-image";
 }
 
 export async function POST(request: NextRequest) {
@@ -44,26 +51,27 @@ export async function POST(request: NextRequest) {
   const authResult = await ensureAdminRequest(request);
   if ("error" in authResult) return authResult.error;
 
-  const formData = await request.formData().catch(() => null);
-  const file = formData?.get("file");
-  const continent = formData?.get("continent");
-  const country = formData?.get("country");
-  const slot = formData?.get("slot");
-
-  if (!(file instanceof File)) {
-    return NextResponse.json({ error: "Image file is required." }, { status: 400 });
-  }
+  const body = (await request.json().catch(() => null)) as CountryImageUploadRequestBody | null;
+  const contentType = typeof body?.contentType === "string" ? body.contentType.toLowerCase() : "";
+  const fileName = typeof body?.fileName === "string" ? body.fileName : "country-image";
+  const size = typeof body?.size === "number" ? body.size : 0;
+  const continent = body?.continent;
+  const country = body?.country;
+  const slot = body?.slot;
 
   if (typeof continent !== "string" || typeof country !== "string") {
     return NextResponse.json({ error: "Continent and country are required." }, { status: 400 });
   }
 
-  if (!ALLOWED_COUNTRY_IMAGE_TYPES.has(file.type)) {
+  if (!IMAGE_UPLOAD_TYPES.has(contentType)) {
     return NextResponse.json({ error: "Upload a JPEG, PNG, WebP, GIF, or AVIF image." }, { status: 400 });
   }
 
-  if (file.size > MAX_COUNTRY_IMAGE_SIZE) {
-    return NextResponse.json({ error: "Country images must be 15 MB or smaller." }, { status: 400 });
+  if (!size || size > MAX_COUNTRY_IMAGE_SIZE) {
+    return NextResponse.json(
+      { error: "Country images must be 15 MB or smaller." },
+      { status: size > MAX_COUNTRY_IMAGE_SIZE ? 413 : 400 },
+    );
   }
 
   const continentPath = pathSegment(continent);
@@ -73,16 +81,16 @@ export async function POST(request: NextRequest) {
   }
 
   const safeSlot = pathSegment(typeof slot === "string" ? slot : "country-image") || "country-image";
-  const filePath = `Continent/${continentPath}/${countryPath}/${safeSlot}-${Date.now()}.${extensionFromFile(file)}`;
+  const extension = IMAGE_UPLOAD_EXTENSION_BY_TYPE[contentType] ?? "bin";
+  const filePath = `Continent/${continentPath}/${countryPath}/${safeSlot}-${Date.now()}-${crypto.randomUUID()}-${cleanFileBaseName(fileName)}.${extension}`;
   const supabaseAdmin = createSupabaseAdminClient();
 
   try {
     await ensureMediaBucket(supabaseAdmin);
 
-    const { error: uploadError } = await supabaseAdmin.storage
+    const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
       .from("media")
-      .upload(filePath, file, {
-        contentType: file.type,
+      .createSignedUploadUrl(filePath, {
         upsert: false,
       });
 
@@ -91,7 +99,13 @@ export async function POST(request: NextRequest) {
     }
 
     const { data } = supabaseAdmin.storage.from("media").getPublicUrl(filePath);
-    return NextResponse.json({ bucketId: "media", path: filePath, publicUrl: data.publicUrl });
+    return NextResponse.json({
+      bucketId: "media",
+      path: filePath,
+      publicUrl: data.publicUrl,
+      token: uploadData.token,
+      signedUrl: uploadData.signedUrl,
+    });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Could not upload country image." },

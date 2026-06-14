@@ -9,6 +9,7 @@ import {
   type CountryDiscovery,
   type CountryLawRow,
 } from "@/lib/country-discovery";
+import { sanitizeImageUpload } from "@/lib/image";
 import { isPlatformAdminEmail } from "@/lib/platform-admin";
 import { supabase } from "@/lib/supabase";
 import styles from "./page.module.css";
@@ -50,6 +51,44 @@ type CountryFormState = Omit<
 };
 
 const sampleCountry = COUNTRY_DISCOVERY_TEMPLATE;
+
+const MAX_COUNTRY_IMAGE_UPLOAD_BYTES = 15 * 1024 * 1024;
+const COUNTRY_IMAGE_UPLOAD_TYPE_LABEL = "JPG, PNG, WebP, GIF, or AVIF";
+const COUNTRY_IMAGE_UPLOAD_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "image/avif",
+]);
+
+function formatFileSize(bytes: number) {
+  if (bytes >= 1024 * 1024) return `${Math.round((bytes / (1024 * 1024)) * 10) / 10} MB`;
+  if (bytes >= 1024) return `${Math.round((bytes / 1024) * 10) / 10} KB`;
+  return `${bytes} B`;
+}
+
+function validateCountryImageFile(file: File) {
+  if (!file.size) {
+    throw new Error("Please choose a non-empty country image.");
+  }
+
+  if (!COUNTRY_IMAGE_UPLOAD_TYPES.has(file.type)) {
+    throw new Error(`Upload a ${COUNTRY_IMAGE_UPLOAD_TYPE_LABEL} image.`);
+  }
+
+  if (file.size > MAX_COUNTRY_IMAGE_UPLOAD_BYTES) {
+    throw new Error(`Country images must be ${formatFileSize(MAX_COUNTRY_IMAGE_UPLOAD_BYTES)} or smaller.`);
+  }
+}
+
+type CountryImageUploadResponse = {
+  bucketId?: string;
+  path?: string;
+  publicUrl?: string;
+  token?: string;
+  error?: string;
+};
 
 const coreDetailFields = [
   "Country name",
@@ -477,21 +516,39 @@ export default function AdminCountriesPage() {
       throw new Error("This country manager is restricted to your owner account.");
     }
 
-    const uploadForm = new FormData();
-    uploadForm.append("file", file);
-    uploadForm.append("continent", form.continent);
-    uploadForm.append("country", form.name || form.slug);
-    uploadForm.append("slot", slot);
+    validateCountryImageFile(file);
+    const sanitized = await sanitizeImageUpload(file, 1920);
+    validateCountryImageFile(sanitized);
 
     const response = await fetch("/api/admin/countries/image-upload", {
       method: "POST",
-      headers: { Authorization: `Bearer ${session.access_token}` },
-      body: uploadForm,
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        fileName: sanitized.name,
+        contentType: sanitized.type,
+        size: sanitized.size,
+        continent: form.continent,
+        country: form.name || form.slug,
+        slot,
+      }),
     });
-    const payload = await parseJsonResponse<{ publicUrl?: string; path?: string; error?: string }>(response);
+    const payload = await parseJsonResponse<CountryImageUploadResponse>(response);
 
-    if (!response.ok || !payload?.publicUrl) {
-      throw new Error(payload?.error ?? fallbackRequestError(response, "Uploading this country image"));
+    if (!response.ok || !payload?.bucketId || !payload.path || !payload.token || !payload.publicUrl) {
+      throw new Error(payload?.error ?? fallbackRequestError(response, "Preparing this country image upload"));
+    }
+
+    const { error: uploadError } = await supabase.storage
+      .from(payload.bucketId)
+      .uploadToSignedUrl(payload.path, payload.token, sanitized, {
+        contentType: sanitized.type,
+      });
+
+    if (uploadError) {
+      throw new Error(uploadError.message || "Could not upload country image.");
     }
 
     return payload.publicUrl;
@@ -617,7 +674,7 @@ export default function AdminCountriesPage() {
               <label>Naturist resorts<input name="resortsCount" value={form.resortsCount} onChange={updateField} /></label>
               <label>Community rating<input name="communityRating" value={form.communityRating} onChange={updateField} /></label>
               <label>Community members<input name="communityMembers" value={form.communityMembers} onChange={updateField} /></label>
-              <label>Hero image<input type="file" accept="image/*" onChange={uploadHeroImage} /></label>
+              <label>Hero image<input type="file" accept="image/avif,image/gif,image/jpeg,image/png,image/webp" onChange={uploadHeroImage} /><span className={styles.helpText}>{COUNTRY_IMAGE_UPLOAD_TYPE_LABEL} up to {formatFileSize(MAX_COUNTRY_IMAGE_UPLOAD_BYTES)}. Images are optimized like post uploads, then uploaded directly to storage.</span></label>
               <label>Hero image URL<input name="heroImage" type="url" value={form.heroImage} onChange={updateField} /></label>
             </div>
             <label>Tagline<textarea name="tagline" value={form.tagline} onChange={updateField} rows={3} /></label>
