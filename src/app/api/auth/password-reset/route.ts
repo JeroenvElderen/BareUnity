@@ -53,8 +53,8 @@ export async function POST(req: Request) {
     type: "recovery",
     email,
     options: {
-      redirectTo: `${getAppUrl(req)}/settings`,
-    },
+  redirectTo: `${getAppUrl(req)}/reset-password`,
+},
   });
 
   if (error || !data?.properties?.action_link) {
