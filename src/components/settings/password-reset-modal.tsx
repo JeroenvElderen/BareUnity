@@ -11,9 +11,19 @@ type PasswordResetModalProps = {
   errorMessage: string | null;
   onCancel: () => void;
   onSave: (oldPassword: string, newPassword: string) => void;
+  onForgotPassword: () => void;
+  forgotPasswordStatus: string | null;
 };
 
-export function PasswordResetModal({ isOpen, isSaving, errorMessage, onCancel, onSave }: PasswordResetModalProps) {
+export function PasswordResetModal({
+  isOpen,
+  isSaving,
+  errorMessage,
+  onCancel,
+  onSave,
+  onForgotPassword,
+  forgotPasswordStatus,
+}: PasswordResetModalProps) {
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -43,7 +53,7 @@ export function PasswordResetModal({ isOpen, isSaving, errorMessage, onCancel, o
       <section className={styles.dialog}>
         <header className={styles.header}>
           <h2 id="password-modal-title">Reset password</h2>
-          <p>Confirm your old password, then enter your new password twice.</p>
+          <p>Know your current password? Confirm it here. Forgot it? Send yourself a secure reset link instead.</p>
         </header>
 
         <form
@@ -91,8 +101,17 @@ export function PasswordResetModal({ isOpen, isSaving, errorMessage, onCancel, o
             />
           </label>
 
+          <div className={styles.recoveryBox}>
+            <strong>Forgot your old password?</strong>
+            <span>We cannot show old passwords, but we can email you a secure link to set a new one.</span>
+            <Button type="button" variant="outline" onClick={onForgotPassword} disabled={isSaving}>
+              Send reset link
+            </Button>
+          </div>
+
           {mismatchMessage ? <p className={styles.error}>{mismatchMessage}</p> : null}
           {errorMessage ? <p className={styles.error}>{errorMessage}</p> : null}
+          {forgotPasswordStatus ? <p className={styles.status}>{forgotPasswordStatus}</p> : null}
 
           <div className={styles.actions}>
             <Button type="button" variant="outline" onClick={onCancel} disabled={isSaving}>

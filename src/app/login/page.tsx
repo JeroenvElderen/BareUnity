@@ -15,6 +15,7 @@ export default function LoginPage() {
   const [rememberDevice, setRememberDevice] = useState(false);
   const [status, setStatus] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isResetSending, setIsResetSending] = useState(false);
 
   const markPostLoginHydration = () => {
     window.sessionStorage.setItem("bareunity_post_login_loading", "true");
@@ -56,6 +57,39 @@ export default function LoginPage() {
     void router.prefetch("/");
     router.push("/");
     router.refresh();
+  }
+
+  async function onForgotPassword() {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail) {
+      setStatus("Enter your email first, then we can send a secure password reset link.");
+      return;
+    }
+
+    setStatus("");
+    setIsResetSending(true);
+
+    try {
+      const response = await fetch("/api/auth/password-reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: normalizedEmail }),
+      });
+
+      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+
+      if (!response.ok) {
+        setStatus(payload.error || "Could not send a reset link right now.");
+        return;
+      }
+
+      setStatus("If that email is registered, we sent a secure reset link. You do not need your old password.");
+    } catch {
+      setStatus("Could not send a reset link right now. Please try again.");
+    } finally {
+      setIsResetSending(false);
+    }
   }
 
   async function onPasskeySignIn() {
@@ -147,6 +181,15 @@ export default function LoginPage() {
                 required
               />
             </label>
+
+            <button
+              className={styles.inlineAction}
+              type="button"
+              onClick={() => void onForgotPassword()}
+              disabled={isLoading || isResetSending}
+            >
+              {isResetSending ? "Sending reset link..." : "Forgot password? Send me a reset link"}
+            </button>
 
             <label className={styles.field}>
               <span className={styles.label}>2FA code (if enabled)</span>
