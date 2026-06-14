@@ -24,7 +24,6 @@ type RegisterState = {
   membershipType: string;
   accountAccess: AccountAccess;
   inviteCode: string;
-  discordUsername: string;
   idType: string;
   motivation: string;
   isAdultConfirmed: boolean;
@@ -47,7 +46,6 @@ const initialState: RegisterState = {
   membershipType: "",
   accountAccess: "viewOnly",
   inviteCode: "",
-  discordUsername: "",
   idType: "",
   motivation: "",
   isAdultConfirmed: false,
@@ -69,11 +67,65 @@ export default function RegisterPage() {
   const router = useRouter();
 
   useEffect(() => {
-    void supabase.auth.getSession().then(({ data }) => {
-      if (data.session?.user) {
-        router.replace("/");
+    const completePendingDiscordInvite = async () => {
+      const pendingInvite = window.localStorage.getItem(
+        "bareunity_pending_discord_invite",
+      );
+
+      const { data } = await supabase.auth.getSession();
+
+      if (!data.session?.user) {
+        return;
       }
-    });
+
+      if (!pendingInvite) {
+        router.replace("/");
+        return;
+      }
+
+      setIsInviteMode(true);
+      setIsLoading(true);
+      setStatus("Completing your Discord invite registration...");
+
+      try {
+        const payload = JSON.parse(pendingInvite) as Partial<RegisterState>;
+        setForm((prev) => ({
+          ...prev,
+          accountAccess: "invite",
+          fullName: payload.fullName ?? "",
+          username: payload.username ?? "",
+        }));
+
+        const response = await fetch("/api/auth/discord-invite-register", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${data.session.access_token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        });
+        const responsePayload = (await response.json().catch(() => ({}))) as {
+          error?: string;
+          message?: string;
+        };
+
+        if (!response.ok) {
+          setStatus(responsePayload.error ?? "Discord invite registration failed.");
+          return;
+        }
+
+        window.localStorage.removeItem("bareunity_pending_discord_invite");
+        setStatus(responsePayload.message ?? "Discord invite registration complete.");
+        router.replace("/");
+        router.refresh();
+      } catch {
+        setStatus("Could not complete Discord invite registration.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    void completePendingDiscordInvite();
 
     const searchParams = new URLSearchParams(window.location.search);
     const hasInviteLink = searchParams.has("invite");
@@ -105,20 +157,13 @@ export default function RegisterPage() {
     event.preventDefault();
     setStatus("");
 
+    if (isInviteRegistration) {
+      setStatus("Use the Discord registration button for trusted partner invites.");
+      return;
+    }
+
     if (form.password !== form.confirmPassword) {
       setStatus("Passwords do not match.");
-      return;
-    }
-
-    if (isInviteRegistration && !form.inviteCode.trim()) {
-      setStatus(
-        "Enter the invite code supplied by your trusted verification partner.",
-      );
-      return;
-    }
-
-    if (isInviteRegistration && !form.discordUsername.trim()) {
-      setStatus("Enter the Discord username your trusted partner can verify.");
       return;
     }
 
@@ -156,7 +201,6 @@ export default function RegisterPage() {
       payload.set("membershipType", form.membershipType);
       payload.set("accountAccess", form.accountAccess);
       payload.set("inviteCode", form.inviteCode);
-      payload.set("discordUsername", form.discordUsername);
       payload.set("idType", form.idType);
       payload.set("motivation", form.motivation);
       payload.set("isAdultConfirmed", String(form.isAdultConfirmed));
@@ -195,6 +239,39 @@ export default function RegisterPage() {
     } catch {
       setStatus("Something went wrong while creating your account.");
     } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function onDiscordInviteRegistration() {
+    setStatus("");
+
+    if (!form.fullName.trim() || !form.username.trim()) {
+      setStatus("Enter your name and BareUnity username before continuing with Discord.");
+      return;
+    }
+
+    window.localStorage.setItem(
+      "bareunity_pending_discord_invite",
+      JSON.stringify({
+        fullName: form.fullName,
+        username: form.username,
+      }),
+    );
+
+    setIsLoading(true);
+    const redirectTo = `${window.location.origin}/register?invite=teamnaturist&discordInvite=1`;
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "discord",
+      options: {
+        redirectTo,
+        scopes: "identify email",
+      },
+    });
+
+    if (error) {
+      window.localStorage.removeItem("bareunity_pending_discord_invite");
+      setStatus(error.message || "Could not start Discord registration.");
       setIsLoading(false);
     }
   }
@@ -257,134 +334,26 @@ export default function RegisterPage() {
                 />
               </label>
 
-              <label className={styles.field}>
-                <span className={styles.label}>Email</span>
-                <input
-                  className={styles.input}
-                  placeholder="you@example.com"
-                  type="email"
-                  value={form.email}
-                  onChange={(event) =>
-                    setForm((prev) => ({ ...prev, email: event.target.value }))
-                  }
-                  required
-                />
-              </label>
-
-              <label className={styles.field}>
-                <span className={styles.label}>Invite code</span>
-                <input
-                  className={styles.input}
-                  type="text"
-                  value={form.inviteCode}
-                  onChange={(event) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      inviteCode: event.target.value,
-                    }))
-                  }
-                  placeholder="Your custom invite text"
-                  required
-                />
-              </label>
-
-              <label className={styles.field}>
-                <span className={styles.label}>Discord username</span>
-                <input
-                  className={styles.input}
-                  type="text"
-                  value={form.discordUsername}
-                  onChange={(event) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      discordUsername: event.target.value,
-                    }))
-                  }
-                  placeholder="Your TeamNaturist Discord username"
-                  required
-                />
-                <span className={styles.help}>
-                  Enter the exact Discord username TeamNaturist has on its
-                  member list.
-                </span>
-              </label>
-
-              <div className={styles.split}>
-                <label className={styles.field}>
-                  <span className={styles.label}>Password (12+ chars)</span>
-                  <div className={styles.inputWrap}>
-                    <input
-                      className={styles.input}
-                      type={isPasswordVisible ? "text" : "password"}
-                      value={form.password}
-                      onChange={(event) =>
-                        setForm((prev) => ({
-                          ...prev,
-                          password: event.target.value,
-                        }))
-                      }
-                      autoComplete="new-password"
-                      required
-                    />
-                    <button
-                      type="button"
-                      className={styles.eyeButton}
-                      onClick={() => setIsPasswordVisible((prev) => !prev)}
-                    >
-                      {isPasswordVisible ? "Hide" : "Show"}
-                    </button>
-                  </div>
-                </label>
-                <label className={styles.field}>
-                  <span className={styles.label}>Confirm password</span>
-                  <div className={styles.inputWrap}>
-                    <input
-                      className={styles.input}
-                      type={isConfirmPasswordVisible ? "text" : "password"}
-                      value={form.confirmPassword}
-                      onChange={(event) =>
-                        setForm((prev) => ({
-                          ...prev,
-                          confirmPassword: event.target.value,
-                        }))
-                      }
-                      autoComplete="new-password"
-                      required
-                    />
-                    <button
-                      type="button"
-                      className={styles.eyeButton}
-                      onClick={() =>
-                        setIsConfirmPasswordVisible((prev) => !prev)
-                      }
-                    >
-                      {isConfirmPasswordVisible ? "Hide" : "Show"}
-                    </button>
-                  </div>
-                </label>
-              </div>
-
               <div className={styles.stageBanner}>
-                <strong>No BareUnity ID upload required.</strong> We check the
-                invite code before creating your verified account. No email
-                confirmation is needed, so you can sign in with this password
-                after the invite is accepted.
+                <strong>No invite code required.</strong> Discord registration checks
+                your TeamNaturist server role directly with the bot, then records the
+                Discord account in Supabase so the same Discord member cannot be used
+                for repeated trusted-partner registrations.
               </div>
 
               <button
-                className={styles.button}
-                type="submit"
+                className={styles.discordButton}
+                type="button"
+                onClick={() => void onDiscordInviteRegistration()}
                 disabled={isLoading}
               >
-                {isLoading
-                  ? "Creating verified account..."
-                  : "Create verified account"}
+                {isLoading ? "Opening Discord..." : "Register with Discord"}
               </button>
 
               {status ? <p className={styles.help}>{status}</p> : null}
 
               <p className={styles.alt}>
-                No invite code?{" "}
+                Not using Discord?{" "}
                 <Link className={styles.link} href="/register" prefetch={false}>
                   Use standard registration
                 </Link>
@@ -617,8 +586,7 @@ export default function RegisterPage() {
                       isSensitiveIdDetailsHidden: false,
                       motivation: "",
                       inviteCode: "",
-                      discordUsername: "",
-                    }))
+                                        }))
                   }
                 />
                 <span>
@@ -643,8 +611,7 @@ export default function RegisterPage() {
                       ...prev,
                       accountAccess: "verified",
                       inviteCode: "",
-                      discordUsername: "",
-                    }))
+                                        }))
                   }
                 />
                 <span>

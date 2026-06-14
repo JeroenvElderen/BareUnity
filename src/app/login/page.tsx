@@ -92,6 +92,25 @@ export default function LoginPage() {
     }
   }
 
+  async function onDiscordSignIn() {
+    setStatus("");
+    setIsLoading(true);
+
+    const redirectTo = `${window.location.origin}/login`;
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "discord",
+      options: {
+        redirectTo,
+        scopes: "identify email",
+      },
+    });
+
+    if (error) {
+      setStatus(error.message || "Could not start Discord sign-in.");
+      setIsLoading(false);
+    }
+  }
+
   async function onPasskeySignIn() {
     setStatus("");
     setIsLoading(true);
@@ -215,9 +234,23 @@ export default function LoginPage() {
               {isLoading ? "Signing in..." : "Sign in"}
             </button>
 
+            <button
+              className={styles.discordButton}
+              type="button"
+              onClick={() => void onDiscordSignIn()}
+              disabled={isLoading}
+            >
+              {isLoading ? "Opening Discord..." : "Sign in with Discord"}
+            </button>
+
             <button className={styles.button} type="button" onClick={() => void onPasskeySignIn()} disabled={isLoading}>
               {isLoading ? "Checking passkey..." : "Sign in with passkey"}
             </button>
+
+            <p className={styles.help}>
+              To enable Discord sign-in, create a Discord OAuth2 app, add its Client ID and
+              Client Secret to Supabase Auth, and allow the Supabase callback URL in Discord.
+            </p>
             
             {status ? <p className={styles.help}>{status}</p> : null}
 
