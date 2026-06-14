@@ -300,6 +300,9 @@ export default function SettingsPage() {
   const [passwordUpdateStatus, setPasswordUpdateStatus] = useState<
     string | null
   >(null);
+  const [forgotPasswordStatus, setForgotPasswordStatus] = useState<string | null>(
+    null,
+  );
   const [isRecoveryKeysModalOpen, setIsRecoveryKeysModalOpen] = useState(false);
   const [isSavingRecoveryKeys, setIsSavingRecoveryKeys] = useState(false);
   const [generatedRecoveryKeys, setGeneratedRecoveryKeys] = useState<string[]>([]);
@@ -546,6 +549,42 @@ export default function SettingsPage() {
     setIsPrimaryEmailModalOpen(false);
     setPrimaryEmailUpdateStatus(`Primary email changed to ${normalizedNext}.`);
     persistProfileSecurityCache({ email: normalizedNext });
+  };
+
+  const handleForgotPassword = async () => {
+    const normalizedEmail = currentEmail.trim().toLowerCase();
+
+    if (!normalizedEmail) {
+      setForgotPasswordStatus("Add your email address first so we can send a reset link.");
+      return;
+    }
+
+    setIsSavingPassword(true);
+    setPasswordUpdateError(null);
+    setForgotPasswordStatus(null);
+
+    try {
+      const response = await fetch("/api/auth/password-reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: normalizedEmail }),
+      });
+
+      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+
+      if (!response.ok) {
+        setPasswordUpdateError(payload.error || "Could not send a reset link right now.");
+        return;
+      }
+
+      setForgotPasswordStatus(
+        "If this email is registered, we sent a secure reset link. You do not need your old password.",
+      );
+    } catch {
+      setPasswordUpdateError("Could not send a reset link right now. Please try again.");
+    } finally {
+      setIsSavingPassword(false);
+    }
   };
 
   const handlePasswordSave = async (
@@ -1519,11 +1558,16 @@ export default function SettingsPage() {
         errorMessage={passwordUpdateError}
         onCancel={() => {
           setPasswordUpdateError(null);
+          setForgotPasswordStatus(null);
           setIsPasswordModalOpen(false);
         }}
         onSave={(oldPassword, newPassword) => {
           void handlePasswordSave(oldPassword, newPassword);
         }}
+        onForgotPassword={() => {
+          void handleForgotPassword();
+        }}
+        forgotPasswordStatus={forgotPasswordStatus}
       />
       <PrimaryEmailModal
         key={`${currentEmail}-${isPrimaryEmailModalOpen ? "open" : "closed"}`}

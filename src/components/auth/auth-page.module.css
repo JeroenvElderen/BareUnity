@@ -158,6 +158,25 @@
   margin-top: 0.15rem;
 }
 
+.inlineAction {
+  align-self: flex-start;
+  border: none;
+  background: transparent;
+  color: rgb(var(--brand));
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 700;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.inlineAction:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
 .button {
   margin-top: 0.5rem;
   border: none;
