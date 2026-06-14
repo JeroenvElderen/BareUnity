@@ -747,7 +747,9 @@
   left: 0;
   top: calc(100% + 0.65rem);
   z-index: 8;
-  width: min(26rem, calc(100vw - 2rem));
+  width: min(42rem, calc(100vw - 2rem));
+  max-height: min(44rem, calc(100vh - 8rem));
+  overflow-y: auto;
   border: 1px solid rgb(var(--border) / 0.75);
   border-radius: 1rem;
   background: rgb(var(--card));
@@ -816,6 +818,35 @@
   resize: vertical;
 }
 
+.updateRequestFieldset {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  border: 1px solid rgb(var(--border) / 0.65);
+  border-radius: 0.9rem;
+  padding: 0.85rem;
+}
+
+.updateRequestFieldset legend {
+  padding: 0 0.35rem;
+  color: rgb(var(--text-strong));
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
+.updateRequestFieldset p {
+  margin: 0;
+  color: rgb(var(--muted));
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.updateRequestFieldGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
 .updateRequestForm button {
   width: 100%;
   border-color: transparent;
@@ -851,5 +882,9 @@
   .updateRequestPanel {
     left: 50%;
     transform: translateX(-50%);
+  }
+
+  .updateRequestFieldGrid {
+    grid-template-columns: 1fr;
   }
 }
