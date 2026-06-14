@@ -22,7 +22,7 @@ const updateRequestSchema = z.object({
     .string()
     .trim()
     .min(10, "Please describe what needs changing in at least 10 characters.")
-    .max(1200, "Update requests are limited to 1200 characters."),
+    .max(5000, "Update requests are limited to 5000 characters."),
   sourceUrl: z.string().trim().url().max(500).optional().or(z.literal("")),
   pageUrl: z.string().trim().max(500).optional(),
 });

@@ -20,6 +20,58 @@ const changeTypes = [
   { value: "general", label: "General info" },
 ] as const;
 
+type SuggestedField = {
+  name: string;
+  label: string;
+  placeholder: string;
+  multiline?: boolean;
+};
+
+const suggestedFields: SuggestedField[] = [
+  { name: "tagline", label: "Tagline", placeholder: "Short discovery intro" },
+  { name: "heroImage", label: "Hero image URL", placeholder: "https://..." },
+  { name: "legalStatus", label: "Legal status", placeholder: "Allowed, restricted, researching..." },
+  { name: "beachesCount", label: "Official beaches", placeholder: "Number or guidance" },
+  { name: "resortsCount", label: "Naturist resorts", placeholder: "Number or guidance" },
+  { name: "communityRating", label: "BareUnity rating", placeholder: "Example: 4.5" },
+  { name: "communityMembers", label: "Members visited", placeholder: "Example: 120" },
+  { name: "glance", label: "At a glance", placeholder: "Capital, language, currency, time zone, driving side, plug type...", multiline: true },
+  { name: "cultureScores", label: "Culture scores", placeholder: "Social acceptance, beginner friendly, family friendly, LGBT friendly, safety, tourist friendly...", multiline: true },
+  { name: "laws", label: "Naturist laws", placeholder: "Public nudity, beaches, photography rules, local cautions...", multiline: true },
+  { name: "regions", label: "Best regions", placeholder: "Region names, score, and local naturist details...", multiline: true },
+  { name: "beaches", label: "Top beaches", placeholder: "Beach names, region, rating, image link, summary...", multiline: true },
+  { name: "season", label: "Season guide", placeholder: "Monthly air temp, sea temp, and naturist suitability...", multiline: true },
+  { name: "firstTimeTips", label: "First-time tips", placeholder: "Checklist items for first-time visitors...", multiline: true },
+  { name: "etiquette", label: "Naturist etiquette", placeholder: "Local etiquette and consent reminders...", multiline: true },
+  { name: "bestTime", label: "Best time to visit", placeholder: "Seasonal recommendation", multiline: true },
+  { name: "faqs", label: "Frequently asked", placeholder: "Questions members may ask about this country...", multiline: true },
+  { name: "tags", label: "Tags", placeholder: "Comma-separated tags" },
+];
+
+type SuggestedFieldValues = Record<(typeof suggestedFields)[number]["name"], string>;
+
+const emptySuggestedFields = suggestedFields.reduce((fields, field) => {
+  fields[field.name] = "";
+  return fields;
+}, {} as Record<string, string>) as SuggestedFieldValues;
+
+function buildStructuredMessage(message: string, fields: SuggestedFieldValues) {
+  const entries = suggestedFields
+    .map((field) => ({ label: field.label, value: fields[field.name].trim() }))
+    .filter((field) => field.value.length > 0);
+
+  if (entries.length === 0) return message.trim();
+
+  return [
+    message.trim(),
+    "",
+    "Suggested country page fields:",
+    ...entries.map((field) => `${field.label}: ${field.value}`),
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 export function CountryUpdateRequestButton({
   countrySlug,
   countryName,
@@ -28,6 +80,7 @@ export function CountryUpdateRequestButton({
   const [changeType, setChangeType] = useState<(typeof changeTypes)[number]["value"]>("general");
   const [message, setMessage] = useState("");
   const [sourceUrl, setSourceUrl] = useState("");
+  const [suggestedFieldValues, setSuggestedFieldValues] = useState<SuggestedFieldValues>(emptySuggestedFields);
   const [status, setStatus] = useState<"idle" | "saving" | "success" | "error">("idle");
   const [notice, setNotice] = useState("");
 
@@ -56,7 +109,7 @@ export function CountryUpdateRequestButton({
           countrySlug,
           countryName,
           changeType,
-          message,
+          message: buildStructuredMessage(message, suggestedFieldValues),
           sourceUrl,
           pageUrl: window.location.href,
         }),
@@ -71,6 +124,7 @@ export function CountryUpdateRequestButton({
       setNotice("Thanks — the admin team will review your suggested change.");
       setMessage("");
       setSourceUrl("");
+      setSuggestedFieldValues(emptySuggestedFields);
     } catch (error) {
       setStatus("error");
       setNotice(
@@ -129,6 +183,43 @@ export function CountryUpdateRequestButton({
                 required
               />
             </label>
+
+            <fieldset className={styles.updateRequestFieldset}>
+              <legend>Country page fields to add</legend>
+              <p>Use any fields you already know. Inputs are intentionally blank so you can add only new information.</p>
+              <div className={styles.updateRequestFieldGrid}>
+                {suggestedFields.map((field) => (
+                  <label key={field.name}>
+                    {field.label}
+                    {field.multiline ? (
+                      <textarea
+                        value={suggestedFieldValues[field.name]}
+                        onChange={(event) =>
+                          setSuggestedFieldValues((current) => ({
+                            ...current,
+                            [field.name]: event.target.value,
+                          }))
+                        }
+                        rows={3}
+                        placeholder={field.placeholder}
+                      />
+                    ) : (
+                      <input
+                        value={suggestedFieldValues[field.name]}
+                        onChange={(event) =>
+                          setSuggestedFieldValues((current) => ({
+                            ...current,
+                            [field.name]: event.target.value,
+                          }))
+                        }
+                        placeholder={field.placeholder}
+                      />
+                    )}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+
             <label>
               Source link (optional)
               <input
