@@ -21,7 +21,7 @@ type KeyValueRow = {
 
 type ScoreRow = {
   label: string;
-  score: number;
+  score: number | "";
 };
 
 type SeasonRow = {
@@ -122,11 +122,11 @@ const quickGlanceSuggestions = [
 
 const cultureScoreSuggestions = [
   "Safety",
-  "LGBT Friendly / LGBTQ Friendliness",
-  "Family Friendly / Family Friendliness",
+  "LGBTQ Friendly",
+  "Family Friendly",
   "Tourist Friendly",
   "Beginner Friendly",
-  "Social Acceptance / Naturist Acceptance",
+  "Social Acceptance",
   "Beach Quality",
   "Legal Clarity",
   "Privacy Respect",
@@ -182,6 +182,51 @@ const emptySeasonRows = Array.from({ length: 12 }, () => ({
   vibe: "",
 }));
 
+function emptyQuickGlanceRows(): KeyValueRow[] {
+  return quickGlanceSuggestions.map((key) => ({ key, value: "" }));
+}
+
+function emptyCultureScoreRows(): ScoreRow[] {
+  return cultureScoreSuggestions.map((label) => ({ label, score: "" }));
+}
+
+function emptyLawRows(): CountryLawRow[] {
+  return lawTopicSuggestions.map((topic) => ({ topic, status: "caution", summary: "" }));
+}
+
+function mergeKeyValueRowsWithLabels(rows: KeyValueRow[], labels: string[]): KeyValueRow[] {
+  const rowByLabel = new Map(rows.map((row) => [row.key.trim().toLowerCase(), row]));
+  const labelledRows = labels.map((label) => {
+    const existing = rowByLabel.get(label.toLowerCase());
+    return { key: label, value: existing?.value ?? "" };
+  });
+  const customRows = rows.filter((row) => !labels.some((label) => label.toLowerCase() === row.key.trim().toLowerCase()));
+
+  return [...labelledRows, ...customRows];
+}
+
+function mergeScoreRowsWithLabels(rows: ScoreRow[], labels: string[]): ScoreRow[] {
+  const rowByLabel = new Map(rows.map((row) => [row.label.trim().toLowerCase(), row]));
+  const labelledRows = labels.map((label) => {
+    const existing = rowByLabel.get(label.toLowerCase());
+    return { label, score: existing?.score ?? "" };
+  });
+  const customRows = rows.filter((row) => !labels.some((label) => label.toLowerCase() === row.label.trim().toLowerCase()));
+
+  return [...labelledRows, ...customRows];
+}
+
+function mergeLawRowsWithTopics(rows: CountryLawRow[], topics: string[]): CountryLawRow[] {
+  const rowByTopic = new Map(rows.map((row) => [row.topic.trim().toLowerCase(), row]));
+  const topicRows = topics.map((topic) => {
+    const existing = rowByTopic.get(topic.toLowerCase());
+    return { topic, status: existing?.status ?? "caution", summary: existing?.summary ?? "" };
+  });
+  const customRows = rows.filter((row) => !topics.some((topic) => topic.toLowerCase() === row.topic.trim().toLowerCase()));
+
+  return [...topicRows, ...customRows];
+}
+
 function emptyCountryForm(name = "", currentHeroImage = ""): CountryFormState {
   return {
     slug: slugFromName(name),
@@ -195,9 +240,9 @@ function emptyCountryForm(name = "", currentHeroImage = ""): CountryFormState {
     resortsCount: "",
     communityRating: "",
     communityMembers: "",
-    glance: [],
-    cultureScores: [],
-    laws: [],
+    glance: emptyQuickGlanceRows(),
+    cultureScores: emptyCultureScoreRows(),
+    laws: emptyLawRows(),
     firstTimeTips: [],
     etiquette: [],
     bestTime: "",
@@ -212,7 +257,7 @@ function emptyCountryForm(name = "", currentHeroImage = ""): CountryFormState {
 function defaultsForCountry(form: CountryFormState): CountryDiscovery {
   const name = form.name.trim();
   const fallbackName = name || "New country";
-  const laws = form.laws.filter((law) => law.topic.trim() && law.summary.trim());
+  const laws = form.laws.filter((law) => law.topic.trim());
   const firstTimeTips = form.firstTimeTips.map((item) => item.trim()).filter(Boolean);
   const etiquette = form.etiquette.map((item) => item.trim()).filter(Boolean);
   const faqs = form.faqs.map((item) => item.trim()).filter(Boolean);
@@ -300,8 +345,9 @@ function rowsToStringRecord(rows: KeyValueRow[]) {
 function rowsToNumberRecord(rows: ScoreRow[]) {
   return Object.fromEntries(
     rows
+      .filter((row) => row.score !== "")
       .map((row) => [row.label.trim(), Number(row.score)] as const)
-      .filter(([label]) => label),
+      .filter(([label, score]) => label && !Number.isNaN(score)),
   );
 }
 
@@ -318,9 +364,9 @@ function fromCountry(country: CountryDiscovery): CountryFormState {
     resortsCount: country.resortsCount,
     communityRating: country.communityRating,
     communityMembers: country.communityMembers,
-    glance: recordToRows(country.glance),
-    cultureScores: scoresToRows(country.cultureScores),
-    laws: country.laws,
+    glance: mergeKeyValueRowsWithLabels(recordToRows(country.glance), quickGlanceSuggestions),
+    cultureScores: mergeScoreRowsWithLabels(scoresToRows(country.cultureScores), cultureScoreSuggestions),
+    laws: mergeLawRowsWithTopics(country.laws, lawTopicSuggestions),
     firstTimeTips: country.firstTimeTips,
     etiquette: country.etiquette,
     bestTime: country.bestTime,
@@ -712,7 +758,7 @@ export default function AdminCountriesPage() {
                 <p>Score each category from 0 to 100.</p>
                 <FieldGuide label="Suggested score categories" items={cultureScoreSuggestions} />
               </div>
-              <button className={styles.smallButton} type="button" onClick={() => addRow("cultureScores", { label: "", score: 80 })}>
+              <button className={styles.smallButton} type="button" onClick={() => addRow("cultureScores", { label: "", score: "" })}>
                 <Plus size={14} /> Add score
               </button>
             </div>
@@ -720,7 +766,7 @@ export default function AdminCountriesPage() {
               {form.cultureScores.map((row, index) => (
                 <div className={styles.inlineRow} key={`score-${index}`}>
                   <label>Category<input value={row.label} onChange={(event) => updateRow("cultureScores", index, { label: event.target.value })} placeholder="Beginner Friendly" /></label>
-                  <label>Score<input type="number" min="0" max="100" value={row.score} onChange={(event) => updateRow("cultureScores", index, { score: Number(event.target.value) })} /></label>
+                  <label>Score<input type="number" min="0" max="100" value={row.score} onChange={(event) => updateRow("cultureScores", index, { score: event.target.value === "" ? "" : Number(event.target.value) })} /></label>
                   <button className={styles.iconButton} type="button" onClick={() => removeRow("cultureScores", index)} aria-label="Remove culture score">
                     <Trash2 size={16} />
                   </button>
