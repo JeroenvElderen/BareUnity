@@ -480,7 +480,7 @@ class MemberManagement(commands.Cog):
         if interaction.channel.parent_id != MEMBER_MANAGEMENT_FORUM:
             
             await interaction.response.send_message(
-                "❌ Use inside a member-manement thread.",
+                "❌ Use inside a member-management thread.",
                 ephemeral=True
             )
             return

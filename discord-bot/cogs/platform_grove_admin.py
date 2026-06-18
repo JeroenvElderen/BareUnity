@@ -67,6 +67,67 @@ def save_json(path, payload):
         json.dump(payload, handle, indent=4)
 
 
+def split_comma_list(value):
+    return [item.strip() for item in (value or "").split(",") if item.strip()]
+
+
+def parse_location_request_message(message):
+    if not (message or "").startswith(LOCATION_REQUEST_PREFIX):
+        return None
+    raw = message[len(LOCATION_REQUEST_PREFIX):].strip()
+    try:
+        return json.loads(raw)
+    except Exception:
+        return None
+
+
+def location_request_base(row):
+    payload = parse_location_request_message(row.get("message")) or {}
+    return {
+        "request_id": row.get("id"),
+        "name": payload.get("placeName") or "Untitled location",
+        "location_hint": payload.get("locationHint") or "",
+        "latitude": payload.get("latitude"),
+        "longitude": payload.get("longitude"),
+        "website": payload.get("website") or "",
+        "request_type": payload.get("requestType") or "location",
+        "requester": row.get("user_email") or payload.get("requesterEmail") or "Unknown",
+        "notes": payload.get("notes") or "",
+        "page_url": payload.get("pageUrl") or row.get("page_url"),
+    }
+
+
+def default_location_draft(row):
+    base = location_request_base(row)
+    terrain = "Stays" if base["request_type"] == "stay" else "Activity" if base["request_type"] == "activity" else "Beach"
+    tags = "stays" if base["request_type"] == "stay" else "activity, events, bookings" if base["request_type"] == "activity" else ""
+    return {
+        **base,
+        "short_description": "",
+        "full_description": "",
+        "access_type": "Public",
+        "terrain": terrain,
+        "safety_level": "Beginner friendly",
+        "amenities": "",
+        "tags": tags,
+    }
+
+
+def build_location_preview_embed(draft):
+    embed = discord.Embed(title=f"📍 {draft.get('name') or 'Location request'}", color=discord.Color.green())
+    for name, value in [
+        ("Type", draft.get("request_type") or "location"),
+        ("Location Hint", draft.get("location_hint") or "None"),
+        ("Coordinates", f"{draft.get('latitude')}\n{draft.get('longitude')}" if draft.get("latitude") is not None and draft.get("longitude") is not None else "Not provided"),
+        ("Website", draft.get("website") or "None"),
+        ("Requester", draft.get("requester") or "Unknown"),
+        ("Notes", draft.get("notes") or "None"),
+    ]:
+        embed.add_field(name=name, value=str(value)[:1024], inline=False)
+    embed.set_footer(text=f"Request ID: {draft.get('request_id')}")
+    return embed
+
+
 class ReplyModal(discord.ui.Modal):
     def __init__(self, cog, feedback_id, title="Reply to member"):
         super().__init__(title=title)
@@ -107,6 +168,90 @@ class FeedbackView(discord.ui.View):
         await interaction.response.send_message("✅ Website ticket marked closed.", ephemeral=True)
 
 
+class LocationTextModal(discord.ui.Modal):
+    def __init__(self, view):
+        super().__init__(title="Complete location fields")
+        self.location_view = view
+        draft = view.draft
+        self.short_description = discord.ui.TextInput(label="Short Description", max_length=250, required=True, default=draft.get("short_description") or "")
+        self.full_description = discord.ui.TextInput(label="Full Description", style=discord.TextStyle.paragraph, max_length=1800, required=True, default=draft.get("full_description") or "")
+        self.amenities = discord.ui.TextInput(label="Amenities (comma separated)", max_length=500, required=False, default=draft.get("amenities") or "")
+        self.tags = discord.ui.TextInput(label="Tags (comma separated)", max_length=500, required=False, default=draft.get("tags") or "")
+        for item in [self.short_description, self.full_description, self.amenities, self.tags]:
+            self.add_item(item)
+
+    async def on_submit(self, interaction):
+        self.location_view.draft.update({
+            "short_description": str(self.short_description),
+            "full_description": str(self.full_description),
+            "amenities": str(self.amenities),
+            "tags": str(self.tags),
+        })
+        self.location_view.save_draft()
+        await interaction.response.send_message("✅ Location form fields saved. Use Preview request to review it.", ephemeral=True)
+
+
+class LocationRequestView(discord.ui.View):
+    def __init__(self, cog, feedback_id, row):
+        super().__init__(timeout=None)
+        self.cog = cog
+        self.feedback_id = feedback_id
+        self.row = row
+        self.draft = cog.sync_state.setdefault("location_drafts", {}).get(feedback_id) or default_location_draft(row)
+        self.add_item(self.build_select("access_type", "Access type", ["Public", "Discreet"]))
+        self.add_item(self.build_select("terrain", "Type / terrain", ["Beach", "Forest", "Lake", "Trail", "Resort", "Stays", "Activity", "Other"]))
+        self.add_item(self.build_select("safety_level", "Safety", ["Beginner friendly", "Moderate", "Advanced", "Use caution"]))
+
+    def save_draft(self):
+        self.cog.sync_state.setdefault("location_drafts", {})[self.feedback_id] = self.draft
+        save_json(SYNC_FILE, self.cog.sync_state)
+
+    def build_select(self, field, placeholder, values):
+        options = [discord.SelectOption(label=value, value=value, default=self.draft.get(field) == value) for value in values]
+        select = discord.ui.Select(placeholder=placeholder, min_values=1, max_values=1, options=options)
+        async def callback(interaction):
+            self.draft[field] = select.values[0]
+            self.save_draft()
+            await interaction.response.send_message(f"✅ {placeholder} set to {select.values[0]}.", ephemeral=True)
+        select.callback = callback
+        return select
+
+    @discord.ui.button(label="Fill text fields", emoji="📝", style=discord.ButtonStyle.primary, row=3)
+    async def fill_text_fields(self, interaction, button):
+        await interaction.response.send_modal(LocationTextModal(self))
+
+    @discord.ui.button(label="Preview request", emoji="👀", style=discord.ButtonStyle.secondary, row=3)
+    async def preview(self, interaction, button):
+        await interaction.response.send_message(embed=build_location_preview_embed(self.draft), ephemeral=False)
+
+    @discord.ui.button(label="Create location", emoji="✅", style=discord.ButtonStyle.success, row=3)
+    async def create_location(self, interaction, button):
+        required = ["short_description", "full_description"]
+        missing = [field.replace("_", " ") for field in required if not self.draft.get(field)]
+        if missing:
+            await interaction.response.send_message(f"❌ Fill required fields first: {', '.join(missing)}.", ephemeral=True)
+            return
+        self.cog.supabase.table("naturist_map_spots").insert({
+            "name": self.draft.get("name"),
+            "description": self.draft.get("full_description"),
+            "short_description": self.draft.get("short_description"),
+            "latitude": self.draft.get("latitude"),
+            "longitude": self.draft.get("longitude"),
+            "privacy": self.draft.get("access_type"),
+            "location_hint": self.draft.get("location_hint"),
+            "access_type": self.draft.get("access_type"),
+            "terrain": self.draft.get("terrain"),
+            "safety_level": self.draft.get("safety_level"),
+            "website": self.draft.get("website"),
+            "amenities": split_comma_list(self.draft.get("amenities")),
+            "tags": split_comma_list(self.draft.get("tags")),
+            "reporter_notes": f"Requested by {self.draft.get('requester')}\nRequest ID: {self.feedback_id}\nNotes: {self.draft.get('notes') or 'None'}",
+            "status": "approved",
+        }).execute()
+        self.cog.supabase.table("feedback_messages").update({"status": "closed"}).eq("id", self.feedback_id).execute()
+        await interaction.response.send_message("✅ Location created and website ticket closed.", ephemeral=True)
+        
+        
 class GalleryDecisionView(discord.ui.View):
     def __init__(self, cog, image_path):
         super().__init__(timeout=None)
@@ -205,6 +350,7 @@ class PlatformGroveAdmin(commands.Cog):
             "reports": {},
             "applications": {},
             "gallery": {},
+            "location_drafts": {},
         })
         self.platform_sync.start()
 
@@ -223,6 +369,14 @@ class PlatformGroveAdmin(commands.Cog):
     def is_staff(self, member):
         return bool(member.guild_permissions.manage_guild or member.guild_permissions.manage_messages)
 
+    def is_member_management_channel(self, interaction):
+        if interaction.channel_id == MEMBER_MANAGEMENT:
+            return True
+        return (
+            isinstance(interaction.channel, discord.Thread)
+            and interaction.channel.parent_id == MEMBER_MANAGEMENT
+        )
+        
     def ticket_embed(self, title, row):
         embed = discord.Embed(title=title, description=(row.get("message") or row.get("reason") or "No details")[:4000], color=discord.Color.blurple())
         for name, key in [("ID", "id"), ("User", "user_id"), ("Email", "user_email"), ("Status", "status"), ("Created", "created_at")]:
@@ -239,6 +393,28 @@ class PlatformGroveAdmin(commands.Cog):
         created = await forum.create_thread(name=name[:100], content=content, embed=embed, view=view)
         return created.thread
 
+    def gallery_image_url(self, row):
+        public_url = (row.get("public_url") or "").strip()
+        if public_url:
+            return public_url
+
+        image_path = (row.get("image_path") or "").strip()
+        if not image_path:
+            return None
+
+        try:
+            signed = self.supabase.storage.from_("media").create_signed_url(
+                image_path,
+                60 * 60 * 24 * 7,
+            )
+        except Exception as error:
+            print(f"[PLATFORM_GROVE] Could not sign gallery image {image_path}: {error}")
+            return None
+
+        if isinstance(signed, dict):
+            return signed.get("signedURL") or signed.get("signedUrl") or signed.get("publicUrl")
+        return getattr(signed, "signed_url", None) or getattr(signed, "signedURL", None)
+    
     async def sync_feedback(self):
         response = self.supabase.table("feedback_messages").select("*").neq("status", "closed").order("created_at", desc=True).limit(25).execute()
         for row in response.data or []:
@@ -248,12 +424,29 @@ class PlatformGroveAdmin(commands.Cog):
             is_location = (row.get("message") or "").startswith(LOCATION_REQUEST_PREFIX)
             channel_id = LOCATION_REQUEST if is_location else PLATFORM_FEEDBACK
             title = "📍 Location request" if is_location else "💬 Platform feedback"
+            if is_location:
+                draft = default_location_draft(row)
+                content = (
+                    f"Website location request synced from BareUnity.\n"
+                    f"**{draft['name']}**\n"
+                    f"Location hint: {draft['location_hint'] or 'None'}\n"
+                    f"Coordinates: {draft['latitude']}, {draft['longitude']}\n"
+                    f"Website: {draft['website'] or 'None'}\n"
+                    f"Requester: {draft['requester']}\n"
+                    f"Request ID: {ticket_id}"
+                )
+                embed = None
+                view = LocationRequestView(self, ticket_id, row)
+            else:
+                content = "Website ticket synced from BareUnity."
+                embed = self.ticket_embed(title, row)
+                view = FeedbackView(self, ticket_id)
             thread = await self.create_forum_thread(
                 channel_id,
                 f"{title} • {ticket_id[:8]}",
-                "Website ticket synced from BareUnity.",
-                self.ticket_embed(title, row),
-                FeedbackView(self, ticket_id),
+                content,
+                embed,
+                view,
             )
             if thread:
                 self.sync_state["feedback"][ticket_id] = str(thread.id)
@@ -292,10 +485,15 @@ class PlatformGroveAdmin(commands.Cog):
             image_path = row.get("image_path")
             if not image_path or image_path in self.sync_state["gallery"]:
                 continue
-            embed = discord.Embed(title="🖼️ Gallery review", description=image_path[:4000], color=discord.Color.purple())
-            if row.get("public_url"):
-                embed.set_image(url=row["public_url"])
-            thread = await self.create_forum_thread(GALLERY_REVIEW, f"Gallery • {image_path[-80:]}", "Choose the final gallery destination.", embed, GalleryDecisionView(self, image_path))
+            title = (row.get("title") or "Gallery review").strip()[:80]
+            embed = discord.Embed(title="🖼️ Gallery review", color=discord.Color.purple())
+            image_url = self.gallery_image_url(row)
+            if image_url:
+                embed.set_image(url=image_url)
+            else:
+                embed.description = "⚠️ Image preview unavailable. Use the storage path below."
+                embed.add_field(name="Storage path", value=f"`{image_path[:1000]}`", inline=False)
+            thread = await self.create_forum_thread(GALLERY_REVIEW, f"Gallery • {title}", "Choose the final gallery destination. The image preview is attached below.", embed, GalleryDecisionView(self, image_path))
             if thread:
                 self.sync_state["gallery"][image_path] = str(thread.id)
 
@@ -362,8 +560,8 @@ class PlatformGroveAdmin(commands.Cog):
 
     @app_commands.command(name="member_profile", description="Open a website member profile card in member-management")
     async def member_profile(self, interaction, username: str):
-        if interaction.channel_id != MEMBER_MANAGEMENT:
-            await interaction.response.send_message("❌ Use this in member-management.", ephemeral=True)
+        if not self.is_member_management_channel(interaction):
+            await interaction.response.send_message("❌ Use this in member-management or one of its posts.", ephemeral=True)
             return
         response = self.supabase.table("profiles").select("*").eq("username", username).maybe_single().execute()
         profile = response.data
