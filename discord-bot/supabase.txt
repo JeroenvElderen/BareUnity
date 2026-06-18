@@ -1,0 +1,490 @@
+Tables i have in supabase: (all will be in the table schema)
+
+create table public.comments (
+  id uuid not null default gen_random_uuid (),
+  post_id uuid null,
+  author_id uuid null,
+  parent_id uuid null,
+  content text not null,
+  created_at timestamp with time zone null default now(),
+  constraint comments_pkey primary key (id),
+  constraint comments_author_id_fkey foreign KEY (author_id) references profiles (id),
+  constraint comments_parent_id_fkey foreign KEY (parent_id) references comments (id),
+  constraint comments_post_id_fkey foreign KEY (post_id) references posts (id) on delete CASCADE,
+  constraint comments_content_not_blank check (
+    (
+      NULLIF(
+        TRIM(
+          both
+          from
+            COALESCE(content, ''::text)
+        ),
+        ''::text
+      ) is not null
+    )
+  )
+) TABLESPACE pg_default;
+
+create index IF not exists comments_author_id_idx on public.comments using btree (author_id) TABLESPACE pg_default;
+
+create index IF not exists comments_post_id_idx on public.comments using btree (post_id) TABLESPACE pg_default;
+
+create index IF not exists comments_created_at_idx on public.comments using btree (created_at desc) TABLESPACE pg_default;
+
+create index IF not exists comments_post_idx on public.comments using btree (post_id) TABLESPACE pg_default;
+
+----------
+
+create table public.country_discovery_profiles (
+  slug text not null,
+  name text not null,
+  flag text null default '🌍'::text,
+  continent text null default 'World'::text,
+  tagline text null default ''::text,
+  hero_image text null default ''::text,
+  legal_status text null default 'Researching'::text,
+  beaches_count text null default 'Coming soon'::text,
+  resorts_count text null default 'Coming soon'::text,
+  community_rating text null default 'New'::text,
+  community_members text null default '0'::text,
+  glance jsonb not null default '{}'::jsonb,
+  culture_scores jsonb not null default '{}'::jsonb,
+  laws jsonb not null default '[]'::jsonb,
+  first_time_tips jsonb not null default '[]'::jsonb,
+  etiquette jsonb not null default '[]'::jsonb,
+  best_time text null default ''::text,
+  regions jsonb not null default '[]'::jsonb,
+  beaches jsonb not null default '[]'::jsonb,
+  season jsonb not null default '{}'::jsonb,
+  faqs jsonb not null default '[]'::jsonb,
+  tags jsonb not null default '[]'::jsonb,
+  created_at timestamp with time zone not null default timezone ('utc'::text, now()),
+  updated_at timestamp with time zone not null default timezone ('utc'::text, now()),
+  constraint country_discovery_profiles_pkey primary key (slug),
+  constraint country_discovery_profiles_slug_check check (
+    (
+      (slug = lower(slug))
+      and (slug ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$'::text)
+    )
+  )
+) TABLESPACE pg_default;
+
+create index IF not exists idx_country_profiles_continent on public.country_discovery_profiles using btree (continent) TABLESPACE pg_default;
+
+create trigger set_country_discovery_profiles_updated_at BEFORE
+update on country_discovery_profiles for EACH row
+execute FUNCTION set_country_discovery_updated_at ();
+
+----------
+
+create table public.country_update_requests (
+  id uuid not null default gen_random_uuid (),
+  user_id uuid null,
+  user_email text null,
+  country_slug text not null,
+  country_name text not null,
+  change_type text not null,
+  message text not null,
+  source_url text null,
+  status text not null default 'pending'::text,
+  admin_notes text null,
+  created_at timestamp with time zone not null default now(),
+  updated_at timestamp with time zone not null default now(),
+  constraint country_update_requests_pkey primary key (id),
+  constraint country_update_requests_user_id_fkey foreign KEY (user_id) references auth.users (id) on delete set null,
+  constraint country_update_requests_change_type_check check (
+    (
+      change_type = any (
+        array[
+          'laws'::text,
+          'beach'::text,
+          'resort'::text,
+          'safety'::text,
+          'season'::text,
+          'general'::text
+        ]
+      )
+    )
+  ),
+  constraint country_update_requests_status_check check (
+    (
+      status = any (
+        array[
+          'pending'::text,
+          'approved'::text,
+          'rejected'::text
+        ]
+      )
+    )
+  )
+) TABLESPACE pg_default;
+
+create index IF not exists idx_country_update_requests_country_slug on public.country_update_requests using btree (country_slug) TABLESPACE pg_default;
+
+create index IF not exists idx_country_update_requests_status on public.country_update_requests using btree (status) TABLESPACE pg_default;
+
+create index IF not exists idx_country_update_requests_user_id on public.country_update_requests using btree (user_id) TABLESPACE pg_default;
+
+----------
+
+create table public.events (
+  id uuid not null default gen_random_uuid (),
+  channel_id uuid null,
+  organizer_id uuid null,
+  title text not null,
+  description text null,
+  location text null,
+  start_time timestamp with time zone null,
+  created_at timestamp with time zone null default now(),
+  constraint events_pkey primary key (id),
+  constraint events_channel_id_fkey foreign KEY (channel_id) references channels (id) on delete set null,
+  constraint events_organizer_id_fkey foreign KEY (organizer_id) references profiles (id)
+) TABLESPACE pg_default;
+
+create index IF not exists events_channel_idx on public.events using btree (channel_id) TABLESPACE pg_default;
+
+----------
+
+create table public.events (
+  id uuid not null default gen_random_uuid (),
+  channel_id uuid null,
+  organizer_id uuid null,
+  title text not null,
+  description text null,
+  location text null,
+  start_time timestamp with time zone null,
+  created_at timestamp with time zone null default now(),
+  constraint events_pkey primary key (id),
+  constraint events_channel_id_fkey foreign KEY (channel_id) references channels (id) on delete set null,
+  constraint events_organizer_id_fkey foreign KEY (organizer_id) references profiles (id)
+) TABLESPACE pg_default;
+
+create index IF not exists events_channel_idx on public.events using btree (channel_id) TABLESPACE pg_default;
+
+----------
+
+create table public.feedback_replies (
+  id uuid not null default gen_random_uuid (),
+  feedback_id uuid not null,
+  author_id uuid null,
+  author_email text null,
+  author_role text not null default 'member'::text,
+  message text not null,
+  created_at timestamp with time zone not null default timezone ('utc'::text, now()),
+  constraint feedback_replies_pkey primary key (id),
+  constraint feedback_replies_author_id_fkey foreign KEY (author_id) references auth.users (id) on delete set null,
+  constraint feedback_replies_feedback_id_fkey foreign KEY (feedback_id) references feedback_messages (id) on delete CASCADE,
+  constraint feedback_replies_author_role_check check (
+    (
+      author_role = any (array['member'::text, 'admin'::text])
+    )
+  ),
+  constraint feedback_replies_message_check check (
+    (
+      (char_length(btrim(message)) >= 2)
+      and (char_length(btrim(message)) <= 1200)
+    )
+  )
+) TABLESPACE pg_default;
+
+create index IF not exists feedback_replies_feedback_id_created_at_idx on public.feedback_replies using btree (feedback_id, created_at) TABLESPACE pg_default;
+
+create index IF not exists feedback_replies_feedback_created_idx on public.feedback_replies using btree (feedback_id, created_at) TABLESPACE pg_default;
+
+create trigger feedback_replies_touch_feedback
+after INSERT on feedback_replies for EACH row
+execute FUNCTION touch_feedback_message_updated_at ();
+
+----------
+
+create table public.feedback_replies (
+  id uuid not null default gen_random_uuid (),
+  feedback_id uuid not null,
+  author_id uuid null,
+  author_email text null,
+  author_role text not null default 'member'::text,
+  message text not null,
+  created_at timestamp with time zone not null default timezone ('utc'::text, now()),
+  constraint feedback_replies_pkey primary key (id),
+  constraint feedback_replies_author_id_fkey foreign KEY (author_id) references auth.users (id) on delete set null,
+  constraint feedback_replies_feedback_id_fkey foreign KEY (feedback_id) references feedback_messages (id) on delete CASCADE,
+  constraint feedback_replies_author_role_check check (
+    (
+      author_role = any (array['member'::text, 'admin'::text])
+    )
+  ),
+  constraint feedback_replies_message_check check (
+    (
+      (char_length(btrim(message)) >= 2)
+      and (char_length(btrim(message)) <= 1200)
+    )
+  )
+) TABLESPACE pg_default;
+
+create index IF not exists feedback_replies_feedback_id_created_at_idx on public.feedback_replies using btree (feedback_id, created_at) TABLESPACE pg_default;
+
+create index IF not exists feedback_replies_feedback_created_idx on public.feedback_replies using btree (feedback_id, created_at) TABLESPACE pg_default;
+
+create trigger feedback_replies_touch_feedback
+after INSERT on feedback_replies for EACH row
+execute FUNCTION touch_feedback_message_updated_at ();
+
+----------
+
+create table public.gallery_media (
+  image_path text not null,
+  owner_id uuid null,
+  title text null,
+  created_at timestamp with time zone not null default now(),
+  updated_at timestamp with time zone not null default now(),
+  gallery_type text null default 'pending'::text,
+  moderation_status text null default 'pending'::text,
+  moderation_confidence numeric null,
+  moderation_reason text null,
+  contains_person boolean null default false,
+  contains_adult_nudity boolean null default false,
+  contains_landscape boolean null default false,
+  contains_animal boolean null default false,
+  contains_vehicle boolean null default false,
+  contains_building boolean null default false,
+  reviewed_by uuid null,
+  reviewed_at timestamp with time zone null,
+  report_count integer not null default 0,
+  constraint gallery_media_pkey primary key (image_path),
+  constraint gallery_media_owner_id_fkey foreign KEY (owner_id) references profiles (id) on delete set null,
+  constraint gallery_media_reviewed_by_fkey foreign KEY (reviewed_by) references profiles (id) on delete set null,
+  constraint gallery_media_gallery_type_check check (
+    (
+      gallery_type = any (
+        array['nude'::text, 'general'::text, 'pending'::text]
+      )
+    )
+  ) not VALID,
+  constraint gallery_media_moderation_status_check check (
+    (
+      moderation_status = any (
+        array[
+          'approved'::text,
+          'pending'::text,
+          'rejected'::text
+        ]
+      )
+    )
+  ) not VALID
+) TABLESPACE pg_default;
+
+create index IF not exists gallery_media_public_lookup_idx on public.gallery_media using btree (gallery_type, moderation_status, created_at desc) TABLESPACE pg_default;
+
+create index IF not exists gallery_media_pending_lookup_idx on public.gallery_media using btree (moderation_status, updated_at desc) TABLESPACE pg_default;
+
+create index IF not exists gallery_media_report_count_idx on public.gallery_media using btree (report_count desc) TABLESPACE pg_default;
+
+----------
+
+create table public.naturist_map_spots (
+  id uuid not null default gen_random_uuid (),
+  name text not null,
+  description text not null,
+  latitude double precision not null,
+  longitude double precision not null,
+  privacy text not null default 'Discreet'::text,
+  created_at timestamp with time zone not null default now(),
+  short_description text null,
+  details jsonb not null default '{}'::jsonb,
+  submitted_by uuid null,
+  status text not null default 'pending'::text,
+  updated_at timestamp with time zone not null default now(),
+  location_hint text null,
+  country text null,
+  region text null,
+  access_type text not null default 'Public'::text,
+  terrain text not null default 'Beach'::text,
+  clothing_policy text not null default 'Clothing optional'::text,
+  safety_level text not null default 'Beginner friendly'::text,
+  best_season text not null default 'Summer'::text,
+  entry_fee text null,
+  website text null,
+  rules text null,
+  amenities text[] not null default '{}'::text[],
+  tags text[] not null default '{}'::text[],
+  reporter_notes text null,
+  constraint naturist_map_spots_pkey primary key (id),
+  constraint naturist_map_spots_submitted_by_fkey foreign KEY (submitted_by) references auth.users (id),
+  constraint naturist_map_spots_privacy_check check (
+    (
+      privacy = any (array['Public'::text, 'Discreet'::text])
+    )
+  )
+) TABLESPACE pg_default;
+
+create index IF not exists naturist_map_spots_status_idx on public.naturist_map_spots using btree (status) TABLESPACE pg_default;
+
+create index IF not exists naturist_map_spots_submitted_by_idx on public.naturist_map_spots using btree (submitted_by) TABLESPACE pg_default;
+
+create index IF not exists naturist_map_spots_status_created_idx on public.naturist_map_spots using btree (status, created_at desc) TABLESPACE pg_default;
+
+create index IF not exists naturist_map_spots_country_region_idx on public.naturist_map_spots using btree (country, region) TABLESPACE pg_default;
+
+----------
+
+create table public.posts (
+  id uuid not null default gen_random_uuid (),
+  author_id uuid null,
+  channel_id uuid null,
+  title text null,
+  content text null,
+  media_url text null,
+  post_type text null default 'text'::text,
+  created_at timestamp with time zone null default now(),
+  expires_at timestamp with time zone null,
+  constraint posts_pkey primary key (id),
+  constraint posts_author_id_fkey foreign KEY (author_id) references profiles (id) on delete CASCADE,
+  constraint posts_channel_id_fkey foreign KEY (channel_id) references channels (id) on delete set null,
+  constraint posts_story_requires_expiry_chk check (
+    (
+      (post_type <> 'story'::text)
+      or (expires_at is not null)
+    )
+  ),
+  constraint posts_story_requires_media_chk check (
+    (
+      (post_type <> 'story'::text)
+      or (media_url is not null)
+    )
+  ),
+  constraint posts_title_or_content_required check (
+    (
+      (
+        NULLIF(
+          TRIM(
+            both
+            from
+              COALESCE(title, ''::text)
+          ),
+          ''::text
+        ) is not null
+      )
+      or (
+        NULLIF(
+          TRIM(
+            both
+            from
+              COALESCE(content, ''::text)
+          ),
+          ''::text
+        ) is not null
+      )
+    )
+  )
+) TABLESPACE pg_default;
+
+create index IF not exists posts_author_idx on public.posts using btree (author_id) TABLESPACE pg_default;
+
+create index IF not exists posts_community_idx on public.posts using btree (channel_id) TABLESPACE pg_default;
+
+create index IF not exists posts_channel_idx on public.posts using btree (channel_id) TABLESPACE pg_default;
+
+create index IF not exists posts_type_expires_created_idx on public.posts using btree (post_type, expires_at, created_at desc) TABLESPACE pg_default;
+
+create index IF not exists posts_author_created_desc_idx on public.posts using btree (author_id, created_at desc) TABLESPACE pg_default;
+
+----------
+
+create table public.profiles (
+  id uuid not null,
+  username text not null,
+  display_name text null,
+  bio text null,
+  avatar_url text null,
+  location text null,
+  created_at timestamp with time zone null default now(),
+  profile_primary_color text null default '#345f45'::text,
+  profile_secondary_color text null default '#1f3326'::text,
+  show_email boolean null default false,
+  show_activity boolean null default true,
+  allow_friend_requests boolean null default true,
+  push_token text null,
+  constraint profiles_pkey primary key (id),
+  constraint profiles_username_key unique (username),
+  constraint profiles_id_fkey foreign KEY (id) references auth.users (id) on delete CASCADE
+) TABLESPACE pg_default;
+
+----------
+
+create table public.reports (
+  id uuid not null default gen_random_uuid (),
+  reporter_id uuid null,
+  post_id uuid null,
+  comment_id uuid null,
+  reason text not null default 'No reason provided'::text,
+  created_at timestamp with time zone null default now(),
+  target_type text not null default 'other'::text,
+  target_id text null,
+  constraint reports_pkey primary key (id),
+  constraint reports_comment_id_fkey foreign KEY (comment_id) references comments (id),
+  constraint reports_post_id_fkey foreign KEY (post_id) references posts (id),
+  constraint reports_reporter_id_fkey foreign KEY (reporter_id) references profiles (id),
+  constraint reports_reason_length_check check (
+    (
+      char_length(
+        TRIM(
+          both
+          from
+            reason
+        )
+      ) >= 10
+    )
+  )
+) TABLESPACE pg_default;
+
+create index IF not exists reports_target_lookup_idx on public.reports using btree (target_type, target_id) TABLESPACE pg_default;
+
+create index IF not exists reports_created_at_idx on public.reports using btree (created_at desc) TABLESPACE pg_default;
+
+create index IF not exists reports_reporter_id_idx on public.reports using btree (reporter_id) TABLESPACE pg_default;
+
+create index IF not exists reports_post_id_idx on public.reports using btree (post_id) TABLESPACE pg_default;
+
+create index IF not exists reports_comment_id_idx on public.reports using btree (comment_id) TABLESPACE pg_default;
+
+----------
+
+create table public.reports (
+  id uuid not null default gen_random_uuid (),
+  reporter_id uuid null,
+  post_id uuid null,
+  comment_id uuid null,
+  reason text not null default 'No reason provided'::text,
+  created_at timestamp with time zone null default now(),
+  target_type text not null default 'other'::text,
+  target_id text null,
+  constraint reports_pkey primary key (id),
+  constraint reports_comment_id_fkey foreign KEY (comment_id) references comments (id),
+  constraint reports_post_id_fkey foreign KEY (post_id) references posts (id),
+  constraint reports_reporter_id_fkey foreign KEY (reporter_id) references profiles (id),
+  constraint reports_reason_length_check check (
+    (
+      char_length(
+        TRIM(
+          both
+          from
+            reason
+        )
+      ) >= 10
+    )
+  )
+) TABLESPACE pg_default;
+
+create index IF not exists reports_target_lookup_idx on public.reports using btree (target_type, target_id) TABLESPACE pg_default;
+
+create index IF not exists reports_created_at_idx on public.reports using btree (created_at desc) TABLESPACE pg_default;
+
+create index IF not exists reports_reporter_id_idx on public.reports using btree (reporter_id) TABLESPACE pg_default;
+
+create index IF not exists reports_post_id_idx on public.reports using btree (post_id) TABLESPACE pg_default;
+
+create index IF not exists reports_comment_id_idx on public.reports using btree (comment_id) TABLESPACE pg_default;
+
+----------
+
+
