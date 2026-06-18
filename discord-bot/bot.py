@@ -129,6 +129,7 @@ async def main():
         await bot.load_extension("cogs.verification_board")
         await bot.load_extension("cogs.bump_reminder")
         await bot.load_extension("cogs.member_management")
+        await bot.load_extension("cogs.platform_grove_admin")
         await bot.start(TOKEN)
 
 
