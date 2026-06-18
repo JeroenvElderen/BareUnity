@@ -21,6 +21,7 @@ CASE_FILES = 1517154128541909152
 
 SYNC_FILE = "platform_grove_sync.json"
 LOCATION_REQUEST_PREFIX = "LOCATION_REQUEST::"
+LOCATION_VIEW_PREFIX = "location_request"
 
 SIDEBAR_ITEMS = [
     "home",
@@ -201,6 +202,12 @@ class LocationRequestView(discord.ui.View):
         self.add_item(self.build_select("access_type", "Access type", ["Public", "Discreet"]))
         self.add_item(self.build_select("terrain", "Type / terrain", ["Beach", "Forest", "Lake", "Trail", "Resort", "Stays", "Activity", "Other"]))
         self.add_item(self.build_select("safety_level", "Safety", ["Beginner friendly", "Moderate", "Advanced", "Use caution"]))
+        self.fill_text_fields.custom_id = self.custom_id("fill_text_fields")
+        self.preview.custom_id = self.custom_id("preview")
+        self.create_location.custom_id = self.custom_id("create_location")
+
+    def custom_id(self, action):
+        return f"{LOCATION_VIEW_PREFIX}:{self.feedback_id}:{action}"
 
     def save_draft(self):
         self.cog.sync_state.setdefault("location_drafts", {})[self.feedback_id] = self.draft
@@ -208,7 +215,13 @@ class LocationRequestView(discord.ui.View):
 
     def build_select(self, field, placeholder, values):
         options = [discord.SelectOption(label=value, value=value, default=self.draft.get(field) == value) for value in values]
-        select = discord.ui.Select(placeholder=placeholder, min_values=1, max_values=1, options=options)
+        select = discord.ui.Select(
+            placeholder=placeholder,
+            min_values=1,
+            max_values=1,
+            options=options,
+            custom_id=self.custom_id(field),
+        )
         async def callback(interaction):
             self.draft[field] = select.values[0]
             self.save_draft()
@@ -222,7 +235,7 @@ class LocationRequestView(discord.ui.View):
 
     @discord.ui.button(label="Preview request", emoji="👀", style=discord.ButtonStyle.secondary, row=3)
     async def preview(self, interaction, button):
-        await interaction.response.send_message(embed=build_location_preview_embed(self.draft), ephemeral=False)
+        await interaction.response.send_message(embed=build_location_preview_embed(self.draft), ephemeral=True)
 
     @discord.ui.button(label="Create location", emoji="✅", style=discord.ButtonStyle.success, row=3)
     async def create_location(self, interaction, button):
@@ -415,6 +428,34 @@ class PlatformGroveAdmin(commands.Cog):
             return signed.get("signedURL") or signed.get("signedUrl") or signed.get("publicUrl")
         return getattr(signed, "signed_url", None) or getattr(signed, "signedURL", None)
     
+    async def restore_location_request_views(self):
+        location_threads = self.sync_state.get("feedback", {})
+        if not location_threads:
+            return
+
+        response = (
+            self.supabase.table("feedback_messages")
+            .select("*")
+            .neq("status", "closed")
+            .execute()
+        )
+        rows_by_id = {row.get("id"): row for row in response.data or []}
+
+        for feedback_id, thread_id in location_threads.items():
+            row = rows_by_id.get(feedback_id)
+            if not row or not (row.get("message") or "").startswith(LOCATION_REQUEST_PREFIX):
+                continue
+
+            view = LocationRequestView(self, feedback_id, row)
+            self.bot.add_view(view, message_id=int(thread_id))
+
+            try:
+                thread = self.bot.get_channel(int(thread_id)) or await self.bot.fetch_channel(int(thread_id))
+                starter_message = await thread.fetch_message(int(thread_id))
+                await starter_message.edit(view=view)
+            except Exception as error:
+                print(f"[PLATFORM_GROVE] Could not refresh location request view {feedback_id}: {error}")
+
     async def sync_feedback(self):
         response = self.supabase.table("feedback_messages").select("*").neq("status", "closed").order("created_at", desc=True).limit(25).execute()
         for row in response.data or []:
@@ -511,6 +552,7 @@ class PlatformGroveAdmin(commands.Cog):
     @platform_sync.before_loop
     async def before_platform_sync(self):
         await self.bot.wait_until_ready()
+        await self.restore_location_request_views()
 
     @app_commands.command(name="platform_overview", description="Post current BareUnity website stats in platform-overview")
     async def platform_overview(self, interaction):
