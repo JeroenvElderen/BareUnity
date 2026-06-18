@@ -23,6 +23,25 @@ SYNC_FILE = "platform_grove_sync.json"
 LOCATION_REQUEST_PREFIX = "LOCATION_REQUEST::"
 LOCATION_VIEW_PREFIX = "location_request"
 
+ACCESS_TYPE_OPTIONS = ["Public", "Discreet"]
+TERRAIN_OPTIONS = [
+    "Beach",
+    "Hot Spring",
+    "Campground",
+    "Forest",
+    "Urban Rooftop",
+    "Resort",
+    "Activity",
+    "Stays",
+]
+SAFETY_LEVEL_OPTIONS = [
+    "Beginner Friendly",
+    "Trusted",
+    "Verified",
+    "Intermediate",
+    "Experienced",
+]
+
 SIDEBAR_ITEMS = [
     "home",
     "explore",
@@ -108,7 +127,7 @@ def default_location_draft(row):
         "full_description": "",
         "access_type": "Public",
         "terrain": terrain,
-        "safety_level": "Beginner friendly",
+        "safety_level": "Beginner Friendly",
         "amenities": "",
         "tags": tags,
     }
@@ -199,9 +218,9 @@ class LocationRequestView(discord.ui.View):
         self.feedback_id = feedback_id
         self.row = row
         self.draft = cog.sync_state.setdefault("location_drafts", {}).get(feedback_id) or default_location_draft(row)
-        self.add_item(self.build_select("access_type", "Access type", ["Public", "Discreet"]))
-        self.add_item(self.build_select("terrain", "Type / terrain", ["Beach", "Forest", "Lake", "Trail", "Resort", "Stays", "Activity", "Other"]))
-        self.add_item(self.build_select("safety_level", "Safety", ["Beginner friendly", "Moderate", "Advanced", "Use caution"]))
+        self.add_item(self.build_select("access_type", "Access type", ACCESS_TYPE_OPTIONS))
+        self.add_item(self.build_select("terrain", "Type / terrain", TERRAIN_OPTIONS))
+        self.add_item(self.build_select("safety_level", "Safety", SAFETY_LEVEL_OPTIONS))
         self.fill_text_fields.custom_id = self.custom_id("fill_text_fields")
         self.preview.custom_id = self.custom_id("preview")
         self.create_location.custom_id = self.custom_id("create_location")

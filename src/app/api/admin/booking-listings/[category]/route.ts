@@ -353,7 +353,7 @@ async function createBookingMapSpotWithPrisma(
       access_type: "Public",
       terrain: config.terrain,
       clothing_policy: "Clothing optional",
-      safety_level: "Beginner friendly",
+      safety_level: "Beginner Friendly",
       best_season: "Year-round",
       website: listing.websiteUrl,
       amenities: Array.from(
@@ -398,7 +398,7 @@ async function createBookingMapSpotWithSupabaseAdmin(
       access_type: "Public",
       terrain: config.terrain,
       clothing_policy: "Clothing optional",
-      safety_level: "Beginner friendly",
+      safety_level: "Beginner Friendly",
       best_season: "Year-round",
       website: listing.websiteUrl,
       amenities: Array.from(
