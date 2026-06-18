@@ -1,5 +1,7 @@
 import json
 import os
+import re
+from pathlib import Path
 from datetime import datetime, timezone
 
 import discord
@@ -89,6 +91,64 @@ def save_json(path, payload):
 
 def split_comma_list(value):
     return [item.strip() for item in (value or "").split(",") if item.strip()]
+
+
+def slugify(value):
+    slug = re.sub(r"[^a-z0-9]+", "-", (value or "").strip().lower()).strip("-")
+    return slug or "bareunity-listing"
+
+
+def has_strong_password(password):
+    return (
+        len(password or "") >= 12
+        and re.search(r"[A-Z]", password or "")
+        and re.search(r"[a-z]", password or "")
+        and re.search(r"\d", password or "")
+        and re.search(r"[^\w\s]", password or "")
+    )
+
+
+def normalize_username(value):
+    normalized = re.sub(r"[^a-z0-9_-]+", "-", (value or "").strip().lower()).strip("-_")
+    return normalized[:30] or "naturist"
+
+
+def parse_float(value, fallback=0.0):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return fallback
+
+
+def load_json_payload(value):
+    try:
+        parsed = json.loads(value or "{}")
+    except Exception as error:
+        raise ValueError(f"Invalid JSON: {error}") from error
+    if not isinstance(parsed, dict):
+        raise ValueError("JSON payload must be an object.")
+    return parsed
+
+
+def list_from_payload(value):
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [item for item in value if item not in (None, "")]
+    if isinstance(value, str):
+        return split_comma_list(value)
+    return []
+
+
+def value_for(payload, *keys, default=None):
+    for key in keys:
+        if key in payload and payload[key] not in (None, ""):
+            return payload[key]
+    return default
+
+
+def repo_root():
+    return Path(__file__).resolve().parents[2]
 
 
 def parse_location_request_message(message):
@@ -186,6 +246,22 @@ class FeedbackView(discord.ui.View):
             "status": "closed",
         }).eq("id", self.feedback_id).execute()
         await interaction.response.send_message("✅ Website ticket marked closed.", ephemeral=True)
+
+
+
+class ReportDecisionView(discord.ui.View):
+    def __init__(self, cog, report_id):
+        super().__init__(timeout=None)
+        self.cog = cog
+        self.report_id = report_id
+
+    @discord.ui.button(label="Archive report", emoji="✅", style=discord.ButtonStyle.success)
+    async def archive(self, interaction, button):
+        if not self.cog.is_staff(interaction.user):
+            await interaction.response.send_message("❌ Staff only.", ephemeral=True)
+            return
+        self.cog.supabase.table("reports").delete().eq("id", self.report_id).execute()
+        await interaction.response.send_message("✅ Report archived/removed from the website queue.", ephemeral=True)
 
 
 class LocationTextModal(discord.ui.Modal):
@@ -306,6 +382,16 @@ class GalleryDecisionView(discord.ui.View):
     @discord.ui.button(label="Nude gallery", emoji="🖼️", style=discord.ButtonStyle.primary)
     async def nude(self, interaction, button):
         await self.set_gallery(interaction, "nude")
+
+    @discord.ui.button(label="Reject", emoji="🗑️", style=discord.ButtonStyle.danger)
+    async def reject(self, interaction, button):
+        self.cog.supabase.table("gallery_media").update({
+            "gallery_type": "pending",
+            "moderation_status": "rejected",
+            "moderation_reason": f"Rejected from Discord by {interaction.user}",
+            "updated_at": now_iso(),
+        }).eq("image_path", self.image_path).execute()
+        await interaction.response.send_message("🗑️ Gallery item rejected.", ephemeral=True)
 
     @discord.ui.button(label="Keep pending", emoji="⏳", style=discord.ButtonStyle.secondary)
     async def pending(self, interaction, button):
@@ -521,7 +607,7 @@ class PlatformGroveAdmin(commands.Cog):
             for name, key in [("Report ID", "id"), ("Reporter", "reporter_id"), ("Target type", "target_type"), ("Target ID", "target_id")]:
                 if row.get(key):
                     embed.add_field(name=name, value=str(row[key])[:1024], inline=True)
-            thread = await self.create_forum_thread(PLATFORM_REPORTS, f"Report • {report_id[:8]}", "Website report synced from BareUnity.", embed)
+            thread = await self.create_forum_thread(PLATFORM_REPORTS, f"Report • {report_id[:8]}", "Website report synced from BareUnity.", embed, ReportDecisionView(self, report_id))
             if thread:
                 self.sync_state["reports"][report_id] = str(thread.id)
 
@@ -573,6 +659,459 @@ class PlatformGroveAdmin(commands.Cog):
         await self.bot.wait_until_ready()
         await self.restore_location_request_views()
 
+    async def ensure_unique_username(self, requested):
+        base = normalize_username(requested)
+        response = self.supabase.table("profiles").select("id").eq("username", base).limit(1).execute()
+        if not response.data:
+            return base
+        for suffix in range(1, 100):
+            candidate = f"{base}-{suffix}"
+            response = self.supabase.table("profiles").select("id").eq("username", candidate).limit(1).execute()
+            if not response.data:
+                return candidate
+        return f"{base}-{datetime.now(timezone.utc).strftime('%H%M%S')}"
+
+    @app_commands.command(name="admin_user_create", description="Create a BareUnity website user from Discord")
+    async def admin_user_create(self, interaction, email: str, password: str, display_name: str, username: str | None = None):
+        if interaction.channel_id != PLATFORM_OPERATIONS:
+            await interaction.response.send_message("❌ Use this in #platform-operations.", ephemeral=True)
+            return
+        if not self.is_staff(interaction.user):
+            await interaction.response.send_message("❌ Staff only.", ephemeral=True)
+            return
+        if "@" not in email or not has_strong_password(password):
+            await interaction.response.send_message("❌ Enter a valid email and a 12+ character password with uppercase, lowercase, number, and symbol.", ephemeral=True)
+            return
+
+        await interaction.response.defer(ephemeral=True)
+        final_username = await self.ensure_unique_username(username or display_name or email.split("@")[0])
+        try:
+            created = self.supabase.auth.admin.create_user({
+                "email": email.strip().lower(),
+                "password": password,
+                "email_confirm": True,
+                "user_metadata": {"display_name": display_name.strip()},
+            })
+            user = getattr(created, "user", None) or (created.get("user") if isinstance(created, dict) else None)
+            user_id = getattr(user, "id", None) or (user.get("id") if isinstance(user, dict) else None)
+        except Exception as error:
+            await interaction.followup.send(f"❌ Could not create auth user: {error}", ephemeral=True)
+            return
+        if not user_id:
+            await interaction.followup.send("❌ Supabase did not return a user id.", ephemeral=True)
+            return
+        profile_response = self.supabase.table("profiles").upsert({
+            "id": user_id,
+            "username": final_username,
+            "display_name": display_name.strip(),
+        }).execute()
+        if not profile_response.data:
+            await interaction.followup.send("⚠️ User auth account was created, but the profile upsert did not return data.", ephemeral=True)
+            return
+        await interaction.followup.send(f"✅ Created website user `{final_username}` ({user_id}).", ephemeral=True)
+
+    @app_commands.command(name="admin_user_search", description="Search BareUnity website users from Discord")
+    async def admin_user_search(self, interaction, query: str):
+        if interaction.channel_id != PLATFORM_OPERATIONS and not self.is_member_management_channel(interaction):
+            await interaction.response.send_message("❌ Use this in #platform-operations or member-management.", ephemeral=True)
+            return
+        if not self.is_staff(interaction.user):
+            await interaction.response.send_message("❌ Staff only.", ephemeral=True)
+            return
+        response = (
+            self.supabase.table("profiles")
+            .select("id, username, display_name, location, created_at")
+            .or_(f"username.ilike.%{query}%,display_name.ilike.%{query}%")
+            .limit(10)
+            .execute()
+        )
+        if not response.data:
+            await interaction.response.send_message("No matching website users found.", ephemeral=True)
+            return
+        embed = discord.Embed(title="Website user search", color=discord.Color.green())
+        for profile in response.data:
+            embed.add_field(
+                name=profile.get("display_name") or profile.get("username") or profile.get("id"),
+                value=f"ID: `{profile.get('id')}`\nUsername: `{profile.get('username')}`\nLocation: {profile.get('location') or 'Unknown'}",
+                inline=False,
+            )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    @app_commands.command(name="admin_user_delete", description="Delete a BareUnity website auth user and profile from Discord")
+    async def admin_user_delete(self, interaction, user_id: str):
+        if interaction.channel_id != PLATFORM_OPERATIONS:
+            await interaction.response.send_message("❌ Use this in #platform-operations.", ephemeral=True)
+            return
+        if not self.is_staff(interaction.user):
+            await interaction.response.send_message("❌ Staff only.", ephemeral=True)
+            return
+        await interaction.response.defer(ephemeral=True)
+        try:
+            self.supabase.auth.admin.delete_user(user_id)
+        except Exception as error:
+            await interaction.followup.send(f"❌ Could not delete auth user: {error}", ephemeral=True)
+            return
+        self.supabase.table("profiles").delete().eq("id", user_id).execute()
+        await interaction.followup.send(f"✅ Deleted website user `{user_id}`.", ephemeral=True)
+
+    @app_commands.command(name="country_get", description="Show a BareUnity country discovery profile")
+    async def country_get(self, interaction, name: str):
+        if interaction.channel_id != PLATFORM_OPERATIONS:
+            await interaction.response.send_message("❌ Use this in #platform-operations.", ephemeral=True)
+            return
+        response = self.supabase.table("country_discovery_profiles").select("*").ilike("name", name).limit(1).execute()
+        if not response.data:
+            await interaction.response.send_message("❌ Country profile not found.", ephemeral=True)
+            return
+        country = response.data[0]
+        embed = discord.Embed(title=f"{country.get('flag') or '🌍'} {country.get('name')}", description=country.get("tagline") or "", color=discord.Color.green())
+        for label, key in [("Slug", "slug"), ("Continent", "continent"), ("Legal", "legal_status"), ("Best time", "best_time")]:
+            if country.get(key):
+                embed.add_field(name=label, value=str(country[key])[:1024], inline=True)
+        if country.get("hero_image"):
+            embed.set_image(url=country["hero_image"])
+        await interaction.response.send_message(embed=embed, ephemeral=False)
+
+    @app_commands.command(name="country_upsert_basic", description="Create/update a country discovery profile from Discord")
+    async def country_upsert_basic(self, interaction, name: str, flag: str, continent: str, tagline: str, hero_image: str, legal_status: str, best_time: str, slug: str | None = None):
+        if interaction.channel_id != PLATFORM_OPERATIONS:
+            await interaction.response.send_message("❌ Use this in #platform-operations.", ephemeral=True)
+            return
+        if not self.is_staff(interaction.user):
+            await interaction.response.send_message("❌ Staff only.", ephemeral=True)
+            return
+        final_slug = slugify(slug or name)
+        payload = {
+            "slug": final_slug,
+            "name": name.strip(),
+            "flag": flag.strip(),
+            "continent": continent.strip(),
+            "tagline": tagline.strip(),
+            "hero_image": hero_image.strip(),
+            "legal_status": legal_status.strip(),
+            "beaches_count": "Add details",
+            "resorts_count": "Add details",
+            "community_rating": "New",
+            "community_members": "0",
+            "glance": {},
+            "culture_scores": {},
+            "laws": [{"topic": "Naturism", "status": "caution", "summary": legal_status.strip()}],
+            "first_time_tips": ["Check local guidance before visiting."],
+            "etiquette": ["Respect local rules and community privacy."],
+            "best_time": best_time.strip(),
+            "regions": [],
+            "beaches": [],
+            "season": {"months": [], "air": [], "sea": [], "vibe": []},
+            "faqs": [],
+            "tags": [],
+            "updated_at": now_iso(),
+        }
+        response = self.supabase.table("country_discovery_profiles").upsert(payload, on_conflict="slug").execute()
+        if not response.data:
+            await interaction.response.send_message("⚠️ Country upsert completed but returned no data.", ephemeral=True)
+            return
+        await interaction.response.send_message(f"✅ Country profile `{final_slug}` saved from Discord.", ephemeral=True)
+
+    @app_commands.command(name="stay_create_basic", description="Create a basic stay listing and map spot from Discord")
+    async def stay_create_basic(self, interaction, name: str, country: str, place_name: str, website_url: str, latitude: str, longitude: str, description: str):
+        if interaction.channel_id != PLATFORM_OPERATIONS:
+            await interaction.response.send_message("❌ Use this in #platform-operations.", ephemeral=True)
+            return
+        if not self.is_staff(interaction.user):
+            await interaction.response.send_message("❌ Staff only.", ephemeral=True)
+            return
+        slug = slugify(name)
+        lat = parse_float(latitude)
+        lon = parse_float(longitude)
+        stay_payload = {
+            "slug": slug, "name": name, "country": country, "place_name": place_name, "type": "Naturist camping",
+            "rating": 4.5, "price": "Check website", "badge": "Discord-created stay", "vibe": "Naturist-friendly stay",
+            "amenities": [], "description": description, "website_url": website_url, "address": place_name,
+            "map_latitude": lat, "map_longitude": lon, "check_in_window": "Check the stay website for current arrival times",
+            "gallery": [], "policies": [],
+        }
+        self.supabase.table("stays").upsert(stay_payload, on_conflict="slug").execute()
+        self.supabase.table("naturist_map_spots").upsert({
+            "name": name, "description": description, "short_description": description[:240], "latitude": lat, "longitude": lon,
+            "privacy": "Public", "location_hint": place_name, "access_type": "Public", "terrain": "Stays",
+            "safety_level": "Beginner Friendly", "website": website_url, "amenities": [], "tags": ["stays"],
+            "reporter_notes": f"Created from Discord by {interaction.user}", "status": "approved",
+        }).execute()
+        await interaction.response.send_message(f"✅ Stay `{slug}` saved and map spot created.", ephemeral=True)
+
+    @app_commands.command(name="activity_create_basic", description="Create a basic activity map listing from Discord")
+    async def activity_create_basic(self, interaction, name: str, place_name: str, website_url: str, latitude: str, longitude: str, description: str):
+        if interaction.channel_id != PLATFORM_OPERATIONS:
+            await interaction.response.send_message("❌ Use this in #platform-operations.", ephemeral=True)
+            return
+        if not self.is_staff(interaction.user):
+            await interaction.response.send_message("❌ Staff only.", ephemeral=True)
+            return
+        lat = parse_float(latitude)
+        lon = parse_float(longitude)
+        self.supabase.table("naturist_map_spots").insert({
+            "name": name, "description": description, "short_description": description[:240], "latitude": lat, "longitude": lon,
+            "privacy": "Public", "location_hint": place_name, "access_type": "Public", "terrain": "Activity",
+            "safety_level": "Beginner Friendly", "website": website_url, "amenities": ["Hosted activity"],
+            "tags": ["activities", "events", "bookings"], "reporter_notes": f"Created from Discord by {interaction.user}", "status": "approved",
+        }).execute()
+        await interaction.response.send_message("✅ Activity map listing created from Discord.", ephemeral=True)
+
+    @app_commands.command(name="admin_user_update_json", description="Update detailed website user/profile fields from a JSON payload")
+    async def admin_user_update_json(self, interaction, user_id: str, payload_json: str):
+        if interaction.channel_id != PLATFORM_OPERATIONS:
+            await interaction.response.send_message("❌ Use this in #platform-operations.", ephemeral=True)
+            return
+        if not self.is_staff(interaction.user):
+            await interaction.response.send_message("❌ Staff only.", ephemeral=True)
+            return
+        try:
+            payload = load_json_payload(payload_json)
+        except ValueError as error:
+            await interaction.response.send_message(f"❌ {error}", ephemeral=True)
+            return
+
+        await interaction.response.defer(ephemeral=True)
+        profile_fields = {
+            key: value_for(payload, key)
+            for key in [
+                "username", "display_name", "bio", "location", "avatar_url", "cover_url",
+                "membership_type", "verification_status", "country", "website", "instagram",
+            ]
+            if value_for(payload, key) is not None
+        }
+        if "username" in profile_fields:
+            profile_fields["username"] = normalize_username(profile_fields["username"])
+        if profile_fields:
+            self.supabase.table("profiles").update(profile_fields).eq("id", user_id).execute()
+
+        settings_fields = {
+            key: value_for(payload, key)
+            for key in ["user_role", "is_private", "email_notifications", "push_notifications"]
+            if value_for(payload, key) is not None
+        }
+        if settings_fields:
+            settings_fields["user_id"] = user_id
+            settings_fields["updated_at"] = now_iso()
+            self.supabase.table("profile_settings").upsert(settings_fields, on_conflict="user_id").execute()
+
+        auth_metadata = value_for(payload, "user_metadata", "metadata")
+        if isinstance(auth_metadata, dict):
+            try:
+                self.supabase.auth.admin.update_user_by_id(user_id, {"user_metadata": auth_metadata})
+            except Exception as error:
+                await interaction.followup.send(f"⚠️ Profile updated, but auth metadata update failed: {error}", ephemeral=True)
+                return
+
+        await interaction.followup.send(f"✅ Website user `{user_id}` updated from Discord JSON.", ephemeral=True)
+
+    @app_commands.command(name="country_upsert_json", description="Create/update a full country discovery profile from JSON")
+    async def country_upsert_json(self, interaction, payload_json: str):
+        if interaction.channel_id != PLATFORM_OPERATIONS:
+            await interaction.response.send_message("❌ Use this in #platform-operations.", ephemeral=True)
+            return
+        if not self.is_staff(interaction.user):
+            await interaction.response.send_message("❌ Staff only.", ephemeral=True)
+            return
+        try:
+            payload = load_json_payload(payload_json)
+        except ValueError as error:
+            await interaction.response.send_message(f"❌ {error}", ephemeral=True)
+            return
+        name = str(value_for(payload, "name", default="")).strip()
+        final_slug = slugify(value_for(payload, "slug", default=name))
+        if not name:
+            await interaction.response.send_message("❌ Country JSON must include `name`.", ephemeral=True)
+            return
+        row = {
+            "slug": final_slug,
+            "name": name,
+            "flag": value_for(payload, "flag", default="🌍"),
+            "continent": value_for(payload, "continent", default="Unknown"),
+            "tagline": value_for(payload, "tagline", default=f"Naturist guide for {name}"),
+            "hero_image": value_for(payload, "heroImage", "hero_image", default="https://images.unsplash.com/photo-1500530855697-b586d89ba3ee"),
+            "legal_status": value_for(payload, "legalStatus", "legal_status", default="Check local guidance before visiting."),
+            "beaches_count": value_for(payload, "beachesCount", "beaches_count", default="0"),
+            "resorts_count": value_for(payload, "resortsCount", "resorts_count", default="0"),
+            "community_rating": value_for(payload, "communityRating", "community_rating", default="New"),
+            "community_members": value_for(payload, "communityMembers", "community_members", default="0"),
+            "glance": value_for(payload, "glance", default={}),
+            "culture_scores": value_for(payload, "cultureScores", "culture_scores", default={}),
+            "laws": value_for(payload, "laws", default=[]),
+            "first_time_tips": value_for(payload, "firstTimeTips", "first_time_tips", default=[]),
+            "etiquette": value_for(payload, "etiquette", default=[]),
+            "best_time": value_for(payload, "bestTime", "best_time", default="Year-round with local checks"),
+            "regions": value_for(payload, "regions", default=[]),
+            "beaches": value_for(payload, "beaches", default=[]),
+            "season": value_for(payload, "season", default={}),
+            "faqs": value_for(payload, "faqs", default=[]),
+            "tags": list_from_payload(value_for(payload, "tags", default=[])),
+            "updated_at": now_iso(),
+        }
+        self.supabase.table("country_discovery_profiles").upsert(row, on_conflict="slug").execute()
+        await interaction.response.send_message(f"✅ Full country profile `{final_slug}` saved from Discord JSON.", ephemeral=True)
+
+    @app_commands.command(name="stay_upsert_json", description="Create/update a full stay listing from JSON")
+    async def stay_upsert_json(self, interaction, payload_json: str):
+        if interaction.channel_id != PLATFORM_OPERATIONS:
+            await interaction.response.send_message("❌ Use this in #platform-operations.", ephemeral=True)
+            return
+        if not self.is_staff(interaction.user):
+            await interaction.response.send_message("❌ Staff only.", ephemeral=True)
+            return
+        try:
+            payload = load_json_payload(payload_json)
+        except ValueError as error:
+            await interaction.response.send_message(f"❌ {error}", ephemeral=True)
+            return
+        name = str(value_for(payload, "name", default="")).strip()
+        if not name:
+            await interaction.response.send_message("❌ Stay JSON must include `name`.", ephemeral=True)
+            return
+        slug = slugify(value_for(payload, "slug", default=name))
+        lat = parse_float(value_for(payload, "mapLatitude", "map_latitude", "latitude", default=0))
+        lon = parse_float(value_for(payload, "mapLongitude", "map_longitude", "longitude", default=0))
+        row = {
+            "slug": slug,
+            "name": name,
+            "country": value_for(payload, "country", default=""),
+            "place_name": value_for(payload, "placeName", "place_name", default=""),
+            "type": value_for(payload, "type", default="Naturist camping"),
+            "rating": parse_float(value_for(payload, "rating", default=4.5), 4.5),
+            "price": value_for(payload, "price", default="Check website"),
+            "badge": value_for(payload, "badge", default="Discord-managed stay"),
+            "vibe": value_for(payload, "vibe", default="Naturist-friendly stay"),
+            "amenities": list_from_payload(value_for(payload, "amenities", default=[])),
+            "description": value_for(payload, "description", default=""),
+            "website_url": value_for(payload, "websiteUrl", "website_url", default=""),
+            "address": value_for(payload, "address", default=value_for(payload, "placeName", "place_name", default="")),
+            "map_latitude": lat,
+            "map_longitude": lon,
+            "check_in_window": value_for(payload, "checkInWindow", "check_in_window", default="Check the stay website for current arrival times"),
+            "gallery": list_from_payload(value_for(payload, "gallery", default=[])),
+            "policies": value_for(payload, "policies", default=[]),
+        }
+        self.supabase.table("stays").upsert(row, on_conflict="slug").execute()
+        self.supabase.table("naturist_map_spots").upsert({
+            "name": name,
+            "description": row["description"],
+            "short_description": str(row["description"])[:240],
+            "latitude": lat,
+            "longitude": lon,
+            "privacy": value_for(payload, "privacy", default="Public"),
+            "location_hint": row["place_name"] or row["address"],
+            "access_type": value_for(payload, "accessType", "access_type", default="Public"),
+            "terrain": "Stays",
+            "safety_level": value_for(payload, "safetyLevel", "safety_level", default="Beginner Friendly"),
+            "website": row["website_url"],
+            "amenities": row["amenities"],
+            "tags": list_from_payload(value_for(payload, "tags", default=["stays"])),
+            "reporter_notes": f"Full stay upsert from Discord by {interaction.user}",
+            "status": "approved",
+        }).execute()
+        await interaction.response.send_message(f"✅ Full stay `{slug}` saved from Discord JSON.", ephemeral=True)
+
+    @app_commands.command(name="activity_upsert_json", description="Create/update a full activity listing JSON file and map spot")
+    async def activity_upsert_json(self, interaction, payload_json: str):
+        if interaction.channel_id != PLATFORM_OPERATIONS:
+            await interaction.response.send_message("❌ Use this in #platform-operations.", ephemeral=True)
+            return
+        if not self.is_staff(interaction.user):
+            await interaction.response.send_message("❌ Staff only.", ephemeral=True)
+            return
+        try:
+            payload = load_json_payload(payload_json)
+        except ValueError as error:
+            await interaction.response.send_message(f"❌ {error}", ephemeral=True)
+            return
+        name = str(value_for(payload, "name", default="")).strip()
+        if not name:
+            await interaction.response.send_message("❌ Activity JSON must include `name`.", ephemeral=True)
+            return
+        slug = slugify(value_for(payload, "slug", default=name))
+        lat = parse_float(value_for(payload, "mapLatitude", "map_latitude", "latitude", default=0))
+        lon = parse_float(value_for(payload, "mapLongitude", "map_longitude", "longitude", default=0))
+        listing = {
+            "slug": slug,
+            "name": name,
+            "country": value_for(payload, "country", default=""),
+            "placeName": value_for(payload, "placeName", "place_name", default=""),
+            "type": value_for(payload, "type", default="Event"),
+            "rating": parse_float(value_for(payload, "rating", default=4.5), 4.5),
+            "price": value_for(payload, "price", default="Check website"),
+            "badge": value_for(payload, "badge", default="Discord-managed activity"),
+            "vibe": value_for(payload, "vibe", default="Naturist-friendly experience"),
+            "amenities": list_from_payload(value_for(payload, "amenities", default=[])),
+            "description": value_for(payload, "description", default=""),
+            "websiteUrl": value_for(payload, "websiteUrl", "website_url", default=""),
+            "address": value_for(payload, "address", default=value_for(payload, "placeName", "place_name", default="")),
+            "mapLatitude": lat,
+            "mapLongitude": lon,
+            "checkInWindow": value_for(payload, "checkInWindow", "check_in_window", default="Check the activity website for current schedule"),
+            "gallery": list_from_payload(value_for(payload, "gallery", default=[])),
+            "policies": value_for(payload, "policies", default=[]),
+        }
+        data_path = repo_root() / "src/app/bookings/activities/activities-data-store.json"
+        saved_file = False
+        if data_path.exists():
+            try:
+                current = json.loads(data_path.read_text(encoding="utf-8"))
+                if not isinstance(current, list):
+                    current = []
+                current = [item for item in current if item.get("slug") != slug]
+                current.append(listing)
+                current.sort(key=lambda item: str(item.get("name", "")).lower())
+                data_path.write_text(json.dumps(current, indent=2) + "\n", encoding="utf-8")
+                saved_file = True
+            except Exception as error:
+                await interaction.response.send_message(f"❌ Could not write activity data file: {error}", ephemeral=True)
+                return
+        self.supabase.table("naturist_map_spots").upsert({
+            "name": name,
+            "description": listing["description"],
+            "short_description": str(listing["description"])[:240],
+            "latitude": lat,
+            "longitude": lon,
+            "privacy": value_for(payload, "privacy", default="Public"),
+            "location_hint": listing["placeName"] or listing["address"],
+            "access_type": value_for(payload, "accessType", "access_type", default="Public"),
+            "terrain": "Activity",
+            "safety_level": value_for(payload, "safetyLevel", "safety_level", default="Beginner Friendly"),
+            "website": listing["websiteUrl"],
+            "amenities": listing["amenities"],
+            "tags": list_from_payload(value_for(payload, "tags", default=["activities", "events", "bookings"])),
+            "reporter_notes": f"Full activity upsert from Discord by {interaction.user}",
+            "status": "approved",
+        }).execute()
+        file_note = " and activity data file updated" if saved_file else " (map spot only; data file not found in bot runtime)"
+        await interaction.response.send_message(f"✅ Full activity `{slug}` saved from Discord JSON{file_note}.", ephemeral=True)
+
+    @app_commands.command(name="gallery_moderation_update", description="Moderate a gallery image by storage path from Discord")
+    async def gallery_moderation_update(self, interaction, image_path: str, action: str, reason: str | None = None):
+        if interaction.channel_id != GALLERY_REVIEW:
+            await interaction.response.send_message("❌ Use this in #gallery-review.", ephemeral=True)
+            return
+        if not self.is_staff(interaction.user):
+            await interaction.response.send_message("❌ Staff only.", ephemeral=True)
+            return
+        action_map = {
+            "approve_general": ("general", "approved"),
+            "approve_nude": ("nude", "approved"),
+            "reject": ("pending", "rejected"),
+            "pending": ("pending", "pending"),
+        }
+        if action not in action_map:
+            await interaction.response.send_message("❌ Action must be approve_general, approve_nude, reject, or pending.", ephemeral=True)
+            return
+        gallery_type, moderation_status = action_map[action]
+        self.supabase.table("gallery_media").update({
+            "gallery_type": gallery_type,
+            "moderation_status": moderation_status,
+            "moderation_reason": reason or f"{action} from Discord by {interaction.user}",
+            "updated_at": now_iso(),
+        }).eq("image_path", image_path).execute()
+        await interaction.response.send_message(f"✅ Gallery media `{image_path}` updated to `{moderation_status}` / `{gallery_type}`.", ephemeral=True)
+
     @app_commands.command(name="platform_overview", description="Post current BareUnity website stats in platform-overview")
     async def platform_overview(self, interaction):
         if not self.is_staff(interaction.user):
@@ -618,6 +1157,43 @@ class PlatformGroveAdmin(commands.Cog):
         hidden = [value for value in list((current.data or {}).get("sidebar_hidden_items") or []) if value != item.value]
         self.supabase.table("platform_settings").upsert({"id": True, "sidebar_hidden_items": hidden, "updated_at": now_iso()}).execute()
         await interaction.response.send_message(f"✅ Shown `{item.value}` on the website sidebar.", ephemeral=True)
+
+    async def set_application_status(self, interaction, user_id: str, status: str, notes: str | None = None):
+        if interaction.channel_id != MEMBER_APPLICATIONS and not (
+            isinstance(interaction.channel, discord.Thread)
+            and interaction.channel.parent_id == MEMBER_APPLICATIONS
+        ):
+            await interaction.response.send_message("❌ Use this in member-applications or one of its posts.", ephemeral=True)
+            return
+        if not self.is_staff(interaction.user):
+            await interaction.response.send_message("❌ Staff only.", ephemeral=True)
+            return
+
+        update = {
+            "status": status,
+            "reviewer_notes": notes or f"{status.title()} from Discord by {interaction.user}",
+            "updated_at": now_iso(),
+        }
+        response = (
+            self.supabase.table("verification_submissions")
+            .update(update)
+            .eq("user_id", user_id)
+            .execute()
+        )
+        if not response.data:
+            await interaction.response.send_message("❌ Application not found.", ephemeral=True)
+            return
+        self.sync_state.setdefault("applications", {}).pop(user_id, None)
+        save_json(SYNC_FILE, self.sync_state)
+        await interaction.response.send_message(f"✅ Application `{user_id}` marked {status} on the website.")
+
+    @app_commands.command(name="application_approve", description="Approve a website verification application from Discord")
+    async def application_approve(self, interaction, user_id: str, notes: str | None = None):
+        await self.set_application_status(interaction, user_id, "approved", notes)
+
+    @app_commands.command(name="application_reject", description="Reject a website verification application from Discord")
+    async def application_reject(self, interaction, user_id: str, notes: str | None = None):
+        await self.set_application_status(interaction, user_id, "rejected", notes)
 
     @app_commands.command(name="member_profile", description="Open a website member profile card in member-management")
     async def member_profile(self, interaction, username: str):

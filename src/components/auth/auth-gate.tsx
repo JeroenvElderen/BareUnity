@@ -85,10 +85,6 @@ const BACKGROUND_ROUTES_TO_PREFETCH = [
   "/bookings",
   "/bookings/activities",
   "/bookings/hotels-airbnbs",
-  "/admin",
-  "/admin/applications",
-  "/admin/reports",
-  "/admin/feedback",
 ];
 const PRE_LOGIN_DATA_ENDPOINTS = [
   "/api/homefeed",

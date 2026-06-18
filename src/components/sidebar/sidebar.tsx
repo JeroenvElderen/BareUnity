@@ -8,11 +8,8 @@ import {
   Bell,
   Building2,
   ChevronDown,
-  ClipboardCheck,
   Compass,
-  Flag,
   Globe2,
-  CircleUser,
   Home,
   Image as ImageIcon,
   LogOut,
@@ -178,24 +175,6 @@ type VerificationApplySnapshot = {
   status?: string;
 };
 
-const adminItems: readonly SidebarNavLinkItem[] = [
-  {
-    id: "admin-overview",
-    icon: ShieldCheck,
-    label: "Overview",
-    href: "/admin",
-  },
-  {
-    id: "admin-applications",
-    icon: ClipboardCheck,
-    label: "Applications",
-    href: "/admin/applications",
-  },
-  { id: "admin-reports", icon: Flag, label: "Reports", href: "/admin/reports" },
-  { id: "admin-users", icon: CircleUser, label: "Users", href: "/admin/users" },
-  { id: "admin-stays", icon: Building2, label: "Stays", href: "/admin/stays" },
-];
-
 function isActiveNavItem(pathname: string | null, href: string) {
   return pathname === href;
 }
@@ -238,8 +217,6 @@ export function AppSidebar() {
   const isBookingsSection = pathname?.startsWith("/bookings") ?? false;
   const [isBookingsOpen, setIsBookingsOpen] = useState(isBookingsSection);
   const [isAdmin, setIsAdmin] = useState(false);
-  const isAdminSection = pathname?.startsWith("/admin") ?? false;
-  const [isAdminOpen, setIsAdminOpen] = useState(isAdminSection);
   const [hiddenSidebarItems, setHiddenSidebarItems] =
     useState<SidebarHiddenItemSet>({});
   const [activeToasts, setActiveToasts] = useState<AppNotification[]>([]);
@@ -845,7 +822,7 @@ export function AppSidebar() {
                 "New report",
                 "A new moderation report needs review.",
                 "admin-report",
-                "/admin/reports",
+                "/notifications",
               ),
             );
           },
@@ -863,7 +840,7 @@ export function AppSidebar() {
                 "New registration",
                 "A new member account has been created.",
                 "admin-registration",
-                "/admin/users",
+                "/notifications",
               ),
             );
           },
@@ -886,7 +863,7 @@ export function AppSidebar() {
                   ? "A member submitted a location request."
                   : "A member sent new feedback.",
                 isLocationRequest ? "admin-location" : "admin-feedback",
-                isLocationRequest ? "/admin/locations" : "/admin/feedback",
+                isLocationRequest ? "/notifications" : "/notifications",
               ),
             );
           },
@@ -908,7 +885,7 @@ export function AppSidebar() {
                 "New verification request",
                 "A member is waiting for verification review.",
                 "admin-verification",
-                "/admin/applications",
+                "/notifications",
               ),
             );
           },
@@ -1000,9 +977,6 @@ export function AppSidebar() {
     }
     return true;
   });
-  const visibleAdminItems = adminItems.filter(
-    (item) => !isSidebarItemHidden(hiddenSidebarItems, item.id),
-  );
   const showTravelLinks = visibleTravelItems.length > 0;
   const showCountries = !isSidebarItemHidden(hiddenSidebarItems, "countries");
   const showBookings =
@@ -1014,10 +988,6 @@ export function AppSidebar() {
   const showVerificationCta =
     canApplyForVerification &&
     !isSidebarItemHidden(hiddenSidebarItems, "verification");
-  const showAdminMenu =
-    isAdmin &&
-    !isSidebarItemHidden(hiddenSidebarItems, "admin") &&
-    visibleAdminItems.length > 0;
 
   return (
     <>
@@ -1344,51 +1314,6 @@ export function AppSidebar() {
                     </Link>
                   ),
                 )}
-              </nav>
-            </section>
-          ) : null}
-
-          {showAdminMenu ? (
-            <section className={styles.section}>
-              <p className={styles.sectionLabel}>Admin Tools</p>
-              <nav>
-                <div className={styles.dropdown}>
-                  <button
-                    type="button"
-                    className={`${styles.navItem} ${styles.dropdownTrigger}`}
-                    onClick={() => setIsAdminOpen((current) => !current)}
-                    aria-expanded={isAdminOpen || isAdminSection}
-                  >
-                    <span className={styles.itemLeft}>
-                      <ShieldCheck size={18} aria-hidden />
-                      <span>Admin</span>
-                    </span>
-                    <ChevronDown
-                      className={
-                        isAdminOpen || isAdminSection ? styles.chevronOpen : ""
-                      }
-                      size={16}
-                      aria-hidden
-                    />
-                  </button>
-
-                  {(isAdminOpen || isAdminSection) && (
-                    <div className={styles.dropdownList}>
-                      {visibleAdminItems.map(({ icon: Icon, label, href }) => (
-                        <Link
-                          key={label}
-                          href={href}
-                          className={`${styles.navItem} ${styles.dropdownItem} ${pathname === href ? styles.active : ""}`}
-                        >
-                          <span className={styles.itemLeft}>
-                            <Icon size={16} aria-hidden />
-                            <span>{label}</span>
-                          </span>
-                        </Link>
-                      ))}
-                    </div>
-                  )}
-                </div>
               </nav>
             </section>
           ) : null}
