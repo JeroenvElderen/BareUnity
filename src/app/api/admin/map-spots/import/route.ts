@@ -1110,7 +1110,7 @@ export async function GET(request: NextRequest) {
         websiteUrl.hostname,
       accessType: "Public",
       terrain: config.terrain,
-      safetyLevel: "Beginner friendly",
+      safetyLevel: "Beginner Friendly",
       website: geocoded?.website || websiteUrl.toString(),
       websiteUrl: geocoded?.website || websiteUrl.toString(),
       address:

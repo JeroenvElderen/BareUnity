@@ -32,8 +32,8 @@ type Spot = {
   mood?: string;
 };
 type ExploreFilterMode = "all" | "nearby" | "quiet" | "events";
-type AccessType = "Public" | "Discreet" | "Private Club";
-type TerrainType = "Beach" | "Hot spring" | "Campground" | "Forest" | "Urban rooftop" | "Resort";
+type AccessType = "Public" | "Discreet";
+type TerrainType = "Beach" | "Hot Spring" | "Campground" | "Forest" | "Urban Rooftop" | "Resort" | "Activity" | "Stays";
 type AmenityType =
   | "Showers"
   | "Restrooms"
@@ -56,7 +56,7 @@ type CreateLocationFormState = {
   accessType: AccessType;
   terrain: TerrainType;
   clothingPolicy: "Nude only" | "Clothing optional" | "Mixed";
-  safetyLevel: "Beginner friendly" | "Intermediate" | "Experienced";
+  safetyLevel: "Beginner Friendly" | "Trusted" | "Verified" | "Intermediate" | "Experienced";
   bestSeason: "Spring" | "Summer" | "Autumn" | "Winter" | "Year-round";
   entryFee: string;
   website: string;
@@ -354,7 +354,7 @@ const INITIAL_LOCATION_FORM: CreateLocationFormState = {
   accessType: "Public",
   terrain: "Beach",
   clothingPolicy: "Clothing optional",
-  safetyLevel: "Beginner friendly",
+  safetyLevel: "Beginner Friendly",
   bestSeason: "Summer",
   entryFee: "",
   website: "",
@@ -1775,7 +1775,6 @@ export function MapStageClient() {
                   >
                     <option>Public</option>
                     <option>Discreet</option>
-                    <option>Private Club</option>
                   </select>
                 </label>
                 <label className="space-y-1">
@@ -1786,11 +1785,13 @@ export function MapStageClient() {
                     className="w-full rounded-lg border border-[rgb(var(--border))] bg-transparent px-3 py-2 text-sm outline-none ring-[rgb(var(--brand))] transition focus:ring-2"
                   >
                     <option>Beach</option>
-                    <option>Hot spring</option>
+                    <option>Hot Spring</option>
                     <option>Campground</option>
                     <option>Forest</option>
-                    <option>Urban rooftop</option>
+                    <option>Urban Rooftop</option>
                     <option>Resort</option>
+                    <option>Activity</option>
+                    <option>Stays</option>
                   </select>
                 </label>
                 <label className="space-y-1">
@@ -1819,7 +1820,9 @@ export function MapStageClient() {
                     }
                     className="w-full rounded-lg border border-[rgb(var(--border))] bg-transparent px-3 py-2 text-sm outline-none ring-[rgb(var(--brand))] transition focus:ring-2"
                   >
-                    <option>Beginner friendly</option>
+                    <option>Beginner Friendly</option>
+                    <option>Trusted</option>
+                    <option>Verified</option>
                     <option>Intermediate</option>
                     <option>Experienced</option>
                   </select>

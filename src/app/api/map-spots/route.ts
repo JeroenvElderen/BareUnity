@@ -51,6 +51,32 @@ type CreateMapSpotPayload = {
   reporterNotes?: unknown;
 };
 
+const ACCESS_TYPE_OPTIONS = ["Public", "Discreet"] as const;
+const TERRAIN_OPTIONS = [
+  "Beach",
+  "Hot Spring",
+  "Campground",
+  "Forest",
+  "Urban Rooftop",
+  "Resort",
+  "Activity",
+  "Stays",
+] as const;
+const SAFETY_LEVEL_OPTIONS = [
+  "Beginner Friendly",
+  "Trusted",
+  "Verified",
+  "Intermediate",
+  "Experienced",
+] as const;
+
+function assertOption(value: string, options: readonly string[], fieldName: string) {
+  if (!options.includes(value)) {
+    throw new Error(`${fieldName} must be one of: ${options.join(", ")}.`);
+  }
+  return value;
+}
+
 type NormalizedMapSpotPayload = {
   name: string;
   shortDescription: string | null;
@@ -195,6 +221,10 @@ function normalizeCreatePayload(
         .filter(Boolean)
     : [];
 
+  const accessType = toOptionalString(input.accessType) ?? "Public";
+  const terrain = toOptionalString(input.terrain) ?? "Beach";
+  const safetyLevel = toOptionalString(input.safetyLevel) ?? "Beginner Friendly";
+
   return {
     name,
     shortDescription: toOptionalString(input.shortDescription),
@@ -204,11 +234,11 @@ function normalizeCreatePayload(
     locationHint: toOptionalString(input.locationHint),
     country: toOptionalString(input.country),
     region: toOptionalString(input.region),
-    accessType: toOptionalString(input.accessType) ?? "Public",
-    terrain: toOptionalString(input.terrain) ?? "Beach",
+    accessType: assertOption(accessType, ACCESS_TYPE_OPTIONS, "Access type"),
+    terrain: assertOption(terrain, TERRAIN_OPTIONS, "Type / terrain"),
     clothingPolicy:
       toOptionalString(input.clothingPolicy) ?? "Clothing optional",
-    safetyLevel: toOptionalString(input.safetyLevel) ?? "Beginner friendly",
+    safetyLevel: assertOption(safetyLevel, SAFETY_LEVEL_OPTIONS, "Safety"),
     bestSeason: toOptionalString(input.bestSeason) ?? "Summer",
     entryFee: toOptionalString(input.entryFee),
     website: toOptionalString(input.website),

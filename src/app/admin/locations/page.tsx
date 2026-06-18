@@ -81,7 +81,7 @@ const INITIAL_FORM: FormState = {
   locationHint: "",
   accessType: "Public",
   terrain: "Beach",
-  safetyLevel: "Beginner friendly",
+  safetyLevel: "Beginner Friendly",
   website: "",
   amenities: "",
   tags: "",
@@ -836,7 +836,6 @@ export default function AdminLocationsPage() {
                 >
                   <option>Public</option>
                   <option>Discreet</option>
-                  <option>Private Club</option>
                 </select>
               </label>
               <label className="grid gap-1">
@@ -849,10 +848,10 @@ export default function AdminLocationsPage() {
                   className="rounded-xl border border-[rgb(var(--border))] bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-[rgb(var(--brand))]"
                 >
                   <option>Beach</option>
-                  <option>Hot spring</option>
+                  <option>Hot Spring</option>
                   <option>Campground</option>
                   <option>Forest</option>
-                  <option>Urban rooftop</option>
+                  <option>Urban Rooftop</option>
                   <option>Resort</option>
                   <option>Activity</option>
                   <option>Stays</option>
@@ -867,7 +866,7 @@ export default function AdminLocationsPage() {
                   }
                   className="rounded-xl border border-[rgb(var(--border))] bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-[rgb(var(--brand))]"
                 >
-                  <option>Beginner friendly</option>
+                  <option>Beginner Friendly</option>
                   <option>Trusted</option>
                   <option>Verified</option>
                   <option>Intermediate</option>
