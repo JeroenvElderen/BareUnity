@@ -4,6 +4,7 @@ from discord.ext import commands
 from discord import app_commands
 from dotenv import load_dotenv
 import asyncio
+import aiohttp
 
 load_dotenv()
 
@@ -22,6 +23,71 @@ intents.voice_states = True
 intents.guilds = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
+
+COMMAND_CHANNELS = {
+    "approve": [REVIEW_CHANNEL],
+    "reject": [REVIEW_CHANNEL],
+    "verified": [1515812572157444187],
+    "vnote": [1516470493673164810, 1515801461651542236],
+    "hold": [1516470493673164810, 1515801461651542236],
+    "unhold": [1516470493673164810, 1515801461651542236],
+    "interviewcase": [1516470493673164810, 1515801461651542236],
+    "warn": [1517155438615859390],
+    "approveprofile": [1517155438615859390],
+    "rejectprofile": [1517155438615859390],
+    "watchlist": [1516069773920960585, 1516175139761291284, 1516172309881290912],
+    "reportstats": [1516069773920960585, 1516175139761291284, 1516172309881290912],
+    "case": [1516069773920960585, 1516175139761291284, 1516172309881290912],
+    "addnote": [1516069773920960585, 1516175139761291284, 1516172309881290912],
+    "remove_watch": [1516069773920960585, 1516175139761291284, 1516172309881290912],
+    "sync_team_members": [1517154255792902204],
+    "platform_overview": [1517154197848592586],
+    "sidebar_hide": [1517154255792902204],
+    "sidebar_show": [1517154255792902204],
+    "member_profile": [1517155438615859390],
+    "application_approve": [1517153902087110788],
+    "application_reject": [1517153902087110788],
+    "admin_user_create": [1517154255792902204],
+    "admin_user_search": [1517154255792902204, 1517155438615859390],
+    "admin_user_delete": [1517154255792902204],
+    "country_get": [1517154255792902204],
+    "country_upsert_basic": [1517154255792902204],
+    "stay_create_basic": [1517154255792902204],
+    "activity_create_basic": [1517154255792902204],
+    "admin_user_update_json": [1517154255792902204],
+    "country_upsert_json": [1517154255792902204],
+    "stay_upsert_json": [1517154255792902204],
+    "activity_upsert_json": [1517154255792902204],
+    "gallery_moderation_update": [1517153973835010139],
+}
+
+async def apply_command_channel_permissions(synced_commands):
+    if not TOKEN or not bot.user:
+        return
+
+    headers = {
+        "Authorization": f"Bot {TOKEN}",
+        "Content-Type": "application/json",
+    }
+    base_url = f"https://discord.com/api/v10/applications/{bot.user.id}/guilds/{GUILD_ID}/commands"
+
+    async with aiohttp.ClientSession(headers=headers) as session:
+        for command in synced_commands:
+            channel_ids = COMMAND_CHANNELS.get(command.name)
+            if not channel_ids:
+                continue
+
+            permissions = [
+                {"id": str(GUILD_ID), "type": 1, "permission": False},
+                *[{"id": str(channel_id), "type": 3, "permission": True} for channel_id in channel_ids],
+            ]
+            async with session.put(
+                f"{base_url}/{command.id}/permissions",
+                json={"permissions": permissions},
+            ) as response:
+                if response.status >= 300:
+                    body = await response.text()
+                    print(f"Could not set channel permissions for /{command.name}: {response.status} {body}")
 
 
 @app_commands.command(
@@ -108,6 +174,7 @@ async def on_ready():
     bot.tree.copy_global_to(guild=guild)
 
     synced = await bot.tree.sync(guild=guild)
+    await apply_command_channel_permissions(synced)
 
     print(f"Synced {len(synced)} guild command(s)")
 

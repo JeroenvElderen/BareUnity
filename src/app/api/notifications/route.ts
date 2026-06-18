@@ -298,7 +298,7 @@ export async function GET(request: Request) {
         timestamp: toIso(row.created_at),
         type: "admin-report" as const,
         unread: true,
-        targetHref: "/admin/reports",
+        targetHref: "/notifications",
       })),
       ...registrations.map((row) => ({
         id: `admin-registration-${row.id}`,
@@ -307,7 +307,7 @@ export async function GET(request: Request) {
         timestamp: toIso(row.created_at),
         type: "admin-registration" as const,
         unread: true,
-        targetHref: "/admin/users",
+        targetHref: "/notifications",
       })),
       ...feedback.map((row) => ({
         id: `admin-feedback-${row.id}`,
@@ -319,7 +319,7 @@ export async function GET(request: Request) {
         timestamp: toIso(row.created_at),
         type: "admin-feedback" as const,
         unread: true,
-        targetHref: "/admin/feedback",
+        targetHref: "/notifications",
       })),
       ...locationRequests.map((row) => ({
         id: `admin-location-${row.id}`,
@@ -331,7 +331,7 @@ export async function GET(request: Request) {
         timestamp: toIso(row.created_at),
         type: "admin-location" as const,
         unread: true,
-        targetHref: "/admin/locations",
+        targetHref: "/notifications",
       })),
       ...verificationRequests.map((row) => ({
         id: `admin-verification-${row.user_id}`,
@@ -340,7 +340,7 @@ export async function GET(request: Request) {
         timestamp: toIso(row.created_at),
         type: "admin-verification" as const,
         unread: true,
-        targetHref: "/admin/applications",
+        targetHref: "/notifications",
       })),
     ];
   }
