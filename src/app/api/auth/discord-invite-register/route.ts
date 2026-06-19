@@ -16,11 +16,20 @@ const TEAMNATURIST_ROLE_IDS = (
   .split(",")
   .map((roleId) => roleId.trim())
   .filter(Boolean);
+const TEAMNATURIST_INVITE_CODES = (
+  process.env.DISCORD_TEAMNATURIST_INVITE_CODES ??
+  process.env.TEAMNATURIST_INVITE_CODES ??
+  ""
+)
+  .split(",")
+  .map((code) => code.trim().toLowerCase())
+  .filter(Boolean);
 
 type SupabaseAdminClient = ReturnType<typeof createSupabaseAdminClient>;
 
 type DiscordInviteRequestBody = {
   fullName?: unknown;
+  inviteCode?: unknown;
   username?: unknown;
 };
 
@@ -232,12 +241,23 @@ export async function POST(req: Request) {
 
   const body = await parseBody(req);
   const fullName = normalizeString(body.fullName);
+  const inviteCode = normalizeString(body.inviteCode);
   const usernameInput = normalizeString(body.username);
 
-  if (!fullName || !usernameInput) {
+  if (!fullName || !inviteCode || !usernameInput) {
     return NextResponse.json(
-      { error: "Name and username are required." },
+      { error: "Invite code, name, and username are required." },
       { status: 400 },
+    );
+  }
+
+  if (
+    TEAMNATURIST_INVITE_CODES.length > 0 &&
+    !TEAMNATURIST_INVITE_CODES.includes(inviteCode.toLowerCase())
+  ) {
+    return NextResponse.json(
+      { error: "This trusted-partner invite code is not valid." },
+      { status: 403 },
     );
   }
 
@@ -295,6 +315,7 @@ export async function POST(req: Request) {
     const metadata = {
       account_access: "invite",
       discord_user_id: discordUserId,
+      invite_code: inviteCode,
       display_name: fullName,
       full_name: fullName,
       onboarding_level: "registration_submitted",
