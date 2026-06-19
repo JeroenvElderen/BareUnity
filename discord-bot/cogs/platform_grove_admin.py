@@ -24,6 +24,10 @@ CASE_FILES = 1517154128541909152
 SYNC_FILE = "platform_grove_sync.json"
 LOCATION_REQUEST_PREFIX = "LOCATION_REQUEST::"
 LOCATION_VIEW_PREFIX = "location_request"
+FEEDBACK_VIEW_PREFIX = "feedback_ticket"
+REPORT_VIEW_PREFIX = "platform_report"
+GALLERY_VIEW_PREFIX = "gallery_review"
+MEMBER_VIEW_PREFIX = "member_action"
 
 ACCESS_TYPE_OPTIONS = ["Public", "Discreet"]
 TERRAIN_OPTIONS = [
@@ -235,6 +239,8 @@ class FeedbackView(discord.ui.View):
         super().__init__(timeout=None)
         self.cog = cog
         self.feedback_id = feedback_id
+        self.reply.custom_id = f"{FEEDBACK_VIEW_PREFIX}:{feedback_id}:reply"
+        self.close.custom_id = f"{FEEDBACK_VIEW_PREFIX}:{feedback_id}:close"
 
     @discord.ui.button(label="Reply to user", emoji="💬", style=discord.ButtonStyle.primary)
     async def reply(self, interaction, button):
@@ -254,6 +260,7 @@ class ReportDecisionView(discord.ui.View):
         super().__init__(timeout=None)
         self.cog = cog
         self.report_id = report_id
+        self.archive.custom_id = f"{REPORT_VIEW_PREFIX}:{report_id}:archive"
 
     @discord.ui.button(label="Archive report", emoji="✅", style=discord.ButtonStyle.success)
     async def archive(self, interaction, button):
@@ -365,6 +372,10 @@ class GalleryDecisionView(discord.ui.View):
         super().__init__(timeout=None)
         self.cog = cog
         self.image_path = image_path
+        self.general.custom_id = f"{GALLERY_VIEW_PREFIX}:{image_path}:general"[:100]
+        self.nude.custom_id = f"{GALLERY_VIEW_PREFIX}:{image_path}:nude"[:100]
+        self.reject.custom_id = f"{GALLERY_VIEW_PREFIX}:{image_path}:reject"[:100]
+        self.pending.custom_id = f"{GALLERY_VIEW_PREFIX}:{image_path}:pending"[:100]
 
     async def set_gallery(self, interaction, gallery_type):
         self.cog.supabase.table("gallery_media").update({
@@ -446,6 +457,8 @@ class MemberActionView(discord.ui.View):
         super().__init__(timeout=None)
         self.cog = cog
         self.user_id = user_id
+        self.warn.custom_id = f"{MEMBER_VIEW_PREFIX}:{user_id}:warn"
+        self.ban.custom_id = f"{MEMBER_VIEW_PREFIX}:{user_id}:ban"
 
     @discord.ui.button(label="Warn", emoji="⚠️", style=discord.ButtonStyle.primary)
     async def warn(self, interaction, button):
@@ -533,33 +546,43 @@ class PlatformGroveAdmin(commands.Cog):
             return signed.get("signedURL") or signed.get("signedUrl") or signed.get("publicUrl")
         return getattr(signed, "signed_url", None) or getattr(signed, "signedURL", None)
     
-    async def restore_location_request_views(self):
-        location_threads = self.sync_state.get("feedback", {})
-        if not location_threads:
+    async def restore_persistent_views(self):
+        """Re-register buttons/selects on synced forum starter messages after restarts."""
+        feedback_threads = self.sync_state.get("feedback", {})
+        if feedback_threads:
+            response = (
+                self.supabase.table("feedback_messages")
+                .select("*")
+                .neq("status", "closed")
+                .execute()
+            )
+            rows_by_id = {row.get("id"): row for row in response.data or []}
+            for feedback_id, thread_id in feedback_threads.items():
+                row = rows_by_id.get(feedback_id)
+                if not row:
+                    continue
+                is_location = (row.get("message") or "").startswith(LOCATION_REQUEST_PREFIX)
+                view = LocationRequestView(self, feedback_id, row) if is_location else FeedbackView(self, feedback_id)
+                await self.restore_thread_view(thread_id, view, feedback_id)
+
+        for report_id, thread_id in self.sync_state.get("reports", {}).items():
+            await self.restore_thread_view(thread_id, ReportDecisionView(self, report_id), report_id)
+
+        for image_path, thread_id in self.sync_state.get("gallery", {}).items():
+            await self.restore_thread_view(thread_id, GalleryDecisionView(self, image_path), image_path)
+
+    async def restore_thread_view(self, thread_id, view, label):
+        try:
+            message_id = int(thread_id)
+        except (TypeError, ValueError):
             return
-
-        response = (
-            self.supabase.table("feedback_messages")
-            .select("*")
-            .neq("status", "closed")
-            .execute()
-        )
-        rows_by_id = {row.get("id"): row for row in response.data or []}
-
-        for feedback_id, thread_id in location_threads.items():
-            row = rows_by_id.get(feedback_id)
-            if not row or not (row.get("message") or "").startswith(LOCATION_REQUEST_PREFIX):
-                continue
-
-            view = LocationRequestView(self, feedback_id, row)
-            self.bot.add_view(view, message_id=int(thread_id))
-
-            try:
-                thread = self.bot.get_channel(int(thread_id)) or await self.bot.fetch_channel(int(thread_id))
-                starter_message = await thread.fetch_message(int(thread_id))
-                await starter_message.edit(view=view)
-            except Exception as error:
-                print(f"[PLATFORM_GROVE] Could not refresh location request view {feedback_id}: {error}")
+        self.bot.add_view(view, message_id=message_id)
+        try:
+            thread = self.bot.get_channel(message_id) or await self.bot.fetch_channel(message_id)
+            starter_message = await thread.fetch_message(message_id)
+            await starter_message.edit(view=view)
+        except Exception as error:
+            print(f"[PLATFORM_GROVE] Could not refresh persistent view {label}: {error}")
 
     async def sync_feedback(self):
         response = self.supabase.table("feedback_messages").select("*").neq("status", "closed").order("created_at", desc=True).limit(25).execute()
@@ -657,7 +680,7 @@ class PlatformGroveAdmin(commands.Cog):
     @platform_sync.before_loop
     async def before_platform_sync(self):
         await self.bot.wait_until_ready()
-        await self.restore_location_request_views()
+        await self.restore_persistent_views()
 
     async def ensure_unique_username(self, requested):
         base = normalize_username(requested)
