@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import re
@@ -97,6 +98,11 @@ def split_comma_list(value):
     return [item.strip() for item in (value or "").split(",") if item.strip()]
 
 
+def stable_component_id(prefix, identifier, action):
+    digest = hashlib.sha256(str(identifier).encode("utf-8")).hexdigest()[:16]
+    return f"{prefix}:{digest}:{action}"
+
+
 def slugify(value):
     slug = re.sub(r"[^a-z0-9]+", "-", (value or "").strip().lower()).strip("-")
     return slug or "bareunity-listing"
@@ -165,14 +171,24 @@ def parse_location_request_message(message):
         return None
 
 
+def location_coordinate(payload, *keys):
+    for key in keys:
+        coordinate = parse_float(payload.get(key), None)
+        if coordinate is not None:
+            return coordinate
+    return None
+
+
 def location_request_base(row):
     payload = parse_location_request_message(row.get("message")) or {}
+    latitude = location_coordinate(payload, "latitude", "lat", "mapLatitude", "map_latitude")
+    longitude = location_coordinate(payload, "longitude", "lng", "lon", "mapLongitude", "map_longitude")
     return {
         "request_id": row.get("id"),
         "name": payload.get("placeName") or "Untitled location",
         "location_hint": payload.get("locationHint") or "",
-        "latitude": payload.get("latitude"),
-        "longitude": payload.get("longitude"),
+        "latitude": latitude,
+        "longitude": longitude,
         "website": payload.get("website") or "",
         "request_type": payload.get("requestType") or "location",
         "requester": row.get("user_email") or payload.get("requesterEmail") or "Unknown",
@@ -271,6 +287,7 @@ class ReportDecisionView(discord.ui.View):
         await interaction.response.send_message("✅ Report archived/removed from the website queue.", ephemeral=True)
 
 
+
 class LocationTextModal(discord.ui.Modal):
     def __init__(self, view):
         super().__init__(title="Complete location fields")
@@ -341,29 +358,37 @@ class LocationRequestView(discord.ui.View):
 
     @discord.ui.button(label="Create location", emoji="✅", style=discord.ButtonStyle.success, row=3)
     async def create_location(self, interaction, button):
-        required = ["short_description", "full_description"]
-        missing = [field.replace("_", " ") for field in required if not self.draft.get(field)]
+        required = ["short_description", "full_description", "latitude", "longitude"]
+        missing = [
+            field.replace("_", " ")
+            for field in required
+            if self.draft.get(field) in (None, "")
+        ]
         if missing:
             await interaction.response.send_message(f"❌ Fill required fields first: {', '.join(missing)}.", ephemeral=True)
             return
-        self.cog.supabase.table("naturist_map_spots").insert({
-            "name": self.draft.get("name"),
-            "description": self.draft.get("full_description"),
-            "short_description": self.draft.get("short_description"),
-            "latitude": self.draft.get("latitude"),
-            "longitude": self.draft.get("longitude"),
-            "privacy": self.draft.get("access_type"),
-            "location_hint": self.draft.get("location_hint"),
-            "access_type": self.draft.get("access_type"),
-            "terrain": self.draft.get("terrain"),
-            "safety_level": self.draft.get("safety_level"),
-            "website": self.draft.get("website"),
-            "amenities": split_comma_list(self.draft.get("amenities")),
-            "tags": split_comma_list(self.draft.get("tags")),
-            "reporter_notes": f"Requested by {self.draft.get('requester')}\nRequest ID: {self.feedback_id}\nNotes: {self.draft.get('notes') or 'None'}",
-            "status": "approved",
-        }).execute()
-        self.cog.supabase.table("feedback_messages").update({"status": "closed"}).eq("id", self.feedback_id).execute()
+        try:
+            self.cog.supabase.table("naturist_map_spots").insert({
+                "name": self.draft.get("name"),
+                "description": self.draft.get("full_description"),
+                "short_description": self.draft.get("short_description"),
+                "latitude": self.draft.get("latitude"),
+                "longitude": self.draft.get("longitude"),
+                "privacy": self.draft.get("access_type"),
+                "location_hint": self.draft.get("location_hint"),
+                "access_type": self.draft.get("access_type"),
+                "terrain": self.draft.get("terrain"),
+                "safety_level": self.draft.get("safety_level"),
+                "website": self.draft.get("website"),
+                "amenities": split_comma_list(self.draft.get("amenities")),
+                "tags": split_comma_list(self.draft.get("tags")),
+                "reporter_notes": f"Requested by {self.draft.get('requester')}\nRequest ID: {self.feedback_id}\nNotes: {self.draft.get('notes') or 'None'}",
+                "status": "approved",
+            }).execute()
+            self.cog.supabase.table("feedback_messages").update({"status": "closed"}).eq("id", self.feedback_id).execute()
+        except Exception as error:
+            await interaction.response.send_message(f"❌ Could not create location: {error}", ephemeral=True)
+            return
         await interaction.response.send_message("✅ Location created and website ticket closed.", ephemeral=True)
         
         
@@ -372,10 +397,10 @@ class GalleryDecisionView(discord.ui.View):
         super().__init__(timeout=None)
         self.cog = cog
         self.image_path = image_path
-        self.general.custom_id = f"{GALLERY_VIEW_PREFIX}:{image_path}:general"[:100]
-        self.nude.custom_id = f"{GALLERY_VIEW_PREFIX}:{image_path}:nude"[:100]
-        self.reject.custom_id = f"{GALLERY_VIEW_PREFIX}:{image_path}:reject"[:100]
-        self.pending.custom_id = f"{GALLERY_VIEW_PREFIX}:{image_path}:pending"[:100]
+        self.general.custom_id = stable_component_id(GALLERY_VIEW_PREFIX, image_path, "general")
+        self.nude.custom_id = stable_component_id(GALLERY_VIEW_PREFIX, image_path, "nude")
+        self.reject.custom_id = stable_component_id(GALLERY_VIEW_PREFIX, image_path, "reject")
+        self.pending.custom_id = stable_component_id(GALLERY_VIEW_PREFIX, image_path, "pending")
 
     async def set_gallery(self, interaction, gallery_type):
         self.cog.supabase.table("gallery_media").update({
