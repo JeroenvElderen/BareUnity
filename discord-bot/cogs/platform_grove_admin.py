@@ -633,6 +633,17 @@ class PlatformGroveAdmin(commands.Cog):
         for image_path, thread_id in self.sync_state.get("gallery", {}).items():
             await self.restore_thread_view(thread_id, GalleryDecisionView(self, image_path), image_path)
 
+    def remove_stale_sync_entry(self, label):
+        removed = False
+        for bucket in ("feedback", "reports", "applications", "gallery"):
+            entries = self.sync_state.setdefault(bucket, {})
+            if label in entries:
+                entries.pop(label, None)
+                removed = True
+        if removed:
+            save_json(SYNC_FILE, self.sync_state)
+        return removed
+
     async def restore_thread_view(self, thread_id, view, label):
         try:
             message_id = int(thread_id)
@@ -643,6 +654,11 @@ class PlatformGroveAdmin(commands.Cog):
             thread = self.bot.get_channel(message_id) or await self.bot.fetch_channel(message_id)
             starter_message = await thread.fetch_message(message_id)
             await starter_message.edit(view=view)
+        except discord.NotFound as error:
+            if self.remove_stale_sync_entry(label):
+                print(f"[PLATFORM_GROVE] Removed stale persistent view {label}: {error}")
+            else:
+                print(f"[PLATFORM_GROVE] Could not refresh persistent view {label}: {error}")
         except Exception as error:
             print(f"[PLATFORM_GROVE] Could not refresh persistent view {label}: {error}")
 

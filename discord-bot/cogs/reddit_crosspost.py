@@ -161,14 +161,15 @@ class RedditCrosspost(commands.Cog):
                 ephemeral=True,
             )
 
-    @commands.Cog.listener()
-    async def on_thread_create(self, thread: discord.Thread):
+    async def process_crosspost_thread(self, thread: discord.Thread, starter_message: discord.Message | None = None):
         if thread.parent_id != CROSSPOST_FORUM_ID:
-            return
+            return {"ok": False, "skipped": True, "reason": "Thread is not in the configured crosspost forum."}
 
-        starter_message = await self.fetch_starter_message(thread)
-        if not starter_message or starter_message.author.bot:
-            return
+        starter_message = starter_message or await self.fetch_starter_message(thread)
+        if not starter_message:
+            return {"ok": False, "skipped": True, "reason": "Could not fetch the forum starter message yet."}
+        if starter_message.author.bot:
+            return {"ok": False, "skipped": True, "reason": "Starter message was created by a bot."}
 
         payload = {
             "discordChannelId": str(thread.parent_id),
@@ -185,19 +186,27 @@ class RedditCrosspost(commands.Cog):
             result = await self.post_bareunity_api("/api/integrations/discord/crosspost", payload)
         except Exception as exc:
             print(f"BareUnity crosspost failed for {thread.id}: {exc}")
-            return
+            return {"ok": False, "error": str(exc)}
 
-        if result.get("skipped") or result.get("duplicate"):
-            return
+        if result.get("skipped"):
+            print(f"BareUnity crosspost skipped for {thread.id}: {result.get('reason') or 'no reason returned'}")
+            return result
+
+        if result.get("duplicate"):
+            print(f"BareUnity crosspost already exists for {thread.id}: {result.get('websitePostId')}")
+            return result
 
         website_post_url = result.get("websitePostUrl")
         if not website_post_url:
-            return
+            return result
+
+        print(f"BareUnity crosspost inserted into public.posts for {thread.id}: {result.get('websitePostId')}")
 
         try:
             reddit_result = await self.submit_to_reddit(thread.name, website_post_url)
             if reddit_result:
                 await self.record_reddit_result(thread.id, reddit_result=reddit_result)
+                result["redditUrl"] = reddit_result.get("url")
         except Exception as exc:
             print(f"Reddit crosspost failed for {thread.id}: {exc}")
             try:
@@ -205,12 +214,68 @@ class RedditCrosspost(commands.Cog):
             except Exception as record_exc:
                 print(f"Could not record Reddit failure for {thread.id}: {record_exc}")
 
+        return result
+
+    @commands.Cog.listener()
+    async def on_thread_create(self, thread: discord.Thread):
+        await self.process_crosspost_thread(thread)
+
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        if message.author.bot or not isinstance(message.channel, discord.Thread):
+            return
+        thread = message.channel
+        if thread.parent_id != CROSSPOST_FORUM_ID:
+            return
+        if message.id != thread.id:
+            return
+        await self.process_crosspost_thread(thread, message)
+
+    @app_commands.command(
+        name="crosspost_now",
+        description="Moderator: cross-post the current forum post to BareUnity now",
+    )
+    @app_commands.default_permissions(manage_messages=True)
+    async def crosspost_now(self, interaction: discord.Interaction):
+        if not interaction.user.guild_permissions.manage_messages:
+            await interaction.response.send_message("❌ Moderator only.", ephemeral=True)
+            return
+        if not isinstance(interaction.channel, discord.Thread) or interaction.channel.parent_id != CROSSPOST_FORUM_ID:
+            await interaction.response.send_message(
+                "❌ Use this inside the configured crosspost forum thread.",
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.defer(ephemeral=True)
+        result = await self.process_crosspost_thread(interaction.channel)
+        if not result:
+            await interaction.followup.send("❌ Crosspost did not return a result. Check the bot logs.", ephemeral=True)
+            return
+        if result.get("error"):
+            await interaction.followup.send(f"❌ Crosspost failed: {result.get('error')}", ephemeral=True)
+            return
+        if result.get("skipped"):
+            await interaction.followup.send(
+                f"⚠️ Crosspost skipped: {result.get('reason') or 'no reason returned'}",
+                ephemeral=True,
+            )
+            return
+
+        status = "already existed" if result.get("duplicate") else "was inserted"
+        await interaction.followup.send(
+            f"✅ Website post {status} in `public.posts`: `{result.get('websitePostId')}`\n"
+            f"{result.get('websitePostUrl') or ''}",
+            ephemeral=True,
+        )
+
     @commands.Cog.listener()
     async def on_ready(self):
-        try:
-            self.bot.tree.add_command(self.register)
-        except Exception:
-            pass
+        for command in (self.register, self.crosspost_now):
+            try:
+                self.bot.tree.add_command(command)
+            except Exception:
+                pass
 
 
 async def setup(bot):
