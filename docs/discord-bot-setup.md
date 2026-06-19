@@ -1,6 +1,6 @@
 # Discord bot setup for TeamNaturist registration
 
-BareUnity uses Discord OAuth for the member identity and a Discord bot token for the server/role check. Users do not need an invite code in the Discord path: they enter their full name and BareUnity username, sign in with Discord, and the server checks whether that Discord account is in the TeamNaturist guild with an approved role.
+BareUnity uses Discord OAuth for the member identity and a Discord bot token for the server/role check. Users do not need an invite code in the Discord path: they enter their full name and BareUnity username, sign in with Discord, and the app checks the live Discord server to confirm that account is in the TeamNaturist guild with an approved role.
 
 ## 1. Create the Discord application and bot
 
@@ -44,6 +44,6 @@ Also allow your app callback URL in Supabase Auth URL settings, for example:
 https://your-domain.com/register
 ```
 
-## 5. Apply the Supabase Discord redemption SQL
+## 5. Registration source of truth
 
-Run `supabase-teamnaturist-invite-codes.sql` in the Supabase SQL editor. Supabase records each approved Discord user ID in `teamnaturist_discord_redemptions` so the same Discord account cannot be reused for repeated trusted-partner registrations.
+Discord invite registration checks the live TeamNaturist server membership and role list through the Discord API. It does not require a pre-approved Supabase invite/redemption row for Discord signups. Supabase Auth still stores the Discord identity on the created account, and the app creates the BareUnity `profiles` and `profile_settings` rows only after the Discord server role check passes.
