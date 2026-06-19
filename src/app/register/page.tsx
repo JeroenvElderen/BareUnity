@@ -79,6 +79,7 @@ export default function RegisterPage() {
         ...prev,
         accountAccess: "invite",
         fullName: payload.fullName ?? prev.fullName,
+        inviteCode: payload.inviteCode ?? prev.inviteCode,
         username: payload.username ?? prev.username,
       }));
 
@@ -262,8 +263,8 @@ export default function RegisterPage() {
   async function onDiscordInviteRegistration() {
     setStatus("");
 
-    if (!form.fullName.trim() || !form.username.trim()) {
-      setStatus("Enter your name and BareUnity username before continuing with Discord.");
+    if (!form.inviteCode.trim() || !form.fullName.trim() || !form.username.trim()) {
+      setStatus("Enter your invite code, name, and BareUnity username before continuing with Discord.");
       return;
     }
 
@@ -271,6 +272,7 @@ export default function RegisterPage() {
       "bareunity_pending_discord_invite",
       JSON.stringify({
         fullName: form.fullName,
+        inviteCode: form.inviteCode,
         username: form.username,
       }),
     );
@@ -282,6 +284,7 @@ export default function RegisterPage() {
       await completeDiscordInviteRegistration(
         {
           fullName: form.fullName,
+          inviteCode: form.inviteCode,
           username: form.username,
         },
         data.session.access_token,
@@ -289,7 +292,8 @@ export default function RegisterPage() {
       return;
     }
 
-    const redirectTo = `${window.location.origin}/register?invite=teamnaturist&discordInvite=1`;
+    const redirectInviteCode = encodeURIComponent(form.inviteCode.trim());
+    const redirectTo = `${window.location.origin}/register?invite=${redirectInviteCode}&discordInvite=1`;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "discord",
       options: {
@@ -330,6 +334,23 @@ export default function RegisterPage() {
 
             <form className={styles.form} onSubmit={onSubmit}>
               <label className={styles.field}>
+                <span className={styles.label}>Invite code</span>
+                <input
+                  className={styles.input}
+                  placeholder="TEAMNATURIST-2026"
+                  type="text"
+                  value={form.inviteCode}
+                  onChange={(event) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      inviteCode: event.target.value,
+                    }))
+                  }
+                  required
+                />
+              </label>
+
+              <label className={styles.field}>
                 <span className={styles.label}>Name</span>
                 <input
                   className={styles.input}
@@ -364,10 +385,11 @@ export default function RegisterPage() {
               </label>
 
               <div className={styles.stageBanner}>
-                <strong>No invite code required.</strong> Discord registration checks
-                your TeamNaturist server role directly with the bot, then records the
-                Discord account in Supabase so the same Discord member cannot be used
-                for repeated trusted-partner registrations.
+                <strong>Invite code and Discord are both required.</strong> The server
+                keeps your invite code with the registration, checks your TeamNaturist
+                server role directly with the bot, then records the Discord account in
+                Supabase so the same Discord member cannot be used for repeated
+                trusted-partner registrations.
               </div>
 
               <button
