@@ -9,13 +9,21 @@ import { isUsernameValid, normalizeUsername } from "@/lib/username";
 const DISCORD_PROVIDER = "discord";
 const TEAMNATURIST_GUILD_ID =
   process.env.DISCORD_TEAMNATURIST_GUILD_ID ?? "1130957278472835234";
-const TEAMNATURIST_ROLE_IDS = (
-  process.env.DISCORD_TEAMNATURIST_ROLE_IDS ??
-  "1131278113167388742,1131284261748625510,1130958613008089128,1171098977043755138"
-)
-  .split(",")
-  .map((roleId) => roleId.trim())
-  .filter(Boolean);
+const DEFAULT_TEAMNATURIST_ROLE_IDS = [
+  "1131278113167388742",
+  "1131284261748625510",
+  "1130958613008089128",
+  "1171098977043755138",
+];
+const TEAMNATURIST_ROLE_IDS = Array.from(
+  new Set([
+    ...DEFAULT_TEAMNATURIST_ROLE_IDS,
+    ...(process.env.DISCORD_TEAMNATURIST_ROLE_IDS ?? "")
+      .split(",")
+      .map((roleId) => roleId.trim())
+      .filter(Boolean),
+  ]),
+);
 
 type SupabaseAdminClient = ReturnType<typeof createSupabaseAdminClient>;
 
@@ -24,11 +32,7 @@ type DiscordInviteRequestBody = {
   username?: unknown;
 };
 
-type TeamNaturistInviteRedemption = {
-  discord_user_id?: string | null;
-};
-
-class InviteRedemptionError extends Error {
+class DiscordInviteRegistrationError extends Error {
   status = 403;
 }
 
@@ -38,9 +42,7 @@ function normalizeString(value: unknown) {
 
 async function parseBody(req: Request): Promise<DiscordInviteRequestBody> {
   const body = (await req.json().catch(() => ({}))) as unknown;
-  return body && typeof body === "object" && !Array.isArray(body)
-    ? body
-    : {};
+  return body && typeof body === "object" && !Array.isArray(body) ? body : {};
 }
 
 function getBearerToken(req: Request) {
@@ -62,7 +64,10 @@ function getDiscordIdentity(user: { app_metadata?: unknown }) {
   return providers.includes(DISCORD_PROVIDER);
 }
 
-function getDiscordUserId(user: { identities?: unknown; user_metadata?: unknown }) {
+function getDiscordUserId(user: {
+  identities?: unknown;
+  user_metadata?: unknown;
+}) {
   const identities = Array.isArray(user.identities) ? user.identities : [];
   const discordIdentity = identities.find((identity) => {
     return (
@@ -115,13 +120,15 @@ async function ensureTeamNaturistDiscordRole(discordUserId: string) {
   );
 
   if (response.status === 404) {
-    throw new InviteRedemptionError(
+    throw new DiscordInviteRegistrationError(
       "Your Discord account is not a member of the TeamNaturist server.",
     );
   }
 
   if (!response.ok) {
-    throw new Error(`Discord member check failed with status ${response.status}.`);
+    throw new Error(
+      `Discord member check failed with status ${response.status}.`,
+    );
   }
 
   const member = (await response.json()) as { roles?: unknown };
@@ -132,7 +139,7 @@ async function ensureTeamNaturistDiscordRole(discordUserId: string) {
   );
 
   if (!hasAllowedRole) {
-    throw new InviteRedemptionError(
+    throw new DiscordInviteRegistrationError(
       "Your Discord account does not have an approved TeamNaturist role.",
     );
   }
@@ -167,54 +174,6 @@ async function generateUniqueUsername(
   }
 
   return `${base.slice(0, 19)}-${Math.floor(1000 + Math.random() * 9000)}`;
-}
-
-async function redeemTeamNaturistDiscordMember(
-  supabaseAdmin: SupabaseAdminClient,
-  discordUserId: string,
-  userId: string,
-) {
-  const { data, error } = await supabaseAdmin.rpc(
-    "redeem_teamnaturist_discord_member",
-    {
-      p_discord_user_id: discordUserId,
-      p_redeemed_by: userId,
-    },
-  );
-
-  if (error) throw new Error(error.message);
-
-  const redemption = Array.isArray(data)
-    ? (data[0] as TeamNaturistInviteRedemption | undefined)
-    : (data as TeamNaturistInviteRedemption | null);
-
-  if (!redemption?.discord_user_id) {
-    throw new InviteRedemptionError(
-      "This Discord account has already been used for trusted-partner registration.",
-    );
-  }
-
-  return { discordUserId: redemption.discord_user_id };
-}
-
-async function releaseTeamNaturistDiscordRedemption(
-  supabaseAdmin: SupabaseAdminClient,
-  discordUserId: string,
-  userId: string,
-) {
-  const { error } = await supabaseAdmin.rpc(
-    "release_teamnaturist_discord_redemption",
-    {
-      p_discord_user_id: discordUserId,
-      p_redeemed_by: userId,
-    },
-  );
-
-  if (error) {
-    console.error("Failed to release TeamNaturist Discord redemption", {
-      error,
-    });
-  }
 }
 
 export async function POST(req: Request) {
@@ -253,9 +212,8 @@ export async function POST(req: Request) {
   }
 
   const supabaseAdmin = createSupabaseAdminClient();
-  const { data: userData, error: userError } = await supabaseAdmin.auth.getUser(
-    token,
-  );
+  const { data: userData, error: userError } =
+    await supabaseAdmin.auth.getUser(token);
 
   if (userError || !userData.user) {
     return NextResponse.json({ error: "Invalid auth token." }, { status: 401 });
@@ -277,16 +235,9 @@ export async function POST(req: Request) {
   }
 
   const userId = userData.user.id;
-  let redeemedDiscordUserId: string | null = null;
 
   try {
     await ensureTeamNaturistDiscordRole(discordUserId);
-    const redemption = await redeemTeamNaturistDiscordMember(
-      supabaseAdmin,
-      discordUserId,
-      userId,
-    );
-    redeemedDiscordUserId = redemption.discordUserId;
 
     const username = await generateUniqueUsername(
       supabaseAdmin,
@@ -312,11 +263,13 @@ export async function POST(req: Request) {
 
     if (updateUserError) throw new Error(updateUserError.message);
 
-    const { error: profileError } = await supabaseAdmin.from("profiles").upsert({
-      id: userId,
-      username,
-      display_name: fullName,
-    });
+    const { error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .upsert({
+        id: userId,
+        username,
+        display_name: fullName,
+      });
 
     if (profileError) throw new Error(profileError.message);
 
@@ -335,17 +288,11 @@ export async function POST(req: Request) {
 
     if (settingsError) throw new Error(settingsError.message);
 
-    return NextResponse.json({ message: "Discord invite registration complete." });
+    return NextResponse.json({
+      message: "Discord invite registration complete.",
+    });
   } catch (error) {
-    if (redeemedDiscordUserId) {
-      await releaseTeamNaturistDiscordRedemption(
-        supabaseAdmin,
-        redeemedDiscordUserId,
-        userId,
-      );
-    }
-
-    if (error instanceof InviteRedemptionError) {
+    if (error instanceof DiscordInviteRegistrationError) {
       return NextResponse.json(
         { error: error.message },
         { status: error.status },
