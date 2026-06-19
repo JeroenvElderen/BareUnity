@@ -402,6 +402,19 @@ class GalleryDecisionView(discord.ui.View):
         self.reject.custom_id = stable_component_id(GALLERY_VIEW_PREFIX, image_path, "reject")
         self.pending.custom_id = stable_component_id(GALLERY_VIEW_PREFIX, image_path, "pending")
 
+    async def close_review_post(self, interaction, message):
+        self.cog.sync_state.setdefault("gallery", {}).pop(self.image_path, None)
+        self.cog.sync_state.setdefault("gallery_decided", {})[self.image_path] = now_iso()
+        save_json(SYNC_FILE, self.cog.sync_state)
+        await interaction.response.send_message(message, ephemeral=True)
+        try:
+            if isinstance(interaction.channel, discord.Thread):
+                await interaction.channel.delete()
+            else:
+                await interaction.message.delete()
+        except Exception as error:
+            print(f"[PLATFORM_GROVE] Could not delete gallery review post {self.image_path}: {error}")
+
     async def set_gallery(self, interaction, gallery_type):
         self.cog.supabase.table("gallery_media").update({
             "gallery_type": gallery_type,
@@ -409,7 +422,7 @@ class GalleryDecisionView(discord.ui.View):
             "moderation_reason": f"Approved from Discord by {interaction.user}",
             "updated_at": now_iso(),
         }).eq("image_path", self.image_path).execute()
-        await interaction.response.send_message(f"✅ Moved to {gallery_type} gallery.", ephemeral=True)
+        await self.close_review_post(interaction, f"✅ Moved to {gallery_type} gallery and removed the review post.")
 
     @discord.ui.button(label="General gallery", emoji="🌿", style=discord.ButtonStyle.success)
     async def general(self, interaction, button):
@@ -427,7 +440,7 @@ class GalleryDecisionView(discord.ui.View):
             "moderation_reason": f"Rejected from Discord by {interaction.user}",
             "updated_at": now_iso(),
         }).eq("image_path", self.image_path).execute()
-        await interaction.response.send_message("🗑️ Gallery item rejected.", ephemeral=True)
+        await self.close_review_post(interaction, "🗑️ Gallery item rejected and review post removed.")
 
     @discord.ui.button(label="Keep pending", emoji="⏳", style=discord.ButtonStyle.secondary)
     async def pending(self, interaction, button):
@@ -436,7 +449,27 @@ class GalleryDecisionView(discord.ui.View):
             "moderation_status": "pending",
             "updated_at": now_iso(),
         }).eq("image_path", self.image_path).execute()
-        await interaction.response.send_message("⏳ Kept pending for later review.", ephemeral=True)
+        await self.close_review_post(interaction, "⏳ Gallery item left pending and review post removed.")
+
+
+class ApplicationDecisionView(discord.ui.View):
+    def __init__(self, cog, user_id):
+        super().__init__(timeout=None)
+        self.cog = cog
+        self.user_id = user_id
+        self.approve.custom_id = stable_component_id("application_review", user_id, "approve")
+        self.reject.custom_id = stable_component_id("application_review", user_id, "reject")
+
+    async def decide(self, interaction, status):
+        await self.cog.set_application_status(interaction, self.user_id, status, None, close_thread=True)
+
+    @discord.ui.button(label="Approve", emoji="✅", style=discord.ButtonStyle.success)
+    async def approve(self, interaction, button):
+        await self.decide(interaction, "approved")
+
+    @discord.ui.button(label="Reject", emoji="⛔", style=discord.ButtonStyle.danger)
+    async def reject(self, interaction, button):
+        await self.decide(interaction, "rejected")
 
 
 class MemberActionModal(discord.ui.Modal):
@@ -507,6 +540,7 @@ class PlatformGroveAdmin(commands.Cog):
             "applications": {},
             "gallery": {},
             "location_drafts": {},
+            "gallery_decided": {},
         })
         self.platform_sync.start()
 
@@ -593,6 +627,9 @@ class PlatformGroveAdmin(commands.Cog):
         for report_id, thread_id in self.sync_state.get("reports", {}).items():
             await self.restore_thread_view(thread_id, ReportDecisionView(self, report_id), report_id)
 
+        for user_id, thread_id in self.sync_state.get("applications", {}).items():
+            await self.restore_thread_view(thread_id, ApplicationDecisionView(self, user_id), user_id)
+
         for image_path, thread_id in self.sync_state.get("gallery", {}).items():
             await self.restore_thread_view(thread_id, GalleryDecisionView(self, image_path), image_path)
 
@@ -669,7 +706,7 @@ class PlatformGroveAdmin(commands.Cog):
             for name, key in [("User ID", "user_id"), ("Display name", "display_name"), ("Country", "country"), ("Membership", "membership_type"), ("Notes", "reviewer_notes")]:
                 if row.get(key):
                     embed.add_field(name=name, value=str(row[key])[:1024], inline=False)
-            thread = await self.create_forum_thread(MEMBER_APPLICATIONS, f"Application • {row.get('display_name') or user_id[:8]}", "Schedule and record the onboarding video meeting here.", embed)
+            thread = await self.create_forum_thread(MEMBER_APPLICATIONS, f"Application • {row.get('display_name') or user_id[:8]}", "Schedule and record the onboarding video meeting here.", embed, ApplicationDecisionView(self, user_id))
             if thread:
                 self.sync_state["applications"][user_id] = str(thread.id)
 
@@ -677,7 +714,11 @@ class PlatformGroveAdmin(commands.Cog):
         response = self.supabase.table("gallery_media").select("*").eq("gallery_type", "pending").order("created_at", desc=True).limit(25).execute()
         for row in response.data or []:
             image_path = row.get("image_path")
-            if not image_path or image_path in self.sync_state["gallery"]:
+            if (
+                not image_path
+                or image_path in self.sync_state["gallery"]
+                or image_path in self.sync_state.get("gallery_decided", {})
+            ):
                 continue
             title = (row.get("title") or "Gallery review").strip()[:80]
             embed = discord.Embed(title="🖼️ Gallery review", color=discord.Color.purple())
@@ -1206,7 +1247,7 @@ class PlatformGroveAdmin(commands.Cog):
         self.supabase.table("platform_settings").upsert({"id": True, "sidebar_hidden_items": hidden, "updated_at": now_iso()}).execute()
         await interaction.response.send_message(f"✅ Shown `{item.value}` on the website sidebar.", ephemeral=True)
 
-    async def set_application_status(self, interaction, user_id: str, status: str, notes: str | None = None):
+    async def set_application_status(self, interaction, user_id: str, status: str, notes: str | None = None, close_thread: bool = False):
         if interaction.channel_id != MEMBER_APPLICATIONS and not (
             isinstance(interaction.channel, discord.Thread)
             and interaction.channel.parent_id == MEMBER_APPLICATIONS
@@ -1233,7 +1274,13 @@ class PlatformGroveAdmin(commands.Cog):
             return
         self.sync_state.setdefault("applications", {}).pop(user_id, None)
         save_json(SYNC_FILE, self.sync_state)
-        await interaction.response.send_message(f"✅ Application `{user_id}` marked {status} on the website.")
+        await interaction.response.send_message(f"✅ Application `{user_id}` marked {status} on the website.", ephemeral=True)
+        if close_thread:
+            try:
+                if isinstance(interaction.channel, discord.Thread):
+                    await interaction.channel.delete()
+            except Exception as error:
+                print(f"[PLATFORM_GROVE] Could not delete application post {user_id}: {error}")
 
     @app_commands.command(name="application_approve", description="Approve a website verification application from Discord")
     async def application_approve(self, interaction, user_id: str, notes: str | None = None):
