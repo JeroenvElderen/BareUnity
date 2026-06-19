@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import styles from "@/components/auth/auth-page.module.css";
@@ -66,7 +66,55 @@ export default function RegisterPage() {
   const [isInviteMode, setIsInviteMode] = useState(false);
   const router = useRouter();
 
+  const completeDiscordInviteRegistration = useCallback(async (
+    payload: Partial<RegisterState>,
+    accessToken: string,
+  ) => {
+    setIsInviteMode(true);
+    setIsLoading(true);
+    setStatus("Completing your Discord invite registration...");
+
+    try {
+      setForm((prev) => ({
+        ...prev,
+        accountAccess: "invite",
+        fullName: payload.fullName ?? prev.fullName,
+        username: payload.username ?? prev.username,
+      }));
+
+      const response = await fetch("/api/auth/discord-invite-register", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+      const responsePayload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        message?: string;
+      };
+
+      if (!response.ok) {
+        setStatus(responsePayload.error ?? "Discord invite registration failed.");
+        return;
+      }
+
+      window.localStorage.removeItem("bareunity_pending_discord_invite");
+      setStatus(responsePayload.message ?? "Discord invite registration complete.");
+      router.replace("/");
+      router.refresh();
+    } catch {
+      setStatus("Could not complete Discord invite registration.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [router]);
+
   useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const hasInviteLink = searchParams.has("invite");
+
     const completePendingDiscordInvite = async () => {
       const pendingInvite = window.localStorage.getItem(
         "bareunity_pending_discord_invite",
@@ -79,56 +127,24 @@ export default function RegisterPage() {
       }
 
       if (!pendingInvite) {
+        if (hasInviteLink) {
+          setIsInviteMode(true);
+          setStatus(
+            "You are signed in with Discord. Enter your name and username, then finish registration.",
+          );
+          return;
+        }
+
         router.replace("/");
         return;
       }
 
-      setIsInviteMode(true);
-      setIsLoading(true);
-      setStatus("Completing your Discord invite registration...");
-
-      try {
-        const payload = JSON.parse(pendingInvite) as Partial<RegisterState>;
-        setForm((prev) => ({
-          ...prev,
-          accountAccess: "invite",
-          fullName: payload.fullName ?? "",
-          username: payload.username ?? "",
-        }));
-
-        const response = await fetch("/api/auth/discord-invite-register", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${data.session.access_token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
-        });
-        const responsePayload = (await response.json().catch(() => ({}))) as {
-          error?: string;
-          message?: string;
-        };
-
-        if (!response.ok) {
-          setStatus(responsePayload.error ?? "Discord invite registration failed.");
-          return;
-        }
-
-        window.localStorage.removeItem("bareunity_pending_discord_invite");
-        setStatus(responsePayload.message ?? "Discord invite registration complete.");
-        router.replace("/");
-        router.refresh();
-      } catch {
-        setStatus("Could not complete Discord invite registration.");
-      } finally {
-        setIsLoading(false);
-      }
+      const payload = JSON.parse(pendingInvite) as Partial<RegisterState>;
+      await completeDiscordInviteRegistration(payload, data.session.access_token);
     };
 
     void completePendingDiscordInvite();
 
-    const searchParams = new URLSearchParams(window.location.search);
-    const hasInviteLink = searchParams.has("invite");
     const inviteCode = searchParams.get("invite") ?? "";
 
     if (hasInviteLink) {
@@ -143,7 +159,7 @@ export default function RegisterPage() {
         motivation: "",
       }));
     }
-  }, [router]);
+  }, [completeDiscordInviteRegistration, router]);
 
   const isVerifiedApplication = form.accountAccess === "verified";
   const isInviteRegistration = form.accountAccess === "invite";
@@ -260,6 +276,19 @@ export default function RegisterPage() {
     );
 
     setIsLoading(true);
+
+    const { data } = await supabase.auth.getSession();
+    if (data.session?.user) {
+      await completeDiscordInviteRegistration(
+        {
+          fullName: form.fullName,
+          username: form.username,
+        },
+        data.session.access_token,
+      );
+      return;
+    }
+
     const redirectTo = `${window.location.origin}/register?invite=teamnaturist&discordInvite=1`;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "discord",
