@@ -17,6 +17,76 @@ PROFILE_BASE_URL = "https://www.bareunity.com/members"
 RANGER_ROLE = 1517153248065355857
 
 
+class MemberRejectModal(discord.ui.Modal):
+
+    def __init__(self, cog, user_uuid):
+        super().__init__(title="Reject profile")
+        self.cog = cog
+        self.user_uuid = user_uuid
+        self.reason = discord.ui.TextInput(
+            label="Reason sent to member",
+            style=discord.TextStyle.paragraph,
+            max_length=1200
+        )
+        self.add_item(self.reason)
+
+    async def on_submit(self, interaction):
+        await self.cog.reject_profile(
+            interaction,
+            self.user_uuid,
+            str(self.reason),
+            close_thread=True
+        )
+
+
+class MemberManagementView(discord.ui.View):
+
+    def __init__(self, cog, user_uuid):
+        super().__init__(timeout=None)
+        self.cog = cog
+        self.user_uuid = user_uuid
+        self.approve.custom_id = f"member_management:{user_uuid}:approve"
+        self.reject.custom_id = f"member_management:{user_uuid}:reject"
+        self.delete_account.custom_id = f"member_management:{user_uuid}:delete"
+
+    async def check_ranger(self, interaction):
+        if not self.cog.is_ranger(interaction.user):
+            await interaction.response.send_message(
+                "❌ Ranger role required.",
+                ephemeral=True
+            )
+            return False
+        return True
+
+    @discord.ui.button(label="Approve profile", emoji="✅", style=discord.ButtonStyle.success)
+    async def approve(self, interaction, button):
+        if not await self.check_ranger(interaction):
+            return
+        await self.cog.approve_profile(
+            interaction,
+            self.user_uuid,
+            close_thread=True
+        )
+
+    @discord.ui.button(label="Reject profile", emoji="⛔", style=discord.ButtonStyle.danger)
+    async def reject(self, interaction, button):
+        if not await self.check_ranger(interaction):
+            return
+        await interaction.response.send_modal(
+            MemberRejectModal(self.cog, self.user_uuid)
+        )
+
+    @discord.ui.button(label="Delete account", emoji="🗑️", style=discord.ButtonStyle.danger)
+    async def delete_account(self, interaction, button):
+        if not await self.check_ranger(interaction):
+            return
+        await self.cog.delete_account(
+            interaction,
+            self.user_uuid,
+            close_thread=True
+        )
+
+
 class MemberManagement(commands.Cog):
 
     def __init__(self, bot):
@@ -115,6 +185,35 @@ class MemberManagement(commands.Cog):
                         ""
                     )
         return None
+
+    def verification_request_label(
+        self,
+        profile
+    ):
+
+        submission = profile.get(
+            "verification_submissions"
+        )
+
+        if isinstance(
+            submission,
+            dict
+        ):
+
+            status = submission.get(
+                "status"
+            ) or "requested"
+
+            updated_at = submission.get(
+                "updated_at"
+            )
+
+            if updated_at:
+                return f"Yes — {status} ({updated_at})"
+
+            return f"Yes — {status}"
+
+        return "No verification request found"
     
     # -------------------------
     # PROFILE EMBED
@@ -187,6 +286,12 @@ class MemberManagement(commands.Cog):
         embed.add_field(
             name="Profile",
             value=f"{PROFILE_BASE_URL}/{username}",
+            inline=False
+        )
+
+        embed.add_field(
+            name="Verification Request",
+            value=self.verification_request_label(profile),
             inline=False
         )
 
@@ -270,7 +375,8 @@ class MemberManagement(commands.Cog):
 
             created = await forum.create_thread(
                 name=thread_name[:100],
-                content="👤 Creating profile card..."
+                content="👤 Creating profile card...",
+                view=MemberManagementView(self, profile["id"])
             )
 
             thread = created.thread
@@ -281,7 +387,8 @@ class MemberManagement(commands.Cog):
 
                 await starter_message.edit(
                     content="",
-                    embed=embed
+                    embed=embed,
+                    view=MemberManagementView(self, profile["id"])
                 )
 
             except Exception as e:
@@ -370,7 +477,8 @@ class MemberManagement(commands.Cog):
             if target_message:
 
                 await target_message.edit(
-                    embed=embed
+                    embed=embed,
+                    view=MemberManagementView(self, profile["id"])
                 )
 
         except Exception as e:
@@ -392,7 +500,7 @@ class MemberManagement(commands.Cog):
             response = (
                 self.supabase
                 .table("profiles")
-                .select("*")
+                .select("*, verification_submissions(status, updated_at)")
                 .execute()
             )
 
@@ -698,6 +806,77 @@ class MemberManagement(commands.Cog):
             "✅ Rejection sent.",
             ephemeral=True
         )
+
+
+    async def close_member_thread(self, interaction, user_uuid):
+
+        self.thread_map.pop(user_uuid, None)
+        self.save_threads()
+
+        try:
+            if isinstance(interaction.channel, discord.Thread):
+                await interaction.channel.delete()
+        except Exception as e:
+            print(f"[MEMBERS] Failed deleting member thread for {user_uuid}: {e}")
+
+    async def approve_profile(self, interaction, user_uuid, close_thread=False):
+
+        embed = discord.Embed(
+            title="✅ Profile Approved",
+            color=discord.Color.green()
+        )
+        embed.add_field(name="Moderator", value=interaction.user.mention)
+        await interaction.channel.send(embed=embed)
+        await interaction.response.send_message("✅ Profile approved and post removed.", ephemeral=True)
+
+        if close_thread:
+            await self.close_member_thread(interaction, user_uuid)
+
+    async def reject_profile(self, interaction, user_uuid, reason, close_thread=False):
+
+        ticket = (
+            self.supabase
+            .table("feedback_messages")
+            .insert({
+                "user_id": user_uuid,
+                "category": "other",
+                "message": "A moderator has rejected your profile.",
+                "status": "new"
+            })
+            .execute()
+        )
+        feedback_id = ticket.data[0]["id"]
+        (
+            self.supabase
+            .table("feedback_replies")
+            .insert({
+                "feedback_id": feedback_id,
+                "author_role": "admin",
+                "message": reason
+            })
+            .execute()
+        )
+        embed = discord.Embed(title="⛔ Profile Rejected", description=reason, color=discord.Color.red())
+        embed.add_field(name="Moderator", value=interaction.user.mention)
+        await interaction.channel.send(embed=embed)
+        await interaction.response.send_message("✅ Profile rejected and post removed.", ephemeral=True)
+
+        if close_thread:
+            await self.close_member_thread(interaction, user_uuid)
+
+    async def delete_account(self, interaction, user_uuid, close_thread=False):
+
+        await interaction.response.defer(ephemeral=True)
+        try:
+            self.supabase.table("profiles").delete().eq("id", user_uuid).execute()
+            self.supabase.auth.admin.delete_user(user_uuid)
+        except Exception as e:
+            await interaction.followup.send(f"❌ Could not delete account: {e}", ephemeral=True)
+            return
+
+        await interaction.followup.send("🗑️ Account deleted and member-management post removed.", ephemeral=True)
+        if close_thread:
+            await self.close_member_thread(interaction, user_uuid)
 
     # -------------------------
     # MANUAL SYNC COMMAND
