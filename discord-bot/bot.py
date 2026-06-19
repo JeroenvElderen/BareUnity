@@ -62,6 +62,11 @@ COMMAND_CHANNELS = {
 }
 
 async def apply_command_channel_permissions(synced_commands):
+    # Discord no longer allows bots to mutate per-command channel permissions via
+    # this endpoint; attempting it during startup causes 403/429 noise and can
+    # delay readiness. Commands still enforce their allowed channels in handlers.
+    return
+
     if not TOKEN or not bot.user:
         return
 
