@@ -53,9 +53,26 @@ class RedditCrosspost(commands.Cog):
         async with aiohttp.ClientSession(headers=headers) as session:
             request = session.post if method == "POST" else session.patch
             async with request(f"{BAREUNITY_API_BASE_URL}{path}", json=payload) as response:
-                data = await response.json(content_type=None)
+                response_text = await response.text()
+                try:
+                    data = await response.json(content_type=None)
+                except Exception:
+                    data = None
+
                 if response.status >= 300:
-                    raise RuntimeError(data.get("error") or f"BareUnity API returned {response.status}")
+                    if isinstance(data, dict) and data.get("error"):
+                        raise RuntimeError(data["error"])
+
+                    body_preview = response_text.strip().replace("\n", " ")[:200]
+                    if body_preview:
+                        raise RuntimeError(f"BareUnity API returned {response.status}: {body_preview}")
+
+                    raise RuntimeError(f"BareUnity API returned {response.status}")
+
+                if not isinstance(data, dict):
+                    body_preview = response_text.strip().replace("\n", " ")[:200]
+                    raise RuntimeError(f"BareUnity API returned a non-JSON response: {body_preview or 'empty response'}")
+
                 return data
 
     async def fetch_starter_message(self, thread: discord.Thread):
