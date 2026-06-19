@@ -264,18 +264,20 @@ class FeedbackView(discord.ui.View):
 
     @discord.ui.button(label="Close ticket", emoji="✅", style=discord.ButtonStyle.success)
     async def close(self, interaction, button):
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        
         try:
             self.cog.supabase.table("feedback_messages").update({
                 "status": "closed",
             }).eq("id", self.feedback_id).execute()
         except Exception as error:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 f"❌ Could not close website ticket: {error}",
                 ephemeral=True,
             )
             return
 
-        await interaction.response.send_message(
+        await interaction.followup.send(
             "✅ Website ticket marked closed. Deleting this Discord ticket thread…",
             ephemeral=True,
         )
@@ -674,7 +676,11 @@ class PlatformGroveAdmin(commands.Cog):
             message_id = int(thread_id)
         except (TypeError, ValueError):
             return
-        self.bot.add_view(view, message_id=message_id)
+        
+        # Register persistent components globally by their stable custom IDs so
+        # forum starter buttons keep working after restarts, even when Discord
+        # does not let us fetch/edit an archived starter message during restore.
+        self.bot.add_view(view)
         try:
             thread = self.bot.get_channel(message_id) or await self.bot.fetch_channel(message_id)
             starter_message = await thread.fetch_message(message_id)
