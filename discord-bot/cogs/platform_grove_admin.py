@@ -264,10 +264,22 @@ class FeedbackView(discord.ui.View):
 
     @discord.ui.button(label="Close ticket", emoji="✅", style=discord.ButtonStyle.success)
     async def close(self, interaction, button):
-        self.cog.supabase.table("feedback_messages").update({
-            "status": "closed",
-        }).eq("id", self.feedback_id).execute()
-        await interaction.response.send_message("✅ Website ticket marked closed.", ephemeral=True)
+        try:
+            self.cog.supabase.table("feedback_messages").update({
+                "status": "closed",
+            }).eq("id", self.feedback_id).execute()
+        except Exception as error:
+            await interaction.response.send_message(
+                f"❌ Could not close website ticket: {error}",
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.send_message(
+            "✅ Website ticket marked closed. Deleting this Discord ticket thread…",
+            ephemeral=True,
+        )
+        await self.cog.delete_feedback_ticket_thread(interaction, self.feedback_id)
 
 
 
@@ -566,7 +578,20 @@ class PlatformGroveAdmin(commands.Cog):
             isinstance(interaction.channel, discord.Thread)
             and interaction.channel.parent_id == MEMBER_MANAGEMENT
         )
-        
+    
+    async def delete_feedback_ticket_thread(self, interaction, feedback_id):
+        self.sync_state.setdefault("feedback", {}).pop(feedback_id, None)
+        self.sync_state.setdefault("location_drafts", {}).pop(feedback_id, None)
+        save_json(SYNC_FILE, self.sync_state)
+
+        try:
+            if isinstance(interaction.channel, discord.Thread):
+                await interaction.channel.delete()
+            elif interaction.message:
+                await interaction.message.delete()
+        except Exception as error:
+            print(f"[PLATFORM_GROVE] Could not delete feedback ticket thread {feedback_id}: {error}")
+                
     def ticket_embed(self, title, row):
         embed = discord.Embed(title=title, description=(row.get("message") or row.get("reason") or "No details")[:4000], color=discord.Color.blurple())
         for name, key in [("ID", "id"), ("User", "user_id"), ("Email", "user_email"), ("Status", "status"), ("Created", "created_at")]:
