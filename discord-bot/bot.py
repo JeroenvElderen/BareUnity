@@ -6,10 +6,17 @@ from dotenv import load_dotenv
 import asyncio
 import aiohttp
 
+from commands.record import RecordCommands
+from services.recording import RecordingService
+from storage.s3 import S3Storage
+from transcription.turboscribe import TurboScribeProvider
+from utils.config import get_settings
+from utils.logging import configure_logging
+
 load_dotenv()
 
 TOKEN = os.getenv("DISCORD_TOKEN")
-GUILD_ID = 1514974981711462561
+GUILD_ID = int(os.getenv("DISCORD_GUILD_ID", "1514974981711462561"))
 
 APPROVED_ROLE = 1516076346025971803
 PENDING_ROLE = 1516093480630489089
@@ -189,6 +196,13 @@ async def on_ready():
     print(f"Logged in as {bot.user}")
 
 async def main():
+    if not TOKEN:
+        raise RuntimeError("DISCORD_TOKEN is required. Copy .env.example to .env and fill it in before running python bot.py.")
+
+    settings = get_settings()
+    configure_logging(settings.log_level)
+    recorder = RecordingService(settings, S3Storage(settings), TurboScribeProvider(settings))
+
     async with bot:
         await bot.load_extension("cogs.auto_role")
         await bot.load_extension("cogs.welcome_threads")
@@ -203,6 +217,7 @@ async def main():
         await bot.load_extension("cogs.bump_reminder")
         await bot.load_extension("cogs.member_management")
         await bot.load_extension("cogs.platform_grove_admin")
+        await bot.add_cog(RecordCommands(bot, settings, recorder))
         await bot.start(TOKEN)
 
 
