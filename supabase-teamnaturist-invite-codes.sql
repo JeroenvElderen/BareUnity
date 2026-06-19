@@ -2,8 +2,8 @@
 -- Apply this file in the Supabase SQL editor for the TeamNaturist Discord flow.
 --
 -- Discord server/role membership is checked by the app with DISCORD_BOT_TOKEN.
--- Supabase remains the source of truth for one-time Discord member redemption:
--- a Discord account can only complete trusted-partner registration once.
+-- This legacy redemption table/function set is no longer required for Discord invite signup;
+-- the app now trusts the live Discord guild role check and Supabase Auth identity.
 
 create table if not exists public.teamnaturist_discord_redemptions (
   discord_user_id text primary key check (length(trim(discord_user_id)) > 0),

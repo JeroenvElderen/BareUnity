@@ -25,6 +25,14 @@ type VerificationSubmission = {
   status: string | null;
 };
 
+function normalizeVerificationStatus(status: string | null | undefined) {
+  return status?.trim().toLowerCase() ?? "";
+}
+
+function isApprovedVerificationStatus(status: string | null | undefined) {
+  return normalizeVerificationStatus(status) === "approved";
+}
+
 function getStringValue(formData: FormData, key: string) {
   const value = formData.get(key);
   return typeof value === "string" ? value.trim() : "";
@@ -57,6 +65,44 @@ function buildReviewerNotes(
   return `intent=${motivation};id_document_path=${idDocumentPath};redacted_details_confirmed=${isSensitiveIdDetailsHidden}`;
 }
 
+async function syncApprovedVerificationAccess(
+  supabaseAdmin: ReturnType<typeof createSupabaseAdminClient>,
+  userId: string,
+  userMetadata: Record<string, unknown>,
+) {
+  const metadata = {
+    ...userMetadata,
+    account_access: "verified",
+    onboarding_level: "registration_submitted",
+    verification_status: "approved",
+  };
+
+  const [settingsResult, metadataResult] = await Promise.all([
+    supabaseAdmin.from("profile_settings").upsert(
+      {
+        user_id: userId,
+        user_role: "newcomer",
+        onboarding_completed: true,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id" },
+    ),
+    supabaseAdmin.auth.admin.updateUserById(userId, {
+      user_metadata: metadata,
+    }),
+  ]);
+
+  if (settingsResult.error) {
+    return settingsResult.error.message;
+  }
+
+  if (metadataResult.error) {
+    return metadataResult.error.message;
+  }
+
+  return null;
+}
+
 async function getVerificationContext(userId: string) {
   const supabaseAdmin = createSupabaseAdminClient();
 
@@ -87,9 +133,8 @@ export async function GET(request: NextRequest) {
   const authResult = await ensureAuthenticatedRequest(request);
   if ("error" in authResult) return authResult.error;
 
-  const { settingsResult, submissionResult } = await getVerificationContext(
-    authResult.user.id,
-  );
+  const { supabaseAdmin, settingsResult, submissionResult } =
+    await getVerificationContext(authResult.user.id);
 
   if (settingsResult.error) {
     return NextResponse.json(
@@ -109,6 +154,19 @@ export async function GET(request: NextRequest) {
   const submission = submissionResult.data;
   const metadata = authResult.user.user_metadata ?? {};
   const isAdmin = isPlatformAdminEmail(authResult.user.email);
+  const isApproved = isApprovedVerificationStatus(submission?.status);
+
+  if (!isAdmin && isApproved) {
+    const syncError = await syncApprovedVerificationAccess(
+      supabaseAdmin,
+      authResult.user.id,
+      metadata,
+    );
+
+    if (syncError) {
+      return NextResponse.json({ error: syncError }, { status: 500 });
+    }
+  }
   const isVisitor =
     !isAdmin &&
     settings?.user_role === "view_only" &&
@@ -116,7 +174,11 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     ok: true,
-    eligible: isVisitor && submission?.status !== "pending",
+    eligible:
+      isVisitor &&
+      !["pending", "approved"].includes(
+        normalizeVerificationStatus(submission?.status),
+      ),
     status: isAdmin
       ? "admin"
       : (submission?.status ?? (isVisitor ? "visitor" : "not_eligible")),
@@ -180,7 +242,16 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (submissionResult.data?.status === "pending") {
+  if (isApprovedVerificationStatus(submissionResult.data?.status)) {
+    return NextResponse.json(
+      { error: "Your verification application is already approved." },
+      { status: 409 },
+    );
+  }
+
+  if (
+    normalizeVerificationStatus(submissionResult.data?.status) === "pending"
+  ) {
     return NextResponse.json(
       { error: "Your verification application is already pending review." },
       { status: 409 },

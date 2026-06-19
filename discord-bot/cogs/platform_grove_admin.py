@@ -1272,6 +1272,15 @@ class PlatformGroveAdmin(commands.Cog):
         if not response.data:
             await interaction.response.send_message("❌ Application not found.", ephemeral=True)
             return
+
+        if status == "approved":
+            self.supabase.table("profile_settings").upsert({
+                "user_id": user_id,
+                "user_role": "newcomer",
+                "onboarding_completed": True,
+                "updated_at": now_iso(),
+            }, on_conflict="user_id").execute()
+
         self.sync_state.setdefault("applications", {}).pop(user_id, None)
         save_json(SYNC_FILE, self.sync_state)
         await interaction.response.send_message(f"✅ Application `{user_id}` marked {status} on the website.", ephemeral=True)
