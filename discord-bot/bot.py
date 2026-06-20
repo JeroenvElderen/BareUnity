@@ -54,6 +54,7 @@ COMMAND_CHANNELS = {
     "country_form": [1517154255792902204],
     "stay_form": [1517154255792902204],
     "activity_form": [1517154255792902204],
+    "listing_drafts": [1517154255792902204],
     "stay_import": [1517154255792902204],
     "country_upsert_basic": [1517154255792902204],
     "stay_create_basic": [1517154255792902204],
