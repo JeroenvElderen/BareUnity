@@ -1,5 +1,6 @@
 import hashlib
 import json
+import uuid
 import os
 import re
 import urllib.parse
@@ -25,6 +26,7 @@ PLATFORM_FEEDBACK = 1517154088310018129
 CASE_FILES = 1517154128541909152
 
 SYNC_FILE = "platform_grove_sync.json"
+DRAFT_FILE = "platform_grove_listing_drafts.json"
 LOCATION_REQUEST_PREFIX = "LOCATION_REQUEST::"
 LOCATION_VIEW_PREFIX = "location_request"
 FEEDBACK_VIEW_PREFIX = "feedback_ticket"
@@ -94,6 +96,10 @@ def load_json(path, fallback):
 def save_json(path, payload):
     with open(path, "w", encoding="utf-8") as handle:
         json.dump(payload, handle, indent=4)
+
+
+def make_draft_id(listing_type):
+    return f"{listing_type}-{uuid.uuid4().hex[:8]}"
 
 
 def split_comma_list(value):
@@ -543,82 +549,213 @@ class MemberActionView(discord.ui.View):
         await interaction.response.send_modal(MemberActionModal(self.cog, self.user_id, "ban"))
 
 
-class CountryFormModal(discord.ui.Modal, title="Country profile form"):
-    name = discord.ui.TextInput(label="Country name", placeholder="Portugal", max_length=80)
-    flag_continent = discord.ui.TextInput(label="Flag + continent", placeholder="🇵🇹 Europe", max_length=120)
-    tagline = discord.ui.TextInput(label="Tagline", placeholder="Sunny naturist coastlines and retreats", max_length=240)
-    hero_image = discord.ui.TextInput(label="Hero image URL", placeholder="https://...", max_length=500, required=False)
-    legal_best_time = discord.ui.TextInput(label="Legal status + best time", style=discord.TextStyle.paragraph, placeholder="Legal status: ...\nBest time: ...", max_length=1200)
 
-    def __init__(self, cog):
-        super().__init__()
-        self.cog = cog
-
-    async def on_submit(self, interaction):
-        text = str(self.legal_best_time.value)
-        legal_status = text
-        best_time = "Year-round with local checks"
-        for line in text.splitlines():
-            lower = line.lower()
-            if lower.startswith("legal status:"):
-                legal_status = line.split(":", 1)[1].strip()
-            if lower.startswith("best time:"):
-                best_time = line.split(":", 1)[1].strip()
-        parts = str(self.flag_continent.value).split(maxsplit=1)
-        flag = parts[0] if parts else "🌍"
-        continent = parts[1] if len(parts) > 1 else "Unknown"
-        slug = await self.cog.save_country_profile(
-            interaction,
-            name=str(self.name.value),
-            flag=flag,
-            continent=continent,
-            tagline=str(self.tagline.value),
-            hero_image=str(self.hero_image.value) or "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee",
-            legal_status=legal_status,
-            best_time=best_time,
-        )
-        await interaction.response.send_message(f"✅ Country profile `{slug}` saved from the form.", ephemeral=True)
-
-
-class StayFormModal(discord.ui.Modal, title="Stay listing form"):
-    name = discord.ui.TextInput(label="Stay name", max_length=120)
-    country_place = discord.ui.TextInput(label="Country + place", placeholder="France | Provence", max_length=160)
-    website_url = discord.ui.TextInput(label="Website URL", placeholder="https://...", max_length=500, required=False)
-    coordinates = discord.ui.TextInput(label="Latitude, longitude", placeholder="43.1234, 5.6789", max_length=80)
-    description = discord.ui.TextInput(label="Description", style=discord.TextStyle.paragraph, max_length=1600)
-
-    def __init__(self, cog):
-        super().__init__()
-        self.cog = cog
+class DraftFieldModal(discord.ui.Modal):
+    def __init__(self, view, title, fields):
+        super().__init__(title=title)
+        self.draft_view = view
+        self.field_keys = []
+        for field in fields:
+            key = field["key"]
+            self.field_keys.append(key)
+            current = view.draft.get(key)
+            text_input = discord.ui.TextInput(
+                label=field["label"],
+                style=field.get("style", discord.TextStyle.short),
+                placeholder=field.get("placeholder"),
+                default="" if current is None else str(current),
+                max_length=field.get("max_length", 400),
+                required=field.get("required", False),
+            )
+            self.add_item(text_input)
 
     async def on_submit(self, interaction):
-        country, _, place = str(self.country_place.value).partition("|")
-        lat, _, lon = str(self.coordinates.value).partition(",")
-        slug = await self.cog.save_stay_listing(
-            interaction, str(self.name.value), country.strip(), place.strip() or country.strip(),
-            str(self.website_url.value), lat.strip(), lon.strip(), str(self.description.value),
-        )
-        await interaction.response.send_message(f"✅ Stay `{slug}` saved from the form and map spot created.", ephemeral=True)
+        for key, item in zip(self.field_keys, self.children):
+            self.draft_view.draft[key] = str(item.value).strip()
+        await self.draft_view.refresh(interaction, "✅ Draft updated. Continue filling sections, preview, or submit when ready.")
 
 
-class ActivityFormModal(discord.ui.Modal, title="Activity listing form"):
-    name = discord.ui.TextInput(label="Activity name", max_length=120)
-    place_name = discord.ui.TextInput(label="Place name", max_length=160)
-    website_url = discord.ui.TextInput(label="Website URL", placeholder="https://...", max_length=500, required=False)
-    coordinates = discord.ui.TextInput(label="Latitude, longitude", placeholder="43.1234, 5.6789", max_length=80)
-    description = discord.ui.TextInput(label="Description", style=discord.TextStyle.paragraph, max_length=1600)
+class MultiStepListingView(discord.ui.View):
+    submit_label = "Submit to Supabase"
 
-    def __init__(self, cog):
-        super().__init__()
+    def __init__(self, cog, owner_id, draft=None, draft_id=None):
+        super().__init__(timeout=1800)
         self.cog = cog
+        self.owner_id = owner_id
+        self.draft = draft or {}
+        self.draft_id = draft_id or make_draft_id(self.listing_type)
+        self.save_local_draft()
 
-    async def on_submit(self, interaction):
-        lat, _, lon = str(self.coordinates.value).partition(",")
-        await self.cog.save_activity_listing(
-            interaction, str(self.name.value), str(self.place_name.value), str(self.website_url.value),
-            lat.strip(), lon.strip(), str(self.description.value),
-        )
-        await interaction.response.send_message("✅ Activity map listing saved from the form.", ephemeral=True)
+    async def interaction_check(self, interaction):
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message("❌ This form belongs to another staff member. Start your own command.", ephemeral=True)
+            return False
+        error = self.cog.ensure_platform_staff(interaction)
+        if error:
+            await interaction.response.send_message(error, ephemeral=True)
+            return False
+        return True
+
+    def preview_embed(self):
+        embed = discord.Embed(title=self.title, description=f"{self.description}\n\nLocal draft ID: `{self.draft_id}`", color=discord.Color.green())
+        for label, key in self.preview_fields:
+            value = self.draft.get(key) or "—"
+            embed.add_field(name=label, value=str(value)[:1024], inline=False)
+        missing = self.missing_required_fields()
+        embed.set_footer(text="Ready to submit" if not missing else f"Missing required: {', '.join(missing)}")
+        return embed
+
+    def missing_required_fields(self):
+        return [label for label, key in self.required_fields if not str(self.draft.get(key) or "").strip()]
+
+    def save_local_draft(self):
+        self.cog.save_listing_draft(self.draft_id, self.listing_type, self.owner_id, self.draft)
+
+    def delete_local_draft(self):
+        self.cog.delete_listing_draft(self.draft_id)
+
+    async def refresh(self, interaction, content=None):
+        self.save_local_draft()
+        await interaction.response.edit_message(content=content, embed=self.preview_embed(), view=self)
+
+    async def submit(self, interaction):
+        raise NotImplementedError
+
+    @discord.ui.button(label="Preview", emoji="👀", style=discord.ButtonStyle.secondary, row=3)
+    async def preview(self, interaction, button):
+        await self.refresh(interaction, "👀 Current draft preview.")
+
+    @discord.ui.button(label="Submit to Supabase", emoji="✅", style=discord.ButtonStyle.success, row=3)
+    async def submit_button(self, interaction, button):
+        missing = self.missing_required_fields()
+        if missing:
+            await interaction.response.send_message(f"❌ Fill required fields first: {', '.join(missing)}", ephemeral=True)
+            return
+        await self.submit(interaction)
+
+    @discord.ui.button(label="Cancel", emoji="🗑️", style=discord.ButtonStyle.danger, row=3)
+    async def cancel(self, interaction, button):
+        self.delete_local_draft()
+        await interaction.response.edit_message(content=f"🗑️ Draft `{self.draft_id}` cancelled and removed from local JSON. Nothing was submitted to Supabase.", embed=None, view=None)
+
+
+class CountryWizardView(MultiStepListingView):
+    listing_type = "country"
+    title = "🌍 Multi-step country profile"
+    description = "Fill each section, preview the draft, then submit it to Supabase."
+    required_fields = [("Country name", "name"), ("Flag", "flag"), ("Continent", "continent"), ("Tagline", "tagline"), ("Legal status", "legal_status"), ("Best time", "best_time")]
+    preview_fields = required_fields + [("Hero image", "hero_image"), ("Beaches count", "beaches_count"), ("Resorts count", "resorts_count"), ("Tags", "tags")]
+
+    @discord.ui.button(label="Basics", emoji="🌍", style=discord.ButtonStyle.primary, row=0)
+    async def basics(self, interaction, button):
+        await interaction.response.send_modal(DraftFieldModal(self, "Country basics", [
+            {"key": "name", "label": "Country name", "placeholder": "Portugal", "max_length": 80, "required": True},
+            {"key": "flag", "label": "Flag emoji", "placeholder": "🇵🇹", "max_length": 10, "required": True},
+            {"key": "continent", "label": "Continent", "placeholder": "Europe", "max_length": 80, "required": True},
+            {"key": "tagline", "label": "Tagline", "max_length": 240, "required": True},
+            {"key": "hero_image", "label": "Hero image URL", "placeholder": "https://...", "max_length": 500},
+        ]))
+
+    @discord.ui.button(label="Travel details", emoji="📝", style=discord.ButtonStyle.primary, row=0)
+    async def details(self, interaction, button):
+        await interaction.response.send_modal(DraftFieldModal(self, "Country travel details", [
+            {"key": "legal_status", "label": "Legal status", "style": discord.TextStyle.paragraph, "max_length": 1200, "required": True},
+            {"key": "best_time", "label": "Best time to visit", "max_length": 300, "required": True},
+            {"key": "beaches_count", "label": "Beaches count label", "placeholder": "12+ beaches", "max_length": 120},
+            {"key": "resorts_count", "label": "Resorts count label", "placeholder": "6 resorts", "max_length": 120},
+            {"key": "tags", "label": "Tags (comma separated)", "max_length": 300},
+        ]))
+
+    async def submit(self, interaction):
+        slug = await self.cog.save_country_profile(interaction, self.draft["name"], self.draft["flag"], self.draft["continent"], self.draft["tagline"], self.draft.get("hero_image") or "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee", self.draft["legal_status"], self.draft["best_time"], payload=self.draft)
+        self.delete_local_draft()
+        await interaction.response.edit_message(content=f"✅ Country profile `{slug}` saved to Supabase. Local draft `{self.draft_id}` was removed.", embed=None, view=None)
+
+
+class StayWizardView(MultiStepListingView):
+    listing_type = "stay"
+    title = "🏕️ Multi-step stay listing"
+    description = "Fill basics, map/location, listing details, and map tags before submitting."
+    required_fields = [("Stay name", "name"), ("Country", "country"), ("Place name", "place_name"), ("Latitude", "latitude"), ("Longitude", "longitude"), ("Description", "description")]
+    preview_fields = required_fields + [("Website", "website_url"), ("Type", "type"), ("Price", "price"), ("Amenities", "amenities"), ("Tags", "tags")]
+
+    @discord.ui.button(label="Basics", emoji="🏕️", style=discord.ButtonStyle.primary, row=0)
+    async def basics(self, interaction, button):
+        await interaction.response.send_modal(DraftFieldModal(self, "Stay basics", [
+            {"key": "name", "label": "Stay name", "max_length": 120, "required": True},
+            {"key": "country", "label": "Country", "max_length": 80, "required": True},
+            {"key": "place_name", "label": "Place / region", "max_length": 160, "required": True},
+            {"key": "website_url", "label": "Website URL", "placeholder": "https://...", "max_length": 500},
+            {"key": "price", "label": "Price label", "placeholder": "Check website", "max_length": 120},
+        ]))
+
+    @discord.ui.button(label="Map", emoji="📍", style=discord.ButtonStyle.primary, row=0)
+    async def map_fields(self, interaction, button):
+        await interaction.response.send_modal(DraftFieldModal(self, "Stay map details", [
+            {"key": "latitude", "label": "Latitude", "placeholder": "43.1234", "max_length": 40, "required": True},
+            {"key": "longitude", "label": "Longitude", "placeholder": "5.6789", "max_length": 40, "required": True},
+            {"key": "address", "label": "Address / location hint", "max_length": 300},
+            {"key": "access_type", "label": "Access type", "placeholder": "Public or Discreet", "max_length": 80},
+            {"key": "safety_level", "label": "Safety level", "placeholder": "Beginner Friendly", "max_length": 80},
+        ]))
+
+    @discord.ui.button(label="Details", emoji="📝", style=discord.ButtonStyle.primary, row=1)
+    async def details(self, interaction, button):
+        await interaction.response.send_modal(DraftFieldModal(self, "Stay listing details", [
+            {"key": "description", "label": "Description", "style": discord.TextStyle.paragraph, "max_length": 1800, "required": True},
+            {"key": "type", "label": "Stay type", "placeholder": "Naturist camping", "max_length": 120},
+            {"key": "badge", "label": "Badge", "placeholder": "Discord-created stay", "max_length": 120},
+            {"key": "vibe", "label": "Vibe", "max_length": 240},
+            {"key": "check_in_window", "label": "Check-in window", "max_length": 180},
+        ]))
+
+    @discord.ui.button(label="Extras", emoji="✨", style=discord.ButtonStyle.primary, row=1)
+    async def extras(self, interaction, button):
+        await interaction.response.send_modal(DraftFieldModal(self, "Stay extras", [
+            {"key": "amenities", "label": "Amenities (comma separated)", "max_length": 600},
+            {"key": "tags", "label": "Map tags (comma separated)", "max_length": 400},
+            {"key": "gallery", "label": "Gallery image URLs (comma separated)", "style": discord.TextStyle.paragraph, "max_length": 1200},
+            {"key": "policies", "label": "Policies (comma separated)", "max_length": 600},
+            {"key": "privacy", "label": "Map privacy", "placeholder": "Public", "max_length": 80},
+        ]))
+
+    async def submit(self, interaction):
+        slug = await self.cog.save_stay_listing(interaction, self.draft["name"], self.draft["country"], self.draft["place_name"], self.draft.get("website_url") or "", self.draft["latitude"], self.draft["longitude"], self.draft["description"], payload=self.draft)
+        self.delete_local_draft()
+        await interaction.response.edit_message(content=f"✅ Stay `{slug}` saved to Supabase and map spot created. Local draft `{self.draft_id}` was removed.", embed=None, view=None)
+
+
+class ActivityWizardView(MultiStepListingView):
+    listing_type = "activity"
+    title = "🎟️ Multi-step activity listing"
+    description = "Fill basics, map/location, and extras before submitting."
+    required_fields = [("Activity name", "name"), ("Place name", "place_name"), ("Latitude", "latitude"), ("Longitude", "longitude"), ("Description", "description")]
+    preview_fields = required_fields + [("Website", "website_url"), ("Amenities", "amenities"), ("Tags", "tags"), ("Access type", "access_type"), ("Safety level", "safety_level")]
+
+    @discord.ui.button(label="Basics", emoji="🎟️", style=discord.ButtonStyle.primary, row=0)
+    async def basics(self, interaction, button):
+        await interaction.response.send_modal(DraftFieldModal(self, "Activity basics", [
+            {"key": "name", "label": "Activity name", "max_length": 120, "required": True},
+            {"key": "place_name", "label": "Place name", "max_length": 160, "required": True},
+            {"key": "website_url", "label": "Website URL", "placeholder": "https://...", "max_length": 500},
+            {"key": "latitude", "label": "Latitude", "placeholder": "43.1234", "max_length": 40, "required": True},
+            {"key": "longitude", "label": "Longitude", "placeholder": "5.6789", "max_length": 40, "required": True},
+        ]))
+
+    @discord.ui.button(label="Details", emoji="📝", style=discord.ButtonStyle.primary, row=0)
+    async def details(self, interaction, button):
+        await interaction.response.send_modal(DraftFieldModal(self, "Activity details", [
+            {"key": "description", "label": "Description", "style": discord.TextStyle.paragraph, "max_length": 1800, "required": True},
+            {"key": "amenities", "label": "Amenities (comma separated)", "placeholder": "Hosted activity", "max_length": 500},
+            {"key": "tags", "label": "Tags (comma separated)", "placeholder": "activities, events, bookings", "max_length": 400},
+            {"key": "access_type", "label": "Access type", "placeholder": "Public", "max_length": 80},
+            {"key": "safety_level", "label": "Safety level", "placeholder": "Beginner Friendly", "max_length": 80},
+        ]))
+
+    async def submit(self, interaction):
+        await self.cog.save_activity_listing(interaction, self.draft["name"], self.draft["place_name"], self.draft.get("website_url") or "", self.draft["latitude"], self.draft["longitude"], self.draft["description"], payload=self.draft)
+        self.delete_local_draft()
+        await interaction.response.edit_message(content=f"✅ Activity map listing saved to Supabase. Local draft `{self.draft_id}` was removed.", embed=None, view=None)
 
 
 class PlatformGroveAdmin(commands.Cog):
@@ -668,7 +805,39 @@ class PlatformGroveAdmin(commands.Cog):
             return "❌ Staff only."
         return None
 
-    async def save_country_profile(self, interaction, name, flag, continent, tagline, hero_image, legal_status, best_time, slug=None):
+    def listing_drafts(self):
+        return load_json(DRAFT_FILE, {})
+
+    def save_listing_drafts(self, drafts):
+        save_json(DRAFT_FILE, drafts)
+
+    def save_listing_draft(self, draft_id, listing_type, owner_id, draft):
+        drafts = self.listing_drafts()
+        drafts[draft_id] = {
+            "id": draft_id,
+            "type": listing_type,
+            "owner_id": str(owner_id),
+            "draft": draft,
+            "updated_at": now_iso(),
+        }
+        self.save_listing_drafts(drafts)
+
+    def load_listing_draft(self, draft_id, listing_type):
+        if not draft_id:
+            return None
+        record = self.listing_drafts().get(draft_id)
+        if not record or record.get("type") != listing_type:
+            return None
+        return record
+
+    def delete_listing_draft(self, draft_id):
+        drafts = self.listing_drafts()
+        if draft_id in drafts:
+            del drafts[draft_id]
+            self.save_listing_drafts(drafts)
+
+    async def save_country_profile(self, interaction, name, flag, continent, tagline, hero_image, legal_status, best_time, slug=None, payload=None):
+        source_payload = payload or {}
         final_slug = slugify(slug or name)
         payload = {
             "slug": final_slug,
@@ -678,10 +847,10 @@ class PlatformGroveAdmin(commands.Cog):
             "tagline": tagline.strip(),
             "hero_image": hero_image.strip(),
             "legal_status": legal_status.strip(),
-            "beaches_count": "Add details",
-            "resorts_count": "Add details",
-            "community_rating": "New",
-            "community_members": "0",
+            "beaches_count": value_for(source_payload, "beaches_count", default="Add details"),
+            "resorts_count": value_for(source_payload, "resorts_count", default="Add details"),
+            "community_rating": value_for(source_payload, "community_rating", default="New"),
+            "community_members": value_for(source_payload, "community_members", default="0"),
             "glance": {},
             "culture_scores": {},
             "laws": [{"topic": "Naturism", "status": "caution", "summary": legal_status.strip()}],
@@ -692,7 +861,7 @@ class PlatformGroveAdmin(commands.Cog):
             "beaches": [],
             "season": {"months": [], "air": [], "sea": [], "vibe": []},
             "faqs": [],
-            "tags": [],
+            "tags": split_comma_list(value_for(source_payload, "tags", default="")),
             "updated_at": now_iso(),
         }
         self.supabase.table("country_discovery_profiles").upsert(payload, on_conflict="slug").execute()
@@ -721,7 +890,7 @@ class PlatformGroveAdmin(commands.Cog):
             "map_longitude": lon,
             "check_in_window": value_for(payload, "checkInWindow", "check_in_window", default="Check the stay website for current arrival times"),
             "gallery": list_from_payload(value_for(payload, "gallery", default=[])),
-            "policies": value_for(payload, "policies", default=[]),
+            "policies": list_from_payload(value_for(payload, "policies", default=[])),
         }
         self.supabase.table("stays").upsert(stay_payload, on_conflict="slug").execute()
         self.supabase.table("naturist_map_spots").upsert({
@@ -732,14 +901,15 @@ class PlatformGroveAdmin(commands.Cog):
         }).execute()
         return slug
 
-    async def save_activity_listing(self, interaction, name, place_name, website_url, latitude, longitude, description):
+    async def save_activity_listing(self, interaction, name, place_name, website_url, latitude, longitude, description, payload=None):
+        payload = payload or {}
         lat = parse_float(latitude)
         lon = parse_float(longitude)
         self.supabase.table("naturist_map_spots").insert({
             "name": name, "description": description, "short_description": description[:240], "latitude": lat, "longitude": lon,
-            "privacy": "Public", "location_hint": place_name, "access_type": "Public", "terrain": "Activity",
-            "safety_level": "Beginner Friendly", "website": website_url, "amenities": ["Hosted activity"],
-            "tags": ["activities", "events", "bookings"], "reporter_notes": f"Created from Discord by {interaction.user}", "status": "approved",
+            "privacy": value_for(payload, "privacy", default="Public"), "location_hint": place_name, "access_type": value_for(payload, "accessType", "access_type", default="Public"), "terrain": "Activity",
+            "safety_level": value_for(payload, "safetyLevel", "safety_level", default="Beginner Friendly"), "website": website_url, "amenities": list_from_payload(value_for(payload, "amenities", default=["Hosted activity"])),
+            "tags": list_from_payload(value_for(payload, "tags", default=["activities", "events", "bookings"])), "reporter_notes": f"Created from Discord by {interaction.user}", "status": "approved",
         }).execute()
 
     async def import_stay_draft_from_website(self, website_url):
@@ -1108,29 +1278,61 @@ class PlatformGroveAdmin(commands.Cog):
         await interaction.response.send_message(embed=embed, ephemeral=False)
 
 
-    @app_commands.command(name="country_form", description="Open an easy country profile form instead of JSON")
-    async def country_form(self, interaction):
+    @app_commands.command(name="listing_drafts", description="List locally saved country/stay/activity drafts")
+    async def listing_drafts_command(self, interaction):
         error = self.ensure_platform_staff(interaction)
         if error:
             await interaction.response.send_message(error, ephemeral=True)
             return
-        await interaction.response.send_modal(CountryFormModal(self))
+        drafts = self.listing_drafts()
+        if not drafts:
+            await interaction.response.send_message(f"No local drafts in `{DRAFT_FILE}`.", ephemeral=True)
+            return
+        lines = []
+        for draft_id, record in sorted(drafts.items(), key=lambda item: item[1].get("updated_at", ""), reverse=True)[:20]:
+            draft = record.get("draft") or {}
+            lines.append(f"`{draft_id}` • {record.get('type')} • {draft.get('name') or 'Untitled'} • {record.get('updated_at')}")
+        await interaction.response.send_message("Local drafts saved before Supabase submit:\n" + "\n".join(lines), ephemeral=True)
 
-    @app_commands.command(name="stay_form", description="Open an easy stay listing form instead of JSON")
-    async def stay_form(self, interaction):
-        error = self.ensure_platform_staff(interaction)
-        if error:
-            await interaction.response.send_message(error, ephemeral=True)
-            return
-        await interaction.response.send_modal(StayFormModal(self))
 
-    @app_commands.command(name="activity_form", description="Open an easy activity listing form instead of JSON")
-    async def activity_form(self, interaction):
+    @app_commands.command(name="country_form", description="Open a multi-step country profile form")
+    async def country_form(self, interaction, draft_id: str | None = None):
         error = self.ensure_platform_staff(interaction)
         if error:
             await interaction.response.send_message(error, ephemeral=True)
             return
-        await interaction.response.send_modal(ActivityFormModal(self))
+        record = self.load_listing_draft(draft_id, "country")
+        if draft_id and not record:
+            await interaction.response.send_message(f"❌ Country draft `{draft_id}` was not found in `{DRAFT_FILE}`.", ephemeral=True)
+            return
+        view = CountryWizardView(self, interaction.user.id, draft=(record or {}).get("draft"), draft_id=draft_id)
+        await interaction.response.send_message(embed=view.preview_embed(), view=view, ephemeral=True)
+
+    @app_commands.command(name="stay_form", description="Open a multi-step stay listing form")
+    async def stay_form(self, interaction, draft_id: str | None = None):
+        error = self.ensure_platform_staff(interaction)
+        if error:
+            await interaction.response.send_message(error, ephemeral=True)
+            return
+        record = self.load_listing_draft(draft_id, "stay")
+        if draft_id and not record:
+            await interaction.response.send_message(f"❌ Stay draft `{draft_id}` was not found in `{DRAFT_FILE}`.", ephemeral=True)
+            return
+        view = StayWizardView(self, interaction.user.id, draft=(record or {}).get("draft"), draft_id=draft_id)
+        await interaction.response.send_message(embed=view.preview_embed(), view=view, ephemeral=True)
+
+    @app_commands.command(name="activity_form", description="Open a multi-step activity listing form")
+    async def activity_form(self, interaction, draft_id: str | None = None):
+        error = self.ensure_platform_staff(interaction)
+        if error:
+            await interaction.response.send_message(error, ephemeral=True)
+            return
+        record = self.load_listing_draft(draft_id, "activity")
+        if draft_id and not record:
+            await interaction.response.send_message(f"❌ Activity draft `{draft_id}` was not found in `{DRAFT_FILE}`.", ephemeral=True)
+            return
+        view = ActivityWizardView(self, interaction.user.id, draft=(record or {}).get("draft"), draft_id=draft_id)
+        await interaction.response.send_message(embed=view.preview_embed(), view=view, ephemeral=True)
 
     @app_commands.command(name="stay_import", description="Import a stay from its website using the BareUnity Ollama importer")
     async def stay_import(self, interaction, website_url: str, save: bool = False):
