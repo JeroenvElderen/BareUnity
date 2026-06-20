@@ -184,7 +184,7 @@ class WelcomeThreads(commands.Cog):
                     "• Your naturist journey\n"
                     "• What naturism means to you\n"
                     "• What brought you to Bare Unity\n"
-                    "• A recent naturist photo (optional)\n\n"
+                    "• A recent naturist photo (required)\n\n"
                     "Take your time and tell us about yourself.\n"
                     "The more effort you put into your introduction, "
                     "the easier it is for members and staff to get "
