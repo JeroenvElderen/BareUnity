@@ -9,9 +9,17 @@ function statusForImportError(error: unknown) {
   return 500;
 }
 
+function hasValidDiscordSecret(request: NextRequest) {
+  const expectedSecret = process.env.BAREUNITY_DISCORD_SECRET || process.env.DISCORD_CROSSPOST_SECRET;
+  const providedSecret = request.headers.get("x-bareunity-discord-secret") ?? "";
+  return Boolean(expectedSecret && providedSecret && providedSecret === expectedSecret);
+}
+
 export async function GET(request: NextRequest) {
-  const adminResult = await ensureStayAdmin(request);
-  if ("error" in adminResult) return adminResult.error;
+  if (!hasValidDiscordSecret(request)) {
+    const adminResult = await ensureStayAdmin(request);
+    if ("error" in adminResult) return adminResult.error;
+  }
 
   const url = new URL(request.url).searchParams.get("url")?.trim() ?? "";
 

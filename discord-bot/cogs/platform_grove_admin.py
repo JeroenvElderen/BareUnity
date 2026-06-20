@@ -2,6 +2,8 @@ import hashlib
 import json
 import os
 import re
+import urllib.parse
+import urllib.request
 from pathlib import Path
 from datetime import datetime, timezone
 
@@ -541,6 +543,84 @@ class MemberActionView(discord.ui.View):
         await interaction.response.send_modal(MemberActionModal(self.cog, self.user_id, "ban"))
 
 
+class CountryFormModal(discord.ui.Modal, title="Country profile form"):
+    name = discord.ui.TextInput(label="Country name", placeholder="Portugal", max_length=80)
+    flag_continent = discord.ui.TextInput(label="Flag + continent", placeholder="🇵🇹 Europe", max_length=120)
+    tagline = discord.ui.TextInput(label="Tagline", placeholder="Sunny naturist coastlines and retreats", max_length=240)
+    hero_image = discord.ui.TextInput(label="Hero image URL", placeholder="https://...", max_length=500, required=False)
+    legal_best_time = discord.ui.TextInput(label="Legal status + best time", style=discord.TextStyle.paragraph, placeholder="Legal status: ...\nBest time: ...", max_length=1200)
+
+    def __init__(self, cog):
+        super().__init__()
+        self.cog = cog
+
+    async def on_submit(self, interaction):
+        text = str(self.legal_best_time.value)
+        legal_status = text
+        best_time = "Year-round with local checks"
+        for line in text.splitlines():
+            lower = line.lower()
+            if lower.startswith("legal status:"):
+                legal_status = line.split(":", 1)[1].strip()
+            if lower.startswith("best time:"):
+                best_time = line.split(":", 1)[1].strip()
+        parts = str(self.flag_continent.value).split(maxsplit=1)
+        flag = parts[0] if parts else "🌍"
+        continent = parts[1] if len(parts) > 1 else "Unknown"
+        slug = await self.cog.save_country_profile(
+            interaction,
+            name=str(self.name.value),
+            flag=flag,
+            continent=continent,
+            tagline=str(self.tagline.value),
+            hero_image=str(self.hero_image.value) or "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee",
+            legal_status=legal_status,
+            best_time=best_time,
+        )
+        await interaction.response.send_message(f"✅ Country profile `{slug}` saved from the form.", ephemeral=True)
+
+
+class StayFormModal(discord.ui.Modal, title="Stay listing form"):
+    name = discord.ui.TextInput(label="Stay name", max_length=120)
+    country_place = discord.ui.TextInput(label="Country + place", placeholder="France | Provence", max_length=160)
+    website_url = discord.ui.TextInput(label="Website URL", placeholder="https://...", max_length=500, required=False)
+    coordinates = discord.ui.TextInput(label="Latitude, longitude", placeholder="43.1234, 5.6789", max_length=80)
+    description = discord.ui.TextInput(label="Description", style=discord.TextStyle.paragraph, max_length=1600)
+
+    def __init__(self, cog):
+        super().__init__()
+        self.cog = cog
+
+    async def on_submit(self, interaction):
+        country, _, place = str(self.country_place.value).partition("|")
+        lat, _, lon = str(self.coordinates.value).partition(",")
+        slug = await self.cog.save_stay_listing(
+            interaction, str(self.name.value), country.strip(), place.strip() or country.strip(),
+            str(self.website_url.value), lat.strip(), lon.strip(), str(self.description.value),
+        )
+        await interaction.response.send_message(f"✅ Stay `{slug}` saved from the form and map spot created.", ephemeral=True)
+
+
+class ActivityFormModal(discord.ui.Modal, title="Activity listing form"):
+    name = discord.ui.TextInput(label="Activity name", max_length=120)
+    place_name = discord.ui.TextInput(label="Place name", max_length=160)
+    website_url = discord.ui.TextInput(label="Website URL", placeholder="https://...", max_length=500, required=False)
+    coordinates = discord.ui.TextInput(label="Latitude, longitude", placeholder="43.1234, 5.6789", max_length=80)
+    description = discord.ui.TextInput(label="Description", style=discord.TextStyle.paragraph, max_length=1600)
+
+    def __init__(self, cog):
+        super().__init__()
+        self.cog = cog
+
+    async def on_submit(self, interaction):
+        lat, _, lon = str(self.coordinates.value).partition(",")
+        await self.cog.save_activity_listing(
+            interaction, str(self.name.value), str(self.place_name.value), str(self.website_url.value),
+            lat.strip(), lon.strip(), str(self.description.value),
+        )
+        await interaction.response.send_message("✅ Activity map listing saved from the form.", ephemeral=True)
+
+
 class PlatformGroveAdmin(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -581,6 +661,106 @@ class PlatformGroveAdmin(commands.Cog):
             and interaction.channel.parent_id == MEMBER_MANAGEMENT
         )
     
+    def ensure_platform_staff(self, interaction):
+        if interaction.channel_id != PLATFORM_OPERATIONS:
+            return "❌ Use this in #platform-operations."
+        if not self.is_staff(interaction.user):
+            return "❌ Staff only."
+        return None
+
+    async def save_country_profile(self, interaction, name, flag, continent, tagline, hero_image, legal_status, best_time, slug=None):
+        final_slug = slugify(slug or name)
+        payload = {
+            "slug": final_slug,
+            "name": name.strip(),
+            "flag": flag.strip(),
+            "continent": continent.strip(),
+            "tagline": tagline.strip(),
+            "hero_image": hero_image.strip(),
+            "legal_status": legal_status.strip(),
+            "beaches_count": "Add details",
+            "resorts_count": "Add details",
+            "community_rating": "New",
+            "community_members": "0",
+            "glance": {},
+            "culture_scores": {},
+            "laws": [{"topic": "Naturism", "status": "caution", "summary": legal_status.strip()}],
+            "first_time_tips": ["Check local guidance before visiting."],
+            "etiquette": ["Respect local rules and community privacy."],
+            "best_time": best_time.strip(),
+            "regions": [],
+            "beaches": [],
+            "season": {"months": [], "air": [], "sea": [], "vibe": []},
+            "faqs": [],
+            "tags": [],
+            "updated_at": now_iso(),
+        }
+        self.supabase.table("country_discovery_profiles").upsert(payload, on_conflict="slug").execute()
+        return final_slug
+
+    async def save_stay_listing(self, interaction, name, country, place_name, website_url, latitude, longitude, description, payload=None):
+        payload = payload or {}
+        slug = slugify(value_for(payload, "slug", default=name))
+        lat = parse_float(latitude, parse_float(value_for(payload, "mapLatitude", "map_latitude", default=0)))
+        lon = parse_float(longitude, parse_float(value_for(payload, "mapLongitude", "map_longitude", default=0)))
+        stay_payload = {
+            "slug": slug,
+            "name": name,
+            "country": country,
+            "place_name": place_name,
+            "type": value_for(payload, "type", default="Naturist camping"),
+            "rating": parse_float(value_for(payload, "rating", default=4.5), 4.5),
+            "price": value_for(payload, "price", default="Check website"),
+            "badge": value_for(payload, "badge", default="Discord-created stay"),
+            "vibe": value_for(payload, "vibe", default="Naturist-friendly stay"),
+            "amenities": list_from_payload(value_for(payload, "amenities", default=[])),
+            "description": description,
+            "website_url": website_url,
+            "address": value_for(payload, "address", default=place_name),
+            "map_latitude": lat,
+            "map_longitude": lon,
+            "check_in_window": value_for(payload, "checkInWindow", "check_in_window", default="Check the stay website for current arrival times"),
+            "gallery": list_from_payload(value_for(payload, "gallery", default=[])),
+            "policies": value_for(payload, "policies", default=[]),
+        }
+        self.supabase.table("stays").upsert(stay_payload, on_conflict="slug").execute()
+        self.supabase.table("naturist_map_spots").upsert({
+            "name": name, "description": description, "short_description": description[:240], "latitude": lat, "longitude": lon,
+            "privacy": value_for(payload, "privacy", default="Public"), "location_hint": place_name, "access_type": value_for(payload, "accessType", "access_type", default="Public"), "terrain": "Stays",
+            "safety_level": value_for(payload, "safetyLevel", "safety_level", default="Beginner Friendly"), "website": website_url, "amenities": stay_payload["amenities"], "tags": list_from_payload(value_for(payload, "tags", default=["stays"])),
+            "reporter_notes": f"Created from Discord by {interaction.user}", "status": "approved",
+        }).execute()
+        return slug
+
+    async def save_activity_listing(self, interaction, name, place_name, website_url, latitude, longitude, description):
+        lat = parse_float(latitude)
+        lon = parse_float(longitude)
+        self.supabase.table("naturist_map_spots").insert({
+            "name": name, "description": description, "short_description": description[:240], "latitude": lat, "longitude": lon,
+            "privacy": "Public", "location_hint": place_name, "access_type": "Public", "terrain": "Activity",
+            "safety_level": "Beginner Friendly", "website": website_url, "amenities": ["Hosted activity"],
+            "tags": ["activities", "events", "bookings"], "reporter_notes": f"Created from Discord by {interaction.user}", "status": "approved",
+        }).execute()
+
+    async def import_stay_draft_from_website(self, website_url):
+        base_url = os.getenv("BAREUNITY_API_BASE_URL", "https://bareunity.com").rstrip("/")
+        secret = os.getenv("BAREUNITY_DISCORD_SECRET") or os.getenv("DISCORD_CROSSPOST_SECRET")
+        if not secret:
+            raise RuntimeError("BAREUNITY_DISCORD_SECRET or DISCORD_CROSSPOST_SECRET is not configured.")
+        query = urllib.parse.urlencode({"url": website_url})
+        request = urllib.request.Request(
+            f"{base_url}/api/admin/stays/import?{query}",
+            headers={"x-bareunity-discord-secret": secret, "accept": "application/json"},
+        )
+        def fetch():
+            with urllib.request.urlopen(request, timeout=90) as response:
+                return response.status, response.read().decode("utf-8")
+        status, body = await self.bot.loop.run_in_executor(None, fetch)
+        payload = json.loads(body or "{}")
+        if status >= 400 or "draft" not in payload:
+            raise RuntimeError(payload.get("error") or f"Importer returned HTTP {status}.")
+        return payload["draft"]
+
     async def delete_feedback_ticket_thread(self, interaction, feedback_id):
         self.sync_state.setdefault("feedback", {}).pop(feedback_id, None)
         self.sync_state.setdefault("location_drafts", {}).pop(feedback_id, None)
@@ -926,6 +1106,63 @@ class PlatformGroveAdmin(commands.Cog):
         if country.get("hero_image"):
             embed.set_image(url=country["hero_image"])
         await interaction.response.send_message(embed=embed, ephemeral=False)
+
+
+    @app_commands.command(name="country_form", description="Open an easy country profile form instead of JSON")
+    async def country_form(self, interaction):
+        error = self.ensure_platform_staff(interaction)
+        if error:
+            await interaction.response.send_message(error, ephemeral=True)
+            return
+        await interaction.response.send_modal(CountryFormModal(self))
+
+    @app_commands.command(name="stay_form", description="Open an easy stay listing form instead of JSON")
+    async def stay_form(self, interaction):
+        error = self.ensure_platform_staff(interaction)
+        if error:
+            await interaction.response.send_message(error, ephemeral=True)
+            return
+        await interaction.response.send_modal(StayFormModal(self))
+
+    @app_commands.command(name="activity_form", description="Open an easy activity listing form instead of JSON")
+    async def activity_form(self, interaction):
+        error = self.ensure_platform_staff(interaction)
+        if error:
+            await interaction.response.send_message(error, ephemeral=True)
+            return
+        await interaction.response.send_modal(ActivityFormModal(self))
+
+    @app_commands.command(name="stay_import", description="Import a stay from its website using the BareUnity Ollama importer")
+    async def stay_import(self, interaction, website_url: str, save: bool = False):
+        error = self.ensure_platform_staff(interaction)
+        if error:
+            await interaction.response.send_message(error, ephemeral=True)
+            return
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        try:
+            draft = await self.import_stay_draft_from_website(website_url)
+        except Exception as error:
+            await interaction.followup.send(f"❌ Stay import failed: {error}", ephemeral=True)
+            return
+        warnings = draft.get("warnings") or []
+        if save:
+            slug = await self.save_stay_listing(
+                interaction,
+                draft.get("name") or "Imported stay",
+                draft.get("country") or "",
+                draft.get("placeName") or draft.get("address") or "",
+                draft.get("websiteUrl") or website_url,
+                str(draft.get("mapLatitude") or 0),
+                str(draft.get("mapLongitude") or 0),
+                draft.get("description") or "",
+                payload=draft,
+            )
+            await interaction.followup.send(f"✅ Imported and saved stay `{slug}` with Ollama/parser enrichment. Warnings: {len(warnings)}", ephemeral=True)
+            return
+        preview = json.dumps({key: draft.get(key) for key in ["slug", "name", "country", "placeName", "type", "rating", "badge", "vibe", "websiteUrl", "mapLatitude", "mapLongitude", "amenities", "description", "warnings"]}, indent=2)
+        if len(preview) > 1800:
+            preview = preview[:1800] + "\n..."
+        await interaction.followup.send(f"✅ Import draft ready. Re-run `/stay_import website_url:{website_url} save:True` to save.\n```json\n{preview}\n```", ephemeral=True)
 
     @app_commands.command(name="country_upsert_basic", description="Create/update a country discovery profile from Discord")
     async def country_upsert_basic(self, interaction, name: str, flag: str, continent: str, tagline: str, hero_image: str, legal_status: str, best_time: str, slug: str | None = None):
