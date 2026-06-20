@@ -606,8 +606,27 @@ class PlatformGroveAdmin(commands.Cog):
     async def create_forum_thread(self, forum_id, name, content, embed=None, view=None):
         forum = self.bot.get_channel(forum_id) or await self.bot.fetch_channel(forum_id)
         if not isinstance(forum, discord.ForumChannel):
+            print(f"[PLATFORM_GROVE] Channel {forum_id} is not a forum channel.")
             return None
-        created = await forum.create_thread(name=name[:100], content=content, embed=embed, view=view)
+
+        applied_tags = []
+        if forum.flags.require_tag:
+            available_tags = list(forum.available_tags)
+            applied_tags = [tag for tag in available_tags if not getattr(tag, "moderated", False)][:1]
+            if not applied_tags and available_tags:
+                applied_tags = available_tags[:1]
+
+        try:
+            created = await forum.create_thread(
+                name=name[:100],
+                content=content,
+                embed=embed,
+                view=view,
+                applied_tags=applied_tags,
+            )
+        except discord.HTTPException as error:
+            print(f"[PLATFORM_GROVE] Could not create forum thread in {forum_id}: {error}")
+            return None
         return created.thread
 
     def gallery_image_url(self, row):
