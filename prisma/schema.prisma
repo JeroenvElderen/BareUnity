@@ -710,6 +710,7 @@ model posts {
   title      String?
   content    String?
   media_url  String?
+  media_urls String[]   @default([])
   post_type  String?      @default("text")
   created_at DateTime?    @default(now()) @db.Timestamptz(6)
   expires_at DateTime?    @db.Timestamptz(6)

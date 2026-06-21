@@ -14,6 +14,8 @@ import {
 import {
   Building2,
   Calendar,
+  ChevronLeft,
+  ChevronRight,
   Circle,
   Ellipsis,
   Flag,
@@ -185,6 +187,7 @@ type HomeFeedPostRow = {
   title: string | null;
   content: string | null;
   media_url: string | null;
+  media_urls?: string[] | null;
   post_type: string | null;
   created_at: string | null;
   expires_at?: string | null;
@@ -205,6 +208,15 @@ function homeFeedName(profile: HomeFeedProfileRelation | null) {
   );
 }
 
+function resolveHomeFeedMediaUrls(mediaUrls: string[] | null | undefined, mediaUrl: string | null | undefined) {
+  const urls = (Array.isArray(mediaUrls) ? mediaUrls : [])
+    .map((url) => resolveMediaUrl(url))
+    .filter((url): url is string => Boolean(url));
+  const fallbackUrl = resolveMediaUrl(mediaUrl);
+  if (fallbackUrl && !urls.includes(fallbackUrl)) urls.unshift(fallbackUrl);
+  return urls;
+}
+
 function mapClientFeedPost(
   post: HomeFeedPostRow,
   index: number,
@@ -214,6 +226,7 @@ function mapClientFeedPost(
   const author = homeFeedName(authorProfile);
   const votes = Array.isArray(post.post_votes) ? post.post_votes : [];
   const comments = Array.isArray(post.comments) ? post.comments : [];
+  const mediaUrls = resolveHomeFeedMediaUrls(post.media_urls, post.media_url);
 
   return {
     id: post.id,
@@ -223,7 +236,8 @@ function mapClientFeedPost(
     text:
       [post.title?.trim(), post.content?.trim()].filter(Boolean).join("\n") ||
       "Shared an update",
-    mediaUrl: resolveMediaUrl(post.media_url),
+    mediaUrl: mediaUrls[0] ?? null,
+    mediaUrls,
     postType: post.post_type === "image" ? "image" : "text",
     likes: votes.filter((vote) => (vote.vote ?? 0) > 0).length,
     comments: comments
@@ -262,7 +276,7 @@ async function loadHomeFeedViaSupabase(
   const postsResult = await supabase
     .from("posts")
     .select(
-      "id,author_id,title,content,media_url,post_type,created_at,profiles(username,display_name),comments(id,content,author_id,parent_id,created_at,profiles(username,display_name,avatar_url)),post_votes(user_id,vote)",
+      "id,author_id,title,content,media_url,media_urls,post_type,created_at,profiles(username,display_name),comments(id,content,author_id,parent_id,created_at,profiles(username,display_name,avatar_url)),post_votes(user_id,vote)",
     )
     .neq("post_type", "story")
     .order("created_at", { ascending: false })
@@ -487,8 +501,8 @@ export default function HomePage() {
   );
   const [postTitle, setPostTitle] = useState("");
   const [postContent, setPostContent] = useState("");
-  const [postImagePreview, setPostImagePreview] = useState<string>("");
-  const [postImagePath, setPostImagePath] = useState<string>("");
+  const [postImagePreviews, setPostImagePreviews] = useState<string[]>([]);
+  const [postImagePaths, setPostImagePaths] = useState<string[]>([]);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isPublishingPost, setIsPublishingPost] = useState(false);
   const galleryImageInputRef = useRef<HTMLInputElement | null>(null);
@@ -517,8 +531,8 @@ export default function HomePage() {
   const [editingPost, setEditingPost] = useState<HomeFeedPost | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editContent, setEditContent] = useState("");
-  const [editImagePreview, setEditImagePreview] = useState<string>("");
-  const [editImagePath, setEditImagePath] = useState<string>("");
+  const [editImagePreviews, setEditImagePreviews] = useState<string[]>([]);
+  const [editImagePaths, setEditImagePaths] = useState<string[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<{
     postId: string;
     commentId?: string;
@@ -526,6 +540,7 @@ export default function HomePage() {
   const [expandedCaptionsByPost, setExpandedCaptionsByPost] = useState<
     Record<string, boolean>
   >({});
+  const [mediaIndexByPost, setMediaIndexByPost] = useState<Record<string, number>>({});
   const [activeStoryIndex, setActiveStoryIndex] = useState<number | null>(null);
   const [activeStoryAuthorId, setActiveStoryAuthorId] = useState<string | null>(
     null,
@@ -694,9 +709,9 @@ export default function HomePage() {
 
   const canPublish =
     composerKind === "story"
-      ? Boolean(postImagePath)
+      ? postImagePaths.length > 0
       : postTitle.trim().length > 0 &&
-        (postContent.trim().length > 0 || Boolean(postImagePath));
+        (postContent.trim().length > 0 || postImagePaths.length > 0);
 
   const postPreview = postContent;
   const liveFeedStatusLabel = getLiveFeedStatusLabel(liveFeedStatus);
@@ -845,9 +860,11 @@ export default function HomePage() {
 
   useEffect(() => {
     return () => {
-      if (postImagePreview) URL.revokeObjectURL(postImagePreview);
+      postImagePreviews.forEach((preview) => {
+        if (preview.startsWith("blob:")) URL.revokeObjectURL(preview);
+      });
     };
-  }, [postImagePreview]);
+  }, [postImagePreviews]);
 
   useEffect(() => {
     let isMounted = true;
@@ -929,7 +946,8 @@ export default function HomePage() {
         body: JSON.stringify({
           title: postTitle,
           content: postContent,
-          mediaUrl: postImagePath,
+          mediaUrl: postImagePaths[0] ?? "",
+          mediaUrls: composerKind === "post" ? postImagePaths : postImagePaths.slice(0, 1),
           kind: composerKind,
         }),
       });
@@ -938,8 +956,11 @@ export default function HomePage() {
 
       setPostTitle("");
       setPostContent("");
-      setPostImagePreview("");
-      setPostImagePath("");
+      postImagePreviews.forEach((preview) => {
+        if (preview.startsWith("blob:")) URL.revokeObjectURL(preview);
+      });
+      setPostImagePreviews([]);
+      setPostImagePaths([]);
       setComposerKind(null);
       setComposerOpen(false);
       await loadFeed();
@@ -949,56 +970,79 @@ export default function HomePage() {
     }
   };
 
+  const uploadHomeFeedImage = async (selectedFile: File, kind?: "post" | "story" | null) => {
+    const sanitized = await sanitizeImageUpload(
+      selectedFile,
+      kind === "story" ? 1440 : 1920,
+    );
+    const preview = URL.createObjectURL(sanitized);
+    const uploadResponse = await fetch("/api/homefeed/upload-url", {
+      method: "POST",
+      headers: (
+        await getAuthHeaders({
+          includeJsonContentType: true,
+        })
+      ).headers,
+      body: JSON.stringify({
+        fileName: sanitized.name,
+        contentType: sanitized.type,
+        size: sanitized.size,
+        kind,
+      }),
+    });
+
+    if (!uploadResponse.ok) {
+      throw new Error("Failed to get upload URL");
+    }
+
+    const { bucketId, path, token } = await uploadResponse.json();
+
+    const { error } = await supabase.storage
+      .from(bucketId)
+      .uploadToSignedUrl(path, token, sanitized, {
+        contentType: sanitized.type,
+      });
+
+    if (error) {
+      URL.revokeObjectURL(preview);
+      throw error;
+    }
+
+    return { preview, path };
+  };
+
   const onPickImage = async (event: ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = event.target.files?.[0];
-    if (!selectedFile) return;
+    const selectedFiles = Array.from(event.target.files ?? []);
+    if (selectedFiles.length === 0) return;
+    const filesToUpload =
+      composerKind === "story" ? selectedFiles.slice(0, 1) : selectedFiles;
 
     setIsUploadingImage(true);
 
     try {
-      const sanitized = await sanitizeImageUpload(
-        selectedFile,
-        composerKind === "story" ? 1440 : 1920,
-      );
-      if (postImagePreview) URL.revokeObjectURL(postImagePreview);
-      const preview = URL.createObjectURL(sanitized);
-      const uploadResponse = await fetch("/api/homefeed/upload-url", {
-        method: "POST",
-        headers: (
-          await getAuthHeaders({
-            includeJsonContentType: true,
-          })
-        ).headers,
-        body: JSON.stringify({
-          fileName: sanitized.name,
-          contentType: sanitized.type,
-          size: sanitized.size,
-          kind: composerKind,
-        }),
-      });
-
-      if (!uploadResponse.ok) {
-        throw new Error("Failed to get upload URL");
+      const uploaded = [] as Array<{ preview: string; path: string }>;
+      for (const selectedFile of filesToUpload) {
+        uploaded.push(await uploadHomeFeedImage(selectedFile, composerKind));
       }
 
-      const { bucketId, path, token } = await uploadResponse.json();
+      const uploadedPreviews = uploaded.map((item) => item.preview);
+      const uploadedPaths = uploaded.map((item) => item.path);
 
-      const { error } = await supabase.storage
-        .from(bucketId)
-        .uploadToSignedUrl(path, token, sanitized, {
-          contentType: sanitized.type,
+      if (composerKind === "story") {
+        postImagePreviews.forEach((preview) => {
+          if (preview.startsWith("blob:")) URL.revokeObjectURL(preview);
         });
-
-      if (error) {
-        throw error;
+        setPostImagePreviews(uploadedPreviews);
+        setPostImagePaths(uploadedPaths);
+      } else {
+        setPostImagePreviews((current) => [...current, ...uploadedPreviews]);
+        setPostImagePaths((current) => [...current, ...uploadedPaths]);
       }
-
-      setPostImagePreview(preview);
-      setPostImagePath(path);
-      setIsUploadingImage(false);
     } catch (error) {
       console.error("Image upload failed", error);
+    } finally {
       setIsUploadingImage(false);
+      event.target.value = "";
     }
   };
 
@@ -1150,51 +1194,34 @@ export default function HomePage() {
     setEditingPost(post);
     setEditTitle(existingTitle ?? "");
     setEditContent(existingContentLines.join("\n"));
-    setEditImagePreview(post.mediaUrl ?? "");
-    setEditImagePath("");
+    setEditImagePreviews(post.mediaUrls.length ? post.mediaUrls : post.mediaUrl ? [post.mediaUrl] : []);
+    setEditImagePaths([]);
     setOpenPostMenuId(null);
   };
 
   const onPickEditImage = async (event: ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = event.target.files?.[0];
-    if (!selectedFile) return;
+    const selectedFiles = Array.from(event.target.files ?? []);
+    if (selectedFiles.length === 0) return;
 
-    const sanitized = await sanitizeImageUpload(selectedFile, 1920);
-    if (editImagePreview.startsWith("blob:"))
-      URL.revokeObjectURL(editImagePreview);
-    const preview = URL.createObjectURL(sanitized);
-    const uploadResponse = await fetch("/api/homefeed/upload-url", {
-      method: "POST",
-      headers: (
-        await getAuthHeaders({
-          includeJsonContentType: true,
-        })
-      ).headers,
-      body: JSON.stringify({
-        fileName: sanitized.name,
-        contentType: sanitized.type,
-        size: sanitized.size,
-      }),
-    });
+    try {
+      const uploaded = [] as Array<{ preview: string; path: string }>;
+      for (const selectedFile of selectedFiles) {
+        uploaded.push(await uploadHomeFeedImage(selectedFile, "post"));
+      }
 
-    if (!uploadResponse.ok) {
-      throw new Error("Failed to get upload URL");
+      setEditImagePreviews((current) => [
+        ...current,
+        ...uploaded.map((item) => item.preview),
+      ]);
+      setEditImagePaths((current) => [
+        ...current,
+        ...uploaded.map((item) => item.path),
+      ]);
+    } catch (error) {
+      console.error("Edit image upload failed", error);
+    } finally {
+      event.target.value = "";
     }
-
-    const { bucketId, path, token } = await uploadResponse.json();
-
-    const { error } = await supabase.storage
-      .from(bucketId)
-      .uploadToSignedUrl(path, token, sanitized, {
-        contentType: sanitized.type,
-      });
-
-    if (error) {
-      throw error;
-    }
-
-    setEditImagePreview(preview);
-    setEditImagePath(path);
   };
 
   const editPost = async () => {
@@ -1206,18 +1233,20 @@ export default function HomePage() {
       body: JSON.stringify({
         title: editTitle,
         content: editContent,
-        mediaUrl: editImagePath,
+        mediaUrl: editImagePaths[0] ?? "",
+        mediaUrls: editImagePaths,
       }),
     });
 
     if (!response.ok) return;
-    if (editImagePreview.startsWith("blob:"))
-      URL.revokeObjectURL(editImagePreview);
+    editImagePreviews.forEach((preview) => {
+      if (preview.startsWith("blob:")) URL.revokeObjectURL(preview);
+    });
     setEditingPost(null);
     setEditTitle("");
     setEditContent("");
-    setEditImagePreview("");
-    setEditImagePath("");
+    setEditImagePreviews([]);
+    setEditImagePaths([]);
     setOpenPostMenuId(null);
     await loadFeed();
   };
@@ -1226,6 +1255,18 @@ export default function HomePage() {
     setDeleteTarget({ postId, commentId });
     setOpenPostMenuId(null);
   };
+
+  const stepPostMedia = (postId: string, total: number, direction: -1 | 1) => {
+    if (total <= 1) return;
+    setMediaIndexByPost((current) => {
+      const currentIndex = current[postId] ?? 0;
+      return {
+        ...current,
+        [postId]: (currentIndex + direction + total) % total,
+      };
+    });
+  };
+
 
   const confirmDelete = async () => {
     if (!deleteTarget) return;
@@ -1262,6 +1303,13 @@ export default function HomePage() {
   const activePost = activePostId
     ? (feed.posts.find((post) => post.id === activePostId) ?? null)
     : null;
+  const activePostMediaIndex = activePost
+    ? Math.min(
+        mediaIndexByPost[activePost.id] ?? 0,
+        Math.max(activePost.mediaUrls.length - 1, 0),
+      )
+    : 0;
+  const activePostMediaUrl = activePost?.mediaUrls[activePostMediaIndex];
   const posts = feed.posts;
   const featuredLocation =
     featuredLocations[featuredLocationIndex] ?? featuredLocations[0] ?? null;
@@ -1544,8 +1592,11 @@ export default function HomePage() {
     setComposerKind(null);
     setPostTitle("");
     setPostContent("");
-    setPostImagePreview("");
-    setPostImagePath("");
+    postImagePreviews.forEach((preview) => {
+      if (preview.startsWith("blob:")) URL.revokeObjectURL(preview);
+    });
+    setPostImagePreviews([]);
+    setPostImagePaths([]);
   };
 
   return (
@@ -1649,6 +1700,11 @@ export default function HomePage() {
                   );
                   const shouldClampCaption =
                     caption.length > 160 || caption.includes("\n");
+                  const mediaIndex = Math.min(
+                    mediaIndexByPost[post.id] ?? 0,
+                    Math.max(post.mediaUrls.length - 1, 0),
+                  );
+                  const activeMediaUrl = post.mediaUrls[mediaIndex];
 
                   return (
                     <Card
@@ -1712,15 +1768,40 @@ export default function HomePage() {
                           ) : null}
                         </div>
                         <div className="mb-4 block w-full text-left">
-                          {post.mediaUrl ? (
-                            <Image
-                              src={post.mediaUrl}
-                              alt={`${post.author}'s post`}
-                              width={1200}
-                              height={1200}
-                              sizes="(min-width: 1280px) 60vw, 100vw"
-                              className="h-130 w-full rounded-2xl bg-[rgb(var(--bg-soft))] object-contain"
-                            />
+                          {activeMediaUrl ? (
+                            <div className="relative">
+                              <Image
+                                src={activeMediaUrl}
+                                alt={`${post.author}'s post image ${mediaIndex + 1}`}
+                                width={1200}
+                                height={1200}
+                                sizes="(min-width: 1280px) 60vw, 100vw"
+                                className="h-130 w-full rounded-2xl bg-[rgb(var(--bg-soft))] object-contain"
+                              />
+                              {post.mediaUrls.length > 1 ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => stepPostMedia(post.id, post.mediaUrls.length, -1)}
+                                    className="absolute left-3 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/55 text-white shadow-lg hover:bg-black/70"
+                                    aria-label="Show previous post image"
+                                  >
+                                    <ChevronLeft className="h-5 w-5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => stepPostMedia(post.id, post.mediaUrls.length, 1)}
+                                    className="absolute right-3 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/55 text-white shadow-lg hover:bg-black/70"
+                                    aria-label="Show next post image"
+                                  >
+                                    <ChevronRight className="h-5 w-5" />
+                                  </button>
+                                  <span className="absolute bottom-3 right-3 rounded-full bg-black/60 px-2.5 py-1 text-xs font-semibold text-white">
+                                    {mediaIndex + 1}/{post.mediaUrls.length}
+                                  </span>
+                                </>
+                              ) : null}
+                            </div>
                           ) : null}
                         </div>
                         {caption ? (
@@ -2107,15 +2188,21 @@ export default function HomePage() {
                     <input
                       type="file"
                       accept="image/*"
+                      multiple
                       onChange={(event) => void onPickImage(event)}
                     />
                   )}
-                  {postImagePreview ? (
-                    <img
-                      src={postImagePreview}
-                      alt="Selected upload preview"
-                      className="max-h-48 w-full rounded-xl object-cover sm:max-h-56"
-                    />
+                  {postImagePreviews.length ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      {postImagePreviews.map((preview, index) => (
+                        <img
+                          key={`${preview}-${index}`}
+                          src={preview}
+                          alt={`Selected upload preview ${index + 1}`}
+                          className="max-h-48 w-full rounded-xl object-cover sm:max-h-56"
+                        />
+                      ))}
+                    </div>
                   ) : null}
                 </div>
 
@@ -2274,12 +2361,37 @@ export default function HomePage() {
                   displayName={activePost.author}
                   triggerClassName="text-sm font-semibold text-[rgb(var(--text-strong))] underline-offset-2 hover:underline"
                 />
-                {activePost.mediaUrl ? (
-                  <img
-                    src={activePost.mediaUrl}
-                    alt={`${activePost.author}'s post`}
-                    className="mt-3 max-h-[28rem] w-full rounded-xl bg-[rgb(var(--card))] object-contain"
-                  />
+                {activePostMediaUrl ? (
+                  <div className="relative mt-3">
+                    <img
+                      src={activePostMediaUrl}
+                      alt={`${activePost.author}'s post image ${activePostMediaIndex + 1}`}
+                      className="max-h-[28rem] w-full rounded-xl bg-[rgb(var(--card))] object-contain"
+                    />
+                    {activePost.mediaUrls.length > 1 ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => stepPostMedia(activePost.id, activePost.mediaUrls.length, -1)}
+                          className="absolute left-3 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/55 text-white shadow-lg hover:bg-black/70"
+                          aria-label="Show previous post image"
+                        >
+                          <ChevronLeft className="h-5 w-5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => stepPostMedia(activePost.id, activePost.mediaUrls.length, 1)}
+                          className="absolute right-3 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/55 text-white shadow-lg hover:bg-black/70"
+                          aria-label="Show next post image"
+                        >
+                          <ChevronRight className="h-5 w-5" />
+                        </button>
+                        <span className="absolute bottom-3 right-3 rounded-full bg-black/60 px-2.5 py-1 text-xs font-semibold text-white">
+                          {activePostMediaIndex + 1}/{activePost.mediaUrls.length}
+                        </span>
+                      </>
+                    ) : null}
+                  </div>
                 ) : null}
                 {activePost.text ? (
                   <p className="mt-1 whitespace-pre-line text-sm text-[rgb(var(--text))]">
@@ -2500,12 +2612,13 @@ export default function HomePage() {
               <button
                 type="button"
                 onClick={() => {
-                  if (editImagePreview.startsWith("blob:"))
-                    URL.revokeObjectURL(editImagePreview);
+                  editImagePreviews.forEach((preview) => {
+                    if (preview.startsWith("blob:")) URL.revokeObjectURL(preview);
+                  });
                   setEditingPost(null);
                   setEditTitle("");
-                  setEditImagePreview("");
-                  setEditImagePath("");
+                  setEditImagePreviews([]);
+                  setEditImagePaths([]);
                   setEditContent("");
                 }}
                 aria-label="Close edit post dialog"
@@ -2541,27 +2654,34 @@ export default function HomePage() {
                 <input
                   type="file"
                   accept="image/*"
+                  multiple
                   onChange={(event) => void onPickEditImage(event)}
                 />
-                {editImagePreview ? (
-                  <img
-                    src={editImagePreview}
-                    alt="Edited post image preview"
-                    className="max-h-64 w-full rounded-xl object-cover"
-                  />
+                {editImagePreviews.length ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    {editImagePreviews.map((preview, index) => (
+                      <img
+                        key={`${preview}-${index}`}
+                        src={preview}
+                        alt={`Edited post image preview ${index + 1}`}
+                        className="max-h-64 w-full rounded-xl object-cover"
+                      />
+                    ))}
+                  </div>
                 ) : null}
               </div>
               <div className="flex justify-end gap-2">
                 <Button
                   variant="outline"
                   onClick={() => {
-                    if (editImagePreview.startsWith("blob:"))
-                      URL.revokeObjectURL(editImagePreview);
+                    editImagePreviews.forEach((preview) => {
+                      if (preview.startsWith("blob:")) URL.revokeObjectURL(preview);
+                    });
                     setEditingPost(null);
                     setEditTitle("");
                     setEditContent("");
-                    setEditImagePreview("");
-                    setEditImagePath("");
+                    setEditImagePreviews([]);
+                    setEditImagePaths([]);
                   }}
                 >
                   Cancel

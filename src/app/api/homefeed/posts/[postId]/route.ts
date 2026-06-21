@@ -74,13 +74,16 @@ export async function PATCH(
       title?: string;
       content?: string;
       mediaUrl?: string;
+      mediaUrls?: string[];
     };
     const title = body.title?.trim() ?? "";
     const content = body.content?.trim() ?? "";
+    const mediaUrls = Array.isArray(body.mediaUrls)
+      ? body.mediaUrls.map((url) => url.trim()).filter(Boolean)
+      : [];
     const mediaUrl = body.mediaUrl?.trim() ?? "";
-    const persistedMediaUrl = mediaUrl;
-
-    if (!title && !content && !persistedMediaUrl) {
+    const persistedMediaUrls = mediaUrls.length ? mediaUrls : mediaUrl ? [mediaUrl] : [];
+    if (!title && !content && persistedMediaUrls.length === 0) {
       return NextResponse.json(
         { error: "Updated title, content, or image is required." },
         { status: 400 },
@@ -89,7 +92,7 @@ export async function PATCH(
 
     const post = await db.posts.findUnique({
       where: { id: postId },
-      select: { id: true, author_id: true, media_url: true },
+      select: { id: true, author_id: true, media_url: true, media_urls: true },
     });
 
     if (!post) {
@@ -103,31 +106,41 @@ export async function PATCH(
       );
     }
 
-    const nextMediaUrl = persistedMediaUrl || post.media_url || null;
+    const existingMediaUrls = Array.isArray(post.media_urls) ? post.media_urls : [];
+    const nextMediaUrls = persistedMediaUrls.length
+      ? persistedMediaUrls
+      : existingMediaUrls.length
+        ? existingMediaUrls
+        : post.media_url
+          ? [post.media_url]
+          : [];
+    const nextMediaUrl = nextMediaUrls[0] ?? null;
     await db.posts.update({
       where: { id: postId },
       data: {
         title: title || null,
         content: content || null,
         media_url: nextMediaUrl,
-        post_type: nextMediaUrl ? "image" : "text",
+        media_urls: nextMediaUrls,
+        post_type: nextMediaUrls.length ? "image" : "text",
       },
     });
 
-    if (persistedMediaUrl) {
+    for (const imagePath of persistedMediaUrls) {
       await classifyPostsBucketImageForGallery({
-        imagePath: persistedMediaUrl,
+        imagePath,
         ownerId: viewerId,
         title,
       });
     }
 
-    if (
-      persistedMediaUrl &&
-      post.media_url &&
-      post.media_url !== persistedMediaUrl
-    ) {
-      await deleteMediaAsset(post.media_url);
+    if (persistedMediaUrls.length) {
+      const staleMediaUrls = [post.media_url, ...existingMediaUrls]
+        .filter((url): url is string => Boolean(url))
+        .filter((url, index, urls) => urls.indexOf(url) === index)
+        .filter((url) => !persistedMediaUrls.includes(url));
+
+      await Promise.all(staleMediaUrls.map((url) => deleteMediaAsset(url)));
     }
 
     return NextResponse.json({ ok: true });
@@ -159,7 +172,7 @@ export async function DELETE(
 
   const post = await db.posts.findUnique({
     where: { id: postId },
-    select: { id: true, author_id: true, media_url: true },
+    select: { id: true, author_id: true, media_url: true, media_urls: true },
   });
 
   if (!post) {
@@ -174,7 +187,10 @@ export async function DELETE(
   }
 
   await db.posts.delete({ where: { id: postId } });
-  await deleteMediaAsset(post.media_url);
+  const mediaUrls = [post.media_url, ...(Array.isArray(post.media_urls) ? post.media_urls : [])]
+    .filter((url): url is string => Boolean(url))
+    .filter((url, index, urls) => urls.indexOf(url) === index);
+  await Promise.all(mediaUrls.map((url) => deleteMediaAsset(url)));
 
   return NextResponse.json({ ok: true });
 }

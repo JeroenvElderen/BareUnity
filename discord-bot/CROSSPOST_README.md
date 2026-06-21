@@ -62,7 +62,7 @@ DISCORD_CROSSPOST_SECRET=make-this-a-long-random-secret
 ### Recommended Vercel variables
 
 ```env
-DISCORD_CROSSPOST_FORUM_ID=1515845739870425208
+DISCORD_CROSSPOST_FORUM_IDS=1515845739870425208,1516001611925684265
 NEXT_PUBLIC_SITE_URL=https://bareunity.com
 FALLBACK_CROSSPOST_AUTHOR_ID=00e59273-e45d-4528-b05a-74c4075e6035
 CROSSPOST_OWNER_DISCORD_USER_ID=946346329783803945
@@ -71,7 +71,7 @@ CROSSPOST_OWNER_PROFILE_ID=d0eb25c5-5a45-46c2-827c-17a00ebe8343
 
 | Variable | Purpose |
 | --- | --- |
-| `DISCORD_CROSSPOST_FORUM_ID` | The only Discord forum channel ID accepted by the website API. Defaults to `1515845739870425208`. |
+| `DISCORD_CROSSPOST_FORUM_IDS` | Comma-separated Discord forum channel IDs accepted by the website API. Defaults to photo-sharing `1515845739870425208` and naturist-travel `1516001611925684265`. The older `DISCORD_CROSSPOST_FORUM_ID` still works for a single channel. |
 | `NEXT_PUBLIC_SITE_URL` | Used to build the BareUnity post URL returned to the bot and submitted to Reddit. |
 | `FALLBACK_CROSSPOST_AUTHOR_ID` | Profile ID to use when an opted-in Discord member has no linked BareUnity account. Defaults to the `BareUnity` profile. |
 | `CROSSPOST_OWNER_DISCORD_USER_ID` | Discord user ID that should always post under the owner BareUnity profile. Defaults to `946346329783803945`. |
@@ -103,7 +103,7 @@ DISCORD_CROSSPOST_FORUM_ID=1515845739870425208
 | `DISCORD_TOKEN` | Discord bot token. |
 | `BAREUNITY_API_BASE_URL` | Base URL for the BareUnity website API. Use `http://localhost:3000` only for local testing. |
 | `BAREUNITY_DISCORD_SECRET` | Shared secret sent to the website API. This must match `DISCORD_CROSSPOST_SECRET` on Vercel. |
-| `DISCORD_CROSSPOST_FORUM_ID` | Forum channel the bot listens to. Defaults to `1515845739870425208`. |
+| `DISCORD_CROSSPOST_FORUM_IDS` | Comma-separated forum channel IDs the bot listens to. Defaults to photo-sharing `1515845739870425208` and naturist-travel `1516001611925684265`. The older `DISCORD_CROSSPOST_FORUM_ID` still works for a single channel. |
 
 The bot also accepts `DISCORD_CROSSPOST_SECRET` as a fallback if `BAREUNITY_DISCORD_SECRET` is not set, but `BAREUNITY_DISCORD_SECRET` is clearer for Railway deployments.
 
