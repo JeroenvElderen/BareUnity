@@ -8,8 +8,7 @@ import { ensureUserMediaStorage } from "@/lib/storage-buckets";
 import { loadViewerIdFromRequest } from "@/lib/viewer";
 import { db } from "@/server/db";
 import { ensureMemberCanAct } from "@/lib/action-access";
-import { classifyPostImageByPersonPresence } from "@/lib/gallery-moderation";
-import { detectPersonInImage } from "@/lib/person-detection";
+import { createPendingGalleryReviewDecision } from "@/lib/gallery-moderation";
 import { Prisma } from "@prisma/client";
 import {
   IMAGE_UPLOAD_EXTENSION_BY_TYPE,
@@ -73,10 +72,7 @@ export async function POST(request: Request) {
       throw error;
     }
 
-    const personCheck = await detectPersonInImage({
-      buffer: validatedUpload.buffer,
-    });
-    const moderation = classifyPostImageByPersonPresence(personCheck);
+    const moderation = createPendingGalleryReviewDecision();
 
     const supabaseAdmin = createSupabaseAdminClient();
     const userMediaStorage = await ensureUserMediaStorage({
