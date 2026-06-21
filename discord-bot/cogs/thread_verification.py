@@ -13,10 +13,139 @@ PENDING_ROLE = 1516093480630489089       # Verification
 UNVERIFIED_ROLE = 1516075786350628955    # Seedling
 TEAM_GUIDE_ROLE = 1516104121550241902    # Team Guide
 
+ONBOARDING_CLEANUP_FORUMS = {
+    1516496171831394437: "welcome",
+    1515796912840773672: "verification request",
+}
+
 
 class ThreadVerification(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+
+    async def fetch_thread_starter(
+        self,
+        thread: discord.Thread
+    ):
+
+        try:
+            return await thread.fetch_message(
+                thread.id
+            )
+        except Exception:
+            pass
+
+        async for msg in thread.history(
+            oldest_first=True,
+            limit=1
+        ):
+            return msg
+
+        return None
+
+    async def thread_belongs_to_member(
+        self,
+        thread: discord.Thread,
+        member: discord.Member
+    ):
+
+        starter_message = await self.fetch_thread_starter(
+            thread
+        )
+
+        if not starter_message:
+            return False
+
+        if starter_message.author.id == member.id:
+            return True
+
+        mentioned_user_ids = {
+            mentioned_user.id
+            for mentioned_user in starter_message.mentions
+        }
+
+        return member.id in mentioned_user_ids
+
+    async def matching_forum_threads(
+        self,
+        forum: discord.ForumChannel,
+        member: discord.Member
+    ):
+
+        seen_thread_ids = set()
+
+        for thread in forum.threads:
+            seen_thread_ids.add(
+                thread.id
+            )
+
+            if await self.thread_belongs_to_member(
+                thread,
+                member
+            ):
+                yield thread
+
+        async for thread in forum.archived_threads(
+            limit=None
+        ):
+            if thread.id in seen_thread_ids:
+                continue
+
+            seen_thread_ids.add(
+                thread.id
+            )
+
+            if await self.thread_belongs_to_member(
+                thread,
+                member
+            ):
+                yield thread
+
+    async def delete_onboarding_forum_posts(
+        self,
+        guild: discord.Guild,
+        member: discord.Member
+    ):
+
+        deleted = []
+        failed = []
+
+        for forum_id, forum_label in ONBOARDING_CLEANUP_FORUMS.items():
+            forum = guild.get_channel(
+                forum_id
+            )
+
+            if not isinstance(
+                forum,
+                discord.ForumChannel
+            ):
+                failed.append(
+                    f"{forum_label}: forum not found"
+                )
+                continue
+
+            async for thread in self.matching_forum_threads(
+                forum,
+                member
+            ):
+                thread_name = thread.name
+
+                try:
+                    await thread.delete(
+                        reason=(
+                            "Onboarding cleanup after "
+                            f"/verified for {member}"
+                        )
+                    )
+                    deleted.append(
+                        f"{forum_label}: {thread_name}"
+                    )
+                except Exception as error:
+                    failed.append(
+                        f"{forum_label}: {thread_name} ({error})"
+                    )
+
+        return deleted, failed
 
     @app_commands.command(
         name="verified",
@@ -160,10 +289,29 @@ class ThreadVerification(commands.Cog):
                 locked=True
             )
 
+            deleted_posts, cleanup_failures = (
+                await self.delete_onboarding_forum_posts(
+                    interaction.guild,
+                    member
+                )
+            )
+
+            cleanup_message = (
+                "🧹 Deleted onboarding forum posts: "
+                f"{len(deleted_posts)}."
+            )
+
+            if cleanup_failures:
+                cleanup_message += (
+                    "\n⚠️ Cleanup issues: "
+                    + "; ".join(cleanup_failures[:3])
+                )
+
             await interaction.response.send_message(
                 f"✅ {member.mention} has been verified.\n"
                 f"📢 Introduction copied to showcase forum.\n"
-                f"🔒 Thread locked."
+                f"🔒 Thread locked.\n"
+                f"{cleanup_message}"
             )
 
         except discord.Forbidden:
