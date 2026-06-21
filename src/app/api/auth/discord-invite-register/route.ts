@@ -7,6 +7,8 @@ import {
 import { isUsernameValid, normalizeUsername } from "@/lib/username";
 
 const DISCORD_PROVIDER = "discord";
+const BAREUNITY_GUILD_ID = "1514974981711462561";
+const BAREUNITY_VERIFIED_ROLE_ID = "1518175366395596860";
 const TEAMNATURIST_GUILD_ID =
   process.env.DISCORD_TEAMNATURIST_GUILD_ID ?? "1130957278472835234";
 const DEFAULT_TEAMNATURIST_ROLE_IDS = [
@@ -102,15 +104,25 @@ function getDiscordUserId(user: {
   return "";
 }
 
-async function ensureTeamNaturistDiscordRole(discordUserId: string) {
-  const botToken = process.env.DISCORD_BOT_TOKEN;
+type DiscordMembershipCheck = {
+  guildId: string;
+  guildName: string;
+  allowedRoleIds: string[];
+  missingGuildMessage: string;
+  missingRoleMessage: string;
+};
 
-  if (!botToken) {
-    throw new Error("DISCORD_BOT_TOKEN is not configured.");
-  }
+type DiscordMembershipResult =
+  | { ok: true; guildName: string }
+  | { ok: false; message: string };
 
+async function checkDiscordMembership(
+  botToken: string,
+  discordUserId: string,
+  check: DiscordMembershipCheck,
+): Promise<DiscordMembershipResult> {
   const response = await fetch(
-    `https://discord.com/api/v10/guilds/${TEAMNATURIST_GUILD_ID}/members/${discordUserId}`,
+    `https://discord.com/api/v10/guilds/${check.guildId}/members/${discordUserId}`,
     {
       headers: {
         Authorization: `Bot ${botToken}`,
@@ -120,14 +132,12 @@ async function ensureTeamNaturistDiscordRole(discordUserId: string) {
   );
 
   if (response.status === 404) {
-    throw new DiscordInviteRegistrationError(
-      "Your Discord account is not a member of the TeamNaturist server.",
-    );
+    return { ok: false, message: check.missingGuildMessage };
   }
 
   if (!response.ok) {
     throw new Error(
-      `Discord member check failed with status ${response.status}.`,
+      `Discord member check for ${check.guildName} failed with status ${response.status}.`,
     );
   }
 
@@ -135,14 +145,58 @@ async function ensureTeamNaturistDiscordRole(discordUserId: string) {
   const roles = Array.isArray(member.roles) ? member.roles : [];
   const hasAllowedRole = roles.some(
     (roleId) =>
-      typeof roleId === "string" && TEAMNATURIST_ROLE_IDS.includes(roleId),
+      typeof roleId === "string" && check.allowedRoleIds.includes(roleId),
   );
 
   if (!hasAllowedRole) {
-    throw new DiscordInviteRegistrationError(
-      "Your Discord account does not have an approved TeamNaturist role.",
-    );
+    return { ok: false, message: check.missingRoleMessage };
   }
+
+  return { ok: true, guildName: check.guildName };
+}
+
+async function ensureApprovedDiscordMembership(discordUserId: string) {
+  const botToken = process.env.DISCORD_BOT_TOKEN;
+
+  if (!botToken) {
+    throw new Error("DISCORD_BOT_TOKEN is not configured.");
+  }
+
+  const checks: DiscordMembershipCheck[] = [
+    {
+      guildId: BAREUNITY_GUILD_ID,
+      guildName: "BareUnity",
+      allowedRoleIds: [BAREUNITY_VERIFIED_ROLE_ID],
+      missingGuildMessage:
+        "Your Discord account is not a member of the BareUnity server.",
+      missingRoleMessage:
+        "Your Discord account does not have the verified BareUnity role yet.",
+    },
+    {
+      guildId: TEAMNATURIST_GUILD_ID,
+      guildName: "TeamNaturist",
+      allowedRoleIds: TEAMNATURIST_ROLE_IDS,
+      missingGuildMessage:
+        "Your Discord account is not a member of the TeamNaturist server.",
+      missingRoleMessage:
+        "Your Discord account does not have an approved TeamNaturist role.",
+    },
+  ];
+
+  const denialMessages: string[] = [];
+
+  for (const check of checks) {
+    const result = await checkDiscordMembership(botToken, discordUserId, check);
+    if (result.ok) return result.guildName;
+    denialMessages.push(result.message);
+  }
+
+  throw new DiscordInviteRegistrationError(
+    [
+      "Your Discord account must have the verified BareUnity role or an approved TeamNaturist role.",
+      ...denialMessages,
+    ].join(" "),
+  );
 }
 
 async function generateUniqueUsername(
@@ -221,7 +275,10 @@ export async function POST(req: Request) {
 
   if (!getDiscordIdentity(userData.user)) {
     return NextResponse.json(
-      { error: "Sign in with Discord before redeeming this invite." },
+      {
+        error:
+          "Sign in with Discord before completing BareUnity verified registration.",
+      },
       { status: 403 },
     );
   }
@@ -237,20 +294,22 @@ export async function POST(req: Request) {
   const userId = userData.user.id;
 
   try {
-    await ensureTeamNaturistDiscordRole(discordUserId);
+    const verificationSource =
+      await ensureApprovedDiscordMembership(discordUserId);
 
     const username = await generateUniqueUsername(
       supabaseAdmin,
       normalizedUsername,
     );
     const metadata = {
-      account_access: "invite",
+      account_access: "verified",
       discord_user_id: discordUserId,
+      discord_verification_source: verificationSource,
       display_name: fullName,
       full_name: fullName,
       onboarding_level: "registration_submitted",
       username,
-      verification_status: "trusted_partner_invite",
+      verification_status: "approved",
     };
 
     const { error: updateUserError } =
@@ -289,7 +348,7 @@ export async function POST(req: Request) {
     if (settingsError) throw new Error(settingsError.message);
 
     return NextResponse.json({
-      message: "Discord invite registration complete.",
+      message: "Discord verified registration complete.",
     });
   } catch (error) {
     if (error instanceof DiscordInviteRegistrationError) {
@@ -299,13 +358,13 @@ export async function POST(req: Request) {
       );
     }
 
-    console.error("Discord invite registration failed", error);
+    console.error("Discord verified registration failed", error);
     return NextResponse.json(
       {
         error:
           error instanceof Error
             ? error.message
-            : "Could not complete Discord invite registration.",
+            : "Could not complete Discord verified registration.",
       },
       { status: 500 },
     );
