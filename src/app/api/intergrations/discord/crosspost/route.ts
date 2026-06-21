@@ -5,7 +5,7 @@ import { IMAGE_UPLOAD_TYPES, validateImageBuffer } from "@/lib/upload-security";
 import {
   CROSSPOST_OWNER_DISCORD_USER_ID,
   CROSSPOST_OWNER_PROFILE_ID,
-  DiscordRegistration,
+  findBareUnityProfileByDiscordUserId,
   getFallbackAuthorId,
   normalizeDiscordId,
   normalizeOptionalString,
@@ -33,6 +33,7 @@ type CreatedPostRow = {
 const DEFAULT_CROSSPOST_FORUM_IDS = [
   "1515845739870425208",
   "1516001611925684265",
+  "1517154128541909152",
 ];
 
 function parseCrosspostForumIds(value: string | undefined) {
@@ -247,6 +248,10 @@ export async function POST(request: Request) {
   const discordThreadUrl = normalizeOptionalString(body.discordThreadUrl, 500);
   const title =
     normalizeOptionalString(body.title, 180) ?? "BareUnity Discord post";
+  const targetCategory = normalizeOptionalString(body.targetCategory, 80);
+  if (targetCategory === "skip" || targetCategory === "none") {
+    return NextResponse.json({ ok: true, skipped: true, reason: "Moderator selected no website upload." });
+  }
   const rawContent = normalizeOptionalString(body.content, 12000) ?? "";
   const attachments = Array.isArray(body.attachments)
     ? (body.attachments as Attachment[])
@@ -300,39 +305,18 @@ export async function POST(request: Request) {
     });
   }
 
-  const { data: registration, error: registrationError } = await supabaseAdmin
-    .from("discord_crosspost_registrations")
-    .select(
-      "discord_user_id, discord_username, discord_display_name, bareunity_user_id, enabled",
-    )
-    .eq("discord_user_id", discordAuthorId)
-    .eq("enabled", true)
-    .maybeSingle<DiscordRegistration>();
-
-  if (registrationError) {
-    return NextResponse.json(
-      { error: registrationError.message },
-      { status: 500 },
-    );
-  }
-
   const isOwnerPost = discordAuthorId === CROSSPOST_OWNER_DISCORD_USER_ID;
 
-  if (!registration && !isOwnerPost) {
-    return NextResponse.json({
-      ok: true,
-      skipped: true,
-      reason: "Discord author is not registered for cross-posting.",
-    });
-  }
+  const linkedProfile = isOwnerPost
+    ? null
+    : await findBareUnityProfileByDiscordUserId(supabaseAdmin, discordAuthorId);
 
   const authorId = isOwnerPost
     ? CROSSPOST_OWNER_PROFILE_ID
-    : (registration?.bareunity_user_id ??
-      (await getFallbackAuthorId(supabaseAdmin)));
+    : (linkedProfile?.id ?? (await getFallbackAuthorId(supabaseAdmin)));
   const authorMode = isOwnerPost
     ? "owner_profile"
-    : registration?.bareunity_user_id
+    : linkedProfile?.id
       ? "linked_user"
       : "fallback_with_disclaimer";
   const content =

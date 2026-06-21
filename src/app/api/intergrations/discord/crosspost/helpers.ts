@@ -8,14 +8,6 @@ export const CROSSPOST_OWNER_DISCORD_USER_ID =
 export const CROSSPOST_OWNER_PROFILE_ID =
   process.env.CROSSPOST_OWNER_PROFILE_ID ?? "d0eb25c5-5a45-46c2-827c-17a00ebe8343";
 
-export type DiscordRegistration = {
-  discord_user_id: string;
-  discord_username: string | null;
-  discord_display_name: string | null;
-  bareunity_user_id: string | null;
-  enabled: boolean;
-};
-
 type SupabaseAdmin = ReturnType<typeof createSupabaseAdminClient>;
 
 export function requireIntegrationRequest(request: Request) {

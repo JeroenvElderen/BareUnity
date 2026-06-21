@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/server/db";
 import { loadViewerIdFromRequest } from "@/lib/viewer";
 import { ensureMemberCanAct } from "@/lib/action-access";
+import { enqueueDiscordSyncEvent, findDiscordSyncForWebsitePost } from "@/lib/discord-crosspost-sync";
 
 export async function GET(
   request: Request,
@@ -96,6 +97,17 @@ export async function POST(
       where: { post_id: postId, vote: { gt: 0 } },
     });
 
+    const sync = await findDiscordSyncForWebsitePost(postId).catch(() => null);
+    if (sync?.discord_thread_id) {
+      await enqueueDiscordSyncEvent({
+        websitePostId: postId,
+        discordThreadId: sync.discord_thread_id,
+        eventType: "website_like_removed",
+        dedupeKey: `website-like-removed:${postId}:${viewerId}:${Date.now()}`,
+        payload: { postId, userId: viewerId, likes },
+      }).catch((error) => console.error("Unable to queue Discord like removal sync", error));
+    }
+
     return NextResponse.json({ liked: false, likes });
   }
 
@@ -120,6 +132,17 @@ export async function POST(
   const likes = await db.post_votes.count({
     where: { post_id: postId, vote: { gt: 0 } },
   });
+
+  const sync = await findDiscordSyncForWebsitePost(postId).catch(() => null);
+  if (sync?.discord_thread_id) {
+    await enqueueDiscordSyncEvent({
+      websitePostId: postId,
+      discordThreadId: sync.discord_thread_id,
+      eventType: "website_like_created",
+      dedupeKey: `website-like-created:${postId}:${viewerId}:${Date.now()}`,
+      payload: { postId, userId: viewerId, likes },
+    }).catch((error) => console.error("Unable to queue Discord like sync", error));
+  }
 
   return NextResponse.json({ liked: true, likes });
 }

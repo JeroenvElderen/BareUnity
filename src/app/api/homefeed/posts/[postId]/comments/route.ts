@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/server/db";
 import { loadViewerIdFromRequest } from "@/lib/viewer";
 import { ensureMemberCanAct } from "@/lib/action-access";
+import { enqueueDiscordSyncEvent, findDiscordSyncForWebsitePost } from "@/lib/discord-crosspost-sync";
 
 export async function POST(
   request: Request,
@@ -80,6 +81,24 @@ export async function POST(
       .slice(0, 2)
       .map((word) => word[0]?.toUpperCase() ?? "")
       .join("") || "BU";
+
+  const sync = await findDiscordSyncForWebsitePost(postId).catch(() => null);
+  if (sync?.discord_thread_id) {
+    await enqueueDiscordSyncEvent({
+      websitePostId: postId,
+      discordThreadId: sync.discord_thread_id,
+      eventType: "website_comment_created",
+      dedupeKey: `website-comment:${comment.id}`,
+      payload: {
+        postId,
+        commentId: comment.id,
+        parentId: comment.parent_id ?? null,
+        content: comment.content,
+        authorId: comment.author_id,
+        authorName,
+      },
+    }).catch((error) => console.error("Unable to queue Discord comment sync", error));
+  }
 
   return NextResponse.json({
     comment: {
