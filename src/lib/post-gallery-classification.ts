@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 
+import { enqueueDiscordGalleryReviewEvent } from "@/lib/discord-crosspost-sync";
 import { createPendingGalleryReviewDecision } from "@/lib/gallery-moderation";
 import { isSupabaseAdminConfigured } from "@/lib/supabase-admin";
 import { db } from "@/server/db";
@@ -22,6 +23,10 @@ export async function classifyPostsBucketImageForGallery(args: {
   imagePath: string;
   ownerId: string;
   title?: string | null;
+  source?: "homefeed_upload" | "discord_crosspost";
+  websitePostId?: string | null;
+  discordThreadId?: string | null;
+  publicUrl?: string | null;
 }) {
   const imagePath = args.imagePath.trim();
   if (!isSupabaseAdminConfigured || !isPostsBucketImagePath(imagePath)) return;
@@ -76,6 +81,16 @@ export async function classifyPostsBucketImageForGallery(args: {
       contains_building = excluded.contains_building,
       updated_at = now()
   `);
+
+  await enqueueDiscordGalleryReviewEvent({
+    imagePath,
+    ownerId: args.ownerId,
+    title,
+    source: args.source ?? "homefeed_upload",
+    websitePostId: args.websitePostId ?? null,
+    discordThreadId: args.discordThreadId ?? null,
+    publicUrl: args.publicUrl ?? null,
+  });
 }
 
 export async function removeImageFromGalleryInventory(imagePath: string) {

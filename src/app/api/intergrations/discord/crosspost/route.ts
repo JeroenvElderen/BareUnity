@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
-import { IMAGE_UPLOAD_TYPES, validateImageBuffer } from "@/lib/upload-security";
+import { classifyPostsBucketImageForGallery } from "@/lib/post-gallery-classification";
+import { ensureUserMediaStorage } from "@/lib/storage-buckets";
+import { validateImageBuffer } from "@/lib/upload-security";
 import {
   CROSSPOST_OWNER_DISCORD_USER_ID,
   CROSSPOST_OWNER_PROFILE_ID,
@@ -47,69 +49,7 @@ function parseCrosspostForumIds(value: string | undefined) {
 const CROSSPOST_FORUM_IDS = parseCrosspostForumIds(
   process.env.DISCORD_CROSSPOST_FORUM_IDS ?? process.env.DISCORD_CROSSPOST_FORUM_ID,
 );
-const POSTS_BUCKET_ID = "posts";
 const MAX_DISCORD_IMAGE_BYTES = 15 * 1024 * 1024;
-
-let postsBucketReady: Promise<void> | null = null;
-
-function isAlreadyExistsError(message: string) {
-  const normalizedMessage = message.toLowerCase();
-  return (
-    normalizedMessage.includes("already exists") ||
-    normalizedMessage.includes("duplicate") ||
-    normalizedMessage.includes("resource already exists")
-  );
-}
-
-async function ensurePostsBucket(supabaseAdmin: SupabaseClient) {
-  if (!postsBucketReady) {
-    postsBucketReady = (async () => {
-      const bucketOptions = {
-        public: true,
-        fileSizeLimit: MAX_DISCORD_IMAGE_BYTES,
-        allowedMimeTypes: Array.from(IMAGE_UPLOAD_TYPES),
-      };
-
-      const { error: getBucketError } =
-        await supabaseAdmin.storage.getBucket(POSTS_BUCKET_ID);
-      if (!getBucketError) {
-        const { error: updateBucketError } =
-          await supabaseAdmin.storage.updateBucket(
-            POSTS_BUCKET_ID,
-            bucketOptions,
-          );
-
-        if (updateBucketError) {
-          throw new Error(
-            `Could not update Supabase Storage bucket '${POSTS_BUCKET_ID}': ${updateBucketError.message}`,
-          );
-        }
-
-        return;
-      }
-
-      const { error: createBucketError } =
-        await supabaseAdmin.storage.createBucket(
-          POSTS_BUCKET_ID,
-          bucketOptions,
-        );
-
-      if (
-        createBucketError &&
-        !isAlreadyExistsError(createBucketError.message)
-      ) {
-        throw new Error(
-          `Could not prepare Supabase Storage bucket '${POSTS_BUCKET_ID}': ${createBucketError.message}`,
-        );
-      }
-    })().catch((error) => {
-      postsBucketReady = null;
-      throw error;
-    });
-  }
-
-  return postsBucketReady;
-}
 
 function looksLikeImageAttachment(attachment: Attachment) {
   if (typeof attachment.url !== "string") return false;
@@ -188,16 +128,19 @@ async function persistDiscordImage(args: {
     maxBytes: MAX_DISCORD_IMAGE_BYTES,
   });
 
-  await ensurePostsBucket(args.supabaseAdmin);
+  const userMediaStorage = await ensureUserMediaStorage({
+    supabaseAdmin: args.supabaseAdmin,
+    userId: args.authorId,
+  });
 
   const rawFileName =
     typeof args.attachment?.filename === "string"
       ? args.attachment.filename
       : "discord-post-image";
-  const storagePath = `${args.authorId}/${Date.now()}-${crypto.randomUUID()}-${cleanFileBaseName(rawFileName)}.${validatedImage.extension}`;
+  const storagePath = `${userMediaStorage.postsFolder}/${Date.now()}-${crypto.randomUUID()}-${cleanFileBaseName(rawFileName)}.${validatedImage.extension}`;
 
   const { error: uploadError } = await args.supabaseAdmin.storage
-    .from(POSTS_BUCKET_ID)
+    .from(userMediaStorage.bucketId)
     .upload(storagePath, buffer, {
       contentType: validatedImage.contentType,
       upsert: false,
@@ -205,16 +148,16 @@ async function persistDiscordImage(args: {
 
   if (uploadError) {
     throw new Error(
-      `Could not save Discord image to Supabase Storage bucket '${POSTS_BUCKET_ID}': ${uploadError.message}`,
+      `Could not save Discord image to Supabase Storage bucket '${userMediaStorage.bucketId}': ${uploadError.message}`,
     );
   }
 
   const { data } = args.supabaseAdmin.storage
-    .from(POSTS_BUCKET_ID)
+    .from(userMediaStorage.bucketId)
     .getPublicUrl(storagePath);
 
   return {
-    bucketId: POSTS_BUCKET_ID,
+    bucketId: userMediaStorage.bucketId,
     path: storagePath,
     publicUrl: data.publicUrl,
   };
@@ -398,6 +341,18 @@ export async function POST(request: Request) {
 
   const websitePostId = String(createdPost.id);
   const websitePostUrl = buildWebsitePostUrl(websitePostId);
+
+  for (const image of persistedImages) {
+    await classifyPostsBucketImageForGallery({
+      imagePath: image.path,
+      ownerId: authorId,
+      title,
+      source: "discord_crosspost",
+      websitePostId,
+      discordThreadId,
+      publicUrl: image.publicUrl,
+    });
+  }
 
   const { error: syncError } = await supabaseAdmin
     .from("discord_reddit_crosspost_sync")

@@ -155,6 +155,7 @@ export async function POST(request: Request) {
         imagePath,
         ownerId: viewerId,
         title,
+        websitePostId: createdPost.id,
       });
     }
 

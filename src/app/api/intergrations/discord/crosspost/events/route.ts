@@ -12,6 +12,13 @@ function normalizeTarget(value: unknown) {
   return normalizeDiscordId(value);
 }
 
+function normalizeGalleryDecision(value: unknown) {
+  if (value === "nude" || value === "nude-gallery" || value === "approve_nude") return "approve_nude";
+  if (value === "general" || value === "general-gallery" || value === "approve_general") return "approve_general";
+  if (value === "reject" || value === "reject-gallery-image") return "reject";
+  return null;
+}
+
 
 async function deletePostEverywhere(websitePostId: string) {
   const syncRows = await db.$queryRaw<
@@ -57,8 +64,8 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const limit = Math.min(Math.max(Number(searchParams.get("limit") ?? 25), 1), 100);
-  const rows = await db.$queryRaw<Array<{ id: string; website_post_id: string; discord_thread_id: string | null; event_type: string; payload: Prisma.JsonValue; dedupe_key: string; created_at: Date }>>(Prisma.sql`
-    select id, website_post_id, discord_thread_id, event_type, payload, dedupe_key, created_at
+  const rows = await db.$queryRaw<Array<{ id: string; website_post_id: string | null; gallery_image_path: string | null; discord_thread_id: string | null; event_type: string; payload: Prisma.JsonValue; dedupe_key: string; created_at: Date }>>(Prisma.sql`
+    select id, website_post_id, gallery_image_path, discord_thread_id, event_type, payload, dedupe_key, created_at
     from public.discord_crosspost_events
     where processed_at is null
     order by created_at asc
@@ -119,6 +126,47 @@ export async function POST(request: Request) {
       where website_post_id = ${websitePostId}::uuid
     `);
     return NextResponse.json({ ok: true, targetDiscordChannelId: target });
+  }
+
+  if (action === "gallery-decision") {
+    const imagePath = normalizeOptionalString(body.imagePath, 500);
+    const decision = normalizeGalleryDecision(body.target ?? body.decision);
+    const reason =
+      normalizeOptionalString(body.reason, 1000) ??
+      "Discord gallery review decision.";
+
+    if (!imagePath || !decision) {
+      return NextResponse.json(
+        { error: "imagePath and a nude/general/reject decision are required." },
+        { status: 400 },
+      );
+    }
+
+    const nextGallery =
+      decision === "approve_nude"
+        ? "nude"
+        : decision === "approve_general"
+          ? "general"
+          : "pending";
+    const nextStatus = decision === "reject" ? "rejected" : "approved";
+
+    await db.$transaction([
+      db.$executeRaw(Prisma.sql`
+        update public.gallery_media
+        set gallery_type = ${nextGallery},
+            moderation_status = ${nextStatus},
+            moderation_reason = ${reason},
+            reviewed_at = now(),
+            updated_at = now()
+        where image_path = ${imagePath}
+      `),
+      db.$executeRaw(Prisma.sql`
+        insert into public.gallery_moderation_audit (image_path, moderator_id, action, reason)
+        values (${imagePath}, null, ${decision}, ${reason})
+      `),
+    ]);
+
+    return NextResponse.json({ ok: true, imagePath, galleryType: nextGallery, moderationStatus: nextStatus });
   }
 
   if (action === "thread-created") {

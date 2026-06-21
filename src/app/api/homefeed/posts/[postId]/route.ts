@@ -131,6 +131,7 @@ export async function PATCH(
         imagePath,
         ownerId: viewerId,
         title,
+        websitePostId: postId,
       });
     }
 

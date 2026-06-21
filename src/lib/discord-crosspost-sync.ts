@@ -4,6 +4,16 @@ import { db } from "@/server/db";
 export const DISCORD_CASE_MANAGEMENT_CHANNEL_ID =
   process.env.DISCORD_CASE_MANAGEMENT_CHANNEL_ID ?? "1517154128541909152";
 
+export const DISCORD_GALLERY_REVIEW_CHANNEL_ID =
+  process.env.DISCORD_GALLERY_REVIEW_CHANNEL_ID ??
+  "1517153973835010139";
+
+export const DISCORD_GALLERY_REVIEW_TARGETS = [
+  "nude-gallery",
+  "general-gallery",
+  "reject-gallery-image",
+] as const;
+
 export const DISCORD_POST_TARGET_CHANNELS = {
   photoSharing:
     process.env.DISCORD_PHOTO_SHARING_FORUM_ID ??
@@ -38,12 +48,14 @@ export async function findDiscordSyncForWebsitePost(postId: string) {
 }
 
 export async function enqueueDiscordSyncEvent(args: {
-  websitePostId: string;
+  websitePostId: string | null;
+  galleryImagePath?: string | null;
   eventType:
     | "website_post_created"
     | "website_comment_created"
     | "website_like_created"
-    | "website_like_removed";
+    | "website_like_removed"
+    | "gallery_image_review_requested";
   payload: Prisma.InputJsonValue;
   dedupeKey: string;
   discordThreadId?: string | null;
@@ -51,12 +63,14 @@ export async function enqueueDiscordSyncEvent(args: {
   await db.$executeRaw(Prisma.sql`
     insert into public.discord_crosspost_events (
       website_post_id,
+      gallery_image_path,
       discord_thread_id,
       event_type,
       payload,
       dedupe_key
     ) values (
       ${args.websitePostId}::uuid,
+      ${args.galleryImagePath ?? null},
       ${args.discordThreadId ?? null},
       ${args.eventType},
       ${args.payload}::jsonb,
@@ -64,6 +78,37 @@ export async function enqueueDiscordSyncEvent(args: {
     )
     on conflict (dedupe_key) do nothing
   `);
+}
+
+export async function enqueueDiscordGalleryReviewEvent(args: {
+  imagePath: string;
+  ownerId?: string | null;
+  title?: string | null;
+  source: "gallery_upload" | "homefeed_upload" | "discord_crosspost";
+  publicUrl?: string | null;
+  signedUrl?: string | null;
+  websitePostId?: string | null;
+  discordThreadId?: string | null;
+}) {
+  await enqueueDiscordSyncEvent({
+    websitePostId: args.websitePostId ?? null,
+    galleryImagePath: args.imagePath,
+    discordThreadId: args.discordThreadId ?? null,
+    eventType: "gallery_image_review_requested",
+    dedupeKey: `gallery-review:${args.imagePath}`,
+    payload: {
+      imagePath: args.imagePath,
+      ownerId: args.ownerId ?? null,
+      title: args.title ?? null,
+      source: args.source,
+      reviewChannelId: DISCORD_GALLERY_REVIEW_CHANNEL_ID,
+      galleryButtons: [...DISCORD_GALLERY_REVIEW_TARGETS],
+      publicUrl: args.publicUrl ?? null,
+      signedUrl: args.signedUrl ?? null,
+      websitePostId: args.websitePostId ?? null,
+      discordThreadId: args.discordThreadId ?? null,
+    },
+  });
 }
 
 export async function ensureWebsitePostQueuedForDiscord(postId: string) {
