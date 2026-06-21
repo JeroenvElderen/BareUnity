@@ -45,16 +45,16 @@ export default function WelcomePage() {
             <Link href="/register" prefetch={false} className={styles.primaryAction}>
               Join now
             </Link>
-            <Link href="/register?invite" prefetch={false} className={styles.inviteAction}>
-              Register with invite code
+            <Link href="/register?invite=discord" prefetch={false} className={styles.inviteAction}>
+              Register with Discord verification
             </Link>
             <Link href="/login" prefetch={false} className={styles.secondaryAction}>
               Login
             </Link>
           </div>
           <p className={styles.note}>
-            Have a trusted partner code? Use the invite-code form to get
-            verified immediately after the code is accepted.
+            Verified in BareUnity Discord or approved in TeamNaturist? Connect
+            Discord to create your approved BareUnity account right away.
           </p>
           <p className={styles.policyLinks}>
             <Link href="/policies" prefetch={false}>Privacy, Terms, Safety & Legal Policies</Link>

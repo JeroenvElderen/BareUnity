@@ -72,7 +72,7 @@ export default function RegisterPage() {
   ) => {
     setIsInviteMode(true);
     setIsLoading(true);
-    setStatus("Completing your Discord invite registration...");
+    setStatus("Completing your BareUnity Discord registration...");
 
     try {
       setForm((prev) => ({
@@ -96,12 +96,12 @@ export default function RegisterPage() {
       };
 
       if (!response.ok) {
-        setStatus(responsePayload.error ?? "Discord invite registration failed.");
+        setStatus(responsePayload.error ?? "BareUnity Discord registration failed.");
         return;
       }
 
       window.localStorage.removeItem("bareunity_pending_discord_invite");
-      setStatus(responsePayload.message ?? "Discord invite registration complete.");
+      setStatus(responsePayload.message ?? "BareUnity Discord registration complete.");
       router.replace("/");
       router.refresh();
     } catch {
@@ -174,7 +174,9 @@ export default function RegisterPage() {
     setStatus("");
 
     if (isInviteRegistration) {
-      setStatus("Use the Discord registration button for trusted partner invites.");
+      setStatus(
+        "Use the Discord registration button after your BareUnity Discord account is verified.",
+      );
       return;
     }
 
@@ -289,7 +291,7 @@ export default function RegisterPage() {
       return;
     }
 
-    const redirectTo = `${window.location.origin}/register?invite=teamnaturist&discordInvite=1`;
+    const redirectTo = `${window.location.origin}/register?invite=discord&discordInvite=1`;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "discord",
       options: {
@@ -318,14 +320,14 @@ export default function RegisterPage() {
               className={styles.brandLogo}
               priority
             />
-            <span>BareUnity • Trusted partner invite</span>
+            <span>BareUnity • Discord verified access</span>
           </p>
           <article className={styles.card}>
             <h1 className={styles.title}>Create your verified account</h1>
             <p className={styles.subtitle}>
-              Your trusted partner has already completed age verification. Fill
-              in only these invite details to create a verified BareUnity
-              profile.
+              After you receive the verified role in the BareUnity Discord,
+              or if you are approved in TeamNaturist, fill in these details
+              and connect Discord to create an approved BareUnity profile.
             </p>
 
             <form className={styles.form} onSubmit={onSubmit}>
@@ -365,9 +367,10 @@ export default function RegisterPage() {
 
               <div className={styles.stageBanner}>
                 <strong>No invite code required.</strong> Discord registration checks
-                your TeamNaturist server role directly with the bot, then records the
-                Discord account in Supabase so the same Discord member cannot be used
-                for repeated trusted-partner registrations.
+                your verified BareUnity Discord role or approved TeamNaturist
+                role directly with the bot, then records the Discord account
+                in Supabase so the same Discord member cannot be used for
+                repeated verified registrations.
               </div>
 
               <button
@@ -847,9 +850,9 @@ export default function RegisterPage() {
             {status ? <p className={styles.help}>{status}</p> : null}
 
             <p className={styles.alt}>
-              Have a trusted partner invite code?{" "}
-              <Link className={styles.link} href="/register?invite" prefetch={false}>
-                Register with invite code
+              Verified in BareUnity Discord or TeamNaturist?{" "}
+              <Link className={styles.link} href="/register?invite=discord" prefetch={false}>
+                Register with Discord verification
               </Link>
             </p>
             <p className={styles.alt}>
