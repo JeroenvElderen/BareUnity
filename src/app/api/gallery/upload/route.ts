@@ -9,6 +9,7 @@ import { loadViewerIdFromRequest } from "@/lib/viewer";
 import { db } from "@/server/db";
 import { ensureMemberCanAct } from "@/lib/action-access";
 import { createPendingGalleryReviewDecision } from "@/lib/gallery-moderation";
+import { enqueueDiscordGalleryReviewEvent } from "@/lib/discord-crosspost-sync";
 import { Prisma } from "@prisma/client";
 import {
   IMAGE_UPLOAD_EXTENSION_BY_TYPE,
@@ -158,6 +159,14 @@ export async function POST(request: Request) {
         select: { username: true },
       }),
     ]);
+
+    await enqueueDiscordGalleryReviewEvent({
+      imagePath: storagePath,
+      ownerId: viewerId,
+      title,
+      source: "gallery_upload",
+      signedUrl: signedUrlData?.signedUrl ?? null,
+    });
 
     return NextResponse.json({
       ok: true,

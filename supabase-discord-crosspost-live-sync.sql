@@ -10,7 +10,8 @@ create unique index if not exists discord_reddit_crosspost_sync_website_post_id_
 
 create table if not exists public.discord_crosspost_events (
   id uuid primary key default gen_random_uuid(),
-  website_post_id uuid not null references public.posts(id) on delete cascade,
+  website_post_id uuid references public.posts(id) on delete cascade,
+  gallery_image_path text,
   discord_thread_id text,
   event_type text not null,
   payload jsonb not null default '{}'::jsonb,
@@ -20,6 +21,12 @@ create table if not exists public.discord_crosspost_events (
   created_at timestamptz not null default now(),
   processed_at timestamptz
 );
+
+alter table if exists public.discord_crosspost_events
+  alter column website_post_id drop not null;
+
+alter table if exists public.discord_crosspost_events
+  add column if not exists gallery_image_path text;
 
 create index if not exists discord_crosspost_events_pending_idx
   on public.discord_crosspost_events(created_at)
