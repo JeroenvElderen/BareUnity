@@ -2,10 +2,9 @@ import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 
 import {
-  classifyPostImageByPersonPresence,
+  createPendingGalleryReviewDecision,
   parseGalleryType,
 } from "@/lib/gallery-moderation";
-import { detectPersonInImage } from "@/lib/person-detection";
 import { ensureAdminRequest } from "@/lib/request-auth";
 import {
   createSupabaseAdminClient,
@@ -254,17 +253,11 @@ export async function POST(request: NextRequest) {
       select image_path, title from public.gallery_media where moderation_status = 'pending' and image_path like 'posts/%' limit 500
     `);
 
-    const supabaseAdmin = createSupabaseAdminClient();
+    const decision = createPendingGalleryReviewDecision(
+      "Existing image left pending for Discord gallery review; images are never auto-sorted into nude or general galleries.",
+    );
 
     for (const row of pendingRows) {
-      const { data } = await supabaseAdmin.storage
-        .from("media")
-        .download(row.image_path);
-      const personCheck = await detectPersonInImage({
-        buffer: data ? Buffer.from(await data.arrayBuffer()) : undefined,
-      });
-      const decision = classifyPostImageByPersonPresence(personCheck);
-
       await db.$executeRaw(Prisma.sql`
         update public.gallery_media set
           gallery_type = ${decision.galleryType},

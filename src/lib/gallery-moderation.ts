@@ -243,28 +243,32 @@ export function applyPersonPresenceCheck(
   };
 }
 
-export function classifyPostImageByPersonPresence(
-  personCheck?: PersonPresenceCheck,
+export function createPendingGalleryReviewDecision(
+  reason = "Image queued for Discord gallery review before nude/general routing.",
 ): GalleryModerationDecision {
-  const confidence = personCheck?.confidence ?? 0;
-  const containsPerson = personCheck?.containsPerson === true;
-
   return {
-    containsPerson,
-    containsAdultNudity: containsPerson,
-    containsLandscape: !containsPerson,
+    containsPerson: false,
+    containsAdultNudity: false,
+    containsLandscape: false,
     containsAnimal: false,
     containsVehicle: false,
     containsBuilding: false,
-    confidence,
-    galleryType: containsPerson ? "nude" : "general",
-    moderationStatus: "approved",
-    reason: `${
-      personCheck?.reason ?? "No person-presence check was available."
-    } Routed posts-bucket media to the ${
-      containsPerson ? "nude" : "general"
-    } gallery based on person presence.`,
+    confidence: 0,
+    galleryType: "pending",
+    moderationStatus: "pending",
+    reason,
   };
+}
+
+export function classifyPostImageByPersonPresence(
+  personCheck?: PersonPresenceCheck,
+): GalleryModerationDecision {
+  const sourceReason =
+    personCheck?.reason ?? "No person-presence check was available.";
+
+  return createPendingGalleryReviewDecision(
+    `${sourceReason} Image left pending for Discord gallery review; posts-bucket media is never auto-sorted into nude or general galleries.`,
+  );
 }
 
 export function reportThreshold() {
