@@ -12,6 +12,7 @@ import { readServerCache, writeServerCache } from "@/lib/server-user-cache";
 import { UploadValidationError } from "@/lib/upload-security";
 import { ensureMemberCanAct } from "@/lib/action-access";
 import { classifyPostsBucketImageForGallery } from "@/lib/post-gallery-classification";
+import { ensureWebsitePostQueuedForDiscord } from "@/lib/discord-crosspost-sync";
 
 export async function GET(request: Request) {
   try {
@@ -136,7 +137,7 @@ export async function POST(request: Request) {
       );
     }
 
-    await db.posts.create({
+    const createdPost = await db.posts.create({
       data: {
         author_id: viewerId,
         title,
@@ -146,6 +147,8 @@ export async function POST(request: Request) {
         post_type: persistedMediaUrls.length ? "image" : "text",
       },
     });
+
+    await ensureWebsitePostQueuedForDiscord(createdPost.id);
 
     for (const imagePath of persistedMediaUrls) {
       await classifyPostsBucketImageForGallery({
