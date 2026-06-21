@@ -24,6 +24,7 @@ LOCATION_REQUEST = 1517154018776842301
 COUNTRY_UPDATES = 1517154053375787198
 PLATFORM_FEEDBACK = 1517154088310018129
 CASE_FILES = 1517154128541909152
+PLATFORM_GROVE_SYNC_SECONDS = int(os.getenv("PLATFORM_GROVE_SYNC_SECONDS", "5"))
 
 SYNC_FILE = "platform_grove_sync.json"
 DRAFT_FILE = "platform_grove_listing_drafts.json"
@@ -770,9 +771,11 @@ class PlatformGroveAdmin(commands.Cog):
             "reports": {},
             "applications": {},
             "gallery": {},
+            "gallery_updated": {},
             "location_drafts": {},
             "gallery_decided": {},
         })
+        self.platform_sync.change_interval(seconds=PLATFORM_GROVE_SYNC_SECONDS)
         self.platform_sync.start()
 
     def cog_unload(self):
@@ -1127,28 +1130,79 @@ class PlatformGroveAdmin(commands.Cog):
                 self.sync_state["applications"][user_id] = str(thread.id)
 
     async def sync_gallery(self):
-        response = self.supabase.table("gallery_media").select("*").eq("gallery_type", "pending").order("created_at", desc=True).limit(25).execute()
+        response = self.supabase.table("gallery_media").select("*").order("updated_at", desc=True).limit(50).execute()
+        self.sync_state.setdefault("gallery", {})
+        self.sync_state.setdefault("gallery_updated", {})
+        self.sync_state.setdefault("gallery_decided", {})
         for row in response.data or []:
             image_path = row.get("image_path")
-            if (
-                not image_path
-                or image_path in self.sync_state["gallery"]
-                or image_path in self.sync_state.get("gallery_decided", {})
-            ):
+            if not image_path:
                 continue
+
+            updated_at = row.get("updated_at") or row.get("created_at") or now_iso()
+            decided_at = self.sync_state.get("gallery_decided", {}).get(image_path)
+            if decided_at and str(updated_at) <= str(decided_at):
+                continue
+
+            known_thread_id = self.sync_state["gallery"].get(image_path)
+            if known_thread_id:
+                if self.sync_state["gallery_updated"].get(image_path) != updated_at:
+                    await self.notify_gallery_update(known_thread_id, row)
+                    self.sync_state["gallery_updated"][image_path] = updated_at
+                continue
+
             title = (row.get("title") or "Gallery review").strip()[:80]
-            embed = discord.Embed(title="🖼️ Gallery review", color=discord.Color.purple())
-            image_url = self.gallery_image_url(row)
-            if image_url:
-                embed.set_image(url=image_url)
-            else:
-                embed.description = "⚠️ Image preview unavailable. Use the storage path below."
-                embed.add_field(name="Storage path", value=f"`{image_path[:1000]}`", inline=False)
-            thread = await self.create_forum_thread(GALLERY_REVIEW, f"Gallery • {title}", "Choose the final gallery destination. The image preview is attached below.", embed, GalleryDecisionView(self, image_path))
+            status = row.get("moderation_status") or "pending"
+            gallery_type = row.get("gallery_type") or "pending"
+            embed = self.gallery_embed(row)
+            thread = await self.create_forum_thread(
+                GALLERY_REVIEW,
+                f"Gallery • {status} • {title}",
+                f"Website gallery item synced from BareUnity. Current status: `{status}` / `{gallery_type}`. Use the buttons to change the website state in realtime.",
+                embed,
+                GalleryDecisionView(self, image_path),
+            )
             if thread:
                 self.sync_state["gallery"][image_path] = str(thread.id)
+                self.sync_state["gallery_updated"][image_path] = updated_at
+                self.sync_state.get("gallery_decided", {}).pop(image_path, None)
 
-    @tasks.loop(minutes=2)
+    def gallery_embed(self, row):
+        image_path = row.get("image_path") or ""
+        embed = discord.Embed(title="🖼️ Gallery media sync", color=discord.Color.purple())
+        embed.add_field(name="Status", value=str(row.get("moderation_status") or "pending"), inline=True)
+        embed.add_field(name="Gallery", value=str(row.get("gallery_type") or "pending"), inline=True)
+        if row.get("owner_id"):
+            embed.add_field(name="Owner", value=str(row.get("owner_id")), inline=False)
+        if row.get("title"):
+            embed.add_field(name="Title", value=str(row.get("title"))[:1024], inline=False)
+        if row.get("moderation_reason"):
+            embed.add_field(name="Reason", value=str(row.get("moderation_reason"))[:1024], inline=False)
+        embed.add_field(name="Storage path", value=f"`{image_path[:1000]}`", inline=False)
+        image_url = self.gallery_image_url(row)
+        if image_url:
+            embed.set_image(url=image_url)
+        else:
+            embed.description = "⚠️ Image preview unavailable. Use the storage path below."
+        embed.set_footer(text="BareUnity gallery ↔ Discord realtime sync")
+        return embed
+
+    async def notify_gallery_update(self, thread_id, row):
+        try:
+            thread = self.bot.get_channel(int(thread_id)) or await self.bot.fetch_channel(int(thread_id))
+        except Exception as error:
+            print(f"[PLATFORM_GROVE] Could not fetch gallery thread {thread_id}: {error}")
+            return
+        if not isinstance(thread, discord.Thread):
+            return
+        status = row.get("moderation_status") or "pending"
+        gallery_type = row.get("gallery_type") or "pending"
+        await thread.send(
+            f"🔄 Website gallery item updated: `{status}` / `{gallery_type}`.",
+            embed=self.gallery_embed(row),
+        )
+
+    @tasks.loop(seconds=5)
     async def platform_sync(self):
         try:
             await self.sync_feedback()

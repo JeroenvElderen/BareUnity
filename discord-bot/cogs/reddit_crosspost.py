@@ -4,7 +4,7 @@ import aiohttp
 import discord
 import praw
 from discord import app_commands
-from discord.ext import commands
+from discord.ext import commands, tasks
 
 DEFAULT_CROSSPOST_FORUM_IDS = "1515845739870425208,1516001611925684265"
 
@@ -24,12 +24,145 @@ CROSSPOST_FORUM_IDS = parse_crosspost_forum_ids(
 BAREUNITY_API_BASE_URL = os.getenv("BAREUNITY_API_BASE_URL", "https://bareunity.com").rstrip("/")
 BAREUNITY_DISCORD_SECRET = os.getenv("BAREUNITY_DISCORD_SECRET") or os.getenv("DISCORD_CROSSPOST_SECRET")
 REDDIT_SUBREDDIT = os.getenv("REDDIT_SUBREDDIT")
+DISCORD_CROSSPOST_EVENT_POLL_SECONDS = int(os.getenv("DISCORD_CROSSPOST_EVENT_POLL_SECONDS", "5"))
+WEBSITE_REVIEW_BUTTONS = {
+    "photo-sharing": "Photo sharing",
+    "naturist-travel": "Naturist travel",
+    "skip-discord-upload": "Skip Discord",
+    "delete-post": "Delete post",
+}
 
 
 class RedditCrosspost(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.reddit = self.build_reddit_client()
+        self.sync_by_thread = {}
+        self.event_poller.change_interval(seconds=DISCORD_CROSSPOST_EVENT_POLL_SECONDS)
+        self.event_poller.start()
+
+
+    def cog_unload(self):
+        self.event_poller.cancel()
+
+    async def fetch_bareunity_api(self, path):
+        headers = self.integration_headers()
+        if not headers:
+            raise RuntimeError("BAREUNITY_DISCORD_SECRET or DISCORD_CROSSPOST_SECRET is not configured.")
+
+        async with aiohttp.ClientSession(headers=headers) as session:
+            async with session.get(f"{BAREUNITY_API_BASE_URL}{path}") as response:
+                response_text = await response.text()
+                try:
+                    data = await response.json(content_type=None)
+                except Exception:
+                    data = None
+                if response.status >= 300:
+                    raise RuntimeError(f"BareUnity API returned {response.status}: {response_text[:200]}")
+                if not isinstance(data, dict):
+                    raise RuntimeError("BareUnity API returned a non-JSON response.")
+                return data
+
+    async def mark_event_processed(self, event_id):
+        await self.post_bareunity_api("/api/integrations/discord/crosspost/events", {"action": "mark-processed", "eventId": event_id})
+
+    async def mark_event_failed(self, event_id, error):
+        await self.post_bareunity_api("/api/integrations/discord/crosspost/events", {"action": "mark-failed", "eventId": event_id, "error": str(error)[:1000]})
+
+    async def resolve_channel(self, channel_id):
+        if not channel_id:
+            return None
+        try:
+            channel = self.bot.get_channel(int(channel_id))
+            if channel:
+                return channel
+            return await self.bot.fetch_channel(int(channel_id))
+        except Exception:
+            return None
+
+    def build_post_embed(self, payload, title_prefix="Website post"):
+        title = str(payload.get("title") or "BareUnity website post")[:256]
+        content = str(payload.get("content") or "").strip()
+        embed = discord.Embed(title=title, description=content[:4000] or None, color=0x2f855a)
+        if payload.get("postId"):
+            embed.add_field(name="Website post", value=f"{BAREUNITY_API_BASE_URL}/?postId={payload.get('postId')}", inline=False)
+        media_urls = payload.get("mediaUrls") or []
+        if not media_urls and payload.get("mediaUrl"):
+            media_urls = [payload.get("mediaUrl")]
+        if media_urls:
+            embed.set_image(url=str(media_urls[0]))
+            if len(media_urls) > 1:
+                embed.add_field(name="More media", value="\n".join(str(url) for url in media_urls[1:4]), inline=False)
+        embed.set_footer(text=title_prefix)
+        return embed
+
+    async def create_target_thread_for_post(self, website_post_id, target_channel_id, payload):
+        channel = await self.resolve_channel(target_channel_id)
+        if not channel:
+            raise RuntimeError(f"Discord target channel {target_channel_id} was not found.")
+        title = str(payload.get("title") or "BareUnity website post")[:100]
+        content = str(payload.get("content") or "").strip()
+        media_urls = payload.get("mediaUrls") or []
+        if not media_urls and payload.get("mediaUrl"):
+            media_urls = [payload.get("mediaUrl")]
+        body = f"{content}\n\n{BAREUNITY_API_BASE_URL}/?postId={website_post_id}".strip()[:1900]
+        embed = self.build_post_embed(payload, title_prefix="Synced from BareUnity website")
+        if isinstance(channel, discord.ForumChannel):
+            created = await channel.create_thread(name=title, content=body or None, embed=embed)
+            thread = created.thread
+        else:
+            message = await channel.send(content=f"**{title}**\n{body}"[:2000], embed=embed)
+            thread = await message.create_thread(name=title)
+        self.sync_by_thread[str(thread.id)] = str(website_post_id)
+        await self.post_bareunity_api("/api/integrations/discord/crosspost/events", {
+            "action": "thread-created",
+            "websitePostId": website_post_id,
+            "discordThreadId": str(thread.id),
+            "discordChannelId": str(channel.id),
+        })
+        return thread
+
+    async def handle_website_event(self, event):
+        event_type = event.get("event_type")
+        payload = event.get("payload") or {}
+        website_post_id = str(event.get("website_post_id") or payload.get("postId") or "")
+        if event_type == "website_post_created":
+            channel = await self.resolve_channel(payload.get("caseManagementChannelId"))
+            if not channel:
+                raise RuntimeError("Case management Discord channel was not found.")
+            view = WebsitePostDecisionView(self, website_post_id, payload)
+            await channel.send(content="New BareUnity website post needs Discord routing.", embed=self.build_post_embed(payload, "Needs Discord routing"), view=view)
+            return
+        thread_id = event.get("discord_thread_id") or payload.get("discordThreadId")
+        thread = await self.resolve_channel(thread_id)
+        if not thread:
+            raise RuntimeError(f"Discord thread {thread_id} was not found.")
+        if event_type == "website_comment_created":
+            author = payload.get("authorName") or "BareUnity member"
+            content = str(payload.get("content") or "").strip()
+            await thread.send(f"💬 **{author} on BareUnity:**\n{content}"[:2000])
+        elif event_type in ("website_like_created", "website_like_removed"):
+            likes = payload.get("likes")
+            verb = "liked" if event_type == "website_like_created" else "removed a like from"
+            await thread.send(f"👍 A BareUnity member {verb} this post. Total likes: {likes}")
+
+    @tasks.loop(seconds=5)
+    async def event_poller(self):
+        try:
+            data = await self.fetch_bareunity_api("/api/integrations/discord/crosspost/events?limit=25")
+            for event in data.get("events", []):
+                try:
+                    await self.handle_website_event(event)
+                    await self.mark_event_processed(event.get("id"))
+                except Exception as exc:
+                    print(f"BareUnity event sync failed for {event.get('id')}: {exc}")
+                    await self.mark_event_failed(event.get("id"), exc)
+        except Exception as exc:
+            print(f"BareUnity event poll failed: {exc}")
+
+    @event_poller.before_loop
+    async def before_event_poller(self):
+        await self.bot.wait_until_ready()
 
     def build_reddit_client(self):
         required = [
@@ -241,9 +374,16 @@ class RedditCrosspost(commands.Cog):
         thread = message.channel
         if thread.parent_id not in CROSSPOST_FORUM_IDS:
             return
-        if message.id != thread.id:
+        if message.id == thread.id:
+            await self.process_crosspost_thread(thread, message)
             return
-        await self.process_crosspost_thread(thread, message)
+        await self.post_bareunity_api("/api/integrations/discord/crosspost/events", {
+            "action": "discord-comment-created",
+            "discordThreadId": str(thread.id),
+            "discordMessageId": str(message.id),
+            "discordAuthorId": str(message.author.id),
+            "content": message.content,
+        })
 
     @app_commands.command(
         name="crosspost_now",
@@ -284,12 +424,78 @@ class RedditCrosspost(commands.Cog):
         )
 
     @commands.Cog.listener()
+    async def on_raw_reaction_add(self, payload):
+        if payload.user_id == self.bot.user.id:
+            return
+        channel = await self.resolve_channel(payload.channel_id)
+        if isinstance(channel, discord.Thread):
+            try:
+                await self.post_bareunity_api("/api/integrations/discord/crosspost/events", {
+                    "action": "discord-like-created",
+                    "discordThreadId": str(channel.id),
+                    "discordUserId": str(payload.user_id),
+                })
+            except Exception as exc:
+                print(f"BareUnity Discord like sync failed: {exc}")
+
+    @commands.Cog.listener()
+    async def on_raw_reaction_remove(self, payload):
+        channel = await self.resolve_channel(payload.channel_id)
+        if isinstance(channel, discord.Thread):
+            try:
+                await self.post_bareunity_api("/api/integrations/discord/crosspost/events", {
+                    "action": "discord-like-removed",
+                    "discordThreadId": str(channel.id),
+                    "discordUserId": str(payload.user_id),
+                })
+            except Exception as exc:
+                print(f"BareUnity Discord like removal sync failed: {exc}")
+
+    @commands.Cog.listener()
     async def on_ready(self):
         for command in (self.register, self.crosspost_now):
             try:
                 self.bot.tree.add_command(command)
             except Exception:
                 pass
+
+
+class WebsitePostDecisionView(discord.ui.View):
+    def __init__(self, cog: RedditCrosspost, website_post_id: str, payload: dict):
+        super().__init__(timeout=None)
+        self.cog = cog
+        self.website_post_id = website_post_id
+        self.payload = payload
+        for value, label in WEBSITE_REVIEW_BUTTONS.items():
+            style = discord.ButtonStyle.danger if value == "delete-post" else discord.ButtonStyle.secondary
+            if value in ("photo-sharing", "naturist-travel"):
+                style = discord.ButtonStyle.success
+            self.add_item(WebsitePostDecisionButton(label=label, target=value, style=style))
+
+
+class WebsitePostDecisionButton(discord.ui.Button):
+    def __init__(self, label: str, target: str, style: discord.ButtonStyle):
+        super().__init__(label=label, custom_id=f"bareunity:website-post:{target}", style=style)
+        self.target = target
+
+    async def callback(self, interaction: discord.Interaction):
+        view: WebsitePostDecisionView = self.view
+        await interaction.response.defer(ephemeral=True)
+        result = await view.cog.post_bareunity_api("/api/integrations/discord/crosspost/events", {
+            "action": "post-decision",
+            "websitePostId": view.website_post_id,
+            "target": self.target,
+        })
+        if self.target in ("photo-sharing", "naturist-travel"):
+            target_channel_id = result.get("targetDiscordChannelId")
+            thread = await view.cog.create_target_thread_for_post(view.website_post_id, target_channel_id, view.payload)
+            await interaction.followup.send(f"✅ Posted to Discord thread {thread.mention}.", ephemeral=True)
+        elif result.get("deleted"):
+            await interaction.followup.send("🗑️ Website post deleted and Discord upload cancelled.", ephemeral=True)
+        else:
+            await interaction.followup.send("✅ Discord upload skipped for this website post.", ephemeral=True)
+        if interaction.message:
+            await interaction.message.edit(view=None)
 
 
 async def setup(bot):
