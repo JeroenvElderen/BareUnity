@@ -6,7 +6,21 @@ import praw
 from discord import app_commands
 from discord.ext import commands
 
-CROSSPOST_FORUM_ID = int(os.getenv("DISCORD_CROSSPOST_FORUM_ID", "1515845739870425208"))
+DEFAULT_CROSSPOST_FORUM_IDS = "1515845739870425208,1516001611925684265"
+
+
+def parse_crosspost_forum_ids(value):
+    return {
+        int(channel_id.strip())
+        for channel_id in value.split(",")
+        if channel_id.strip()
+    }
+
+
+CROSSPOST_FORUM_IDS = parse_crosspost_forum_ids(
+    os.getenv("DISCORD_CROSSPOST_FORUM_IDS")
+    or os.getenv("DISCORD_CROSSPOST_FORUM_ID", DEFAULT_CROSSPOST_FORUM_IDS)
+)
 BAREUNITY_API_BASE_URL = os.getenv("BAREUNITY_API_BASE_URL", "https://bareunity.com").rstrip("/")
 BAREUNITY_DISCORD_SECRET = os.getenv("BAREUNITY_DISCORD_SECRET") or os.getenv("DISCORD_CROSSPOST_SECRET")
 REDDIT_SUBREDDIT = os.getenv("REDDIT_SUBREDDIT")
@@ -162,7 +176,7 @@ class RedditCrosspost(commands.Cog):
             )
 
     async def process_crosspost_thread(self, thread: discord.Thread, starter_message: discord.Message | None = None):
-        if thread.parent_id != CROSSPOST_FORUM_ID:
+        if thread.parent_id not in CROSSPOST_FORUM_IDS:
             return {"ok": False, "skipped": True, "reason": "Thread is not in the configured crosspost forum."}
 
         starter_message = starter_message or await self.fetch_starter_message(thread)
@@ -225,7 +239,7 @@ class RedditCrosspost(commands.Cog):
         if message.author.bot or not isinstance(message.channel, discord.Thread):
             return
         thread = message.channel
-        if thread.parent_id != CROSSPOST_FORUM_ID:
+        if thread.parent_id not in CROSSPOST_FORUM_IDS:
             return
         if message.id != thread.id:
             return
@@ -240,7 +254,7 @@ class RedditCrosspost(commands.Cog):
         if not interaction.user.guild_permissions.manage_messages:
             await interaction.response.send_message("❌ Moderator only.", ephemeral=True)
             return
-        if not isinstance(interaction.channel, discord.Thread) or interaction.channel.parent_id != CROSSPOST_FORUM_ID:
+        if not isinstance(interaction.channel, discord.Thread) or interaction.channel.parent_id not in CROSSPOST_FORUM_IDS:
             await interaction.response.send_message(
                 "❌ Use this inside the configured crosspost forum thread.",
                 ephemeral=True,

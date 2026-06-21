@@ -92,14 +92,19 @@ export async function POST(request: Request) {
       title?: string;
       content?: string;
       mediaUrl?: string;
+      mediaUrls?: string[];
       kind?: "post" | "story";
     };
 
     const title = body.title?.trim() ?? "";
     const content = body.content?.trim() ?? "";
+    const mediaUrls = Array.isArray(body.mediaUrls)
+      ? body.mediaUrls.map((url) => url.trim()).filter(Boolean)
+      : [];
     const mediaUrl = body.mediaUrl?.trim() ?? "";
     const kind = body.kind === "story" ? "story" : "post";
-    const persistedMediaUrl = mediaUrl;
+    const persistedMediaUrls = mediaUrls.length ? mediaUrls : mediaUrl ? [mediaUrl] : [];
+    const persistedMediaUrl = persistedMediaUrls[0] ?? "";
 
     if (kind === "story") {
       if (!persistedMediaUrl) {
@@ -115,6 +120,7 @@ export async function POST(request: Request) {
           title: title || "Story",
           content,
           media_url: persistedMediaUrl,
+          media_urls: [persistedMediaUrl],
           post_type: "story",
           expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000),
         },
@@ -123,7 +129,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true });
     }
 
-    if (!title || (!content && !persistedMediaUrl)) {
+    if (!title || (!content && persistedMediaUrls.length === 0)) {
       return NextResponse.json(
         { error: "A title and post content or image are required." },
         { status: 400 },
@@ -136,13 +142,14 @@ export async function POST(request: Request) {
         title,
         content,
         media_url: persistedMediaUrl || null,
-        post_type: persistedMediaUrl ? "image" : "text",
+        media_urls: persistedMediaUrls,
+        post_type: persistedMediaUrls.length ? "image" : "text",
       },
     });
 
-    if (persistedMediaUrl) {
+    for (const imagePath of persistedMediaUrls) {
       await classifyPostsBucketImageForGallery({
-        imagePath: persistedMediaUrl,
+        imagePath,
         ownerId: viewerId,
         title,
       });

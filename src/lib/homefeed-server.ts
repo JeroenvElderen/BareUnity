@@ -2,6 +2,15 @@ import { db } from "@/server/db";
 import { getInitials, pickPostTone, pickStoryTone, relativeTime, type HomeFeedPayload } from "@/lib/homefeed";
 import { resolveMediaUrl } from "@/lib/media-url";
 
+function resolvePostMediaUrls(mediaUrls: string[] | null | undefined, mediaUrl: string | null | undefined) {
+  const urls = (Array.isArray(mediaUrls) ? mediaUrls : [])
+    .map((url) => resolveMediaUrl(url))
+    .filter((url): url is string => Boolean(url));
+  const fallbackUrl = resolveMediaUrl(mediaUrl);
+  if (fallbackUrl && !urls.includes(fallbackUrl)) urls.unshift(fallbackUrl);
+  return urls;
+}
+
 export const fallbackFeed: HomeFeedPayload = {
   stories: [],
   posts: [],
@@ -135,7 +144,8 @@ export async function buildHomeFeedPayload(viewerId: string | null): Promise<Hom
       fallback: getInitials(author),
       posted: relativeTime(post.created_at),
       text: [post.title?.trim(), post.content?.trim()].filter(Boolean).join("\n") || "Shared an update",
-      mediaUrl: resolveMediaUrl(post.media_url),
+      mediaUrl: resolvePostMediaUrls(post.media_urls, post.media_url)[0] ?? null,
+      mediaUrls: resolvePostMediaUrls(post.media_urls, post.media_url),
       postType: (post.post_type === "image" ? "image" : "text") as "image" | "text",
       likes,
       comments: post.comments.map((comment) => {

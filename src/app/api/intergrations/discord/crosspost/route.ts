@@ -25,12 +25,27 @@ type CreatedPostRow = {
   title: string | null;
   content: string | null;
   media_url: string | null;
+  media_urls: string[] | null;
   post_type: string | null;
   created_at: string | null;
 };
 
-const CROSSPOST_FORUM_ID =
-  process.env.DISCORD_CROSSPOST_FORUM_ID ?? "1515845739870425208";
+const DEFAULT_CROSSPOST_FORUM_IDS = [
+  "1515845739870425208",
+  "1516001611925684265",
+];
+
+function parseCrosspostForumIds(value: string | undefined) {
+  return new Set(
+    (value ? value.split(",") : DEFAULT_CROSSPOST_FORUM_IDS)
+      .map((channelId) => channelId.trim())
+      .filter(Boolean),
+  );
+}
+
+const CROSSPOST_FORUM_IDS = parseCrosspostForumIds(
+  process.env.DISCORD_CROSSPOST_FORUM_IDS ?? process.env.DISCORD_CROSSPOST_FORUM_ID,
+);
 const POSTS_BUCKET_ID = "posts";
 const MAX_DISCORD_IMAGE_BYTES = 15 * 1024 * 1024;
 
@@ -236,8 +251,9 @@ export async function POST(request: Request) {
   const attachments = Array.isArray(body.attachments)
     ? (body.attachments as Attachment[])
     : [];
-  const firstImage = attachments.find(looksLikeImageAttachment);
-  if (discordChannelId !== CROSSPOST_FORUM_ID) {
+  const imageAttachments = attachments.filter(looksLikeImageAttachment);
+  const firstImage = imageAttachments[0];
+  if (!discordChannelId || !CROSSPOST_FORUM_IDS.has(discordChannelId)) {
     return NextResponse.json(
       { error: "This Discord channel is not configured for cross-posting." },
       { status: 400 },
@@ -334,14 +350,17 @@ export async function POST(request: Request) {
           .filter((line) => line !== null)
           .join("\n");
 
-  let persistedImage: Awaited<ReturnType<typeof persistDiscordImage>> = null;
+  const persistedImages: Array<NonNullable<Awaited<ReturnType<typeof persistDiscordImage>>>> = [];
   try {
-    persistedImage = await persistDiscordImage({
-      supabaseAdmin,
-      authorId,
-      discordThreadId,
-      attachment: firstImage,
-    });
+    for (const attachment of imageAttachments) {
+      const persistedImage = await persistDiscordImage({
+        supabaseAdmin,
+        authorId,
+        discordThreadId,
+        attachment,
+      });
+      if (persistedImage) persistedImages.push(persistedImage);
+    }
   } catch (error) {
     console.error("Discord crosspost could not save image to posts bucket", {
       error,
@@ -359,7 +378,8 @@ export async function POST(request: Request) {
     );
   }
 
-  const mediaUrl = persistedImage?.publicUrl ?? null;
+  const mediaUrls = persistedImages.map((image) => image.publicUrl);
+  const mediaUrl = mediaUrls[0] ?? null;
 
   const postInsertPayload = {
     author_id: authorId,
@@ -367,14 +387,15 @@ export async function POST(request: Request) {
     title,
     content,
     media_url: mediaUrl,
-    post_type: mediaUrl ? "image" : "text",
+    media_urls: mediaUrls,
+    post_type: mediaUrls.length ? "image" : "text",
   };
 
   const { data: createdPost, error: postError } = await supabaseAdmin
     .from("posts")
     .insert(postInsertPayload)
     .select(
-      "id, author_id, channel_id, title, content, media_url, post_type, created_at",
+      "id, author_id, channel_id, title, content, media_url, media_urls, post_type, created_at",
     )
     .single<CreatedPostRow>();
 
@@ -421,7 +442,7 @@ export async function POST(request: Request) {
     authorMode,
     table: "public.posts",
     post: createdPost,
-    storage: persistedImage,
+    storage: persistedImages,
   });
 }
 

@@ -17,6 +17,7 @@ export type HomeFeedPost = {
   posted: string;
   text: string;
   mediaUrl: string | null;
+  mediaUrls: string[];
   postType: "text" | "image";
   likes: number;
   comments: HomeFeedComment[];
