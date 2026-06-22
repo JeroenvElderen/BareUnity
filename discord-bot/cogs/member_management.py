@@ -502,7 +502,8 @@ class MemberManagement(commands.Cog):
 
             created = await forum.create_thread(
                 name=thread_name[:100],
-                content="👤 Creating profile card...",
+                content=f"👤 Member profile card for @{username}",
+                embed=embed,
                 view=MemberManagementView(self, profile["id"]),
                 applied_tags=applied_tags
             )
@@ -514,7 +515,7 @@ class MemberManagement(commands.Cog):
                 starter_message = created.message
 
                 await starter_message.edit(
-                    content="",
+                    content=f"👤 Member profile card for @{username}",
                     embed=embed,
                     view=MemberManagementView(self, profile["id"])
                 )
@@ -620,18 +621,26 @@ class MemberManagement(commands.Cog):
                 oldest_first=True
             ):
 
-                if (
-                    msg.author.id
-                    == self.bot.user.id
-                    and msg.embeds
-                ):
+                if msg.author.id == self.bot.user.id:
 
                     target_message = msg
-                    break
+                    if msg.embeds:
+                        break
 
             if target_message:
 
+                username = profile.get("username", "unknown")
                 await target_message.edit(
+                    content=f"👤 Member profile card for @{username}",
+                    embed=embed,
+                    view=MemberManagementView(self, profile["id"])
+                )
+
+            else:
+
+                username = profile.get("username", "unknown")
+                await thread.send(
+                    content=f"👤 Member profile card for @{username}",
                     embed=embed,
                     view=MemberManagementView(self, profile["id"])
                 )
