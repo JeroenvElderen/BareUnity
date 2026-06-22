@@ -108,7 +108,7 @@ export async function enqueueDiscordGalleryReviewEvent(args: {
       signedUrl: args.signedUrl ?? null,
       websitePostId: args.websitePostId ?? null,
       discordThreadId: args.discordThreadId ?? null,
-      bucketId: args.bucketId ?? "user-media",
+      bucketId: args.bucketId ?? "media",
       discordReview: {
         channelId: DISCORD_GALLERY_REVIEW_CHANNEL_ID,
         mode: "one_image_per_forum_thread",
@@ -116,6 +116,30 @@ export async function enqueueDiscordGalleryReviewEvent(args: {
       },
     },
   });
+}
+
+const ABSOLUTE_OR_BROWSER_URL_PATTERN = /^(?:https?:|data:|blob:|\/)/i;
+
+function resolveDiscordMediaUrl(rawUrl: string | null | undefined) {
+  if (!rawUrl) return null;
+
+  const value = rawUrl.trim();
+  if (!value) return null;
+  if (ABSOLUTE_OR_BROWSER_URL_PATTERN.test(value)) return value;
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, "");
+  if (!supabaseUrl) return value;
+
+  return `${supabaseUrl}/storage/v1/object/public/media/${value.replace(/^\/+/, "")}`;
+}
+
+function resolveDiscordMediaUrls(mediaUrls: string[] | null | undefined, mediaUrl: string | null | undefined) {
+  const resolvedUrls = (Array.isArray(mediaUrls) ? mediaUrls : [])
+    .map((url) => resolveDiscordMediaUrl(url))
+    .filter((url): url is string => Boolean(url));
+  const fallbackUrl = resolveDiscordMediaUrl(mediaUrl);
+  if (fallbackUrl && !resolvedUrls.includes(fallbackUrl)) resolvedUrls.unshift(fallbackUrl);
+  return resolvedUrls;
 }
 
 export async function ensureWebsitePostQueuedForDiscord(postId: string) {
@@ -150,6 +174,8 @@ export async function ensureWebsitePostQueuedForDiscord(postId: string) {
     on conflict (website_post_id) do nothing
   `);
 
+  const mediaUrls = resolveDiscordMediaUrls(post.media_urls, post.media_url);
+
   await enqueueDiscordSyncEvent({
     websitePostId: postId,
     eventType: "website_post_created",
@@ -158,8 +184,8 @@ export async function ensureWebsitePostQueuedForDiscord(postId: string) {
       postId,
       title: post.title,
       content: post.content,
-      mediaUrl: post.media_url,
-      mediaUrls: post.media_urls ?? [],
+      mediaUrl: mediaUrls[0] ?? null,
+      mediaUrls,
       authorId: post.author_id,
       caseManagementChannelId: DISCORD_CASE_MANAGEMENT_CHANNEL_ID,
       targetButtons: [
