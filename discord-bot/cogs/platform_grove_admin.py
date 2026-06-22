@@ -1145,6 +1145,8 @@ class PlatformGroveAdmin(commands.Cog):
                 continue
 
             known_thread_id = self.sync_state["gallery"].get(image_path)
+            if not known_thread_id and row.get("discord_review_thread_id"):
+                continue
             if known_thread_id:
                 if self.sync_state["gallery_updated"].get(image_path) != updated_at:
                     await self.notify_gallery_update(known_thread_id, row)

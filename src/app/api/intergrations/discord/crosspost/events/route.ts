@@ -13,6 +13,8 @@ function normalizeTarget(value: unknown) {
   return normalizeDiscordId(value);
 }
 
+const MAX_DISCORD_EVENT_ATTEMPTS = Math.max(1, Number(process.env.DISCORD_CROSSPOST_EVENT_MAX_ATTEMPTS ?? 3));
+
 function normalizeGalleryDecision(value: unknown) {
   if (value === "nude" || value === "nude-gallery" || value === "approve_nude") return "approve_nude";
   if (value === "general" || value === "general-gallery" || value === "approve_general") return "approve_general";
@@ -69,6 +71,7 @@ export async function GET(request: Request) {
     select id, website_post_id, gallery_image_path, discord_thread_id, event_type, payload, dedupe_key, created_at
     from public.discord_crosspost_events
     where processed_at is null
+      and coalesce(attempts, 0) < ${MAX_DISCORD_EVENT_ATTEMPTS}
     order by created_at asc
     limit ${limit}
   `);
@@ -93,8 +96,24 @@ export async function POST(request: Request) {
   if (action === "mark-failed") {
     const eventId = normalizeOptionalString(body.eventId, 80);
     if (!eventId) return NextResponse.json({ error: "eventId is required." }, { status: 400 });
-    await db.$executeRaw(Prisma.sql`update public.discord_crosspost_events set error = ${normalizeOptionalString(body.error, 1000)}, attempts = attempts + 1 where id = ${eventId}::uuid`);
-    return NextResponse.json({ ok: true });
+    const terminalFailure = body.terminal === true;
+    const result = await db.$queryRaw<Array<{ attempts: number }>>(Prisma.sql`
+      update public.discord_crosspost_events
+      set error = ${normalizeOptionalString(body.error, 1000)},
+          attempts = coalesce(attempts, 0) + 1,
+          processed_at = case
+            when ${terminalFailure} then now()
+            when coalesce(attempts, 0) + 1 >= ${MAX_DISCORD_EVENT_ATTEMPTS} then now()
+            else processed_at
+          end
+      where id = ${eventId}::uuid
+      returning attempts
+    `);
+    return NextResponse.json({
+      ok: true,
+      attempts: result[0]?.attempts ?? null,
+      terminal: terminalFailure || (result[0]?.attempts ?? 0) >= MAX_DISCORD_EVENT_ATTEMPTS,
+    });
   }
 
   if (action === "delete-post") {
