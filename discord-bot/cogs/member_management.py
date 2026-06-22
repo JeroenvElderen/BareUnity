@@ -141,6 +141,112 @@ class MemberManagement(commands.Cog):
                 f,
                 indent=4
             )
+
+    async def member_forum(self):
+
+        forum = self.bot.get_channel(
+            MEMBER_MANAGEMENT_FORUM
+        )
+
+        if forum is None:
+
+            try:
+
+                forum = await self.bot.fetch_channel(
+                    MEMBER_MANAGEMENT_FORUM
+                )
+
+            except Exception as e:
+
+                print(
+                    f"[MEMBERS] Could not fetch member "
+                    f"management forum: {e}"
+                )
+
+                return None
+
+        if not isinstance(
+            forum,
+            discord.ForumChannel
+        ):
+
+            print(
+                "[MEMBERS] Member management channel "
+                "is not a forum channel."
+            )
+
+            return None
+
+        return forum
+
+    async def existing_member_thread_ids(
+        self,
+        forum
+    ):
+
+        thread_ids = {
+            str(thread.id)
+            for thread in forum.threads
+        }
+
+        try:
+
+            async for thread in forum.archived_threads(
+                limit=None
+            ):
+
+                thread_ids.add(
+                    str(thread.id)
+                )
+
+        except Exception as e:
+
+            print(
+                f"[MEMBERS] Could not inspect archived "
+                f"member threads: {e}"
+            )
+
+        return thread_ids
+
+    async def prune_deleted_member_threads(self):
+
+        if not self.thread_map:
+
+            return
+
+        forum = await self.member_forum()
+
+        if forum is None:
+
+            return
+
+        existing_thread_ids = await self.existing_member_thread_ids(
+            forum
+        )
+
+        stale_profile_ids = [
+            profile_id
+            for profile_id, thread_id in self.thread_map.items()
+            if str(thread_id) not in existing_thread_ids
+        ]
+
+        if not stale_profile_ids:
+
+            return
+
+        for profile_id in stale_profile_ids:
+
+            self.thread_map.pop(
+                profile_id,
+                None
+            )
+
+        self.save_threads()
+
+        print(
+            f"[MEMBERS] Removed {len(stale_profile_ids)} "
+            "deleted member thread mapping(s)."
+        )
     
     def is_ranger(
         self,
@@ -340,14 +446,10 @@ class MemberManagement(commands.Cog):
         profile
     ):
 
-        forum = self.bot.get_channel(
-            MEMBER_MANAGEMENT_FORUM
-        )
+        forum = await self.member_forum()
 
-        if not isinstance(
-            forum,
-            discord.ForumChannel
-        ):
+        if forum is None:
+
             return
 
         username = profile.get(
@@ -373,10 +475,36 @@ class MemberManagement(commands.Cog):
                 profile
             )
 
+            applied_tags = []
+
+            if forum.flags.require_tag:
+
+                available_tags = list(
+                    forum.available_tags
+                )
+
+                applied_tags = [
+                    tag
+                    for tag in available_tags
+                    if not getattr(
+                        tag,
+                        "moderated",
+                        False
+                    )
+                ][:1]
+
+                if (
+                    not applied_tags
+                    and available_tags
+                ):
+
+                    applied_tags = available_tags[:1]
+
             created = await forum.create_thread(
                 name=thread_name[:100],
                 content="👤 Creating profile card...",
-                view=MemberManagementView(self, profile["id"])
+                view=MemberManagementView(self, profile["id"]),
+                applied_tags=applied_tags
             )
 
             thread = created.thread
@@ -448,7 +576,34 @@ class MemberManagement(commands.Cog):
                     int(thread_id)
                 )
 
-        except Exception:
+        except discord.NotFound:
+
+            print(
+                f"[MEMBERS] Stored thread {thread_id} "
+                f"for profile {profile['id']} no longer exists; "
+                "recreating."
+            )
+
+            self.thread_map.pop(
+                profile["id"],
+                None
+            )
+
+            self.save_threads()
+
+            await self.create_member_thread(
+                profile
+            )
+
+            return
+
+        except Exception as e:
+
+            print(
+                f"[MEMBERS] Failed fetching stored "
+                f"thread {thread_id} for profile "
+                f"{profile['id']}: {e}"
+            )
 
             return
 
@@ -496,6 +651,8 @@ class MemberManagement(commands.Cog):
     async def profile_sync(self):
 
         try:
+
+            await self.prune_deleted_member_threads()
 
             response = (
                 self.supabase
