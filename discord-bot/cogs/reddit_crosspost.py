@@ -1,4 +1,6 @@
+import io
 import os
+from urllib.parse import urlparse
 
 import aiohttp
 import discord
@@ -113,7 +115,34 @@ class RedditCrosspost(commands.Cog):
         return None
 
 
-    def build_gallery_embed(self, payload):
+    def gallery_attachment_filename(self, payload):
+        image_path = str(payload.get("imagePath") or "gallery-image.webp")
+        name = os.path.basename(urlparse(image_path).path) or "gallery-image.webp"
+        safe = "".join(char if char.isalnum() or char in (".", "_", "-") else "_" for char in name)
+        if "." not in safe:
+            safe = f"{safe}.webp"
+        return safe[:120] or "gallery-image.webp"
+
+    async def fetch_gallery_attachment(self, payload):
+        image_url = payload.get("signedUrl") or payload.get("publicUrl") or self.resolve_media_url(payload.get("imagePath"))
+        if not image_url:
+            return None, None
+        image_url = str(image_url)
+        timeout = aiohttp.ClientTimeout(total=30)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get(image_url) as response:
+                if response.status >= 300:
+                    raise RuntimeError(f"Gallery image download returned {response.status}.")
+                content_type = response.headers.get("Content-Type", "")
+                if content_type and not content_type.lower().startswith("image/"):
+                    raise RuntimeError(f"Gallery image download returned non-image content type {content_type}.")
+                data = await response.read()
+        if not data:
+            raise RuntimeError("Gallery image download returned an empty body.")
+        filename = self.gallery_attachment_filename(payload)
+        return discord.File(io.BytesIO(data), filename=filename), filename
+
+    def build_gallery_embed(self, payload, attachment_filename=None):
         title = str(payload.get("title") or "Gallery image review")[:256]
         source = str(payload.get("source") or "gallery upload").replace("_", " ")
         image_path = str(payload.get("imagePath") or "")
@@ -128,7 +157,9 @@ class RedditCrosspost(commands.Cog):
         if image_path:
             embed.add_field(name="Image path", value=image_path[:1024], inline=False)
         image_url = payload.get("signedUrl") or payload.get("publicUrl")
-        if image_url:
+        if attachment_filename:
+            embed.set_image(url=f"attachment://{attachment_filename}")
+        elif image_url:
             embed.set_image(url=str(image_url))
         embed.set_footer(text="BareUnity gallery review")
         return embed
@@ -145,15 +176,22 @@ class RedditCrosspost(commands.Cog):
             raise NonRetryableWebsiteEventError(f"Gallery review Discord channel {channel_id} was not found.")
 
         title = str(payload.get("title") or "Gallery image review").strip()[:80]
-        embed = self.build_gallery_embed(payload)
+        attachment = None
+        attachment_filename = None
+        try:
+            attachment, attachment_filename = await self.fetch_gallery_attachment(payload)
+        except Exception as exc:
+            print(f"Could not attach gallery review image for {image_path}: {exc}")
+        embed = self.build_gallery_embed(payload, attachment_filename=attachment_filename)
         view = GalleryReviewDecisionView(self, image_path, payload)
         content = "New BareUnity gallery image needs review."
+        files = [attachment] if attachment else None
         if isinstance(channel, discord.ForumChannel):
-            created = await channel.create_thread(name=f"Gallery • {title}", content=content, embed=embed, view=view)
+            created = await channel.create_thread(name=f"Gallery • {title}", content=content, embed=embed, view=view, files=files)
             thread = created.thread
             message = getattr(created, "message", None)
         else:
-            message = await channel.send(content=content, embed=embed, view=view)
+            message = await channel.send(content=content, embed=embed, view=view, files=files)
             thread = await message.create_thread(name=f"Gallery • {title}")
 
         await self.post_bareunity_api("/api/integrations/discord/crosspost/events", {
