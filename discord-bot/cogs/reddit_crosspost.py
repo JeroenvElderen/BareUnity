@@ -32,6 +32,15 @@ WEBSITE_REVIEW_BUTTONS = {
     "skip-discord-upload": "Skip Discord",
     "delete-post": "Delete post",
 }
+GALLERY_REVIEW_BUTTONS = {
+    "general-gallery": "General gallery",
+    "nude-gallery": "Nude gallery",
+    "reject-gallery-image": "Reject",
+}
+
+
+class NonRetryableWebsiteEventError(RuntimeError):
+    pass
 
 
 class RedditCrosspost(commands.Cog):
@@ -67,8 +76,16 @@ class RedditCrosspost(commands.Cog):
     async def mark_event_processed(self, event_id):
         await self.post_bareunity_api("/api/integrations/discord/crosspost/events", {"action": "mark-processed", "eventId": event_id})
 
-    async def mark_event_failed(self, event_id, error):
-        await self.post_bareunity_api("/api/integrations/discord/crosspost/events", {"action": "mark-failed", "eventId": event_id, "error": str(error)[:1000]})
+    async def mark_event_failed(self, event_id, error, terminal=False):
+        return await self.post_bareunity_api(
+            "/api/integrations/discord/crosspost/events",
+            {
+                "action": "mark-failed",
+                "eventId": event_id,
+                "error": str(error)[:1000],
+                "terminal": terminal,
+            },
+        )
 
     async def resolve_channel(self, channel_id):
         if not channel_id:
@@ -95,6 +112,60 @@ class RedditCrosspost(commands.Cog):
             return f"{SUPABASE_URL}/storage/v1/object/public/media/{value.lstrip('/')}"
         return None
 
+
+    def build_gallery_embed(self, payload):
+        title = str(payload.get("title") or "Gallery image review")[:256]
+        source = str(payload.get("source") or "gallery upload").replace("_", " ")
+        image_path = str(payload.get("imagePath") or "")
+        embed = discord.Embed(
+            title=title,
+            description="Choose where this BareUnity image belongs.",
+            color=0x805ad5,
+        )
+        embed.add_field(name="Source", value=source, inline=True)
+        if payload.get("ownerId"):
+            embed.add_field(name="Owner", value=str(payload.get("ownerId"))[:1024], inline=False)
+        if image_path:
+            embed.add_field(name="Image path", value=image_path[:1024], inline=False)
+        image_url = payload.get("signedUrl") or payload.get("publicUrl")
+        if image_url:
+            embed.set_image(url=str(image_url))
+        embed.set_footer(text="BareUnity gallery review")
+        return embed
+
+    async def create_gallery_review_thread(self, event):
+        payload = event.get("payload") or {}
+        image_path = str(event.get("gallery_image_path") or payload.get("imagePath") or "").strip()
+        if not image_path:
+            raise NonRetryableWebsiteEventError("Gallery review event did not include an image path.")
+
+        channel_id = payload.get("reviewChannelId") or payload.get("discordReview", {}).get("channelId")
+        channel = await self.resolve_channel(channel_id)
+        if not channel:
+            raise NonRetryableWebsiteEventError(f"Gallery review Discord channel {channel_id} was not found.")
+
+        title = str(payload.get("title") or "Gallery image review").strip()[:80]
+        embed = self.build_gallery_embed(payload)
+        view = GalleryReviewDecisionView(self, image_path, payload)
+        content = "New BareUnity gallery image needs review."
+        if isinstance(channel, discord.ForumChannel):
+            created = await channel.create_thread(name=f"Gallery • {title}", content=content, embed=embed, view=view)
+            thread = created.thread
+            message = getattr(created, "message", None)
+        else:
+            message = await channel.send(content=content, embed=embed, view=view)
+            thread = await message.create_thread(name=f"Gallery • {title}")
+
+        await self.post_bareunity_api("/api/integrations/discord/crosspost/events", {
+            "action": "gallery-thread-created",
+            "imagePath": image_path,
+            "discordThreadId": str(thread.id),
+            "discordChannelId": str(channel.id),
+            "discordMessageId": str(message.id) if message else None,
+            "bucketId": payload.get("bucketId") or "media",
+        })
+        return thread
+
     def build_post_embed(self, payload, title_prefix="Website post"):
         title = str(payload.get("title") or "BareUnity website post")[:256]
         content = str(payload.get("content") or "").strip()
@@ -116,7 +187,7 @@ class RedditCrosspost(commands.Cog):
     async def create_target_thread_for_post(self, website_post_id, target_channel_id, payload):
         channel = await self.resolve_channel(target_channel_id)
         if not channel:
-            raise RuntimeError(f"Discord target channel {target_channel_id} was not found.")
+            raise NonRetryableWebsiteEventError(f"Discord target channel {target_channel_id} was not found.")
         title = str(payload.get("title") or "BareUnity website post")[:100]
         content = str(payload.get("content") or "").strip()
         media_urls = payload.get("mediaUrls") or []
@@ -148,14 +219,17 @@ class RedditCrosspost(commands.Cog):
         if event_type == "website_post_created":
             channel = await self.resolve_channel(payload.get("caseManagementChannelId"))
             if not channel:
-                raise RuntimeError("Case management Discord channel was not found.")
+                raise NonRetryableWebsiteEventError("Case management Discord channel was not found.")
             view = WebsitePostDecisionView(self, website_post_id, payload)
             await channel.send(content="New BareUnity website post needs Discord routing.", embed=self.build_post_embed(payload, "Needs Discord routing"), view=view)
+            return
+        if event_type == "gallery_image_review_requested":
+            await self.create_gallery_review_thread(event)
             return
         thread_id = event.get("discord_thread_id") or payload.get("discordThreadId")
         thread = await self.resolve_channel(thread_id)
         if not thread:
-            raise RuntimeError(f"Discord thread {thread_id} was not found.")
+            raise NonRetryableWebsiteEventError(f"Discord thread {thread_id} was not found.")
         if event_type == "website_comment_created":
             author = payload.get("authorName") or "BareUnity member"
             content = str(payload.get("content") or "").strip()
@@ -174,8 +248,13 @@ class RedditCrosspost(commands.Cog):
                     await self.handle_website_event(event)
                     await self.mark_event_processed(event.get("id"))
                 except Exception as exc:
-                    print(f"BareUnity event sync failed for {event.get('id')}: {exc}")
-                    await self.mark_event_failed(event.get("id"), exc)
+                    terminal = isinstance(exc, NonRetryableWebsiteEventError)
+                    result = await self.mark_event_failed(event.get("id"), exc, terminal=terminal)
+                    if terminal or result.get("terminal"):
+                        print(f"BareUnity event sync gave up for {event.get('id')}: {exc}")
+                    else:
+                        attempts = result.get("attempts")
+                        print(f"BareUnity event sync failed for {event.get('id')} (attempt {attempts}): {exc}")
         except Exception as exc:
             print(f"BareUnity event poll failed: {exc}")
 
@@ -477,6 +556,49 @@ class RedditCrosspost(commands.Cog):
                 self.bot.tree.add_command(command)
             except Exception:
                 pass
+
+
+class GalleryReviewDecisionView(discord.ui.View):
+    def __init__(self, cog: RedditCrosspost, image_path: str, payload: dict):
+        super().__init__(timeout=None)
+        self.cog = cog
+        self.image_path = image_path
+        self.payload = payload
+        for value, label in GALLERY_REVIEW_BUTTONS.items():
+            style = discord.ButtonStyle.danger if value == "reject-gallery-image" else discord.ButtonStyle.success
+            if value == "nude-gallery":
+                style = discord.ButtonStyle.primary
+            self.add_item(GalleryReviewDecisionButton(label=label, target=value, style=style))
+
+
+class GalleryReviewDecisionButton(discord.ui.Button):
+    def __init__(self, label: str, target: str, style: discord.ButtonStyle):
+        super().__init__(label=label, custom_id=f"bareunity:gallery-review:{target}", style=style)
+        self.target = target
+
+    async def callback(self, interaction: discord.Interaction):
+        view: GalleryReviewDecisionView = self.view
+        await interaction.response.defer(ephemeral=True)
+        result = await view.cog.post_bareunity_api("/api/integrations/discord/crosspost/events", {
+            "action": "gallery-decision",
+            "imagePath": view.image_path,
+            "target": self.target,
+            "discordReviewThreadId": str(interaction.channel_id) if interaction.channel_id else None,
+            "discordReviewerId": str(interaction.user.id),
+            "bucketId": view.payload.get("bucketId") or "media",
+        })
+        if self.target == "reject-gallery-image":
+            message = "🗑️ Gallery image rejected and removed from public review."
+        else:
+            message = f"✅ Gallery image approved for `{result.get('galleryType')}`."
+        await interaction.followup.send(message, ephemeral=True)
+        try:
+            if isinstance(interaction.channel, discord.Thread):
+                await interaction.channel.delete()
+            elif interaction.message:
+                await interaction.message.edit(view=None)
+        except Exception as exc:
+            print(f"BareUnity gallery review cleanup failed for {view.image_path}: {exc}")
 
 
 class WebsitePostDecisionView(discord.ui.View):
