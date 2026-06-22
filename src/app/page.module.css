@@ -464,6 +464,27 @@
 .feedList {
   display: grid;
   gap: 0.9rem;
+  min-width: 0;
+}
+
+.feedPostCard {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.feedPostContent {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.feedPostMediaShell {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.feedPostImage {
+  max-width: 100%;
 }
 
 .reportStatus {
