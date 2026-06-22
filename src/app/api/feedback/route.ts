@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { LOCATION_REQUEST_PREFIX } from "@/lib/location-requests";
+import { enqueueDiscordAdminEvent } from "@/lib/discord-crosspost-sync";
 import { ensureAuthenticatedRequest } from "@/lib/request-auth";
 import {
   createSupabaseAdminClient,
@@ -122,6 +123,26 @@ export async function POST(request: NextRequest) {
 
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });
+
+  const isLocationRequest = data.message.startsWith(LOCATION_REQUEST_PREFIX);
+  await enqueueDiscordAdminEvent({
+    eventType: isLocationRequest
+      ? "admin_location_request_created"
+      : "admin_feedback_created",
+    dedupeKey: `${isLocationRequest ? "admin-location" : "admin-feedback"}:${data.id}`,
+    payload: {
+      feedbackId: data.id,
+      locationRequestId: isLocationRequest ? data.id : null,
+      category: data.category,
+      message: data.message,
+      userId: data.user_id,
+      userEmail: data.user_email,
+      pageUrl: data.page_url,
+      adminUrl: isLocationRequest ? "/admin/location-requests" : "/admin/feedback",
+    },
+  }).catch((enqueueError) => {
+    console.error("Unable to enqueue Discord admin feedback event", enqueueError);
+  });
 
   return NextResponse.json(
     { feedback: { ...data, replies: [] } },

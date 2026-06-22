@@ -15,6 +15,7 @@ import {
 } from "@/lib/upload-security";
 import { buildVisitorTrialMetadata } from "@/lib/visitor-trial";
 import { isUsernameValid, normalizeUsername } from "@/lib/username";
+import { enqueueDiscordProfileReviewEvent } from "@/lib/discord-crosspost-sync";
 
 const MAX_ID_UPLOAD_BYTES = 10 * 1024 * 1024;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -551,6 +552,14 @@ export async function POST(req: Request) {
       );
 
     if (settingsError) throw new Error(settingsError.message);
+
+    await enqueueDiscordProfileReviewEvent({
+      userId,
+      username,
+      displayName: validation.displayName,
+      accountAccess: validation.accountAccess,
+      source: "email_registration",
+    });
 
     if (validation.accountAccess === "verified" && validation.idDocument) {
       idDocumentPath = await uploadVerificationDocument(

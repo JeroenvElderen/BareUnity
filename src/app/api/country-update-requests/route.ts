@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
+import { enqueueDiscordAdminEvent } from "@/lib/discord-crosspost-sync";
 import { ensureAuthenticatedRequest } from "@/lib/request-auth";
 import {
   createSupabaseAdminClient,
@@ -68,6 +69,25 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  await enqueueDiscordAdminEvent({
+    eventType: "admin_country_update_request_created",
+    dedupeKey: `admin-country-update:${data.id}`,
+    payload: {
+      requestId: data.id,
+      countrySlug: requestBody.countrySlug,
+      countryName: requestBody.countryName,
+      changeType: requestBody.changeType,
+      message: requestBody.message,
+      sourceUrl: requestBody.sourceUrl || null,
+      pageUrl: requestBody.pageUrl || null,
+      userId: authResult.user.id,
+      userEmail: authResult.user.email ?? null,
+      adminUrl: "/admin/countries",
+    },
+  }).catch((enqueueError) => {
+    console.error("Unable to enqueue Discord country update request event", enqueueError);
+  });
 
   return NextResponse.json({ request: data }, { status: 201 });
 }

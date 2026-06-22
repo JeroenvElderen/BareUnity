@@ -55,7 +55,13 @@ export async function enqueueDiscordSyncEvent(args: {
     | "website_comment_created"
     | "website_like_created"
     | "website_like_removed"
-    | "gallery_image_review_requested";
+    | "gallery_image_review_requested"
+    | "profile_review_requested"
+    | "admin_report_created"
+    | "admin_feedback_created"
+    | "admin_location_request_created"
+    | "admin_country_update_request_created"
+    | "admin_verification_request_created";
   payload: Prisma.InputJsonValue;
   dedupeKey: string;
   discordThreadId?: string | null;
@@ -78,6 +84,27 @@ export async function enqueueDiscordSyncEvent(args: {
     )
     on conflict (dedupe_key) do nothing
   `);
+}
+
+export async function enqueueDiscordAdminEvent(args: {
+  eventType:
+    | "admin_report_created"
+    | "admin_feedback_created"
+    | "admin_location_request_created"
+    | "admin_country_update_request_created"
+    | "admin_verification_request_created";
+  dedupeKey: string;
+  payload: Prisma.InputJsonValue;
+}) {
+  await enqueueDiscordSyncEvent({
+    websitePostId: null,
+    eventType: args.eventType,
+    dedupeKey: args.dedupeKey,
+    payload: {
+      managementChannelId: DISCORD_CASE_MANAGEMENT_CHANNEL_ID,
+      ...((args.payload as Record<string, unknown>) ?? {}),
+    },
+  });
 }
 
 export async function enqueueDiscordGalleryReviewEvent(args: {
@@ -107,6 +134,29 @@ export async function enqueueDiscordGalleryReviewEvent(args: {
       signedUrl: args.signedUrl ?? null,
       websitePostId: args.websitePostId ?? null,
       discordThreadId: args.discordThreadId ?? null,
+    },
+  });
+}
+
+export async function enqueueDiscordProfileReviewEvent(args: {
+  userId: string;
+  username: string;
+  displayName?: string | null;
+  accountAccess?: string | null;
+  source: "email_registration" | "discord_registration";
+}) {
+  await enqueueDiscordSyncEvent({
+    websitePostId: null,
+    eventType: "profile_review_requested",
+    dedupeKey: `profile-review:${args.userId}`,
+    payload: {
+      userId: args.userId,
+      username: args.username,
+      displayName: args.displayName ?? null,
+      accountAccess: args.accountAccess ?? null,
+      source: args.source,
+      managementChannelId: DISCORD_CASE_MANAGEMENT_CHANNEL_ID,
+      profileUrl: buildMemberProfileUrl(args.username),
     },
   });
 }
@@ -171,4 +221,12 @@ export function buildWebsitePostUrl(postId: string) {
     process.env.NEXT_PUBLIC_APP_URL ??
     "https://bareunity.com";
   return `${siteUrl.replace(/\/$/, "")}/?postId=${postId}`;
+}
+
+export function buildMemberProfileUrl(username: string) {
+  const siteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ??
+    process.env.NEXT_PUBLIC_APP_URL ??
+    "https://bareunity.com";
+  return `${siteUrl.replace(/\/$/, "")}/members/${encodeURIComponent(username)}`;
 }

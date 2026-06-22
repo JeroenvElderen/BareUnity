@@ -47,3 +47,28 @@ https://your-domain.com/register
 ## 5. Registration source of truth
 
 Discord invite registration checks the live TeamNaturist server membership and role list through the Discord API. It does not require a pre-approved Supabase invite/redemption row for Discord signups. Supabase Auth still stores the Discord identity on the created account, and the app creates the BareUnity `profiles` and `profile_settings` rows only after the Discord server role check passes.
+
+## 6. Why Supabase activity may not appear in Discord
+
+The web app does **not** call Discord directly when a post, gallery upload, comment, like, or profile is created. Instead, it writes work items into `public.discord_crosspost_events`. A separate Discord bot/worker must poll:
+
+```text
+GET /api/integrations/discord/crosspost/events
+```
+
+with the `x-bareunity-discord-secret` header matching `DISCORD_CROSSPOST_SECRET`, publish the event to Discord, and then acknowledge it with:
+
+```text
+POST /api/integrations/discord/crosspost/events
+{ "action": "mark-processed", "eventId": "..." }
+```
+
+If Discord stays silent while Supabase rows are being created, check these items in order:
+
+1. `supabase-discord-crosspost-live-sync.sql` has been applied so `public.discord_crosspost_events` exists.
+2. `DISCORD_CROSSPOST_SECRET` is configured in the app and the bot sends the same value in `x-bareunity-discord-secret`.
+3. The bot/worker process is actually running and polling `/api/integrations/discord/crosspost/events`.
+4. The bot maps event types such as `website_post_created`, `gallery_image_review_requested`, `profile_review_requested`, `admin_report_created`, `admin_feedback_created`, `admin_location_request_created`, `admin_country_update_request_created`, and `admin_verification_request_created` to the correct Discord forum/channel IDs.
+5. Rows in `public.discord_crosspost_events` have `processed_at is null`; if they also have a non-null `error`, inspect that error because the bot reported a failed publish attempt.
+
+New BareUnity profile registrations enqueue a `profile_review_requested` event for the case-management channel. Admin workflows enqueue `admin_*` events for reports, feedback, location requests, country update requests, and verification applications. The bot still needs handlers for those event types before the corresponding cards will appear in Discord.
