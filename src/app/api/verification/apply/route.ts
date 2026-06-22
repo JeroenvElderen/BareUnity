@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { type NextRequest, NextResponse } from "next/server";
 
 import { isPlatformAdminEmail } from "@/lib/platform-admin";
+import { enqueueDiscordAdminEvent } from "@/lib/discord-crosspost-sync";
 import { ensureAuthenticatedRequest } from "@/lib/request-auth";
 import {
   createSupabaseAdminClient,
@@ -431,6 +432,24 @@ export async function POST(request: NextRequest) {
   if (metadataError) {
     return NextResponse.json({ error: metadataError.message }, { status: 500 });
   }
+
+  await enqueueDiscordAdminEvent({
+    eventType: "admin_verification_request_created",
+    dedupeKey: `admin-verification:${authResult.user.id}`,
+    payload: {
+      userId: authResult.user.id,
+      userEmail: authResult.user.email ?? null,
+      legalName,
+      displayName,
+      country,
+      membershipType,
+      idType,
+      idDocumentPath,
+      adminUrl: "/admin/applications",
+    },
+  }).catch((enqueueError) => {
+    console.error("Unable to enqueue Discord verification request event", enqueueError);
+  });
 
   return NextResponse.json({
     ok: true,

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import { loadViewerIdFromRequest } from "@/lib/viewer";
 import { reportThreshold } from "@/lib/gallery-moderation";
+import { enqueueDiscordAdminEvent } from "@/lib/discord-crosspost-sync";
 import { db } from "@/server/db";
 
 const REPORT_TARGET_TYPES = new Set([
@@ -140,6 +141,21 @@ export async function POST(request: Request) {
       comment_id: targetType === "comment" ? targetId : null,
     },
     select: { id: true },
+  });
+
+  await enqueueDiscordAdminEvent({
+    eventType: "admin_report_created",
+    dedupeKey: `admin-report:${report.id}`,
+    payload: {
+      reportId: report.id,
+      reporterId,
+      targetType,
+      targetId,
+      reason,
+      adminUrl: "/admin/reports",
+    },
+  }).catch((error) => {
+    console.error("Unable to enqueue Discord admin report event", error);
   });
 
   if (targetType === "media") {

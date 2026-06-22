@@ -5,6 +5,7 @@ import {
   isSupabaseAdminConfigured,
 } from "@/lib/supabase-admin";
 import { isUsernameValid, normalizeUsername } from "@/lib/username";
+import { enqueueDiscordProfileReviewEvent } from "@/lib/discord-crosspost-sync";
 
 const DISCORD_PROVIDER = "discord";
 const BAREUNITY_GUILD_ID = "1514974981711462561";
@@ -346,6 +347,14 @@ export async function POST(req: Request) {
       );
 
     if (settingsError) throw new Error(settingsError.message);
+
+    await enqueueDiscordProfileReviewEvent({
+      userId: userData.user.id,
+      username,
+      displayName: fullName,
+      accountAccess: "discord_invite",
+      source: "discord_registration",
+    });
 
     return NextResponse.json({
       message: "Discord verified registration complete.",
