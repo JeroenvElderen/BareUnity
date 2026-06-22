@@ -22,6 +22,7 @@ CROSSPOST_FORUM_IDS = parse_crosspost_forum_ids(
     or os.getenv("DISCORD_CROSSPOST_FORUM_ID", DEFAULT_CROSSPOST_FORUM_IDS)
 )
 BAREUNITY_API_BASE_URL = os.getenv("BAREUNITY_API_BASE_URL", "https://bareunity.com").rstrip("/")
+SUPABASE_URL = (os.getenv("NEXT_PUBLIC_SUPABASE_URL") or os.getenv("SUPABASE_URL") or "").rstrip("/")
 BAREUNITY_DISCORD_SECRET = os.getenv("BAREUNITY_DISCORD_SECRET") or os.getenv("DISCORD_CROSSPOST_SECRET")
 REDDIT_SUBREDDIT = os.getenv("REDDIT_SUBREDDIT")
 DISCORD_CROSSPOST_EVENT_POLL_SECONDS = int(os.getenv("DISCORD_CROSSPOST_EVENT_POLL_SECONDS", "5"))
@@ -80,6 +81,20 @@ class RedditCrosspost(commands.Cog):
         except Exception:
             return None
 
+    def resolve_media_url(self, url):
+        if not url:
+            return None
+        value = str(url).strip()
+        if not value:
+            return None
+        if value.startswith(("http://", "https://")):
+            return value
+        if value.startswith(("/", "data:", "blob:")):
+            return value
+        if SUPABASE_URL:
+            return f"{SUPABASE_URL}/storage/v1/object/public/media/{value.lstrip('/')}"
+        return None
+
     def build_post_embed(self, payload, title_prefix="Website post"):
         title = str(payload.get("title") or "BareUnity website post")[:256]
         content = str(payload.get("content") or "").strip()
@@ -89,10 +104,12 @@ class RedditCrosspost(commands.Cog):
         media_urls = payload.get("mediaUrls") or []
         if not media_urls and payload.get("mediaUrl"):
             media_urls = [payload.get("mediaUrl")]
-        if media_urls:
-            embed.set_image(url=str(media_urls[0]))
-            if len(media_urls) > 1:
-                embed.add_field(name="More media", value="\n".join(str(url) for url in media_urls[1:4]), inline=False)
+        resolved_media_urls = [self.resolve_media_url(url) for url in media_urls]
+        resolved_media_urls = [url for url in resolved_media_urls if url]
+        if resolved_media_urls:
+            embed.set_image(url=resolved_media_urls[0])
+            if len(resolved_media_urls) > 1:
+                embed.add_field(name="More media", value="\n".join(resolved_media_urls[1:4]), inline=False)
         embed.set_footer(text=title_prefix)
         return embed
 
@@ -105,6 +122,8 @@ class RedditCrosspost(commands.Cog):
         media_urls = payload.get("mediaUrls") or []
         if not media_urls and payload.get("mediaUrl"):
             media_urls = [payload.get("mediaUrl")]
+        media_urls = [self.resolve_media_url(url) for url in media_urls]
+        media_urls = [url for url in media_urls if url]
         body = f"{content}\n\n{BAREUNITY_API_BASE_URL}/?postId={website_post_id}".strip()[:1900]
         embed = self.build_post_embed(payload, title_prefix="Synced from BareUnity website")
         if isinstance(channel, discord.ForumChannel):
