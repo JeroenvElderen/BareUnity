@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 
 import { sendWelcomeConfirmationEmail } from "@/lib/email";
+import { enqueueDiscordMemberCardUpsert } from "@/lib/discord-crosspost-sync";
 import {
   createSupabaseAdminClient,
   isSupabaseAdminConfigured,
@@ -583,6 +584,8 @@ export async function POST(req: Request) {
 
       if (verificationError) throw new Error(verificationError.message);
     }
+
+    await enqueueDiscordMemberCardUpsert(userId, "registration_created");
 
     const emailSendStartedAt = Date.now();
     console.info("Sending welcome confirmation email", {

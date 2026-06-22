@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ensureAdminRequest } from "@/lib/request-auth";
+import { enqueueDiscordMemberCardUpsert } from "@/lib/discord-crosspost-sync";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase-admin";
 import { isUsernameValid, normalizeUsername } from "@/lib/username";
 
@@ -121,6 +122,8 @@ export async function POST(request: NextRequest) {
     await supabaseAdmin.auth.admin.deleteUser(userId);
     return NextResponse.json({ error: profileError.message }, { status: 400 });
   }
+
+  await enqueueDiscordMemberCardUpsert(userId, "admin_user_created");
 
   return NextResponse.json({
     ok: true,

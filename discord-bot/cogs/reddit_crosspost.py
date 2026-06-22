@@ -1,3 +1,4 @@
+import asyncio
 import io
 import os
 from urllib.parse import urlparse
@@ -28,6 +29,7 @@ SUPABASE_URL = (os.getenv("NEXT_PUBLIC_SUPABASE_URL") or os.getenv("SUPABASE_URL
 BAREUNITY_DISCORD_SECRET = os.getenv("BAREUNITY_DISCORD_SECRET") or os.getenv("DISCORD_CROSSPOST_SECRET")
 REDDIT_SUBREDDIT = os.getenv("REDDIT_SUBREDDIT")
 DISCORD_CROSSPOST_EVENT_POLL_SECONDS = int(os.getenv("DISCORD_CROSSPOST_EVENT_POLL_SECONDS", "5"))
+DISCORD_MEMBER_CARD_BACKFILL_ON_START = os.getenv("DISCORD_MEMBER_CARD_BACKFILL_ON_START", "true").lower() not in {"0", "false", "no"}
 WEBSITE_REVIEW_BUTTONS = {
     "photo-sharing": "Photo sharing",
     "naturist-travel": "Naturist travel",
@@ -50,12 +52,17 @@ class RedditCrosspost(commands.Cog):
         self.bot = bot
         self.reddit = self.build_reddit_client()
         self.sync_by_thread = {}
+        self.member_card_backfill_started = False
         self.event_poller.change_interval(seconds=DISCORD_CROSSPOST_EVENT_POLL_SECONDS)
         self.event_poller.start()
+        if DISCORD_MEMBER_CARD_BACKFILL_ON_START:
+            self.member_card_backfill.start()
 
 
     def cog_unload(self):
         self.event_poller.cancel()
+        if self.member_card_backfill.is_running():
+            self.member_card_backfill.cancel()
 
     async def fetch_bareunity_api(self, path):
         headers = self.integration_headers()
@@ -250,6 +257,108 @@ class RedditCrosspost(commands.Cog):
         })
         return thread
 
+
+    def build_member_card_embed(self, payload):
+        username = str(payload.get("username") or "unknown").strip() or "unknown"
+        display_name = str(payload.get("displayName") or username).strip() or username
+        bio = str(payload.get("bio") or "No bio provided.").strip()[:1024]
+        location = str(payload.get("location") or "Not specified").strip() or "Not specified"
+        embed = discord.Embed(title=f"👤 {display_name}", description=bio, color=0x2f855a)
+        embed.add_field(name="Username", value=username, inline=True)
+        embed.add_field(name="Location", value=location, inline=True)
+        if payload.get("profileUrl"):
+            embed.add_field(name="Profile", value=str(payload.get("profileUrl"))[:1024], inline=False)
+        if payload.get("discordUserId"):
+            embed.add_field(name="Discord user", value=f"<@{payload.get('discordUserId')}>", inline=False)
+        if payload.get("registeredFrom"):
+            embed.add_field(name="Registered from", value=str(payload.get("registeredFrom"))[:1024], inline=False)
+        avatar_url = self.resolve_media_url(payload.get("avatarUrl"))
+        if avatar_url:
+            embed.set_thumbnail(url=avatar_url)
+        if payload.get("profileId"):
+            embed.set_footer(text=f"UUID: {payload.get('profileId')}")
+        return embed
+
+    async def find_member_card_thread(self, forum, profile_id):
+        expected_footer = f"UUID: {profile_id}"
+        for thread in list(getattr(forum, "threads", []) or []):
+            starter = await self.fetch_starter_message(thread)
+            if starter and any(embed.footer and embed.footer.text == expected_footer for embed in starter.embeds):
+                return thread, starter
+        try:
+            async for thread in forum.archived_threads(limit=None):
+                starter = await self.fetch_starter_message(thread)
+                if starter and any(embed.footer and embed.footer.text == expected_footer for embed in starter.embeds):
+                    return thread, starter
+        except Exception as exc:
+            print(f"Could not inspect archived member cards in {forum.id}: {exc}")
+        return None, None
+
+    async def upsert_member_card_thread(self, event):
+        payload = event.get("payload") or {}
+        profile_id = str(payload.get("profileId") or "").strip()
+        forum_id = str(payload.get("memberCardsForumId") or "").strip()
+        if not profile_id:
+            raise NonRetryableWebsiteEventError("Member card event did not include a profileId.")
+        forum = await self.resolve_channel(forum_id)
+        if not isinstance(forum, discord.ForumChannel):
+            raise NonRetryableWebsiteEventError(f"Member cards forum {forum_id} was not found.")
+
+        username = str(payload.get("username") or "unknown").strip() or "unknown"
+        display_name = str(payload.get("displayName") or username).strip() or username
+        title = f"{display_name} (@{username})"[:100]
+        content = f"👤 Member profile card for @{username}"
+        embed = self.build_member_card_embed(payload)
+        thread, starter = await self.find_member_card_thread(forum, profile_id)
+        if thread and starter:
+            if getattr(thread, "archived", False):
+                await thread.edit(archived=False)
+            await starter.edit(content=content, embed=embed)
+            if thread.name != title:
+                await thread.edit(name=title)
+            return thread
+
+        created = await forum.create_thread(name=title, content=content, embed=embed)
+        return created.thread
+
+
+    async def backfill_member_cards(self):
+        data = await self.post_bareunity_api(
+            "/api/integrations/discord/crosspost/events",
+            {"action": "member-card-snapshot"},
+        )
+        cards = data.get("cards") or []
+        if not isinstance(cards, list):
+            raise RuntimeError("BareUnity member card snapshot returned an invalid cards payload.")
+
+        created_or_updated = 0
+        for index, card in enumerate(cards, start=1):
+            if not isinstance(card, dict):
+                continue
+            try:
+                await self.upsert_member_card_thread({"payload": card})
+                created_or_updated += 1
+            except Exception as exc:
+                print(f"Member card backfill failed for {card.get('profileId')}: {exc}")
+            if index % 20 == 0:
+                await asyncio.sleep(1)
+
+        print(f"Member card backfill complete: {created_or_updated}/{len(cards)} card(s) synced.")
+
+    @tasks.loop(count=1)
+    async def member_card_backfill(self):
+        if self.member_card_backfill_started:
+            return
+        self.member_card_backfill_started = True
+        try:
+            await self.backfill_member_cards()
+        except Exception as exc:
+            print(f"Member card backfill failed: {exc}")
+
+    @member_card_backfill.before_loop
+    async def before_member_card_backfill(self):
+        await self.bot.wait_until_ready()
+
     async def handle_website_event(self, event):
         event_type = event.get("event_type")
         payload = event.get("payload") or {}
@@ -263,6 +372,9 @@ class RedditCrosspost(commands.Cog):
             return
         if event_type == "gallery_image_review_requested":
             await self.create_gallery_review_thread(event)
+            return
+        if event_type == "member_card_upserted":
+            await self.upsert_member_card_thread(event)
             return
         thread_id = event.get("discord_thread_id") or payload.get("discordThreadId")
         thread = await self.resolve_channel(thread_id)
