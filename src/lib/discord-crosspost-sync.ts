@@ -8,6 +8,9 @@ export const DISCORD_GALLERY_REVIEW_CHANNEL_ID =
   process.env.DISCORD_GALLERY_REVIEW_CHANNEL_ID ??
   "1517153973835010139";
 
+export const DISCORD_MEMBER_CARDS_FORUM_ID =
+  process.env.DISCORD_MEMBER_CARDS_FORUM_ID ?? "1517155438615859390";
+
 export const DISCORD_GALLERY_REVIEW_TARGETS = [
   "nude-gallery",
   "general-gallery",
@@ -55,7 +58,8 @@ export async function enqueueDiscordSyncEvent(args: {
     | "website_comment_created"
     | "website_like_created"
     | "website_like_removed"
-    | "gallery_image_review_requested";
+    | "gallery_image_review_requested"
+    | "member_card_upserted";
   payload: Prisma.InputJsonValue;
   dedupeKey: string;
   discordThreadId?: string | null;
@@ -140,6 +144,105 @@ function resolveDiscordMediaUrls(mediaUrls: string[] | null | undefined, mediaUr
   const fallbackUrl = resolveDiscordMediaUrl(mediaUrl);
   if (fallbackUrl && !resolvedUrls.includes(fallbackUrl)) resolvedUrls.unshift(fallbackUrl);
   return resolvedUrls;
+}
+
+function resolveDiscordAvatarUrl(rawUrl: string | null | undefined) {
+  return resolveDiscordMediaUrl(rawUrl);
+}
+
+export type DiscordMemberCardPayload = {
+  profileId: string;
+  username: string | null;
+  displayName: string | null;
+  bio: string | null;
+  avatarUrl: string | null;
+  location: string | null;
+  registeredFrom: string | null;
+  discordUserId: string | null;
+  memberCardsForumId: string;
+  profileUrl: string | null;
+  updatedAt: string;
+};
+
+export async function buildDiscordMemberCardPayload(profileId: string): Promise<DiscordMemberCardPayload | null> {
+  const rows = await db.$queryRaw<
+    Array<{
+      id: string;
+      username: string | null;
+      display_name: string | null;
+      bio: string | null;
+      avatar_url: string | null;
+      location: string | null;
+      created_at: Date | null;
+      raw_user_meta_data: Prisma.JsonValue | null;
+      discord_user_id: string | null;
+    }>
+  >(Prisma.sql`
+    select
+      p.id,
+      p.username,
+      p.display_name,
+      p.bio,
+      p.avatar_url,
+      p.location,
+      p.created_at,
+      u.raw_user_meta_data,
+      pdi.discord_user_id
+    from public.profiles p
+    left join auth.users u on u.id = p.id
+    left join public.profile_discord_identities pdi on pdi.profile_id = p.id
+    where p.id = ${profileId}::uuid
+    limit 1
+  `);
+
+  const row = rows[0];
+  if (!row) return null;
+
+  const metadata =
+    row.raw_user_meta_data && typeof row.raw_user_meta_data === "object" && !Array.isArray(row.raw_user_meta_data)
+      ? (row.raw_user_meta_data as Record<string, unknown>)
+      : {};
+  const registeredFrom =
+    typeof metadata.discord_verification_source === "string"
+      ? metadata.discord_verification_source
+      : typeof metadata.registration_source === "string"
+        ? metadata.registration_source
+        : typeof metadata.account_access === "string"
+          ? metadata.account_access
+          : null;
+  const metadataDiscordUserId =
+    typeof metadata.discord_user_id === "string" ? metadata.discord_user_id : null;
+
+  return {
+    profileId: row.id,
+    username: row.username,
+    displayName: row.display_name,
+    bio: row.bio,
+    avatarUrl: resolveDiscordAvatarUrl(row.avatar_url),
+    location: row.location,
+    registeredFrom,
+    discordUserId: row.discord_user_id ?? metadataDiscordUserId,
+    memberCardsForumId: DISCORD_MEMBER_CARDS_FORUM_ID,
+    profileUrl: row.username ? `${(process.env.NEXT_PUBLIC_SITE_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "https://bareunity.com").replace(/\/$/, "")}/members/${encodeURIComponent(row.username)}` : null,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+export async function enqueueDiscordMemberCardUpsert(profileId: string, reason: string) {
+  const payload = await buildDiscordMemberCardPayload(profileId);
+  if (!payload) return;
+
+  await enqueueDiscordSyncEvent({
+    websitePostId: null,
+    eventType: "member_card_upserted",
+    dedupeKey: `member-card:${profileId}:${Date.now()}:${crypto.randomUUID()}`,
+    payload: {
+      ...payload,
+      reason,
+      renderMode: "discord_embed",
+      imageMode: "embed_image_url",
+    },
+  });
 }
 
 export async function ensureWebsitePostQueuedForDiscord(postId: string) {

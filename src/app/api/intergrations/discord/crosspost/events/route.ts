@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { db } from "@/server/db";
 import { requireIntegrationRequest, normalizeDiscordId, normalizeOptionalString, findBareUnityProfileByDiscordUserId, getFallbackAuthorId } from "../helpers";
-import { buildWebsitePostUrl, DISCORD_DELETE_TARGET, DISCORD_POST_TARGET_CHANNELS, DISCORD_SKIP_TARGET } from "@/lib/discord-crosspost-sync";
+import { buildDiscordMemberCardPayload, buildWebsitePostUrl, DISCORD_DELETE_TARGET, DISCORD_MEMBER_CARDS_FORUM_ID, DISCORD_POST_TARGET_CHANNELS, DISCORD_SKIP_TARGET } from "@/lib/discord-crosspost-sync";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase-admin";
 
 function normalizeTarget(value: unknown) {
@@ -120,6 +120,25 @@ export async function POST(request: Request) {
     const websitePostId = normalizeOptionalString(body.websitePostId, 80);
     if (!websitePostId) return NextResponse.json({ error: "websitePostId is required." }, { status: 400 });
     return deletePostEverywhere(websitePostId);
+  }
+
+  if (action === "member-card-snapshot") {
+    const rows = await db.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+      select id
+      from public.profiles
+      where nullif(trim(username), '') is not null
+      order by created_at asc nulls last, username asc
+      limit 10000
+    `);
+    const cards = (
+      await Promise.all(rows.map((row) => buildDiscordMemberCardPayload(row.id)))
+    ).filter((card): card is NonNullable<typeof card> => Boolean(card));
+
+    return NextResponse.json({
+      ok: true,
+      memberCardsForumId: DISCORD_MEMBER_CARDS_FORUM_ID,
+      cards,
+    });
   }
 
   if (action === "post-decision") {
