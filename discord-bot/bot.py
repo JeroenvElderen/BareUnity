@@ -199,6 +199,7 @@ async def main():
         await bot.load_extension("cogs.welcome_threads")
         await bot.load_extension("cogs.reaction_roles")
         await bot.load_extension("cogs.self_intro_role")
+        await bot.load_extension("cogs.onboarding_enforcement")
         await bot.load_extension("cogs.thread_verification")
         await bot.load_extension("cogs.camera_enforcement")
         await bot.load_extension("cogs.report_system")
