@@ -4,6 +4,7 @@ import {
   createSupabaseAdminClient,
   isSupabaseAdminConfigured,
 } from "@/lib/supabase-admin";
+import { enqueueDiscordMemberCardUpsert } from "@/lib/discord-crosspost-sync";
 import { isUsernameValid, normalizeUsername } from "@/lib/username";
 
 const DISCORD_PROVIDER = "discord";
@@ -346,6 +347,8 @@ export async function POST(req: Request) {
       );
 
     if (settingsError) throw new Error(settingsError.message);
+
+    await enqueueDiscordMemberCardUpsert(userId, "discord_verified_registration");
 
     return NextResponse.json({
       message: "Discord verified registration complete.",

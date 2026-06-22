@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { ensureCanUpdateOwnProfile } from "@/lib/action-access";
+import { enqueueDiscordMemberCardUpsert } from "@/lib/discord-crosspost-sync";
 import {
   IMAGE_UPLOAD_EXTENSION_BY_TYPE,
   IMAGE_UPLOAD_TYPES,
@@ -342,6 +343,9 @@ export async function PATCH(request: Request) {
     }
 
     logProfileUpdate("info", "profile settings row saved", { requestId, viewerId });
+
+    await enqueueDiscordMemberCardUpsert(viewerId, "profile_updated");
+
     logProfileUpdate("info", "request completed", { requestId, viewerId });
 
     return NextResponse.json({
