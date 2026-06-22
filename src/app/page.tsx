@@ -1709,9 +1709,9 @@ export default function HomePage() {
                   return (
                     <Card
                       key={post.id}
-                      className="border-0 bg-[rgb(var(--card))]"
+                      className={`${styles.feedPostCard} border-0 bg-[rgb(var(--card))]`}
                     >
-                      <CardContent className="p-4">
+                      <CardContent className={`${styles.feedPostContent} p-4`}>
                         <div className="mb-3 flex items-center justify-between">
                           <div className="flex items-center gap-3">
                             <Avatar
@@ -1769,14 +1769,14 @@ export default function HomePage() {
                         </div>
                         <div className="mb-4 block w-full text-left">
                           {activeMediaUrl ? (
-                            <div className="relative">
+                            <div className={`${styles.feedPostMediaShell} relative`}>
                               <Image
                                 src={activeMediaUrl}
                                 alt={`${post.author}'s post image ${mediaIndex + 1}`}
                                 width={1200}
                                 height={1200}
                                 sizes="(min-width: 1280px) 60vw, 100vw"
-                                className="h-130 w-full rounded-2xl bg-[rgb(var(--bg-soft))] object-contain"
+                                className={`${styles.feedPostImage} h-130 w-full rounded-2xl bg-[rgb(var(--bg-soft))] object-contain`}
                               />
                               {post.mediaUrls.length > 1 ? (
                                 <>
