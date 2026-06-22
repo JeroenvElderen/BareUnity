@@ -89,6 +89,7 @@ export async function enqueueDiscordGalleryReviewEvent(args: {
   signedUrl?: string | null;
   websitePostId?: string | null;
   discordThreadId?: string | null;
+  bucketId?: string | null;
 }) {
   await enqueueDiscordSyncEvent({
     websitePostId: args.websitePostId ?? null,
@@ -107,6 +108,12 @@ export async function enqueueDiscordGalleryReviewEvent(args: {
       signedUrl: args.signedUrl ?? null,
       websitePostId: args.websitePostId ?? null,
       discordThreadId: args.discordThreadId ?? null,
+      bucketId: args.bucketId ?? "user-media",
+      discordReview: {
+        channelId: DISCORD_GALLERY_REVIEW_CHANNEL_ID,
+        mode: "one_image_per_forum_thread",
+        deleteThreadAfterDecision: true,
+      },
     },
   });
 }

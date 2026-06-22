@@ -27,6 +27,7 @@ export async function classifyPostsBucketImageForGallery(args: {
   websitePostId?: string | null;
   discordThreadId?: string | null;
   publicUrl?: string | null;
+  bucketId?: string | null;
 }) {
   const imagePath = args.imagePath.trim();
   if (!isSupabaseAdminConfigured || !isPostsBucketImagePath(imagePath)) return;
@@ -90,6 +91,7 @@ export async function classifyPostsBucketImageForGallery(args: {
     websitePostId: args.websitePostId ?? null,
     discordThreadId: args.discordThreadId ?? null,
     publicUrl: args.publicUrl ?? null,
+    bucketId: args.bucketId ?? null,
   });
 }
 
