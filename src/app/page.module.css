@@ -13,6 +13,7 @@
 }
 
 .feedLayout {
+  flex: 1 1 auto;
   width: 100%;
   min-width: 0;
   padding: 1.25rem 1rem calc(2rem + env(safe-area-inset-bottom, 0px) + 5.5rem);
