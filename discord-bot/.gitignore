@@ -3,3 +3,6 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+# Runtime onboarding enforcement state
+cogs/onboarding_enforcement.json
+cogs/onboarding_enforcement.json.tmp

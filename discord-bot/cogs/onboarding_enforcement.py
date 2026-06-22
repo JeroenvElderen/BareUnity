@@ -1,5 +1,6 @@
 import json
 import os
+from pathlib import Path
 
 import discord
 from discord.ext import commands, tasks
@@ -15,7 +16,7 @@ EVERGREEN_ROLE = 1516076523625648279
 BLOOMHEARTS_ROLE = 1518175366395596860
 
 DEADLINE_SECONDS = 7 * 24 * 60 * 60
-DATA_FILE = "onboarding_enforcement.json"
+DATA_FILE = Path(__file__).with_name("onboarding_enforcement.json")
 INVITE_URL_ENV = "DISCORD_REJOIN_INVITE_URL"
 INVITE_CHANNEL_ENV = "DISCORD_REJOIN_INVITE_CHANNEL_ID"
 DEFAULT_REJOIN_INVITE_URL = "https://discord.gg/SgFuET8YRd"
@@ -31,24 +32,32 @@ class OnboardingEnforcement(commands.Cog):
         self.enforce_onboarding.cancel()
 
     def load_data(self):
-        if not os.path.exists(DATA_FILE):
+        if not DATA_FILE.exists():
             return {"members": {}}
 
         try:
-            with open(DATA_FILE, "r") as f:
+            with DATA_FILE.open("r") as f:
                 data = json.load(f)
-        except Exception:
+        except Exception as error:
+            print(f"[ONBOARDING] Could not load {DATA_FILE}: {error}")
             return {"members": {}}
 
         if not isinstance(data, dict):
             return {"members": {}}
 
-        data.setdefault("members", {})
+        members = data.setdefault("members", {})
+        if not isinstance(members, dict):
+            data["members"] = {}
+
         return data
 
     def save_data(self):
-        with open(DATA_FILE, "w") as f:
+        DATA_FILE.parent.mkdir(parents=True, exist_ok=True)
+        temp_file = DATA_FILE.with_suffix(f"{DATA_FILE.suffix}.tmp")
+        with temp_file.open("w") as f:
             json.dump(self.state, f, indent=4, sort_keys=True)
+            f.write("\n")
+        os.replace(temp_file, DATA_FILE)
 
     def member_record(self, member_id):
         members = self.state.setdefault("members", {})
@@ -69,6 +78,58 @@ class OnboardingEnforcement(commands.Cog):
 
     def unix_now(self):
         return int(discord.utils.utcnow().timestamp())
+
+    def unix_timestamp(self, value):
+        if value is None:
+            return None
+
+        return int(value.timestamp())
+
+    def existing_thread_started_at(self, thread):
+        return self.unix_timestamp(getattr(thread, "created_at", None)) or self.unix_now()
+
+    def apply_forum_thread_completion(self, thread):
+        if thread.guild is None or thread.owner_id is None:
+            return False
+
+        record = self.member_record(thread.owner_id)
+        started_at = self.existing_thread_started_at(thread)
+
+        if thread.parent_id == VERIFICATION_REQUEST_FORUM:
+            current = record.get("verification_requested_at")
+            if current and int(current) <= started_at:
+                return False
+            record["verification_requested_at"] = started_at
+            return True
+
+        if thread.parent_id == INTRODUCTION_FORUM:
+            current = record.get("intro_posted_at")
+            if current and int(current) <= started_at:
+                return False
+            record["intro_posted_at"] = started_at
+            return True
+
+        return False
+
+    async def sync_forum_completions(self, guild):
+        changed = False
+
+        for forum_id in (VERIFICATION_REQUEST_FORUM, INTRODUCTION_FORUM):
+            forum = guild.get_channel(forum_id)
+            if forum is None or not hasattr(forum, "archived_threads"):
+                continue
+
+            for thread in getattr(forum, "threads", []):
+                changed = self.apply_forum_thread_completion(thread) or changed
+
+            try:
+                async for thread in forum.archived_threads(limit=None):
+                    changed = self.apply_forum_thread_completion(thread) or changed
+            except Exception as error:
+                print(f"[ONBOARDING] Could not sync forum {forum_id}: {error}")
+
+        if changed:
+            self.save_data()
 
     def is_seedling_complete(self, member, record):
         if self.has_role(member, SAPLING_ROLE):
@@ -232,7 +293,7 @@ class OnboardingEnforcement(commands.Cog):
         if self.has_role(member, SEEDLING_ROLE) and not self.is_seedling_complete(member, record):
             seedling_started_at = record.get("seedling_started_at")
             if not seedling_started_at:
-                seedling_started_at = now
+                seedling_started_at = self.unix_timestamp(member.joined_at) or now
                 record["seedling_started_at"] = seedling_started_at
                 changed = True
             deadline = int(seedling_started_at) + DEADLINE_SECONDS
@@ -288,15 +349,7 @@ class OnboardingEnforcement(commands.Cog):
         if thread.guild is None or thread.owner_id is None:
             return
 
-        record = self.member_record(thread.owner_id)
-        now = self.unix_now()
-
-        if thread.parent_id == VERIFICATION_REQUEST_FORUM:
-            record["verification_requested_at"] = now
-            self.save_data()
-
-        if thread.parent_id == INTRODUCTION_FORUM:
-            record["intro_posted_at"] = now
+        if self.apply_forum_thread_completion(thread):
             self.save_data()
 
     @tasks.loop(minutes=60)
@@ -304,6 +357,8 @@ class OnboardingEnforcement(commands.Cog):
         guild = self.bot.get_guild(GUILD_ID)
         if guild is None:
             return
+
+        await self.sync_forum_completions(guild)
 
         for member in list(guild.members):
             try:
