@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { db } from "@/server/db";
 import { requireIntegrationRequest, normalizeDiscordId, normalizeOptionalString, findBareUnityProfileByDiscordUserId, getFallbackAuthorId } from "../helpers";
 import { buildWebsitePostUrl, DISCORD_DELETE_TARGET, DISCORD_POST_TARGET_CHANNELS, DISCORD_SKIP_TARGET } from "@/lib/discord-crosspost-sync";
+import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase-admin";
 
 function normalizeTarget(value: unknown) {
   if (value === "photo-sharing") return DISCORD_POST_TARGET_CHANNELS.photoSharing;
@@ -150,6 +151,18 @@ export async function POST(request: Request) {
           : "pending";
     const nextStatus = decision === "reject" ? "rejected" : "approved";
 
+    const discordReviewThreadId = normalizeDiscordId(body.discordReviewThreadId ?? body.discordThreadId);
+    const discordReviewerId = normalizeDiscordId(body.discordReviewerId ?? body.discordUserId);
+    const bucketId = normalizeOptionalString(body.bucketId, 120) ?? "user-media";
+
+    if (decision === "reject" && isSupabaseAdminConfigured) {
+      const supabaseAdmin = createSupabaseAdminClient();
+      const { error } = await supabaseAdmin.storage.from(bucketId).remove([imagePath]);
+      if (error) {
+        console.error("Discord gallery review could not delete rejected image", { imagePath, bucketId, error });
+      }
+    }
+
     await db.$transaction([
       db.$executeRaw(Prisma.sql`
         update public.gallery_media
@@ -157,16 +170,47 @@ export async function POST(request: Request) {
             moderation_status = ${nextStatus},
             moderation_reason = ${reason},
             reviewed_at = now(),
-            updated_at = now()
+            updated_at = now(),
+            discord_review_status = 'done',
+            discord_review_thread_id = coalesce(${discordReviewThreadId}, discord_review_thread_id),
+            discord_reviewer_id = coalesce(${discordReviewerId}, discord_reviewer_id)
         where image_path = ${imagePath}
       `),
       db.$executeRaw(Prisma.sql`
-        insert into public.gallery_moderation_audit (image_path, moderator_id, action, reason)
-        values (${imagePath}, null, ${decision}, ${reason})
+        insert into public.gallery_moderation_audit (image_path, moderator_id, action, reason, discord_user_id, discord_thread_id)
+        values (${imagePath}, null, ${decision}, ${reason}, ${discordReviewerId}, ${discordReviewThreadId})
       `),
     ]);
 
-    return NextResponse.json({ ok: true, imagePath, galleryType: nextGallery, moderationStatus: nextStatus });
+    return NextResponse.json({
+      ok: true,
+      imagePath,
+      galleryType: nextGallery,
+      moderationStatus: nextStatus,
+      deleteDiscordThreadId: discordReviewThreadId,
+      rejectedStorageDeleted: decision === "reject",
+    });
+  }
+
+  if (action === "gallery-thread-created") {
+    const imagePath = normalizeOptionalString(body.imagePath, 500);
+    const discordThreadId = normalizeDiscordId(body.discordThreadId);
+    const discordChannelId = normalizeDiscordId(body.discordChannelId);
+    const discordMessageId = normalizeDiscordId(body.discordMessageId);
+    if (!imagePath || !discordThreadId || !discordChannelId) {
+      return NextResponse.json({ error: "imagePath, discordThreadId, and discordChannelId are required." }, { status: 400 });
+    }
+
+    await db.$executeRaw(Prisma.sql`
+      update public.gallery_media
+      set discord_review_thread_id = ${discordThreadId},
+          discord_review_channel_id = ${discordChannelId},
+          discord_review_message_id = ${discordMessageId},
+          discord_review_status = 'posted',
+          updated_at = now()
+      where image_path = ${imagePath}
+    `);
+    return NextResponse.json({ ok: true });
   }
 
   if (action === "thread-created") {

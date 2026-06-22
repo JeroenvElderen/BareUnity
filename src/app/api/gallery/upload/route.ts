@@ -165,6 +165,7 @@ export async function POST(request: Request) {
       ownerId: viewerId,
       title,
       source: "gallery_upload",
+      bucketId: userMediaStorage.bucketId,
       signedUrl: signedUrlData?.signedUrl ?? null,
     });
 

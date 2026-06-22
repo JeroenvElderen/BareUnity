@@ -79,3 +79,14 @@ in `public.teamnaturist`. The code is not consumed, so it can be reused.
 - `supabase-brand-mode.sql` — alias of the same canonical script.
 - `supabase-teamnaturist-invite-codes.sql` — creates reusable TeamNaturist invite codes plus the Discord username allowlist table.
 - `supabase-registration-invite-codes.sql` — legacy hashed invite-code registration tables and RPC helpers.
+
+## Discord gallery review forum
+
+For the `gallery-review` Discord forum channel (`1517153973835010139`), run
+`supabase-gallery-discord-review.sql` after the gallery moderation and Discord
+crosspost migrations. It adds Discord review-thread tracking to
+`public.gallery_media`, records Discord reviewer/thread metadata in
+`public.gallery_moderation_audit`, and queues existing older images that are still
+`moderation_status = 'pending'` so the bot can create one forum thread per image
+with Nude, General, and Reject buttons. Images that were already approved or
+rejected are not re-posted unless you first set them back to `pending`.

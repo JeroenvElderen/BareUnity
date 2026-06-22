@@ -351,6 +351,7 @@ export async function POST(request: Request) {
       websitePostId,
       discordThreadId,
       publicUrl: image.publicUrl,
+      bucketId: image.bucketId,
     });
   }
 
