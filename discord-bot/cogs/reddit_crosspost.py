@@ -595,13 +595,22 @@ class RedditCrosspost(commands.Cog):
             except Exception:
                 pass
 
+        # Re-register persistent gallery review buttons after bot restarts.
+        # Older review messages used stable per-action custom IDs without the image
+        # path embedded in the component, so the callback recovers the image path
+        # from the message embed when Discord routes the interaction here.
+        try:
+            self.bot.add_view(GalleryReviewDecisionView(self))
+        except Exception as exc:
+            print(f"BareUnity gallery review button restore failed: {exc}")
+
 
 class GalleryReviewDecisionView(discord.ui.View):
-    def __init__(self, cog: RedditCrosspost, image_path: str, payload: dict):
+    def __init__(self, cog: RedditCrosspost, image_path: str = "", payload: dict | None = None):
         super().__init__(timeout=None)
         self.cog = cog
         self.image_path = image_path
-        self.payload = payload
+        self.payload = payload or {}
         for value, label in GALLERY_REVIEW_BUTTONS.items():
             style = discord.ButtonStyle.danger if value == "reject-gallery-image" else discord.ButtonStyle.success
             if value == "nude-gallery":
@@ -614,12 +623,29 @@ class GalleryReviewDecisionButton(discord.ui.Button):
         super().__init__(label=label, custom_id=f"bareunity:gallery-review:{target}", style=style)
         self.target = target
 
+    def image_path_from_message(self, message: discord.Message | None):
+        if not message:
+            return ""
+        for embed in message.embeds:
+            for field in embed.fields:
+                if str(field.name).strip().lower() == "image path":
+                    return str(field.value).strip()
+        return ""
+
     async def callback(self, interaction: discord.Interaction):
         view: GalleryReviewDecisionView = self.view
+        image_path = view.image_path or self.image_path_from_message(interaction.message)
+        if not image_path:
+            await interaction.response.send_message(
+                "❌ Could not find the gallery image path on this review post. Please recreate the review thread.",
+                ephemeral=True,
+            )
+            return
+
         await interaction.response.defer(ephemeral=True)
         result = await view.cog.post_bareunity_api("/api/integrations/discord/crosspost/events", {
             "action": "gallery-decision",
-            "imagePath": view.image_path,
+            "imagePath": image_path,
             "target": self.target,
             "discordReviewThreadId": str(interaction.channel_id) if interaction.channel_id else None,
             "discordReviewerId": str(interaction.user.id),
@@ -636,7 +662,7 @@ class GalleryReviewDecisionButton(discord.ui.Button):
             elif interaction.message:
                 await interaction.message.edit(view=None)
         except Exception as exc:
-            print(f"BareUnity gallery review cleanup failed for {view.image_path}: {exc}")
+            print(f"BareUnity gallery review cleanup failed for {image_path}: {exc}")
 
 
 class WebsitePostDecisionView(discord.ui.View):
