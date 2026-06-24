@@ -3,7 +3,8 @@ import { Prisma } from "@prisma/client";
 
 import { buildProfileSnapshotPayload } from "@/lib/profile-snapshot";
 import { normalizeUsername } from "@/lib/username";
-import { loadViewerIdFromRequest } from "@/lib/viewer";
+import { isPlatformAdminEmail } from "@/lib/platform-admin";
+import { loadViewerFromRequest } from "@/lib/viewer";
 import { db } from "@/server/db";
 
 type RouteContext = {
@@ -12,9 +13,13 @@ type RouteContext = {
 
 export async function GET(request: Request, context: RouteContext) {
   try {
-    const viewerId = await loadViewerIdFromRequest(request);
-    if (!viewerId) {
+    const viewer = await loadViewerFromRequest(request);
+    if (!viewer) {
       return NextResponse.json({ error: "Members only" }, { status: 401 });
+    }
+
+    if (!isPlatformAdminEmail(viewer.email)) {
+      return NextResponse.json({ error: "Admins only" }, { status: 403 });
     }
 
     const { username: rawUsername } = await context.params;
@@ -65,7 +70,7 @@ export async function GET(request: Request, context: RouteContext) {
 
     const payload = await buildProfileSnapshotPayload(
       targetProfile.id,
-      viewerId,
+      viewer.id,
     );
     return NextResponse.json(payload, {
       headers: {
