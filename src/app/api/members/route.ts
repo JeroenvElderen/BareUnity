@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { loadViewerIdFromRequest } from "@/lib/viewer";
+import { isPlatformAdminEmail } from "@/lib/platform-admin";
+import { loadViewerFromRequest } from "@/lib/viewer";
 import { db } from "@/server/db";
 
 type MemberListItem = {
@@ -15,9 +16,13 @@ type MemberListItem = {
 
 export async function GET(request: Request) {
   try {
-    const viewerId = await loadViewerIdFromRequest(request);
-    if (!viewerId) {
+    const viewer = await loadViewerFromRequest(request);
+    if (!viewer) {
       return NextResponse.json({ error: "Members only" }, { status: 401 });
+    }
+
+    if (!isPlatformAdminEmail(viewer.email)) {
+      return NextResponse.json({ error: "Admins only" }, { status: 403 });
     }
 
     const members = await db.profiles.findMany({
@@ -35,7 +40,9 @@ export async function GET(request: Request) {
       take: 120,
     });
 
-    const visibleMembers = members.filter((member) => Boolean(member.username?.trim()));
+    const visibleMembers = members.filter((member) =>
+      Boolean(member.username?.trim()),
+    );
     const accountSettings = await db.profile_settings.findMany({
       where: {
         user_id: {
@@ -48,7 +55,9 @@ export async function GET(request: Request) {
         user_role: true,
       },
     });
-    const settingsByUserId = new Map(accountSettings.map((settings) => [settings.user_id, settings]));
+    const settingsByUserId = new Map(
+      accountSettings.map((settings) => [settings.user_id, settings]),
+    );
 
     const payload: MemberListItem[] = visibleMembers.map((member) => {
       const settings = settingsByUserId.get(member.id);
@@ -56,17 +65,24 @@ export async function GET(request: Request) {
 
       return {
         ...member,
-        is_verified: settings?.onboarding_completed === true && role !== "view_only",
+        is_verified:
+          settings?.onboarding_completed === true && role !== "view_only",
       };
     });
 
-    return NextResponse.json({ members: payload }, {
-      headers: {
-        "x-bareunity-members": "ok",
+    return NextResponse.json(
+      { members: payload },
+      {
+        headers: {
+          "x-bareunity-members": "ok",
+        },
       },
-    });
+    );
   } catch (error) {
     console.error("Unable to load members", error);
-    return NextResponse.json({ error: "Unable to load members" }, { status: 503 });
+    return NextResponse.json(
+      { error: "Unable to load members" },
+      { status: 503 },
+    );
   }
 }

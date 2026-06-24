@@ -1,7 +1,14 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -10,22 +17,35 @@ import {
   setActiveCacheUser,
   writeCachedValue,
 } from "@/lib/client-cache";
-import { applyColorMode, COLOR_MODE_STORAGE_KEY, ColorModePreference, isColorModePreference } from "@/lib/color-mode";
+import {
+  applyColorMode,
+  COLOR_MODE_STORAGE_KEY,
+  ColorModePreference,
+  isColorModePreference,
+} from "@/lib/color-mode";
 import type { HomeFeedPayload } from "@/lib/homefeed";
 import { setPrefetchedRouteData } from "@/lib/prefetched-route-data";
 import { isPlatformAdminEmail } from "@/lib/platform-admin";
 import { supabase } from "@/lib/supabase";
 import { normalizeUsername } from "@/lib/username";
-import { getVisitorTrialEndDate, getVisitorTrialStatus, type VisitorTrialStatus } from "@/lib/visitor-trial";
+import {
+  getVisitorTrialEndDate,
+  getVisitorTrialStatus,
+  type VisitorTrialStatus,
+} from "@/lib/visitor-trial";
 
 import styles from "./auth-gate.module.css";
-import { registerPushNotifications, setupPushNotificationListeners } from "@/lib/mobile/push-notifications";
+import {
+  registerPushNotifications,
+  setupPushNotificationListeners,
+} from "@/lib/mobile/push-notifications";
 
 type AuthGateProps = {
   children: ReactNode;
 };
 
 type ViewerImageAccess = "visitor" | "verified";
+type ViewerRouteAccess = "unknown" | "visitor" | "member" | "admin";
 
 type ViewerAccessSettingsRow = {
   onboarding_completed: boolean | null;
@@ -68,14 +88,34 @@ type ProfileSnapshotPayload = {
   stats: { posts: number; comments: number };
 };
 
-
 const PUBLIC_PATHS = new Set(["/welcome", "/login", "/register", "/policies"]);
+const VISITOR_ALLOWED_PATHS = new Set(["/explore", "/settings", "/policies"]);
+const VISITOR_ALLOWED_API_PREFIXES = [
+  "/api/map-spots",
+  "/api/verification/apply",
+  "/api/settings",
+  "/api/profile",
+  "/api/auth",
+] as const;
+
+function isVisitorAllowedPath(pathname: string | null) {
+  if (!pathname) return false;
+  if (VISITOR_ALLOWED_PATHS.has(pathname)) return true;
+  if (pathname.startsWith("/policies/")) return true;
+  return VISITOR_ALLOWED_API_PREFIXES.some((prefix) =>
+    pathname.startsWith(prefix),
+  );
+}
 const PROFILE_CACHE_KEY_PREFIX = "profile:";
-const LIVE_TABLES = ["posts", "comments", "profiles", "profile_settings", "map_spots"] as const;
+const LIVE_TABLES = [
+  "posts",
+  "comments",
+  "profiles",
+  "profile_settings",
+  "map_spots",
+] as const;
 const POST_LOGIN_LOADER_FLAG = "bareunity_post_login_loading";
-const CRITICAL_ROUTES_TO_PREFETCH = [
-  "/",
-];
+const CRITICAL_ROUTES_TO_PREFETCH = ["/"];
 const BACKGROUND_ROUTES_TO_PREFETCH = [
   "/members",
   "/explore",
@@ -86,9 +126,7 @@ const BACKGROUND_ROUTES_TO_PREFETCH = [
   "/bookings/activities",
   "/bookings/hotels-airbnbs",
 ];
-const PRE_LOGIN_DATA_ENDPOINTS = [
-  "/api/homefeed",
-];
+const PRE_LOGIN_DATA_ENDPOINTS = ["/api/homefeed"];
 const POST_LOGIN_BACKGROUND_ENDPOINTS = [
   "/api/map-spots",
   "/api/gallery/snapshot",
@@ -109,7 +147,9 @@ function getVisitorTrialStatusForViewer(
 ): VisitorTrialStatus | null {
   if (!viewer) return null;
 
-  const isViewOnlyVisitor = settings?.user_role === "view_only" && settings.onboarding_completed !== true;
+  const isViewOnlyVisitor =
+    settings?.user_role === "view_only" &&
+    settings.onboarding_completed !== true;
   if (!isViewOnlyVisitor || isPlatformAdminEmail(viewer.email)) return null;
 
   const metadata = viewer.user_metadata ?? {};
@@ -117,7 +157,8 @@ function getVisitorTrialStatusForViewer(
     return getVisitorTrialStatus(metadata);
   }
 
-  const createdAt = typeof viewer.created_at === "string" ? new Date(viewer.created_at) : null;
+  const createdAt =
+    typeof viewer.created_at === "string" ? new Date(viewer.created_at) : null;
   if (!createdAt || Number.isNaN(createdAt.getTime())) return null;
 
   return getVisitorTrialStatus({
@@ -133,10 +174,15 @@ export function AuthGate({ children }: AuthGateProps) {
   const [isReady, setIsReady] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [viewerId, setViewerId] = useState<string | null>(null);
-  const [viewerImageAccess, setViewerImageAccess] = useState<ViewerImageAccess>("visitor");
+  const [viewerImageAccess, setViewerImageAccess] =
+    useState<ViewerImageAccess>("visitor");
   const [viewerIsAdmin, setViewerIsAdmin] = useState(false);
-  const [visitorTrialStatus, setVisitorTrialStatus] = useState<VisitorTrialStatus | null>(null);
-  const [isVisitorTrialPromptDismissed, setIsVisitorTrialPromptDismissed] = useState(false);
+  const [viewerRouteAccess, setViewerRouteAccess] =
+    useState<ViewerRouteAccess>("unknown");
+  const [visitorTrialStatus, setVisitorTrialStatus] =
+    useState<VisitorTrialStatus | null>(null);
+  const [isVisitorTrialPromptDismissed, setIsVisitorTrialPromptDismissed] =
+    useState(false);
   const [isHydratingApp, setIsHydratingApp] = useState(() => {
     if (typeof window === "undefined") return false;
     return window.sessionStorage.getItem(POST_LOGIN_LOADER_FLAG) === "true";
@@ -144,7 +190,9 @@ export function AuthGate({ children }: AuthGateProps) {
   const [authInitError, setAuthInitError] = useState(false);
   const [hasSelectedColorMode, setHasSelectedColorMode] = useState(() => {
     if (typeof window === "undefined") return true;
-    return isColorModePreference(window.localStorage.getItem(COLOR_MODE_STORAGE_KEY));
+    return isColorModePreference(
+      window.localStorage.getItem(COLOR_MODE_STORAGE_KEY),
+    );
   });
   const hasConsumedPostLoginLoaderRef = useRef(false);
   const lastWarmupAtRef = useRef(0);
@@ -152,51 +200,61 @@ export function AuthGate({ children }: AuthGateProps) {
   const hasPrefetchedBeforeLoginRef = useRef(false);
   const prefetchedGalleryImageUrlsRef = useRef<Set<string>>(new Set());
 
-  const prefetchGalleryImages = useCallback((payload: GallerySnapshotPayload) => {
-    if (typeof window === "undefined") return;
+  const prefetchGalleryImages = useCallback(
+    (payload: GallerySnapshotPayload) => {
+      if (typeof window === "undefined") return;
 
-    const urls = (payload.items ?? [])
-      .map((item) => (typeof item?.src === "string" ? item.src.trim() : ""))
-      .filter(Boolean);
+      const urls = (payload.items ?? [])
+        .map((item) => (typeof item?.src === "string" ? item.src.trim() : ""))
+        .filter(Boolean);
 
-    urls.forEach((src) => {
-      if (prefetchedGalleryImageUrlsRef.current.has(src)) return;
-      prefetchedGalleryImageUrlsRef.current.add(src);
+      urls.forEach((src) => {
+        if (prefetchedGalleryImageUrlsRef.current.has(src)) return;
+        prefetchedGalleryImageUrlsRef.current.add(src);
 
-      const image = new window.Image();
-      image.decoding = "async";
-      image.loading = "eager";
-      image.src = src;
-    });
-  }, []);
+        const image = new window.Image();
+        image.decoding = "async";
+        image.loading = "eager";
+        image.src = src;
+      });
+    },
+    [],
+  );
 
-  const syncViewerImageAccess = useCallback(async (viewer: ViewerAuthSnapshot) => {
-    const isAdmin = isPlatformAdminEmail(viewer.email);
-    setViewerIsAdmin(isAdmin);
-    setVisitorTrialStatus(null);
+  const syncViewerImageAccess = useCallback(
+    async (viewer: ViewerAuthSnapshot) => {
+      const isAdmin = isPlatformAdminEmail(viewer.email);
+      setViewerIsAdmin(isAdmin);
+      setVisitorTrialStatus(null);
 
-    if (isAdmin) {
-      setViewerImageAccess("verified");
-      return;
-    }
+      if (isAdmin) {
+        setViewerImageAccess("verified");
+        setViewerRouteAccess("admin");
+        return;
+      }
 
-    setViewerImageAccess("visitor");
+      setViewerImageAccess("visitor");
+      setViewerRouteAccess("visitor");
 
-    const { data, error } = await supabase
-      .from("profile_settings")
-      .select("onboarding_completed,user_role")
-      .eq("user_id", viewer.id)
-      .maybeSingle<ViewerAccessSettingsRow>();
+      const { data, error } = await supabase
+        .from("profile_settings")
+        .select("onboarding_completed,user_role")
+        .eq("user_id", viewer.id)
+        .maybeSingle<ViewerAccessSettingsRow>();
 
-    if (error) {
-      console.warn("Could not load viewer image access state", error.message);
-      return;
-    }
+      if (error) {
+        console.warn("Could not load viewer image access state", error.message);
+        return;
+      }
 
-    const isVerifiedMember = data?.onboarding_completed === true && data.user_role !== "view_only";
-    setViewerImageAccess(isVerifiedMember ? "verified" : "visitor");
-    setVisitorTrialStatus(getVisitorTrialStatusForViewer(data, viewer));
-  }, []);
+      const isVerifiedMember =
+        data?.onboarding_completed === true && data.user_role !== "view_only";
+      setViewerImageAccess(isVerifiedMember ? "verified" : "visitor");
+      setViewerRouteAccess(isVerifiedMember ? "member" : "visitor");
+      setVisitorTrialStatus(getVisitorTrialStatusForViewer(data, viewer));
+    },
+    [],
+  );
 
   const isPublicPath = useMemo(() => {
     if (!pathname) return false;
@@ -207,7 +265,8 @@ export function AuthGate({ children }: AuthGateProps) {
 
   const consumePostLoginLoaderFlag = useCallback(() => {
     if (hasConsumedPostLoginLoaderRef.current) return false;
-    const shouldHydrate = window.sessionStorage.getItem(POST_LOGIN_LOADER_FLAG) === "true";
+    const shouldHydrate =
+      window.sessionStorage.getItem(POST_LOGIN_LOADER_FLAG) === "true";
     if (shouldHydrate) {
       hasConsumedPostLoginLoaderRef.current = true;
       window.sessionStorage.removeItem(POST_LOGIN_LOADER_FLAG);
@@ -238,7 +297,9 @@ export function AuthGate({ children }: AuthGateProps) {
       if (!mounted) return;
       setIsAuthenticated(authed);
       setViewerId(sessionUserId);
-      setViewerIsAdmin(isPlatformAdminEmail(sessionUserEmail));
+      const isAdminSession = isPlatformAdminEmail(sessionUserEmail);
+      setViewerIsAdmin(isAdminSession);
+      setViewerRouteAccess(isAdminSession ? "admin" : "unknown");
       setIsHydratingApp(authed && consumePostLoginLoaderFlag());
       setActiveCacheUser(sessionUserId);
       setIsReady(true);
@@ -261,8 +322,11 @@ export function AuthGate({ children }: AuthGateProps) {
       const authed = Boolean(session?.user);
       setIsAuthenticated(authed);
       setViewerId(session?.user?.id ?? null);
-      setViewerIsAdmin(isPlatformAdminEmail(session?.user?.email));
-      const shouldStartHydrationLoader = authed && _event === "SIGNED_IN" && consumePostLoginLoaderFlag();
+      const isAdminSession = isPlatformAdminEmail(session?.user?.email);
+      setViewerIsAdmin(isAdminSession);
+      setViewerRouteAccess(isAdminSession ? "admin" : "unknown");
+      const shouldStartHydrationLoader =
+        authed && _event === "SIGNED_IN" && consumePostLoginLoaderFlag();
       if (shouldStartHydrationLoader) {
         setIsHydratingApp(true);
       }
@@ -288,185 +352,240 @@ export function AuthGate({ children }: AuthGateProps) {
     };
   }, [consumePostLoginLoaderFlag, isPublicPath, pathname, router]);
 
-  const cacheWarmupResponse = useCallback(async (url: string, response: Response) => {
-    if (!response.ok) return;
-    if (url === POST_LOGIN_HOMEFEED_ENDPOINT) {
-      try {
-        const payload = (await response.json()) as HomeFeedPayload;
-        writeCachedValue(buildUserScopedCacheKey("home-feed"), payload);
-        setPrefetchedRouteData("homefeed", payload);
-      } catch {
-        // warmup cache writes should not block routing
+  const cacheWarmupResponse = useCallback(
+    async (url: string, response: Response) => {
+      if (!response.ok) return;
+      if (url === POST_LOGIN_HOMEFEED_ENDPOINT) {
+        try {
+          const payload = (await response.json()) as HomeFeedPayload;
+          writeCachedValue(buildUserScopedCacheKey("home-feed"), payload);
+          setPrefetchedRouteData("homefeed", payload);
+        } catch {
+          // warmup cache writes should not block routing
+        }
+        return;
       }
-      return;
-    }
 
-    if (url === POST_LOGIN_GALLERY_ENDPOINT) {
-      try {
-        const payload = (await response.json()) as GallerySnapshotPayload;
-        const items = payload.items ?? [];
-        writeCachedValue(buildUserScopedCacheKey("gallery-items"), items);
-        setPrefetchedRouteData("gallery-snapshot", items);
-        prefetchGalleryImages(payload);
-      } catch {
-        // best-effort prefetch should not block routing
+      if (url === POST_LOGIN_GALLERY_ENDPOINT) {
+        try {
+          const payload = (await response.json()) as GallerySnapshotPayload;
+          const items = payload.items ?? [];
+          writeCachedValue(buildUserScopedCacheKey("gallery-items"), items);
+          setPrefetchedRouteData("gallery-snapshot", items);
+          prefetchGalleryImages(payload);
+        } catch {
+          // best-effort prefetch should not block routing
+        }
+        return;
       }
-      return;
-    }
 
-    if (url === POST_LOGIN_MAP_SPOTS_ENDPOINT) {
-      try {
-        const payload = (await response.json()) as { spots?: unknown[] };
-        setPrefetchedRouteData("map-spots", payload.spots ?? []);
-      } catch {
-        // best-effort prefetch should not block routing
+      if (url === POST_LOGIN_MAP_SPOTS_ENDPOINT) {
+        try {
+          const payload = (await response.json()) as { spots?: unknown[] };
+          setPrefetchedRouteData("map-spots", payload.spots ?? []);
+        } catch {
+          // best-effort prefetch should not block routing
+        }
+        return;
       }
-      return;
-    }
 
-    if (url === POST_LOGIN_MEMBERS_ENDPOINT) {
-      try {
-        const payload = (await response.json()) as { members?: unknown[] };
-        setPrefetchedRouteData("members-directory", payload.members ?? []);
-      } catch {
-        // best-effort prefetch should not block routing
+      if (url === POST_LOGIN_MEMBERS_ENDPOINT) {
+        try {
+          const payload = (await response.json()) as { members?: unknown[] };
+          setPrefetchedRouteData("members-directory", payload.members ?? []);
+        } catch {
+          // best-effort prefetch should not block routing
+        }
+        return;
       }
-      return;
-    }
 
-    if (url === POST_LOGIN_PROFILE_ENDPOINT) {
-      try {
-        const payload = (await response.json()) as ProfileSnapshotPayload;
-        setPrefetchedRouteData("profile-snapshot", payload);
-      } catch {
-        // best-effort prefetch should not block routing
+      if (url === POST_LOGIN_PROFILE_ENDPOINT) {
+        try {
+          const payload = (await response.json()) as ProfileSnapshotPayload;
+          setPrefetchedRouteData("profile-snapshot", payload);
+        } catch {
+          // best-effort prefetch should not block routing
+        }
       }
-    }
-  }, [prefetchGalleryImages]);
+    },
+    [prefetchGalleryImages],
+  );
 
-  const cacheMemberProfiles = useCallback(async (membersPayload: MemberDirectoryPayload, headers: HeadersInit, viewerUserId: string) => {
-    const usernames = (membersPayload.members ?? [])
-      .map((member) => (typeof member?.username === "string" ? normalizeUsername(member.username) : ""))
-      .filter(Boolean);
+  const cacheMemberProfiles = useCallback(
+    async (
+      membersPayload: MemberDirectoryPayload,
+      headers: HeadersInit,
+      viewerUserId: string,
+    ) => {
+      const usernames = (membersPayload.members ?? [])
+        .map((member) =>
+          typeof member?.username === "string"
+            ? normalizeUsername(member.username)
+            : "",
+        )
+        .filter(Boolean);
 
-    const uniqueUsernames = Array.from(new Set(usernames)).slice(0, MEMBER_PROFILE_WARMUP_LIMIT);
+      const uniqueUsernames = Array.from(new Set(usernames)).slice(
+        0,
+        MEMBER_PROFILE_WARMUP_LIMIT,
+      );
 
-    for (const username of uniqueUsernames) {
-      try {
-        const response = await fetch(`/api/members/${encodeURIComponent(username)}/snapshot`, {
-          cache: "no-store",
-          headers,
-        });
+      for (const username of uniqueUsernames) {
+        try {
+          const response = await fetch(
+            `/api/members/${encodeURIComponent(username)}/snapshot`,
+            {
+              cache: "no-store",
+              headers,
+            },
+          );
 
-        if (!response.ok) continue;
-        const payload = (await response.json()) as ProfileSnapshotPayload;
-        writeCachedValue(`member-profile:${viewerUserId}:${username}:v1`, payload);
-      } catch {
-        // member profile warmup is best effort only
+          if (!response.ok) continue;
+          const payload = (await response.json()) as ProfileSnapshotPayload;
+          writeCachedValue(
+            `member-profile:${viewerUserId}:${username}:v1`,
+            payload,
+          );
+        } catch {
+          // member profile warmup is best effort only
+        }
       }
-    }
-  }, []);
+    },
+    [],
+  );
 
-  const prefetchEndpoints = useCallback(async (
-    urls: readonly string[],
-    options: { includeAuthToken?: boolean } = {},
-  ) => {
-    if (warmupInFlightRef.current) return;
-    warmupInFlightRef.current = true;
-    try {
-      const shouldIncludeAuthToken = options.includeAuthToken ?? false;
-      let headers: HeadersInit = {};
-      let viewerUserId: string | null = null;
-      if (shouldIncludeAuthToken) {
+  const prefetchEndpoints = useCallback(
+    async (
+      urls: readonly string[],
+      options: { includeAuthToken?: boolean } = {},
+    ) => {
+      if (warmupInFlightRef.current) return;
+      warmupInFlightRef.current = true;
+      try {
+        const shouldIncludeAuthToken = options.includeAuthToken ?? false;
+        let headers: HeadersInit = {};
+        let viewerUserId: string | null = null;
+        if (shouldIncludeAuthToken) {
+          let session;
+          try {
+            const sessionResult = await supabase.auth.getSession();
+            session = sessionResult.data.session;
+          } catch (error) {
+            console.error(
+              "Failed to fetch auth session while warming cache",
+              error,
+            );
+            return;
+          }
+
+          const accessToken = session?.access_token;
+          viewerUserId = session?.user?.id ?? null;
+          headers = accessToken
+            ? { Authorization: `Bearer ${accessToken}` }
+            : {};
+        }
+
+        for (const url of urls) {
+          try {
+            const response = await fetch(url, { cache: "no-store", headers });
+
+            if (
+              shouldIncludeAuthToken &&
+              url === POST_LOGIN_MEMBERS_ENDPOINT &&
+              viewerUserId &&
+              response.ok
+            ) {
+              try {
+                const membersPayload = (await response
+                  .clone()
+                  .json()) as MemberDirectoryPayload;
+                await cacheMemberProfiles(
+                  membersPayload,
+                  headers,
+                  viewerUserId,
+                );
+              } catch {
+                // member profile warmup is best effort only
+              }
+            }
+
+            if (
+              shouldIncludeAuthToken &&
+              url === POST_LOGIN_PROFILE_ENDPOINT &&
+              viewerUserId &&
+              response.ok
+            ) {
+              try {
+                const profilePayload = (await response
+                  .clone()
+                  .json()) as ProfileSnapshotPayload;
+                writeCachedValue(`profile:${viewerUserId}:v3`, profilePayload);
+              } catch {
+                // own profile warmup is best effort only
+              }
+            }
+
+            await cacheWarmupResponse(url, response);
+          } catch {
+            // background warmup should not block navigation
+          }
+        }
+
+        if (shouldIncludeAuthToken) {
+          lastWarmupAtRef.current = Date.now();
+        }
+      } finally {
+        warmupInFlightRef.current = false;
+      }
+    },
+    [cacheMemberProfiles, cacheWarmupResponse],
+  );
+
+  const prefetchHomeFeedUntilReady = useCallback(
+    async (options?: { maxAttempts?: number; retryDelayMs?: number }) => {
+      const maxAttempts = options?.maxAttempts ?? 8;
+      const retryDelayMs = options?.retryDelayMs ?? 200;
+
+      for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
         let session;
         try {
           const sessionResult = await supabase.auth.getSession();
           session = sessionResult.data.session;
         } catch (error) {
-          console.error("Failed to fetch auth session while warming cache", error);
-          return;
+          console.error(
+            "Failed to fetch auth session for homefeed warmup",
+            error,
+          );
+          return false;
         }
-
         const accessToken = session?.access_token;
-        viewerUserId = session?.user?.id ?? null;
-        headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
-      }
 
-      for (const url of urls) {
-        try {
-          const response = await fetch(url, { cache: "no-store", headers });
-
-          if (shouldIncludeAuthToken && url === POST_LOGIN_MEMBERS_ENDPOINT && viewerUserId && response.ok) {
-            try {
-              const membersPayload = (await response.clone().json()) as MemberDirectoryPayload;
-              await cacheMemberProfiles(membersPayload, headers, viewerUserId);
-            } catch {
-              // member profile warmup is best effort only
-            }
-          }
-
-          if (shouldIncludeAuthToken && url === POST_LOGIN_PROFILE_ENDPOINT && viewerUserId && response.ok) {
-            try {
-              const profilePayload = (await response.clone().json()) as ProfileSnapshotPayload;
-              writeCachedValue(`profile:${viewerUserId}:v3`, profilePayload);
-            } catch {
-              // own profile warmup is best effort only
-            }
-          }
-
-          await cacheWarmupResponse(url, response);
-        } catch {
-          // background warmup should not block navigation
+        if (!accessToken) {
+          await new Promise((resolve) => {
+            window.setTimeout(resolve, retryDelayMs);
+          });
+          continue;
         }
-      }
 
-      if (shouldIncludeAuthToken) {
-        lastWarmupAtRef.current = Date.now();
-      }
-    } finally {
-      warmupInFlightRef.current = false;
-    }
-  }, [cacheMemberProfiles, cacheWarmupResponse]);
+        const response = await fetch(POST_LOGIN_HOMEFEED_ENDPOINT, {
+          cache: "no-store",
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
 
-  const prefetchHomeFeedUntilReady = useCallback(async (options?: { maxAttempts?: number; retryDelayMs?: number }) => {
-    const maxAttempts = options?.maxAttempts ?? 8;
-    const retryDelayMs = options?.retryDelayMs ?? 200;
+        if (response.ok) {
+          await cacheWarmupResponse(POST_LOGIN_HOMEFEED_ENDPOINT, response);
+          return true;
+        }
 
-    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-      let session;
-      try {
-        const sessionResult = await supabase.auth.getSession();
-        session = sessionResult.data.session;
-      } catch (error) {
-        console.error("Failed to fetch auth session for homefeed warmup", error);
-        return false;
-      }
-      const accessToken = session?.access_token;
-
-      if (!accessToken) {
         await new Promise((resolve) => {
           window.setTimeout(resolve, retryDelayMs);
         });
-        continue;
       }
 
-      const response = await fetch(POST_LOGIN_HOMEFEED_ENDPOINT, {
-        cache: "no-store",
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-
-      if (response.ok) {
-        await cacheWarmupResponse(POST_LOGIN_HOMEFEED_ENDPOINT, response);
-        return true;
-      }
-
-      await new Promise((resolve) => {
-        window.setTimeout(resolve, retryDelayMs);
-      });
-    }
-
-    return false;
-  }, [cacheWarmupResponse]);
+      return false;
+    },
+    [cacheWarmupResponse],
+  );
 
   useEffect(() => {
     if (!pathname || hasPrefetchedBeforeLoginRef.current) return;
@@ -508,7 +627,9 @@ export function AuthGate({ children }: AuthGateProps) {
     }
 
     document.documentElement.dataset.imageAccess = viewerImageAccess;
-    document.documentElement.dataset.viewerRole = viewerIsAdmin ? "admin" : "member";
+    document.documentElement.dataset.viewerRole = viewerIsAdmin
+      ? "admin"
+      : "member";
 
     return () => {
       delete document.documentElement.dataset.imageAccess;
@@ -520,6 +641,7 @@ export function AuthGate({ children }: AuthGateProps) {
     if (!isAuthenticated || !viewerId) {
       setViewerImageAccess("visitor");
       setViewerIsAdmin(false);
+      setViewerRouteAccess("unknown");
       setVisitorTrialStatus(null);
       return;
     }
@@ -536,7 +658,9 @@ export function AuthGate({ children }: AuthGateProps) {
         id: user.id,
         email: user.email,
         created_at: user.created_at,
-        user_metadata: user.user_metadata as Record<string, unknown> | undefined,
+        user_metadata: user.user_metadata as
+          | Record<string, unknown>
+          | undefined,
       };
       await syncViewerImageAccess(viewerSnapshot);
     };
@@ -547,7 +671,12 @@ export function AuthGate({ children }: AuthGateProps) {
       .channel(`viewer-image-access:${viewerId}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "profile_settings", filter: `user_id=eq.${viewerId}` },
+        {
+          event: "*",
+          schema: "public",
+          table: "profile_settings",
+          filter: `user_id=eq.${viewerId}`,
+        },
         () => {
           if (viewerSnapshot) {
             void syncViewerImageAccess(viewerSnapshot);
@@ -566,11 +695,19 @@ export function AuthGate({ children }: AuthGateProps) {
   }, [isAuthenticated, syncViewerImageAccess, viewerId]);
 
   useEffect(() => {
-  if (!isAuthenticated) return;
+    if (!isAuthenticated || isPublicPath || viewerRouteAccess !== "visitor")
+      return;
+    if (isVisitorAllowedPath(pathname)) return;
 
-  setupPushNotificationListeners();
-  void registerPushNotifications();
-}, [isAuthenticated]);
+    router.replace("/explore");
+  }, [isAuthenticated, isPublicPath, pathname, router, viewerRouteAccess]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    setupPushNotificationListeners();
+    void registerPushNotifications();
+  }, [isAuthenticated]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -593,7 +730,9 @@ export function AuthGate({ children }: AuthGateProps) {
         void router.prefetch(route);
       });
 
-      await prefetchEndpoints(POST_LOGIN_BACKGROUND_ENDPOINTS, { includeAuthToken: true });
+      await prefetchEndpoints(POST_LOGIN_BACKGROUND_ENDPOINTS, {
+        includeAuthToken: true,
+      });
       if (isCancelled) return;
     };
 
@@ -639,16 +778,28 @@ export function AuthGate({ children }: AuthGateProps) {
       isCancelled = true;
       void supabase.removeChannel(liveUpdatesChannel);
     };
-  }, [isAuthenticated, isHydratingApp, prefetchEndpoints, prefetchHomeFeedUntilReady, router]);
+  }, [
+    isAuthenticated,
+    isHydratingApp,
+    prefetchEndpoints,
+    prefetchHomeFeedUntilReady,
+    router,
+  ]);
 
   if (isHydratingApp || (!isReady && !isPublicPath)) {
     return (
       <div className={styles.loaderShell}>
-        <div className={styles.loaderCard} role="status" aria-live="polite" aria-label="Loading your BareUnity space">
+        <div
+          className={styles.loaderCard}
+          role="status"
+          aria-live="polite"
+          aria-label="Loading your BareUnity space"
+        >
           <div className={styles.rings} aria-hidden="true" />
           <h2 className={styles.title}>Welcome back to BareUnity</h2>
           <p className={styles.message}>
-            Preparing your personalized spaces, messages, and map updates so everything is ready the moment you arrive.
+            Preparing your personalized spaces, messages, and map updates so
+            everything is ready the moment you arrive.
           </p>
           <div className={styles.dots} aria-hidden="true">
             <span className={styles.dot} />
@@ -678,7 +829,8 @@ export function AuthGate({ children }: AuthGateProps) {
     );
   }
 
-  const showColorModePicker = isAuthenticated && !isPublicPath && !hasSelectedColorMode;
+  const showColorModePicker =
+    isAuthenticated && !isPublicPath && !hasSelectedColorMode;
   const showVisitorTrialExpiredPrompt =
     isAuthenticated &&
     !isPublicPath &&
@@ -698,18 +850,33 @@ export function AuthGate({ children }: AuthGateProps) {
     <>
       {children}
       {showColorModePicker ? (
-        <div className={styles.colorModeOverlay} role="dialog" aria-modal="true" aria-labelledby="color-mode-title">
+        <div
+          className={styles.colorModeOverlay}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="color-mode-title"
+        >
           <div className={styles.colorModeCard}>
-            <h2 id="color-mode-title" className={styles.colorModeTitle}>Choose your theme</h2>
-            <p className={styles.colorModeDescription}>Pick how BareUnity should look on this device.</p>
+            <h2 id="color-mode-title" className={styles.colorModeTitle}>
+              Choose your theme
+            </h2>
+            <p className={styles.colorModeDescription}>
+              Pick how BareUnity should look on this device.
+            </p>
             <div className={styles.colorModeActions}>
               <Button type="button" onClick={() => onColorModeSelected("dark")}>
                 Dark
               </Button>
-              <Button type="button" onClick={() => onColorModeSelected("light")}>
+              <Button
+                type="button"
+                onClick={() => onColorModeSelected("light")}
+              >
                 Light
               </Button>
-              <Button type="button" onClick={() => onColorModeSelected("system")}>
+              <Button
+                type="button"
+                onClick={() => onColorModeSelected("system")}
+              >
                 System
               </Button>
             </div>
@@ -717,18 +884,36 @@ export function AuthGate({ children }: AuthGateProps) {
         </div>
       ) : null}
       {showVisitorTrialExpiredPrompt ? (
-        <div className={styles.visitorTrialOverlay} role="dialog" aria-modal="true" aria-labelledby="visitor-trial-title">
+        <div
+          className={styles.visitorTrialOverlay}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="visitor-trial-title"
+        >
           <div className={styles.visitorTrialCard}>
-            <span className={styles.visitorTrialEyebrow}>Visitor Pass ended</span>
-            <h2 id="visitor-trial-title" className={styles.visitorTrialTitle}>Register for verification to keep exploring BareUnity</h2>
+            <span className={styles.visitorTrialEyebrow}>
+              Visitor Pass ended
+            </span>
+            <h2 id="visitor-trial-title" className={styles.visitorTrialTitle}>
+              Register for verification to keep exploring BareUnity
+            </h2>
             <p className={styles.visitorTrialDescription}>
-              Your 7-day browsing period is complete. Submit a verification application so admins can review your details and unlock posting, check-ins, messages, and full community access.
+              Your 7-day browsing period is complete. Submit a verification
+              application so admins can review your details and unlock posting,
+              check-ins, messages, and full community access.
             </p>
             <div className={styles.visitorTrialActions}>
-              <Button type="button" onClick={() => router.push("/settings#verification")}>
+              <Button
+                type="button"
+                onClick={() => router.push("/settings#verification")}
+              >
                 Start verification
               </Button>
-              <Button type="button" variant="outline" onClick={() => setIsVisitorTrialPromptDismissed(true)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsVisitorTrialPromptDismissed(true)}
+              >
                 Remind me later
               </Button>
             </div>

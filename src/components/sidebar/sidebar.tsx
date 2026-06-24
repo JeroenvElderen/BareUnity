@@ -170,6 +170,8 @@ const discussionRooms = [
   { name: "Video Room", href: "/video-room" },
 ] as const;
 
+type ViewerNavigationAccess = "unknown" | "visitor" | "member" | "admin";
+
 type VerificationApplySnapshot = {
   eligible?: boolean;
   status?: string;
@@ -217,6 +219,8 @@ export function AppSidebar() {
   const isBookingsSection = pathname?.startsWith("/bookings") ?? false;
   const [isBookingsOpen, setIsBookingsOpen] = useState(isBookingsSection);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [viewerNavigationAccess, setViewerNavigationAccess] =
+    useState<ViewerNavigationAccess>("unknown");
   const [hiddenSidebarItems, setHiddenSidebarItems] =
     useState<SidebarHiddenItemSet>({});
   const [activeToasts, setActiveToasts] = useState<AppNotification[]>([]);
@@ -399,7 +403,9 @@ export function AppSidebar() {
       setActiveToasts([]);
       setViewerId(data.user?.id ?? null);
       setCanApplyForVerification(false);
-      setIsAdmin(isPlatformAdminEmail(email));
+      const isAdminUser = isPlatformAdminEmail(email);
+      setIsAdmin(isAdminUser);
+      setViewerNavigationAccess(isAdminUser ? "admin" : "unknown");
     });
 
     const {
@@ -409,7 +415,9 @@ export function AppSidebar() {
       setActiveToasts([]);
       setViewerId(session?.user.id ?? null);
       setCanApplyForVerification(false);
-      setIsAdmin(isPlatformAdminEmail(email));
+      const isAdminUser = isPlatformAdminEmail(email);
+      setIsAdmin(isAdminUser);
+      setViewerNavigationAccess(isAdminUser ? "admin" : "unknown");
     });
 
     return () => {
@@ -417,6 +425,41 @@ export function AppSidebar() {
       subscription.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    if (!viewerId || isAdmin) return;
+
+    let isMounted = true;
+
+    const loadViewerNavigationAccess = async () => {
+      const { data, error } = await supabase
+        .from("profile_settings")
+        .select("onboarding_completed,user_role")
+        .eq("user_id", viewerId)
+        .maybeSingle<{
+          onboarding_completed: boolean | null;
+          user_role: string | null;
+        }>();
+
+      if (!isMounted) return;
+
+      if (error) {
+        console.debug("Could not load viewer navigation access", error.message);
+        setViewerNavigationAccess("visitor");
+        return;
+      }
+
+      const isVerifiedMember =
+        data?.onboarding_completed === true && data.user_role !== "view_only";
+      setViewerNavigationAccess(isVerifiedMember ? "member" : "visitor");
+    };
+
+    void loadViewerNavigationAccess();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isAdmin, viewerId]);
 
   useEffect(() => {
     seenNotificationIdsRef.current.clear();
@@ -951,20 +994,29 @@ export function AppSidebar() {
     system: "dark",
   };
 
-  const visiblePrimaryItems = primaryItems.filter(
-    (item) =>
-      item.id !== "gallery" && !isSidebarItemHidden(hiddenSidebarItems, item.id),
-  );
-  const showGalleryMenu = !isSidebarItemHidden(hiddenSidebarItems, "gallery");
+  const isVisitorNavigation = viewerNavigationAccess === "visitor";
+  const visiblePrimaryItems = isVisitorNavigation
+    ? []
+    : primaryItems.filter(
+        (item) =>
+          item.id !== "gallery" &&
+          !isSidebarItemHidden(hiddenSidebarItems, item.id),
+      );
+  const showGalleryMenu =
+    !isVisitorNavigation && !isSidebarItemHidden(hiddenSidebarItems, "gallery");
   const visibleTravelItems = travelItems.filter(
     (item) => !isSidebarItemHidden(hiddenSidebarItems, item.id),
   );
   const visibleBookingItems = bookingItems.filter(
     (item) => !isSidebarItemHidden(hiddenSidebarItems, item.id),
   );
-  const visibleCommunityItems = communityItems.filter(
-    (item) => !isSidebarItemHidden(hiddenSidebarItems, item.id),
-  );
+  const visibleCommunityItems = isVisitorNavigation
+    ? []
+    : communityItems.filter(
+        (item) =>
+          (item.id !== "members" || isAdmin) &&
+          !isSidebarItemHidden(hiddenSidebarItems, item.id),
+      );
   const visibleAccountItems = accountItems.filter(
     (item) => !isSidebarItemHidden(hiddenSidebarItems, item.id),
   );
@@ -978,11 +1030,15 @@ export function AppSidebar() {
     return true;
   });
   const showTravelLinks = visibleTravelItems.length > 0;
-  const showCountries = !isSidebarItemHidden(hiddenSidebarItems, "countries");
+  const showCountries =
+    !isVisitorNavigation &&
+    !isSidebarItemHidden(hiddenSidebarItems, "countries");
   const showBookings =
+    !isVisitorNavigation &&
     !isSidebarItemHidden(hiddenSidebarItems, "bookings") &&
     visibleBookingItems.length > 0;
   const showDiscussionRooms =
+    !isVisitorNavigation &&
     !isSidebarItemHidden(hiddenSidebarItems, "discussion-rooms") &&
     visibleDiscussionRooms.length > 0;
   const showVerificationCta =
@@ -1084,27 +1140,31 @@ export function AppSidebar() {
                   )}
                 </div>
               ) : null}
-              </nav>
+            </nav>
           </section>
 
           {showTravelLinks || showCountries || showBookings ? (
             <section className={styles.section}>
               <p className={styles.sectionLabel}>Explore & Travel</p>
               <nav>
-                {visibleTravelItems.map(({ icon: Icon, label, href, badge }) => (
-                  <Link
-                    key={label}
-                    href={href}
-                    className={`${styles.navItem} ${isActiveNavItem(pathname, href) ? styles.active : ""}`}
-                  >
-                    <span className={styles.itemLeft}>
-                      <Icon size={18} aria-hidden />
-                      <span>{label}</span>
-                    </span>
-                    {badge ? <span className={styles.badge}>{badge}</span> : null}
-                  </Link>
-                ))}
-                
+                {visibleTravelItems.map(
+                  ({ icon: Icon, label, href, badge }) => (
+                    <Link
+                      key={label}
+                      href={href}
+                      className={`${styles.navItem} ${isActiveNavItem(pathname, href) ? styles.active : ""}`}
+                    >
+                      <span className={styles.itemLeft}>
+                        <Icon size={18} aria-hidden />
+                        <span>{label}</span>
+                      </span>
+                      {badge ? (
+                        <span className={styles.badge}>{badge}</span>
+                      ) : null}
+                    </Link>
+                  ),
+                )}
+
                 {showCountries ? (
                   <div className={styles.dropdown}>
                     <button
@@ -1253,7 +1313,7 @@ export function AppSidebar() {
                         ? String(unreadNotifications)
                         : badge;
 
-                return (
+                    return (
                       <Link
                         key={label}
                         href={href ?? "#"}
@@ -1275,7 +1335,7 @@ export function AppSidebar() {
                     );
                   },
                 )}
-                </nav>
+              </nav>
             </section>
           ) : null}
 
@@ -1297,7 +1357,7 @@ export function AppSidebar() {
                   </Link>
                 ) : null}
 
-              {visibleAccountItems.map(
+                {visibleAccountItems.map(
                   ({ icon: Icon, label, href, badge }) => (
                     <Link
                       key={label}
