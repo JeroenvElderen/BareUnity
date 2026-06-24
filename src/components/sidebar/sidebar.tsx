@@ -1413,48 +1413,47 @@ export function AppSidebar() {
           <SidebarProfileLink className={styles.mobileProfileCard} />
         </div>
 
-        {activeToasts.length ? (
-          <div
-            className={styles.toastStack}
-            aria-live="polite"
-            aria-label="Notification toasts"
-          >
-            {activeToasts.map((notification) => (
-              <article key={notification.id} className={styles.toastCard}>
-                <button
-                  type="button"
-                  className={styles.toastContentButton}
-                  onClick={() => {
-                    markNotificationAsRead(notification.id);
-                    setActiveToasts((current) =>
-                      current.filter((toast) => toast.id !== notification.id),
-                    );
-                    void router.push(
-                      notification.targetHref ?? "/notifications",
-                    );
-                  }}
-                >
-                  <strong>{notification.title}</strong>
-                  <p>{notification.detail}</p>
-                  <small>{formatRelativeTime(notification.timestamp)}</small>
-                </button>
-                <button
-                  type="button"
-                  className={styles.toastCloseButton}
-                  onClick={() =>
-                    setActiveToasts((current) =>
-                      current.filter((toast) => toast.id !== notification.id),
-                    )
-                  }
-                  aria-label="Dismiss notification"
-                >
-                  <X size={14} aria-hidden />
-                </button>
-              </article>
-            ))}
-          </div>
-        ) : null}
       </aside>
+
+      {activeToasts.length ? (
+        <div
+          className={styles.toastStack}
+          aria-live="polite"
+          aria-label="Notification toasts"
+        >
+          {activeToasts.map((notification) => (
+            <article key={notification.id} className={styles.toastCard}>
+              <button
+                type="button"
+                className={styles.toastContentButton}
+                onClick={() => {
+                  markNotificationAsRead(notification.id);
+                  setActiveToasts((current) =>
+                    current.filter((toast) => toast.id !== notification.id),
+                  );
+                  void router.push(notification.targetHref ?? "/notifications");
+                }}
+              >
+                <strong>{notification.title}</strong>
+                <p>{notification.detail}</p>
+                <small>{formatRelativeTime(notification.timestamp)}</small>
+              </button>
+              <button
+                type="button"
+                className={styles.toastCloseButton}
+                onClick={() =>
+                  setActiveToasts((current) =>
+                    current.filter((toast) => toast.id !== notification.id),
+                  )
+                }
+                aria-label="Dismiss notification"
+              >
+                <X size={14} aria-hidden />
+              </button>
+            </article>
+          ))}
+        </div>
+      ) : null}
     </>
   );
 }
