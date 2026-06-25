@@ -1007,8 +1007,8 @@ export function MapStageClient() {
     setLocationRequestFeedback(null);
   }
 
-  async function handleLocationRequestSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function handleLocationRequestSubmit(event?: FormEvent<HTMLFormElement>) {
+    event?.preventDefault();
     setLocationRequestFeedback(null);
 
     if (isViewerActionLocked) {
@@ -1440,7 +1440,10 @@ export function MapStageClient() {
           className={`${overlayStyles.requestOverlay} fixed inset-0 z-[90] grid place-items-center justify-items-center overflow-hidden overscroll-none bg-black/45`}
         >
           <form
+            action="#"
             className={`${overlayStyles.requestForm} w-full max-w-lg rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] p-5 shadow-2xl`}
+            method="post"
+            noValidate
             onSubmit={(event) => void handleLocationRequestSubmit(event)}
           >
             <div className="flex items-start justify-between gap-3">
@@ -1560,7 +1563,14 @@ export function MapStageClient() {
               <Button type="button" variant="outline" onClick={() => setLocationRequestForm(INITIAL_LOCATION_REQUEST_FORM)}>
                 Reset
               </Button>
-              <Button type="submit" disabled={isSubmittingLocationRequest || isViewerActionLocked}>
+              <Button
+                type="submit"
+                disabled={isSubmittingLocationRequest || isViewerActionLocked}
+                onClick={(event) => {
+                  event.preventDefault();
+                  void handleLocationRequestSubmit();
+                }}
+              >
                 {isSubmittingLocationRequest ? "Sending..." : isViewerActionLocked ? "Verify to send" : "Send request"}
               </Button>
             </div>
