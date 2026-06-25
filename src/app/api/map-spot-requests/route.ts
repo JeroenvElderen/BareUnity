@@ -8,6 +8,10 @@ import {
   isSupabaseAdminConfigured,
 } from "@/lib/supabase-admin";
 import { ensureMemberCanAct } from "@/lib/action-access";
+import {
+  DISCORD_LOCATION_REQUESTS_FORUM_ID,
+  enqueueDiscordLocationRequestEvent,
+} from "@/lib/discord-crosspost-sync";
 
 const coordinate = z.preprocess((value) => {
   if (value === undefined || value === null || value === "") return undefined;
@@ -119,6 +123,31 @@ export async function POST(request: NextRequest) {
 
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });
+
+  try {
+    await enqueueDiscordLocationRequestEvent({
+      requestId: data.id,
+      requesterUserId: authResult.user.id,
+      requesterEmail: authResult.user.email ?? null,
+      placeName: requestPayload.placeName,
+      locationHint: requestPayload.locationHint,
+      latitude: requestPayload.latitude ?? null,
+      longitude: requestPayload.longitude ?? null,
+      website: requestPayload.website?.trim() || null,
+      requestType: requestPayload.requestType,
+      isStay: requestPayload.isStay,
+      notes: requestPayload.notes?.trim() || null,
+      pageUrl: requestPayload.pageUrl?.trim() || null,
+      requestedAt: requestPayload.requestedAt,
+      createdAt: data.created_at ?? null,
+      locationRequestsForumId: DISCORD_LOCATION_REQUESTS_FORUM_ID,
+    });
+  } catch (eventError) {
+    console.error("Failed to queue Discord location request event", {
+      requestId: data.id,
+      eventError,
+    });
+  }
 
   return NextResponse.json({ request: data }, { status: 201 });
 }

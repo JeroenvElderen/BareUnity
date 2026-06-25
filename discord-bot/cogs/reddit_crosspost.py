@@ -30,6 +30,7 @@ BAREUNITY_DISCORD_SECRET = os.getenv("BAREUNITY_DISCORD_SECRET") or os.getenv("D
 REDDIT_SUBREDDIT = os.getenv("REDDIT_SUBREDDIT")
 DISCORD_CROSSPOST_EVENT_POLL_SECONDS = int(os.getenv("DISCORD_CROSSPOST_EVENT_POLL_SECONDS", "5"))
 DISCORD_MEMBER_CARD_BACKFILL_ON_START = os.getenv("DISCORD_MEMBER_CARD_BACKFILL_ON_START", "true").lower() not in {"0", "false", "no"}
+DISCORD_LOCATION_REQUEST_BACKFILL_ON_START = os.getenv("DISCORD_LOCATION_REQUEST_BACKFILL_ON_START", "true").lower() not in {"0", "false", "no"}
 WEBSITE_REVIEW_BUTTONS = {
     "photo-sharing": "Photo sharing",
     "naturist-travel": "Naturist travel",
@@ -53,16 +54,21 @@ class RedditCrosspost(commands.Cog):
         self.reddit = self.build_reddit_client()
         self.sync_by_thread = {}
         self.member_card_backfill_started = False
+        self.location_request_backfill_started = False
         self.event_poller.change_interval(seconds=DISCORD_CROSSPOST_EVENT_POLL_SECONDS)
         self.event_poller.start()
         if DISCORD_MEMBER_CARD_BACKFILL_ON_START:
             self.member_card_backfill.start()
+        if DISCORD_LOCATION_REQUEST_BACKFILL_ON_START:
+            self.location_request_backfill.start()
 
 
     def cog_unload(self):
         self.event_poller.cancel()
         if self.member_card_backfill.is_running():
             self.member_card_backfill.cancel()
+        if self.location_request_backfill.is_running():
+            self.location_request_backfill.cancel()
 
     async def fetch_bareunity_api(self, path):
         headers = self.integration_headers()
@@ -258,6 +264,89 @@ class RedditCrosspost(commands.Cog):
         return thread
 
 
+    def build_location_request_embed(self, payload):
+        place_name = str(payload.get("placeName") or "New location request").strip() or "New location request"
+        request_type = str(payload.get("requestType") or "location").strip().title()
+        location_hint = str(payload.get("locationHint") or "Not provided").strip() or "Not provided"
+        notes = str(payload.get("notes") or "").strip()
+        latitude = payload.get("latitude")
+        longitude = payload.get("longitude")
+        coordinates = "Not provided"
+        if latitude is not None and longitude is not None:
+            coordinates = f"{latitude}, {longitude}"
+
+        embed = discord.Embed(
+            title=f"📍 {place_name}"[:256],
+            description="A BareUnity member submitted a location request from the website form.",
+            color=0x3182ce,
+        )
+        embed.add_field(name="Request type", value=request_type, inline=True)
+        embed.add_field(name="Location hint", value=location_hint[:1024], inline=False)
+        embed.add_field(name="Coordinates", value=str(coordinates)[:1024], inline=False)
+        if payload.get("website"):
+            embed.add_field(name="Website", value=str(payload.get("website"))[:1024], inline=False)
+        if notes:
+            embed.add_field(name="Notes", value=notes[:1024], inline=False)
+        if payload.get("requesterEmail"):
+            embed.add_field(name="Requester email", value=str(payload.get("requesterEmail"))[:1024], inline=False)
+        if payload.get("requesterUserId"):
+            embed.add_field(name="Requester user ID", value=str(payload.get("requesterUserId"))[:1024], inline=False)
+        if payload.get("pageUrl"):
+            embed.add_field(name="Submitted from", value=str(payload.get("pageUrl"))[:1024], inline=False)
+        if payload.get("requestId"):
+            embed.add_field(name="Feedback request ID", value=str(payload.get("requestId"))[:1024], inline=False)
+        requested_at = payload.get("requestedAt") or payload.get("createdAt")
+        if requested_at:
+            embed.set_footer(text=f"BareUnity location request • {requested_at}")
+        else:
+            embed.set_footer(text="BareUnity location request")
+        return embed
+
+    def build_location_request_content(self, payload):
+        place_name = str(payload.get("placeName") or "New location request").strip() or "New location request"
+        request_type = str(payload.get("requestType") or "location").strip() or "location"
+        location_hint = str(payload.get("locationHint") or "Not provided").strip() or "Not provided"
+        notes = str(payload.get("notes") or "").strip()
+        lines = [
+            "New BareUnity location request submitted from the website form.",
+            "",
+            f"**Place name:** {place_name}",
+            f"**Request type:** {request_type}",
+            f"**Location hint:** {location_hint}",
+        ]
+        if payload.get("latitude") is not None and payload.get("longitude") is not None:
+            lines.append(f"**Coordinates:** {payload.get('latitude')}, {payload.get('longitude')}")
+        if payload.get("website"):
+            lines.append(f"**Website:** {payload.get('website')}")
+        if notes:
+            lines.append(f"**Notes:** {notes}")
+        if payload.get("requesterEmail"):
+            lines.append(f"**Requester email:** {payload.get('requesterEmail')}")
+        if payload.get("pageUrl"):
+            lines.append(f"**Submitted from:** {payload.get('pageUrl')}")
+        if payload.get("requestId"):
+            lines.append(f"**Feedback request ID:** `{payload.get('requestId')}`")
+        return "\n".join(lines)[:1900]
+
+    async def create_location_request_thread(self, event):
+        payload = event.get("payload") or {}
+        channel_id = payload.get("locationRequestsForumId") or payload.get("discordForum", {}).get("channelId")
+        channel = await self.resolve_channel(channel_id)
+        if not channel:
+            raise NonRetryableWebsiteEventError(f"Location request Discord forum {channel_id} was not found.")
+
+        place_name = str(payload.get("placeName") or "New location request").strip() or "New location request"
+        request_type = str(payload.get("requestType") or "location").strip().title()
+        title = f"{request_type} • {place_name}"[:100]
+        content = self.build_location_request_content(payload)
+        embed = self.build_location_request_embed(payload)
+        if isinstance(channel, discord.ForumChannel):
+            created = await channel.create_thread(name=title, content=content, embed=embed)
+            return created.thread
+
+        message = await channel.send(content=f"**{title}**\n{content}"[:2000], embed=embed)
+        return await message.create_thread(name=title)
+
     def build_member_card_embed(self, payload):
         username = str(payload.get("username") or "unknown").strip() or "unknown"
         display_name = str(payload.get("displayName") or username).strip() or username
@@ -359,6 +448,27 @@ class RedditCrosspost(commands.Cog):
     async def before_member_card_backfill(self):
         await self.bot.wait_until_ready()
 
+    async def queue_pending_location_requests(self):
+        data = await self.post_bareunity_api(
+            "/api/integrations/discord/crosspost/events",
+            {"action": "location-request-backfill"},
+        )
+        print(f"Location request backfill queued {data.get('queued', 0)} pending request(s).")
+
+    @tasks.loop(count=1)
+    async def location_request_backfill(self):
+        if self.location_request_backfill_started:
+            return
+        self.location_request_backfill_started = True
+        try:
+            await self.queue_pending_location_requests()
+        except Exception as exc:
+            print(f"Location request backfill failed: {exc}")
+
+    @location_request_backfill.before_loop
+    async def before_location_request_backfill(self):
+        await self.bot.wait_until_ready()
+
     async def handle_website_event(self, event):
         event_type = event.get("event_type")
         payload = event.get("payload") or {}
@@ -375,6 +485,9 @@ class RedditCrosspost(commands.Cog):
             return
         if event_type == "member_card_upserted":
             await self.upsert_member_card_thread(event)
+            return
+        if event_type == "location_request_created":
+            await self.create_location_request_thread(event)
             return
         thread_id = event.get("discord_thread_id") or payload.get("discordThreadId")
         thread = await self.resolve_channel(thread_id)

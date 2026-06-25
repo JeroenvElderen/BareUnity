@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { db } from "@/server/db";
 import { requireIntegrationRequest, normalizeDiscordId, normalizeOptionalString, findBareUnityProfileByDiscordUserId, getFallbackAuthorId } from "../helpers";
-import { buildDiscordMemberCardPayload, buildWebsitePostUrl, DISCORD_DELETE_TARGET, DISCORD_MEMBER_CARDS_FORUM_ID, DISCORD_POST_TARGET_CHANNELS, DISCORD_SKIP_TARGET } from "@/lib/discord-crosspost-sync";
+import { buildDiscordMemberCardPayload, buildWebsitePostUrl, DISCORD_DELETE_TARGET, DISCORD_LOCATION_REQUESTS_FORUM_ID, DISCORD_MEMBER_CARDS_FORUM_ID, DISCORD_POST_TARGET_CHANNELS, DISCORD_SKIP_TARGET } from "@/lib/discord-crosspost-sync";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase-admin";
+import { LOCATION_REQUEST_PREFIX } from "@/lib/location-requests";
 
 function normalizeTarget(value: unknown) {
   if (value === "photo-sharing") return DISCORD_POST_TARGET_CHANNELS.photoSharing;
@@ -138,6 +139,69 @@ export async function POST(request: Request) {
       ok: true,
       memberCardsForumId: DISCORD_MEMBER_CARDS_FORUM_ID,
       cards,
+    });
+  }
+
+  if (action === "location-request-backfill") {
+    const rows = await db.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+      with pending_location_requests as (
+        select
+          fm.id,
+          fm.user_id,
+          fm.user_email,
+          fm.page_url,
+          fm.created_at,
+          substring(fm.message from ${LOCATION_REQUEST_PREFIX.length + 1})::jsonb as form_payload
+        from public.feedback_messages fm
+        where fm.category = 'idea'
+          and fm.message like ${`${LOCATION_REQUEST_PREFIX}%`}
+          and coalesce(nullif(fm.status, ''), 'new') in ('new', 'pending')
+      )
+      insert into public.discord_crosspost_events (
+        website_post_id,
+        gallery_image_path,
+        discord_thread_id,
+        event_type,
+        payload,
+        dedupe_key
+      )
+      select
+        null,
+        null,
+        null,
+        'location_request_created',
+        jsonb_build_object(
+          'requestId', plr.id,
+          'requesterUserId', plr.user_id,
+          'requesterEmail', coalesce(plr.user_email, plr.form_payload->>'requesterEmail'),
+          'placeName', coalesce(plr.form_payload->>'placeName', ''),
+          'locationHint', coalesce(plr.form_payload->>'locationHint', ''),
+          'latitude', case when jsonb_typeof(plr.form_payload->'latitude') = 'number' then plr.form_payload->'latitude' else 'null'::jsonb end,
+          'longitude', case when jsonb_typeof(plr.form_payload->'longitude') = 'number' then plr.form_payload->'longitude' else 'null'::jsonb end,
+          'website', nullif(plr.form_payload->>'website', ''),
+          'requestType', coalesce(nullif(plr.form_payload->>'requestType', ''), case when (plr.form_payload->>'isStay')::boolean then 'stay' else 'location' end),
+          'isStay', coalesce((plr.form_payload->>'isStay')::boolean, false) or coalesce(plr.form_payload->>'requestType', '') = 'stay',
+          'notes', nullif(plr.form_payload->>'notes', ''),
+          'pageUrl', coalesce(nullif(plr.form_payload->>'pageUrl', ''), plr.page_url),
+          'requestedAt', coalesce(nullif(plr.form_payload->>'requestedAt', ''), plr.created_at::text),
+          'createdAt', plr.created_at::text,
+          'locationRequestsForumId', ${DISCORD_LOCATION_REQUESTS_FORUM_ID},
+          'renderMode', 'discord_embed',
+          'discordForum', jsonb_build_object(
+            'channelId', ${DISCORD_LOCATION_REQUESTS_FORUM_ID},
+            'mode', 'one_request_per_forum_thread'
+          )
+        ),
+        'location-request:' || plr.id
+      from pending_location_requests plr
+      on conflict (dedupe_key) do nothing
+      returning id
+    `);
+
+    return NextResponse.json({
+      ok: true,
+      queued: rows.length,
+      locationRequestsForumId: DISCORD_LOCATION_REQUESTS_FORUM_ID,
     });
   }
 
