@@ -194,7 +194,16 @@ export async function POST(request: Request) {
         ),
         'location-request:' || plr.id
       from pending_location_requests plr
-      on conflict (dedupe_key) do nothing
+      on conflict (dedupe_key) do update
+      set payload = excluded.payload,
+          processed_at = null,
+          attempts = 0,
+          error = null
+      where public.discord_crosspost_events.event_type = 'location_request_created'
+        and (
+          public.discord_crosspost_events.error is not null
+          or coalesce(public.discord_crosspost_events.attempts, 0) >= ${MAX_DISCORD_EVENT_ATTEMPTS}
+        )
       returning id
     `);
 

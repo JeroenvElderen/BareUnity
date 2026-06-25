@@ -177,6 +177,14 @@ class RedditCrosspost(commands.Cog):
         embed.set_footer(text="BareUnity gallery review")
         return embed
 
+
+    def default_forum_tags(self, forum):
+        available_tags = list(getattr(forum, "available_tags", []) or [])
+        tags = [tag for tag in available_tags if not getattr(tag, "moderated", False)][:1]
+        if not tags and available_tags:
+            tags = available_tags[:1]
+        return tags
+
     async def create_gallery_review_thread(self, event):
         payload = event.get("payload") or {}
         image_path = str(event.get("gallery_image_path") or payload.get("imagePath") or "").strip()
@@ -200,7 +208,7 @@ class RedditCrosspost(commands.Cog):
         content = "New BareUnity gallery image needs review."
         files = [attachment] if attachment else None
         if isinstance(channel, discord.ForumChannel):
-            created = await channel.create_thread(name=f"Gallery • {title}", content=content, embed=embed, view=view, files=files)
+            created = await channel.create_thread(name=f"Gallery • {title}", content=content, embed=embed, view=view, files=files, applied_tags=self.default_forum_tags(channel))
             thread = created.thread
             message = getattr(created, "message", None)
         else:
@@ -249,7 +257,7 @@ class RedditCrosspost(commands.Cog):
         body = f"{content}\n\n{BAREUNITY_API_BASE_URL}/?postId={website_post_id}".strip()[:1900]
         embed = self.build_post_embed(payload, title_prefix="Synced from BareUnity website")
         if isinstance(channel, discord.ForumChannel):
-            created = await channel.create_thread(name=title, content=body or None, embed=embed)
+            created = await channel.create_thread(name=title, content=body or None, embed=embed, applied_tags=self.default_forum_tags(channel))
             thread = created.thread
         else:
             message = await channel.send(content=f"**{title}**\n{body}"[:2000], embed=embed)
@@ -341,7 +349,7 @@ class RedditCrosspost(commands.Cog):
         content = self.build_location_request_content(payload)
         embed = self.build_location_request_embed(payload)
         if isinstance(channel, discord.ForumChannel):
-            created = await channel.create_thread(name=title, content=content, embed=embed)
+            created = await channel.create_thread(name=title, content=content, embed=embed, applied_tags=self.default_forum_tags(channel))
             return created.thread
 
         message = await channel.send(content=f"**{title}**\n{content}"[:2000], embed=embed)
@@ -407,7 +415,7 @@ class RedditCrosspost(commands.Cog):
                 await thread.edit(name=title)
             return thread
 
-        created = await forum.create_thread(name=title, content=content, embed=embed)
+        created = await forum.create_thread(name=title, content=content, embed=embed, applied_tags=self.default_forum_tags(forum))
         return created.thread
 
 
