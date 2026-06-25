@@ -11,6 +11,9 @@ export const DISCORD_GALLERY_REVIEW_CHANNEL_ID =
 export const DISCORD_MEMBER_CARDS_FORUM_ID =
   process.env.DISCORD_MEMBER_CARDS_FORUM_ID ?? "1517155438615859390";
 
+export const DISCORD_LOCATION_REQUESTS_FORUM_ID =
+  process.env.DISCORD_LOCATION_REQUESTS_FORUM_ID ?? "1517154018776842301";
+
 export const DISCORD_GALLERY_REVIEW_TARGETS = [
   "nude-gallery",
   "general-gallery",
@@ -59,7 +62,8 @@ export async function enqueueDiscordSyncEvent(args: {
     | "website_like_created"
     | "website_like_removed"
     | "gallery_image_review_requested"
-    | "member_card_upserted";
+    | "member_card_upserted"
+    | "location_request_created";
   payload: Prisma.InputJsonValue;
   dedupeKey: string;
   discordThreadId?: string | null;
@@ -82,6 +86,40 @@ export async function enqueueDiscordSyncEvent(args: {
     )
     on conflict (dedupe_key) do nothing
   `);
+}
+
+export type DiscordLocationRequestPayload = {
+  requestId: string;
+  requesterUserId: string;
+  requesterEmail: string | null;
+  placeName: string;
+  locationHint: string;
+  latitude: number | null;
+  longitude: number | null;
+  website: string | null;
+  requestType: "location" | "stay" | "activity";
+  isStay: boolean;
+  notes: string | null;
+  pageUrl: string | null;
+  requestedAt: string;
+  createdAt: string | null;
+  locationRequestsForumId: string;
+};
+
+export async function enqueueDiscordLocationRequestEvent(payload: DiscordLocationRequestPayload) {
+  await enqueueDiscordSyncEvent({
+    websitePostId: null,
+    eventType: "location_request_created",
+    dedupeKey: `location-request:${payload.requestId}`,
+    payload: {
+      ...payload,
+      renderMode: "discord_embed",
+      discordForum: {
+        channelId: DISCORD_LOCATION_REQUESTS_FORUM_ID,
+        mode: "one_request_per_forum_thread",
+      },
+    },
+  });
 }
 
 export async function enqueueDiscordGalleryReviewEvent(args: {
