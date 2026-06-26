@@ -912,25 +912,9 @@ export default function HomePage() {
         }
 
         setLiveFeedStatus("reconnecting");
-        void loadFeed({ force: true });
       },
       debounceMs: 150,
     });
-  }, [loadFeed]);
-
-  useEffect(() => {
-    const refreshIfVisible = () => {
-      if (document.visibilityState !== "visible") return;
-      void loadFeed();
-    };
-
-    const pollTimer = window.setInterval(refreshIfVisible, 15_000);
-    document.addEventListener("visibilitychange", refreshIfVisible);
-
-    return () => {
-      window.clearInterval(pollTimer);
-      document.removeEventListener("visibilitychange", refreshIfVisible);
-    };
   }, [loadFeed]);
 
   const publishPost = async () => {
