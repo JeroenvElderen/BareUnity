@@ -89,7 +89,7 @@ type ProfileSnapshotPayload = {
 };
 
 const PUBLIC_PATHS = new Set(["/welcome", "/login", "/register", "/policies"]);
-const VISITOR_ALLOWED_PATHS = new Set(["/explore", "/settings", "/policies"]);
+const VISITOR_ALLOWED_PATHS = new Set(["/", "/explore", "/settings", "/policies"]);
 const VISITOR_ALLOWED_API_PREFIXES = [
   "/api/map-spots",
   "/api/verification/apply",
