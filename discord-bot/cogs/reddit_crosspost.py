@@ -1,5 +1,6 @@
 import asyncio
 import io
+import json
 import os
 from urllib.parse import urlparse
 
@@ -8,6 +9,13 @@ import discord
 import praw
 from discord import app_commands
 from discord.ext import commands, tasks
+
+from .platform_grove_admin import (
+    LOCATION_REQUEST_PREFIX,
+    LocationRequestView,
+    SYNC_FILE,
+    save_json,
+)
 
 DEFAULT_CROSSPOST_FORUM_IDS = "1515845739870425208,1516001611925684265"
 
@@ -336,6 +344,37 @@ class RedditCrosspost(commands.Cog):
             lines.append(f"**Feedback request ID:** `{payload.get('requestId')}`")
         return "\n".join(lines)[:1900]
 
+    def location_request_feedback_row(self, payload):
+        request_payload = {
+            "placeName": payload.get("placeName"),
+            "requestType": payload.get("requestType") or "location",
+            "locationHint": payload.get("locationHint"),
+            "latitude": payload.get("latitude"),
+            "longitude": payload.get("longitude"),
+            "website": payload.get("website"),
+            "notes": payload.get("notes"),
+            "pageUrl": payload.get("pageUrl"),
+            "requesterEmail": payload.get("requesterEmail"),
+            "requestedAt": payload.get("requestedAt") or payload.get("createdAt"),
+        }
+        return {
+            "id": payload.get("requestId"),
+            "user_id": payload.get("requesterUserId"),
+            "user_email": payload.get("requesterEmail"),
+            "message": f"{LOCATION_REQUEST_PREFIX}{json.dumps(request_payload)}",
+            "page_url": payload.get("pageUrl"),
+            "status": "new",
+            "created_at": payload.get("createdAt") or payload.get("requestedAt"),
+        }
+
+    def location_request_management_view(self, payload):
+        request_id = payload.get("requestId")
+        platform_grove = self.bot.get_cog("PlatformGroveAdmin")
+        if not request_id or platform_grove is None:
+            return None, None
+        row = self.location_request_feedback_row(payload)
+        return LocationRequestView(platform_grove, request_id, row), platform_grove
+
     async def create_location_request_thread(self, event):
         payload = event.get("payload") or {}
         channel_id = payload.get("locationRequestsForumId") or payload.get("discordForum", {}).get("channelId")
@@ -348,12 +387,32 @@ class RedditCrosspost(commands.Cog):
         title = f"{request_type} • {place_name}"[:100]
         content = self.build_location_request_content(payload)
         embed = self.build_location_request_embed(payload)
+        view, platform_grove = self.location_request_management_view(payload)
         if isinstance(channel, discord.ForumChannel):
-            created = await channel.create_thread(name=title, content=content, embed=embed, applied_tags=self.default_forum_tags(channel))
-            return created.thread
+            created = await channel.create_thread(
+                name=title,
+                content=content,
+                embed=embed,
+                view=view,
+                applied_tags=self.default_forum_tags(channel),
+            )
+            thread = created.thread
+        else:
+            message = await channel.send(content=f"**{title}**\n{content}"[:2000], embed=embed, view=view)
+            thread = await message.create_thread(name=title)
 
-        message = await channel.send(content=f"**{title}**\n{content}"[:2000], embed=embed)
-        return await message.create_thread(name=title)
+        if view is not None:
+            await thread.send(
+                "🛠️ **Staff location request controls**\n"
+                "Use these controls to complete the listing draft, preview it, and create the website location.",
+                view=view,
+            )
+
+        request_id = payload.get("requestId")
+        if request_id and platform_grove is not None:
+            platform_grove.sync_state.setdefault("feedback", {})[request_id] = str(thread.id)
+            save_json(SYNC_FILE, platform_grove.sync_state)
+        return thread
 
     def build_member_card_embed(self, payload):
         username = str(payload.get("username") or "unknown").strip() or "unknown"
