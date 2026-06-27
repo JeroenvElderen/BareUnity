@@ -401,6 +401,13 @@ class RedditCrosspost(commands.Cog):
             message = await channel.send(content=f"**{title}**\n{content}"[:2000], embed=embed, view=view)
             thread = await message.create_thread(name=title)
 
+        if view is not None:
+            await thread.send(
+                "🛠️ **Staff location request controls**\n"
+                "Use these controls to complete the listing draft, preview it, and create the website location.",
+                view=view,
+            )
+
         request_id = payload.get("requestId")
         if request_id and platform_grove is not None:
             platform_grove.sync_state.setdefault("feedback", {})[request_id] = str(thread.id)
