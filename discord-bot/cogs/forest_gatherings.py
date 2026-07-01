@@ -254,8 +254,19 @@ class ForestGatherings(commands.Cog):
         starter = created.message
         try:
             await starter.pin()
-        except Exception:
-            pass
+        except Exception as error:
+            print(f"[FOREST_GATHERINGS] Could not pin info post {starter.id}: {error}")
+
+        try:
+            await created.thread.edit(
+                locked=True,
+                reason="Forest Gathering information post"
+            )
+        except Exception as error:
+            print(
+                f"[FOREST_GATHERINGS] Could not lock "
+                f"info thread {created.thread.id}: {error}"
+            )
 
         self.state = {
             "active": True,
