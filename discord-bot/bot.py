@@ -64,7 +64,9 @@ COMMAND_CHANNELS = {
     "stay_upsert_json": [1517154255792902204],
     "activity_upsert_json": [1517154255792902204],
     "gallery_moderation_update": [1517153973835010139],
+    "gathering": [1517154255792902204],
 }
+
 
 async def apply_command_channel_permissions(synced_commands):
     # Discord no longer allows bots to mutate per-command channel permissions via
@@ -207,6 +209,7 @@ async def main():
         await bot.load_extension("cogs.reddit_crosspost")
         await bot.load_extension("cogs.verification_board")
         await bot.load_extension("cogs.bump_reminder")
+        await bot.load_extension("cogs.forest_gatherings")
         await bot.load_extension("cogs.member_management")
         await bot.load_extension("cogs.platform_grove_admin")
         await bot.start(TOKEN)
